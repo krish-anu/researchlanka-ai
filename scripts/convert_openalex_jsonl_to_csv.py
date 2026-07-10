@@ -81,6 +81,29 @@ def parse_args() -> argparse.Namespace:
         default=10000,
         help="Print progress after this many records. Default: 10000",
     )
+    parser.add_argument(
+        "--only-sri-lanka",
+        action="store_true",
+        help=(
+            "Only export works with at least one Sri Lankan author "
+            "affiliation/institution. Same as --sri-lanka-filter any."
+        ),
+    )
+    parser.add_argument(
+        "--sri-lanka-filter",
+        choices=["none", "any", "only"],
+        default="none",
+        help=(
+            "none: export all works. any: export works with at least one LK "
+            "affiliation. only: export works where all known affiliation "
+            "countries are LK. Default: none"
+        ),
+    )
+    parser.add_argument(
+        "--local-columns-only",
+        action="store_true",
+        help="Put only Sri Lankan authors, institutions, and countries in CSV columns.",
+    )
     return parser.parse_args()
 
 
@@ -140,9 +163,80 @@ def countries_from_authorships(work: dict[str, Any]) -> str:
     return unique_join(countries)
 
 
-def author_names(work: dict[str, Any]) -> str:
+def has_sri_lankan_affiliation(work: dict[str, Any]) -> bool:
+    for authorship in authorships(work):
+        countries = authorship.get("countries")
+        if isinstance(countries, list) and "LK" in countries:
+            return True
+
+        institutions = authorship.get("institutions")
+        if not isinstance(institutions, list):
+            continue
+        if any(
+            isinstance(institution, dict) and institution.get("country_code") == "LK"
+            for institution in institutions
+        ):
+            return True
+
+    institutions = work.get("institutions")
+    if isinstance(institutions, list):
+        return any(
+            isinstance(institution, dict) and institution.get("country_code") == "LK"
+            for institution in institutions
+        )
+
+    return False
+
+
+def affiliation_country_codes(work: dict[str, Any]) -> set[str]:
+    country_codes: set[str] = set()
+
+    for authorship in authorships(work):
+        countries = authorship.get("countries")
+        if isinstance(countries, list):
+            country_codes.update(str(country) for country in countries if country)
+
+        institutions = authorship.get("institutions")
+        if isinstance(institutions, list):
+            for institution in institutions:
+                if isinstance(institution, dict) and institution.get("country_code"):
+                    country_codes.add(str(institution["country_code"]))
+
+    institutions = work.get("institutions")
+    if isinstance(institutions, list):
+        for institution in institutions:
+            if isinstance(institution, dict) and institution.get("country_code"):
+                country_codes.add(str(institution["country_code"]))
+
+    return country_codes
+
+
+def has_only_sri_lankan_affiliations(work: dict[str, Any]) -> bool:
+    country_codes = affiliation_country_codes(work)
+    return bool(country_codes) and country_codes == {"LK"}
+
+
+def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
+    countries = authorship.get("countries")
+    if isinstance(countries, list) and "LK" in countries:
+        return True
+
+    institutions = authorship.get("institutions")
+    if not isinstance(institutions, list):
+        return False
+
+    return any(
+        isinstance(institution, dict) and institution.get("country_code") == "LK"
+        for institution in institutions
+    )
+
+
+def author_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
     names: list[str] = []
     for authorship in authorships(work):
+        if sri_lankan_only and not is_sri_lankan_authorship(authorship):
+            continue
+
         author = authorship.get("author")
         if isinstance(author, dict):
             display_name = author.get("display_name")
@@ -184,7 +278,7 @@ def sri_lankan_institution_names(work: dict[str, Any]) -> str:
     return unique_join(names)
 
 
-def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
+def work_to_row(work: dict[str, Any], *, local_columns_only: bool = False) -> dict[str, Any]:
     source = get_nested(work, "primary_location", "source") or {}
     biblio = work.get("biblio") or {}
     open_access = work.get("open_access") or {}
@@ -203,6 +297,10 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
         primary_location = {}
 
     institutions = institutions_from_authorships(work)
+    sri_lankan_institutions = sri_lankan_institution_names(work)
+    all_institutions = unique_join(
+        [institution.get("display_name") for institution in institutions]
+    )
 
     return {
         "openalex_id": work.get("id"),
@@ -238,13 +336,11 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
         "keywords": list_display_names(work.get("keywords")),
         "concepts": list_display_names(work.get("concepts")),
         "author_count": len(authorships(work)),
-        "authors": author_names(work),
+        "authors": author_names(work, sri_lankan_only=local_columns_only),
         "sri_lankan_authors": sri_lankan_author_names(work),
-        "institutions": unique_join(
-            [institution.get("display_name") for institution in institutions]
-        ),
-        "sri_lankan_institutions": sri_lankan_institution_names(work),
-        "countries": countries_from_authorships(work),
+        "institutions": sri_lankan_institutions if local_columns_only else all_institutions,
+        "sri_lankan_institutions": sri_lankan_institutions,
+        "countries": "LK" if local_columns_only else countries_from_authorships(work),
         "countries_count": work.get("countries_distinct_count"),
         "institutions_count": work.get("institutions_distinct_count"),
         "funders": list_display_names(work.get("funders")),
@@ -260,6 +356,9 @@ def convert_jsonl_to_csv(
     *,
     limit: int | None = None,
     progress_every: int = 10000,
+    only_sri_lanka: bool = False,
+    sri_lanka_filter: str = "none",
+    local_columns_only: bool = False,
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     total = 0
@@ -280,7 +379,13 @@ def convert_jsonl_to_csv(
                 except json.JSONDecodeError as error:
                     raise ValueError(f"Invalid JSON on line {line_number}: {error}") from error
 
-                writer.writerow(work_to_row(work))
+                effective_filter = "any" if only_sri_lanka else sri_lanka_filter
+                if effective_filter == "any" and not has_sri_lankan_affiliation(work):
+                    continue
+                if effective_filter == "only" and not has_only_sri_lankan_affiliations(work):
+                    continue
+
+                writer.writerow(work_to_row(work, local_columns_only=local_columns_only))
                 total += 1
 
                 if progress_every > 0 and total % progress_every == 0:
@@ -296,6 +401,9 @@ def main() -> None:
         args.output,
         limit=args.limit,
         progress_every=args.progress_every,
+        only_sri_lanka=args.only_sri_lanka,
+        sri_lanka_filter=args.sri_lanka_filter,
+        local_columns_only=args.local_columns_only,
     )
     print(f"Saved {total} records to {args.output.expanduser()}")
 
