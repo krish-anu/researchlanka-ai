@@ -12,27 +12,35 @@ OUTPUT_DIR = Path("data/processed/doi_comparison")
 
 
 def normalize_doi(doi):
-    """Normalize a DOI string by removing common prefixes and lowercasing."""
-    if doi is None or (isinstance(doi, float) and doi != doi):  # NaN check
+    """
+    Normalize DOI strings for matching.
+    """
+
+    if doi is None or pd.isna(doi):
         return None
 
     doi = str(doi).strip().lower()
 
-    # Remove URL prefixes
+    # Remove DOI URLs
     doi = re.sub(
-        r"^https?://(dx\.)?doi\.org/",
+        r"^(https?://)?(dx\.)?doi\.org/",
         "",
         doi,
         flags=re.I,
     )
 
-    # Remove DOI: prefix
     doi = re.sub(
         r"^doi:\s*",
         "",
         doi,
         flags=re.I,
     )
+
+    # Remove spaces
+    doi = doi.replace(" ", "")
+
+    # Remove citation punctuation
+    doi = doi.rstrip(".,;:)]}")
 
     return doi.strip()
 
