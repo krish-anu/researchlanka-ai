@@ -16,6 +16,10 @@ htmlcov/
 .env.local
 *.log
 
+
+.github/
+
+
 .ipynb_checkpoints/
 
 data/raw/
