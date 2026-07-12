@@ -16,7 +16,9 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.collectors.openalex_collector import OpenAlexCollector, describe_value
+# from src.collectors.openalex_collector import OpenAlexCollector, describe_value
+from src.collectors.openalex_collector import OpenAlexCollector
+from src.utils.schema import describe_value
 
 
 LK_INSTITUTION_FILTER = "institutions.country_code:LK"
