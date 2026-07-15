@@ -117,6 +117,12 @@ def parse_args() -> argparse.Namespace:
         "enrich-dois", help="Fetch Crossref metadata using DOI list"
     )
 
+    enrich_parser.add_argument(
+        "--email",
+        default=None,
+        help="Email for Crossref polite pool.",
+    )
+
     enrich_parser.add_argument("--doi-file", type=Path, required=True)
 
     enrich_parser.add_argument(
@@ -126,11 +132,12 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
 
-    if args.query is None:
-        if args.command == "inspect":
-            args.query = ["lanka"]
-        elif args.command == "collect-lk":
-            args.query = ["lanka", "ceylon"]
+
+    if args.command == "inspect" and args.query is None:
+        args.query = ["lanka"]
+
+    elif args.command == "collect-lk" and args.query is None:
+        args.query = ["lanka", "ceylon"]
 
     return args
 
@@ -245,24 +252,55 @@ def enrich_from_dois(
         exist_ok=True,
     )
 
+    existing_dois = set()
+
+
+    files_to_check = [
+        PROJECT_ROOT / "data/processed/crossref/lk_works.jsonl",
+        output,
+    ]
+
+    for file_path in files_to_check:
+        if not file_path.exists():
+            continue
+
+        with file_path.open(
+            "r",
+            encoding="utf-8",
+        ) as f:
+            for line in f:
+                try:
+                    record = json.loads(line)
+
+                    doi = record.get("DOI") or record.get("doi")
+
+                    if doi:
+                        existing_dois.add(doi.casefold())
+
+                except Exception:
+                    continue
+
     found = 0
     missing = 0
     processed = 0
 
     with (
-        doi_file.open(
-            "r",
-            encoding="utf-8",
-        ) as f,
-        output.open(
-            "w",
-            encoding="utf-8",
-        ) as out,
-    ):
+    doi_file.open(
+        "r",
+        encoding="utf-8",
+    ) as f,
+    output.open(
+        "a",
+        encoding="utf-8",
+    ) as out,
+):
         for line in f:
             doi = line.strip()
 
             if not doi:
+                continue
+
+            if doi.casefold() in existing_dois:
                 continue
 
             work = collector.fetch_work_by_doi(doi)
@@ -271,35 +309,41 @@ def enrich_from_dois(
 
             if work is None:
                 missing += 1
+                continue
 
-            else:
-                try:
-                    normalized = reduce_work(work)
+            try:
+                normalized = reduce_work(work)
 
-                    out.write(
-                        json.dumps(
-                            normalized,
-                            ensure_ascii=False,
-                        )
-                        + "\n"
+                out.write(
+                    json.dumps(
+                        normalized,
+                        ensure_ascii=False,
                     )
+                    + "\n"
+                )
 
-                    found += 1
+                found += 1
 
-                except Exception as e:
-                    logger.error("Normalization failed for DOI %s: %s", doi, e)
+                saved_doi = normalized.get("DOI")
+
+                if saved_doi:
+                    existing_dois.add(saved_doi.casefold())
+
+            except Exception as e:
+                logger.error(
+                    "Normalization failed for DOI %s: %s",
+                    doi,
+                    e,
+                )
 
             time.sleep(0.1)
 
             if processed % 100 == 0:
-                print(f"Processed: {processed} | Found: {found} | Missing: {missing}")
-
-    print("\nCompleted")
-    print("Total processed:", processed)
-    print("Found in Crossref:", found)
-    print("Missing:", missing)
-    print("Saved:", output)
-
+                print(
+                    f"Processed: {processed} | "
+                    f"Found: {found} | "
+                    f"Missing: {missing}"
+                )
 
 def main() -> None:
 
