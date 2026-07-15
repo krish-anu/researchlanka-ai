@@ -16,7 +16,9 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.collectors.openalex_collector import OpenAlexCollector, describe_value
+# from src.collectors.openalex_collector import OpenAlexCollector, describe_value
+from src.collectors.openalex_collector import OpenAlexCollector
+from src.utils.schema import describe_value
 
 
 LK_INSTITUTION_FILTER = "institutions.country_code:LK"
@@ -181,7 +183,9 @@ def inspect_openalex(collector: OpenAlexCollector, args: argparse.Namespace) -> 
         first_work = results[0]
         print(f"\nFirst work keys: {list(first_work.keys())}")
 
-        preview = {key: first_work.get(key) for key in DEFAULT_FIELDS if key in first_work}
+        preview = {
+            key: first_work.get(key) for key in DEFAULT_FIELDS if key in first_work
+        }
         print_json("First Work Preview", preview)
         print_json("First Work Shape", describe_value(first_work, max_depth=3))
     else:
