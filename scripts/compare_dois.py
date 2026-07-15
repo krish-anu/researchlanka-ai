@@ -107,16 +107,22 @@ def main() -> None:
     print(f"OpenAlex only: {len(openalex_only)}")
     print(f"Crossref only: {len(crossref_only)}")
 
-    pd.Series(openalex_only).to_csv(
-        OUTPUT_DIR / "openalex_only_dois.txt", index=False, header=False
+    pd.Series(sorted(openalex_only)).to_csv(
+        OUTPUT_DIR / "openalex_only_dois.txt",
+        index=False,
+        header=False,
     )
+    pd.Series(sorted(crossref_only)).to_csv(
+        OUTPUT_DIR / "crossref_only_dois.txt",
+        index=False,
+        header=False,
+)
 
-    pd.Series(crossref_only).to_csv(
-        OUTPUT_DIR / "crossref_only_dois.txt", index=False, header=False
+    pd.Series(sorted(common)).to_csv(
+        OUTPUT_DIR / "common_dois.txt",
+        index=False,
+        header=False,
     )
-
-    pd.Series(common).to_csv(OUTPUT_DIR / "common_dois.txt", index=False, header=False)
-
     logger.info(f"Saved comparison results to {OUTPUT_DIR}")
 
 
