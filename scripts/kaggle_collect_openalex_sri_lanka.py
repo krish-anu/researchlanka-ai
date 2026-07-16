@@ -114,7 +114,8 @@ def parse_args() -> argparse.Namespace:
         default=os.getenv("OPENALEX_API_KEY"),
         help="Optional OpenAlex API key. Defaults to OPENALEX_API_KEY.",
     )
-    return parser.parse_args()
+    args, _unknown = parser.parse_known_args()
+    return args
 
 
 def as_list(value: Any) -> list[Any]:
