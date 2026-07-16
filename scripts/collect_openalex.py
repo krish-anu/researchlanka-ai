@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,13 +17,22 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# from src.collectors.openalex_collector import OpenAlexCollector, describe_value
-from src.collectors.openalex_collector import OpenAlexCollector
-from src.utils.schema import describe_value
+from src.collectors.openalex_collector import (
+    OpenAlexCollector,
+    describe_value,
+    work_has_author_from_country,
+)
 
 
-LK_INSTITUTION_FILTER = "institutions.country_code:LK"
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "raw" / "openalex" / "lk_works.jsonl"
+LK_COUNTRY_CODE = "LK"
+LK_AUTHORSHIP_FILTER = "authorships.institutions.country_code:LK"
+KAGGLE_WORKING_DIR = Path("/kaggle/working")
+DEFAULT_OUTPUT_DIR = (
+    KAGGLE_WORKING_DIR
+    if KAGGLE_WORKING_DIR.exists()
+    else PROJECT_ROOT / "data" / "raw" / "openalex"
+)
+DEFAULT_OUTPUT_PATH = DEFAULT_OUTPUT_DIR / "lk_works.jsonl"
 
 
 DEFAULT_FIELDS = [
@@ -46,6 +56,14 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         "--email",
         default=None,
         help="Optional email for the OpenAlex polite pool.",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=os.getenv("OPENALEX_API_KEY"),
+        help=(
+            "Optional OpenAlex API key. Defaults to OPENALEX_API_KEY, which can "
+            "be set from Kaggle Secrets."
+        ),
     )
 
 
@@ -125,15 +143,19 @@ def parse_args() -> argparse.Namespace:
 
     collect_parser = subparsers.add_parser(
         "collect-lk",
-        help="Collect full work records for Sri Lankan institution papers.",
+        help=(
+            "Collect full work records where at least one author has a "
+            "Sri Lankan affiliation."
+        ),
     )
     collect_parser.add_argument(
         "--filter",
         action="append",
-        default=[LK_INSTITUTION_FILTER],
+        default=[LK_AUTHORSHIP_FILTER],
         help=(
-            "OpenAlex filter. Default: institutions.country_code:LK. "
-            "Can be passed multiple times."
+            "OpenAlex filter. Default: authorships.institutions.country_code:LK. "
+            "This keeps works where at least one authorship has an LK "
+            "institution. Can be passed multiple times."
         ),
     )
     collect_parser.add_argument(
@@ -145,14 +167,22 @@ def parse_args() -> argparse.Namespace:
     collect_parser.add_argument(
         "--per-page",
         type=int,
-        default=200,
-        help="Records per OpenAlex request. Default: 200",
+        default=100,
+        help="Records per OpenAlex request. Default: 100",
     )
     collect_parser.add_argument(
         "--max-records",
         type=int,
         default=None,
         help="Optional safety limit for testing before collecting everything.",
+    )
+    collect_parser.add_argument(
+        "--skip-local-lk-check",
+        action="store_true",
+        help=(
+            "Skip the local safety check that keeps only records with at least "
+            "one LK authorship/institution."
+        ),
     )
     add_common_args(collect_parser)
 
@@ -207,23 +237,35 @@ def collect_lk_works(collector: OpenAlexCollector, args: argparse.Namespace) -> 
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     total = 0
+    skipped = 0
     with args.output.open("w", encoding="utf-8") as output_file:
         for work in collector.iter_works(
             filters=args.filter,
             per_page=args.per_page,
-            max_records=args.max_records,
         ):
+            if args.max_records is not None and total >= args.max_records:
+                break
+
+            if not args.skip_local_lk_check and not work_has_author_from_country(
+                work,
+                LK_COUNTRY_CODE,
+            ):
+                skipped += 1
+                continue
+
             output_file.write(json.dumps(work, ensure_ascii=False) + "\n")
             total += 1
 
             print(f"Collected {total} works...")
 
     print(f"Saved {total} full OpenAlex work records to {args.output}")
+    if skipped:
+        print(f"Skipped {skipped} records without a detectable LK authorship.")
 
 
 def main() -> None:
     args = parse_args()
-    collector = OpenAlexCollector(email=args.email)
+    collector = OpenAlexCollector(email=args.email, api_key=args.api_key)
 
     if args.command == "collect-lk":
         collect_lk_works(collector, args)
