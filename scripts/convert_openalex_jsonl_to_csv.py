@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 
+SRI_LANKA_COUNTRY_CODE = "LK"
+
 CSV_COLUMNS = [
     "openalex_id",
     "doi",
@@ -166,14 +168,18 @@ def countries_from_authorships(work: dict[str, Any]) -> str:
 def has_sri_lankan_affiliation(work: dict[str, Any]) -> bool:
     for authorship in authorships(work):
         countries = authorship.get("countries")
-        if isinstance(countries, list) and "LK" in countries:
+        if isinstance(countries, list) and SRI_LANKA_COUNTRY_CODE in {
+            str(country).upper() for country in countries
+        }:
             return True
 
         institutions = authorship.get("institutions")
         if not isinstance(institutions, list):
             continue
         if any(
-            isinstance(institution, dict) and institution.get("country_code") == "LK"
+            isinstance(institution, dict)
+            and str(institution.get("country_code", "")).upper()
+            == SRI_LANKA_COUNTRY_CODE
             for institution in institutions
         ):
             return True
@@ -181,7 +187,9 @@ def has_sri_lankan_affiliation(work: dict[str, Any]) -> bool:
     institutions = work.get("institutions")
     if isinstance(institutions, list):
         return any(
-            isinstance(institution, dict) and institution.get("country_code") == "LK"
+            isinstance(institution, dict)
+            and str(institution.get("country_code", "")).upper()
+            == SRI_LANKA_COUNTRY_CODE
             for institution in institutions
         )
 
@@ -194,19 +202,21 @@ def affiliation_country_codes(work: dict[str, Any]) -> set[str]:
     for authorship in authorships(work):
         countries = authorship.get("countries")
         if isinstance(countries, list):
-            country_codes.update(str(country) for country in countries if country)
+            country_codes.update(
+                str(country).upper() for country in countries if country
+            )
 
         institutions = authorship.get("institutions")
         if isinstance(institutions, list):
             for institution in institutions:
                 if isinstance(institution, dict) and institution.get("country_code"):
-                    country_codes.add(str(institution["country_code"]))
+                    country_codes.add(str(institution["country_code"]).upper())
 
     institutions = work.get("institutions")
     if isinstance(institutions, list):
         for institution in institutions:
             if isinstance(institution, dict) and institution.get("country_code"):
-                country_codes.add(str(institution["country_code"]))
+                country_codes.add(str(institution["country_code"]).upper())
 
     return country_codes
 
@@ -218,7 +228,9 @@ def has_only_sri_lankan_affiliations(work: dict[str, Any]) -> bool:
 
 def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
     countries = authorship.get("countries")
-    if isinstance(countries, list) and "LK" in countries:
+    if isinstance(countries, list) and SRI_LANKA_COUNTRY_CODE in {
+        str(country).upper() for country in countries
+    }:
         return True
 
     institutions = authorship.get("institutions")
@@ -226,7 +238,8 @@ def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
         return False
 
     return any(
-        isinstance(institution, dict) and institution.get("country_code") == "LK"
+        isinstance(institution, dict)
+        and str(institution.get("country_code", "")).upper() == SRI_LANKA_COUNTRY_CODE
         for institution in institutions
     )
 
@@ -252,8 +265,7 @@ def author_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
 def sri_lankan_author_names(work: dict[str, Any]) -> str:
     names: list[str] = []
     for authorship in authorships(work):
-        countries = authorship.get("countries")
-        if not isinstance(countries, list) or "LK" not in countries:
+        if not is_sri_lankan_authorship(authorship):
             continue
 
         author = authorship.get("author")
@@ -273,7 +285,7 @@ def sri_lankan_institution_names(work: dict[str, Any]) -> str:
     names = [
         institution.get("display_name")
         for institution in institutions_from_authorships(work)
-        if institution.get("country_code") == "LK"
+        if str(institution.get("country_code", "")).upper() == SRI_LANKA_COUNTRY_CODE
     ]
     return unique_join(names)
 
