@@ -95,7 +95,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--per-page",
         type=int,
-        default=100,
+        default=200,
         help="Records per OpenAlex request. Default: 100",
     )
     parser.add_argument(
