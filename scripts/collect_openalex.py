@@ -213,7 +213,9 @@ def inspect_openalex(collector: OpenAlexCollector, args: argparse.Namespace) -> 
         first_work = results[0]
         print(f"\nFirst work keys: {list(first_work.keys())}")
 
-        preview = {key: first_work.get(key) for key in DEFAULT_FIELDS if key in first_work}
+        preview = {
+            key: first_work.get(key) for key in DEFAULT_FIELDS if key in first_work
+        }
         print_json("First Work Preview", preview)
         print_json("First Work Shape", describe_value(first_work, max_depth=3))
     else:
