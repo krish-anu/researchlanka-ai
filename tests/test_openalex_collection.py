@@ -1,4 +1,8 @@
-"""Tests for OpenAlex Sri Lanka collection using sample publication records."""
+"""Tests for OpenAlex Sri Lanka collection using sample publication records.
+
+The tests avoid live network calls and exercise the reusable collector plus the
+Kaggle CLI wrapper through small OpenAlex-shaped fixtures.
+"""
 
 import argparse
 import csv
@@ -10,6 +14,8 @@ from src.collectors import openalex_collector as openalex
 
 def sample_work(country_code: str = "LK") -> dict:
     """Create a minimal OpenAlex-like work record for collector tests."""
+    # This fixture intentionally includes nested optional fields so flattening
+    # tests cover the analysis columns without calling the live OpenAlex API.
     return {
         "id": "https://openalex.org/W123",
         "doi": "https://doi.org/10.1234/example",
@@ -472,6 +478,13 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
         "filters": [openalex.LK_AUTHORSHIP_FILTER],
         "strict_lk_only": True,
     }
+
+
+def test_default_output_dir_supports_environment_override(tmp_path, monkeypatch):
+    """Local users can override the default output directory without Kaggle paths."""
+    monkeypatch.setenv("OPENALEX_OUTPUT_DIR", str(tmp_path))
+
+    assert openalex_script.default_output_dir() == tmp_path
 
 
 def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
