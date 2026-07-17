@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
@@ -15,6 +16,8 @@ SRI_LANKA_COUNTRY_CODE = "LK"
 LK_AUTHORSHIP_FILTER = "authorships.institutions.country_code:LK"
 DEFAULT_FROM_YEAR = 2016
 DEFAULT_TO_YEAR = 2026
+
+logger = logging.getLogger(__name__)
 
 CSV_COLUMNS = [
     "openalex_id",
@@ -329,11 +332,29 @@ class OpenAlexCollector:
         if self.api_key:
             params["api_key"] = self.api_key
 
-        response = self.session.get(
-            f"{self.base_url}/works",
-            params=params,
-            timeout=self.timeout,
+        logger.debug(
+            "Fetching OpenAlex works cursor=%s per_page=%s filters=%s",
+            cursor,
+            per_page,
+            filters,
         )
+        try:
+            response = self.session.get(
+                f"{self.base_url}/works",
+                params=params,
+                timeout=self.timeout,
+            )
+        except requests.RequestException:
+            logger.exception("OpenAlex request failed cursor=%s", cursor)
+            raise
+
+        if not response.ok:
+            logger.error(
+                "OpenAlex request returned status=%s cursor=%s body=%s",
+                response.status_code,
+                cursor,
+                response.text[:500],
+            )
         response.raise_for_status()
         return response.json()
 
@@ -350,6 +371,13 @@ class OpenAlexCollector:
         """Yield cursor pages after applying broad or strict LK filtering."""
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
+        logger.info(
+            "Starting OpenAlex page iteration start_cursor=%s per_page=%s strict_lk_only=%s filters=%s",
+            start_cursor,
+            per_page,
+            strict_lk_only,
+            built_filters,
+        )
 
         while cursor:
             response = self.fetch_works(
@@ -373,6 +401,13 @@ class OpenAlexCollector:
                 works.append(work)
 
             next_cursor = response.get("meta", {}).get("next_cursor")
+            logger.info(
+                "Fetched OpenAlex page cursor=%s kept=%s skipped=%s next_cursor=%s",
+                cursor,
+                len(works),
+                skipped_count,
+                "yes" if next_cursor else "no",
+            )
             yield OpenAlexWorkPage(
                 cursor=cursor,
                 next_cursor=next_cursor,
