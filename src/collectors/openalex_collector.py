@@ -13,6 +13,8 @@ from urllib3.util.retry import Retry
 OPENALEX_BASE_URL = "https://api.openalex.org"
 SRI_LANKA_COUNTRY_CODE = "LK"
 LK_AUTHORSHIP_FILTER = "authorships.institutions.country_code:LK"
+DEFAULT_FROM_YEAR = 2016
+DEFAULT_TO_YEAR = 2026
 
 CSV_COLUMNS = [
     "openalex_id",
@@ -274,8 +276,8 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
 def build_filters(
     filters: list[str] | None = None,
     *,
-    from_year: int | None = None,
-    to_year: int | None = None,
+    from_year: int | None = DEFAULT_FROM_YEAR,
+    to_year: int | None = DEFAULT_TO_YEAR,
 ) -> list[str]:
     """Build OpenAlex filter strings from CLI filters and optional year bounds."""
     built_filters = list(filters or [LK_AUTHORSHIP_FILTER])
@@ -339,8 +341,8 @@ class OpenAlexCollector:
         self,
         *,
         filters: list[str] | None = None,
-        from_year: int | None = None,
-        to_year: int | None = None,
+        from_year: int | None = DEFAULT_FROM_YEAR,
+        to_year: int | None = DEFAULT_TO_YEAR,
         per_page: int = 200,
         start_cursor: str = "*",
         strict_lk_only: bool = False,
@@ -385,8 +387,8 @@ class OpenAlexCollector:
         self,
         *,
         filters: list[str] | None = None,
-        from_year: int | None = None,
-        to_year: int | None = None,
+        from_year: int | None = DEFAULT_FROM_YEAR,
+        to_year: int | None = DEFAULT_TO_YEAR,
         per_page: int = 200,
         max_records: int | None = None,
         start_cursor: str = "*",
