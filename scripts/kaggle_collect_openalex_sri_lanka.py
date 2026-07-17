@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import os
 import sys
 from collections import Counter
@@ -52,6 +53,26 @@ def default_output_dir() -> Path:
 DEFAULT_OUTPUT_DIR = default_output_dir()
 DEFAULT_JSONL_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.jsonl"
 DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.csv"
+DEFAULT_LOG_LEVEL = os.getenv("OPENALEX_LOG_LEVEL", "INFO").upper()
+LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+logger = logging.getLogger(__name__)
+
+
+def setup_logging(level: str, log_file: Path | None = None) -> None:
+    """Configure console logging and optionally mirror logs to a file."""
+    log_level = getattr(logging, level.upper(), logging.INFO)
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if log_file is not None:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(log_file, encoding="utf-8"))
+
+    logging.basicConfig(
+        level=log_level,
+        format=LOG_FORMAT,
+        handlers=handlers,
+        force=True,
+    )
 
 
 def default_progress_output(jsonl_output: Path) -> Path:
@@ -310,6 +331,18 @@ def parse_args() -> argparse.Namespace:
         default=os.getenv("OPENALEX_API_KEY"),
         help="Optional OpenAlex API key. Defaults to OPENALEX_API_KEY.",
     )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default=DEFAULT_LOG_LEVEL,
+        help=f"Logging verbosity. Default: {DEFAULT_LOG_LEVEL}.",
+    )
+    parser.add_argument(
+        "--log-file",
+        type=Path,
+        default=None,
+        help="Optional path to also write collection logs.",
+    )
     args, _unknown = parser.parse_known_args()
     return args
 
@@ -317,6 +350,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Run collection, resume handling, output writing, and final reporting."""
     args = parse_args()
+    setup_logging(
+        getattr(args, "log_level", DEFAULT_LOG_LEVEL),
+        getattr(args, "log_file", None),
+    )
     progress_output = args.progress_output or default_progress_output(args.jsonl_output)
     filters = build_filters(
         args.filter,
@@ -326,36 +363,54 @@ def main() -> None:
     start_cursor = "*"
     existing_ids: set[str] = set()
     total = 0
+    logger.info(
+        "Starting OpenAlex collection jsonl_output=%s csv_output=%s resume=%s filters=%s strict_lk_only=%s",
+        args.jsonl_output,
+        args.csv_output,
+        args.resume,
+        filters,
+        args.strict_lk_only,
+    )
 
     if args.resume:
         if not progress_output.exists():
+            logger.error("Cannot resume because progress metadata is missing: %s", progress_output)
             raise SystemExit(
                 f"Cannot resume: progress metadata not found: {progress_output}"
             )
         if not args.jsonl_output.exists():
+            logger.error("Cannot resume because JSONL output is missing: %s", args.jsonl_output)
             raise SystemExit(f"Cannot resume: JSONL output not found: {args.jsonl_output}")
 
         progress = load_progress(progress_output)
         # A resumed job must match the original query shape to avoid mixing
         # incompatible result sets into the same raw and flat output files.
         if progress.get("filters") != filters:
+            logger.error("Cannot resume because saved filters do not match current filters")
             raise SystemExit(
                 "Cannot resume: current filters do not match saved progress filters."
             )
         if bool(progress.get("strict_lk_only", False)) != args.strict_lk_only:
+            logger.error("Cannot resume because strict LK-only setting does not match")
             raise SystemExit(
                 "Cannot resume: strict LK-only setting does not match saved progress."
             )
 
         start_cursor = progress.get("next_cursor")
         if start_cursor is None:
-            print(f"Collection already completed according to {progress_output}")
+            logger.info("Collection already completed according to %s", progress_output)
             return
 
         existing_ids, total = read_existing_jsonl_state(args.jsonl_output)
         total = max(total, int(progress.get("records_saved", 0)))
+        logger.info(
+            "Resuming OpenAlex collection start_cursor=%s existing_records=%s",
+            start_cursor,
+            total,
+        )
         if not args.no_csv:
             rebuild_csv_from_jsonl(args.jsonl_output, args.csv_output)
+            logger.info("Rebuilt CSV from existing JSONL before resume: %s", args.csv_output)
 
     args.jsonl_output.parent.mkdir(parents=True, exist_ok=True)
     if not args.no_csv:
@@ -416,7 +471,7 @@ def main() -> None:
                         existing_ids.add(openalex_id)
                     total += 1
                     if total % 100 == 0:
-                        print(f"Saved {total:,} Sri Lankan-affiliated works...")
+                        logger.info("Saved %s Sri Lankan-affiliated works", f"{total:,}")
 
                 jsonl_file.flush()
                 if csv_file is not None:
@@ -435,10 +490,10 @@ def main() -> None:
         if csv_file is not None:
             csv_file.close()
 
-    print(f"Saved {total:,} records to {args.jsonl_output}")
+    logger.info("Saved %s records to %s", f"{total:,}", args.jsonl_output)
     if not args.no_csv:
-        print(f"Saved flat CSV to {args.csv_output}")
-    print(f"Saved progress metadata to {progress_output}")
+        logger.info("Saved flat CSV to %s", args.csv_output)
+    logger.info("Saved progress metadata to %s", progress_output)
     print_collection_report(
         collect_quality_report(
             args.jsonl_output,
