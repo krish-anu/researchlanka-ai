@@ -98,6 +98,22 @@ publisher
 is_oa
 landing_page_url
 pdf_url
+referenced_works_count
+concepts
+topics
+primary_topic
+primary_field
+primary_subfield
+primary_domain
+language
+oa_status
+license
+source_type
+issn_l
+volume
+issue
+first_page
+last_page
 ```
 
 Crossref normalization should continue to standardize DOI, title, authors, publication year, source, publisher, and event fields.

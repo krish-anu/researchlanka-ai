@@ -31,6 +31,22 @@ CSV_COLUMNS = [
     "is_oa",
     "landing_page_url",
     "pdf_url",
+    "referenced_works_count",
+    "concepts",
+    "topics",
+    "primary_topic",
+    "primary_field",
+    "primary_subfield",
+    "primary_domain",
+    "language",
+    "oa_status",
+    "license",
+    "source_type",
+    "issn_l",
+    "volume",
+    "issue",
+    "first_page",
+    "last_page",
 ]
 
 
@@ -145,6 +161,14 @@ def country_codes(work: dict[str, Any]) -> str:
     return unique_join(codes)
 
 
+def display_names(values: Any) -> str:
+    names: list[str] = []
+    for value in as_list(values):
+        if isinstance(value, dict):
+            names.append(value.get("display_name"))
+    return unique_join(names)
+
+
 def get_nested(value: dict[str, Any], *keys: str) -> Any:
     current: Any = value
     for key in keys:
@@ -158,6 +182,13 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
     source = get_nested(work, "primary_location", "source") or {}
     primary_location = work.get("primary_location") or {}
     open_access = work.get("open_access") or {}
+    biblio = work.get("biblio") or {}
+    primary_topic = work.get("primary_topic")
+    if not isinstance(primary_topic, dict):
+        primary_topic = next(
+            (topic for topic in as_list(work.get("topics")) if isinstance(topic, dict)),
+            {},
+        )
 
     if not isinstance(source, dict):
         source = {}
@@ -165,6 +196,8 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
         primary_location = {}
     if not isinstance(open_access, dict):
         open_access = {}
+    if not isinstance(biblio, dict):
+        biblio = {}
 
     return {
         "openalex_id": work.get("id"),
@@ -185,6 +218,23 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
         "is_oa": open_access.get("is_oa"),
         "landing_page_url": primary_location.get("landing_page_url"),
         "pdf_url": primary_location.get("pdf_url"),
+        "referenced_works_count": work.get("referenced_works_count")
+        or len(as_list(work.get("referenced_works"))),
+        "concepts": display_names(work.get("concepts")),
+        "topics": display_names(work.get("topics")),
+        "primary_topic": primary_topic.get("display_name"),
+        "primary_field": get_nested(primary_topic, "field", "display_name"),
+        "primary_subfield": get_nested(primary_topic, "subfield", "display_name"),
+        "primary_domain": get_nested(primary_topic, "domain", "display_name"),
+        "language": work.get("language"),
+        "oa_status": open_access.get("oa_status"),
+        "license": open_access.get("license") or primary_location.get("license"),
+        "source_type": source.get("type"),
+        "issn_l": source.get("issn_l"),
+        "volume": biblio.get("volume"),
+        "issue": biblio.get("issue"),
+        "first_page": biblio.get("first_page"),
+        "last_page": biblio.get("last_page"),
     }
 
 
