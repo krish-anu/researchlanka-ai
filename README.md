@@ -68,6 +68,7 @@ git push origin feature/openalex-collector
 ## Useful Docs
 
 - [Contributing Guide](CONTRIBUTING.md)
+- [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
 - [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
 
