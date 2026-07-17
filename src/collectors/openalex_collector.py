@@ -1,3 +1,5 @@
+"""Reusable OpenAlex collection and flattening helpers for Sri Lanka datasets."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -51,6 +53,7 @@ CSV_COLUMNS = [
 
 
 def create_session() -> requests.Session:
+    """Create a retrying HTTP session for transient OpenAlex API failures."""
     retry_strategy = Retry(
         total=5,
         backoff_factor=2,
@@ -67,10 +70,12 @@ def create_session() -> requests.Session:
 
 
 def as_list(value: Any) -> list[Any]:
+    """Return OpenAlex list fields safely when a response omits or nulls them."""
     return value if isinstance(value, list) else []
 
 
 def unique_join(values: list[Any], separator: str = "; ") -> str:
+    """Join unique non-empty values in first-seen order for flat CSV columns."""
     seen: set[str] = set()
     output: list[str] = []
     for value in values:
@@ -85,6 +90,7 @@ def unique_join(values: list[Any], separator: str = "; ") -> str:
 
 
 def authorships(work: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return only dict-shaped authorships from an OpenAlex work."""
     return [
         authorship
         for authorship in as_list(work.get("authorships"))
@@ -93,6 +99,7 @@ def authorships(work: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
+    """Collect country codes from both authorship countries and institutions."""
     codes = {
         str(country).upper()
         for country in as_list(authorship.get("countries"))
@@ -105,10 +112,12 @@ def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
 
 
 def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
+    """Check whether one authorship has a Sri Lankan affiliation signal."""
     return SRI_LANKA_COUNTRY_CODE in country_codes_from_authorship(authorship)
 
 
 def has_sri_lankan_author(work: dict[str, Any]) -> bool:
+    """Keep broad Sri Lankan-affiliated works with at least one LK signal."""
     if any(is_sri_lankan_authorship(authorship) for authorship in authorships(work)):
         return True
 
@@ -124,6 +133,7 @@ def has_sri_lankan_author(work: dict[str, Any]) -> bool:
 
 
 def author_name(authorship: dict[str, Any]) -> str | None:
+    """Prefer normalized OpenAlex author names, falling back to raw names."""
     author = authorship.get("author")
     if isinstance(author, dict) and author.get("display_name"):
         return str(author["display_name"])
@@ -133,6 +143,7 @@ def author_name(authorship: dict[str, Any]) -> str | None:
 
 
 def author_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
+    """Flatten author names, optionally keeping only LK-affiliated authorships."""
     names: list[str] = []
     for authorship in authorships(work):
         if sri_lankan_only and not is_sri_lankan_authorship(authorship):
@@ -142,6 +153,7 @@ def author_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
 
 
 def institution_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
+    """Flatten institution names, optionally keeping only Sri Lankan institutions."""
     names: list[str] = []
     for authorship in authorships(work):
         for institution in as_list(authorship.get("institutions")):
@@ -155,10 +167,12 @@ def institution_names(work: dict[str, Any], *, sri_lankan_only: bool = False) ->
 
 
 def country_codes(work: dict[str, Any]) -> str:
+    """Flatten all detected country codes into a stable semicolon-separated value."""
     return unique_join(sorted(detected_country_codes(work)))
 
 
 def detected_country_codes(work: dict[str, Any]) -> set[str]:
+    """Detect affiliation country codes from work-level and authorship metadata."""
     codes: set[str] = set()
     for authorship in authorships(work):
         codes.update(country_codes_from_authorship(authorship))
@@ -171,10 +185,12 @@ def detected_country_codes(work: dict[str, Any]) -> set[str]:
 
 
 def is_strict_sri_lanka_only(work: dict[str, Any]) -> bool:
+    """Return True only when every detected affiliation country code is LK."""
     return detected_country_codes(work) == {SRI_LANKA_COUNTRY_CODE}
 
 
 def display_names(values: Any) -> str:
+    """Flatten OpenAlex lists of objects that expose a display_name field."""
     names: list[str] = []
     for value in as_list(values):
         if isinstance(value, dict):
@@ -183,6 +199,7 @@ def display_names(values: Any) -> str:
 
 
 def get_nested(value: dict[str, Any], *keys: str) -> Any:
+    """Read a nested dictionary path without raising on missing levels."""
     current: Any = value
     for key in keys:
         if not isinstance(current, dict):
@@ -192,11 +209,14 @@ def get_nested(value: dict[str, Any], *keys: str) -> Any:
 
 
 def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
+    """Convert one raw OpenAlex work into the analysis-friendly CSV schema."""
     source = get_nested(work, "primary_location", "source") or {}
     primary_location = work.get("primary_location") or {}
     open_access = work.get("open_access") or {}
     biblio = work.get("biblio") or {}
     primary_topic = work.get("primary_topic")
+    # Older or partial OpenAlex records may not include primary_topic, so use
+    # the first topic as a best-effort classification fallback.
     if not isinstance(primary_topic, dict):
         primary_topic = next(
             (topic for topic in as_list(work.get("topics")) if isinstance(topic, dict)),
@@ -257,6 +277,7 @@ def build_filters(
     from_year: int | None = None,
     to_year: int | None = None,
 ) -> list[str]:
+    """Build OpenAlex filter strings from CLI filters and optional year bounds."""
     built_filters = list(filters or [LK_AUTHORSHIP_FILTER])
 
     if from_year is not None or to_year is not None:
@@ -295,6 +316,7 @@ class OpenAlexCollector:
         cursor: str,
         per_page: int,
     ) -> dict[str, Any]:
+        """Fetch one cursor page from the OpenAlex works endpoint."""
         params: dict[str, Any] = {
             "filter": ",".join(filters),
             "cursor": cursor,
@@ -323,6 +345,7 @@ class OpenAlexCollector:
         start_cursor: str = "*",
         strict_lk_only: bool = False,
     ) -> Iterator[OpenAlexWorkPage]:
+        """Yield cursor pages after applying broad or strict LK filtering."""
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
 
@@ -370,6 +393,7 @@ class OpenAlexCollector:
         records_saved: int = 0,
         strict_lk_only: bool = False,
     ) -> Iterator[dict[str, Any]]:
+        """Yield individual Sri Lankan-affiliated works from cursor pages."""
         saved = records_saved
 
         for page in self.iter_sri_lankan_work_pages(
