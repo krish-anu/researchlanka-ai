@@ -2,7 +2,7 @@
 
 import argparse
 
-from scripts import kaggle_collect_openalex_sri_lanka as openalex
+from src.collectors import openalex_collector as openalex
 
 
 def sample_work(country_code: str = "LK") -> dict:
@@ -86,13 +86,11 @@ def test_work_to_row_flattens_expected_openalex_fields():
 
 def test_build_filters_adds_publication_year_range():
     """Year arguments should be converted into an OpenAlex publication-year filter."""
-    args = argparse.Namespace(
-        filter=[openalex.LK_AUTHORSHIP_FILTER],
+    assert openalex.build_filters(
+        [openalex.LK_AUTHORSHIP_FILTER],
         from_year=2020,
         to_year=2024,
-    )
-
-    assert openalex.build_filters(args) == [
+    ) == [
         openalex.LK_AUTHORSHIP_FILTER,
         "publication_year:2020-2024",
     ]
@@ -110,6 +108,48 @@ def test_create_session_retries_transient_openalex_errors():
     assert set(retries.allowed_methods) == {"GET"}
 
 
+def test_collector_fetch_works_sends_openalex_request_metadata():
+    """Collector requests should include filters, pagination, email, and API key."""
+    calls = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"results": []}
+
+    class FakeSession:
+        def get(self, url, *, params, timeout):
+            calls.append({"url": url, "params": params, "timeout": timeout})
+            return FakeResponse()
+
+    collector = openalex.OpenAlexCollector(
+        email="tester@example.com",
+        api_key="test-key",
+        session=FakeSession(),
+    )
+
+    assert collector.fetch_works(
+        filters=[openalex.LK_AUTHORSHIP_FILTER],
+        cursor="*",
+        per_page=25,
+    ) == {"results": []}
+    assert calls == [
+        {
+            "url": f"{openalex.OPENALEX_BASE_URL}/works",
+            "params": {
+                "filter": openalex.LK_AUTHORSHIP_FILTER,
+                "cursor": "*",
+                "per-page": 25,
+                "mailto": "tester@example.com",
+                "api_key": "test-key",
+            },
+            "timeout": 60,
+        }
+    ]
+
+
 def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
     """The collector should keep only LK-affiliated works from sample API pages."""
     lk_work = sample_work("LK")
@@ -123,7 +163,8 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
             "meta": {"next_cursor": None},
         }
 
-    monkeypatch.setattr(openalex, "fetch_works", fake_fetch_works)
+    collector = openalex.OpenAlexCollector(email="tester@example.com")
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
 
     args = argparse.Namespace(
         filter=[openalex.LK_AUTHORSHIP_FILTER],
@@ -135,7 +176,15 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
         api_key=None,
     )
 
-    works = list(openalex.iter_sri_lankan_works(args))
+    works = list(
+        collector.iter_sri_lankan_works(
+            filters=args.filter,
+            from_year=args.from_year,
+            to_year=args.to_year,
+            per_page=args.per_page,
+            max_records=args.max_records,
+        )
+    )
 
     assert works == [lk_work]
     assert calls == [
@@ -143,7 +192,5 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
             "filters": [openalex.LK_AUTHORSHIP_FILTER],
             "cursor": "*",
             "per_page": 25,
-            "email": "tester@example.com",
-            "api_key": None,
         }
     ]
