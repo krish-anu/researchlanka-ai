@@ -25,6 +25,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.collectors.openalex_collector import (
     CSV_COLUMNS,
+    DEFAULT_FROM_YEAR,
+    DEFAULT_TO_YEAR,
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
     build_filters,
@@ -277,14 +279,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--from-year",
         type=int,
-        default=None,
-        help="Optional first publication year, for example 2015.",
+        default=DEFAULT_FROM_YEAR,
+        help=f"First publication year. Default: {DEFAULT_FROM_YEAR}.",
     )
     parser.add_argument(
         "--to-year",
         type=int,
-        default=None,
-        help="Optional final publication year, for example 2025.",
+        default=DEFAULT_TO_YEAR,
+        help=f"Final publication year. Default: {DEFAULT_TO_YEAR}.",
     )
     parser.add_argument(
         "--per-page",
