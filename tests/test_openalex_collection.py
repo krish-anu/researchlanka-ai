@@ -7,6 +7,7 @@ Kaggle CLI wrapper through small OpenAlex-shaped fixtures.
 import argparse
 import csv
 import json
+import logging
 
 from scripts import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
@@ -245,6 +246,10 @@ def test_collector_fetch_works_sends_openalex_request_metadata():
     calls = []
 
     class FakeResponse:
+        ok = True
+        status_code = 200
+        text = ""
+
         def raise_for_status(self):
             return None
 
@@ -330,6 +335,29 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
             "per_page": 25,
         }
     ]
+
+
+def test_collector_logs_page_fetch_summary(monkeypatch, caplog):
+    """Collector page iteration should log page-level progress information."""
+    lk_work = sample_work("LK")
+    non_lk_work = sample_work("IN")
+
+    def fake_fetch_works(**_kwargs):
+        return {
+            "results": [lk_work, non_lk_work],
+            "meta": {"next_cursor": None},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+    caplog.set_level(logging.INFO, logger=openalex.__name__)
+
+    list(collector.iter_sri_lankan_work_pages(filters=[openalex.LK_AUTHORSHIP_FILTER]))
+
+    assert "Starting OpenAlex page iteration" in caplog.text
+    assert "Fetched OpenAlex page" in caplog.text
+    assert "kept=1" in caplog.text
+    assert "skipped=1" in caplog.text
 
 
 def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
@@ -499,6 +527,18 @@ def test_default_output_dir_supports_environment_override(tmp_path, monkeypatch)
     monkeypatch.setenv("OPENALEX_OUTPUT_DIR", str(tmp_path))
 
     assert openalex_script.default_output_dir() == tmp_path
+
+
+def test_setup_logging_can_write_to_log_file(tmp_path):
+    """CLI logging should support mirroring logs to a file."""
+    log_file = tmp_path / "openalex.log"
+    openalex_script.setup_logging("INFO", log_file)
+
+    logging.getLogger("openalex-test").info("hello logging")
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+
+    assert "hello logging" in log_file.read_text(encoding="utf-8")
 
 
 def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
