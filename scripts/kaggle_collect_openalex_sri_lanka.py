@@ -56,12 +56,14 @@ def save_progress(
     next_cursor: str | None,
     records_saved: int,
     filters: list[str],
+    strict_lk_only: bool = False,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     progress = {
         "next_cursor": next_cursor,
         "records_saved": records_saved,
         "filters": filters,
+        "strict_lk_only": strict_lk_only,
     }
     temp_path = path.with_suffix(f"{path.suffix}.tmp")
     with temp_path.open("w", encoding="utf-8") as progress_file:
@@ -245,6 +247,11 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--strict-lk-only",
+        action="store_true",
+        help="Keep only works whose detected affiliation country-code set is exactly LK.",
+    )
+    parser.add_argument(
         "--from-year",
         type=int,
         default=None,
@@ -307,6 +314,10 @@ def main() -> None:
             raise SystemExit(
                 "Cannot resume: current filters do not match saved progress filters."
             )
+        if bool(progress.get("strict_lk_only", False)) != args.strict_lk_only:
+            raise SystemExit(
+                "Cannot resume: strict LK-only setting does not match saved progress."
+            )
 
         start_cursor = progress.get("next_cursor")
         if start_cursor is None:
@@ -327,6 +338,7 @@ def main() -> None:
             next_cursor=start_cursor,
             records_saved=total,
             filters=filters,
+            strict_lk_only=args.strict_lk_only,
         )
 
     collector = OpenAlexCollector(email=args.email, api_key=args.api_key)
@@ -351,6 +363,7 @@ def main() -> None:
                 to_year=args.to_year,
                 per_page=args.per_page,
                 start_cursor=start_cursor,
+                strict_lk_only=args.strict_lk_only,
             )
             for page in pages:
                 records_skipped += page.skipped_count
@@ -382,6 +395,7 @@ def main() -> None:
                     next_cursor=page.cursor if stop_requested else page.next_cursor,
                     records_saved=total,
                     filters=filters,
+                    strict_lk_only=args.strict_lk_only,
                 )
                 if stop_requested:
                     break
