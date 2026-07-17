@@ -33,7 +33,21 @@ from src.collectors.openalex_collector import (
 )
 
 
-DEFAULT_OUTPUT_DIR = Path("/kaggle/working")
+LOCAL_OUTPUT_DIR = PROJECT_ROOT / "data" / "raw" / "openalex"
+KAGGLE_OUTPUT_DIR = Path("/kaggle/working")
+
+
+def default_output_dir() -> Path:
+    """Choose a writable default output directory for Kaggle or local runs."""
+    override = os.getenv("OPENALEX_OUTPUT_DIR")
+    if override:
+        return Path(override)
+    if KAGGLE_OUTPUT_DIR.is_dir() and os.access(KAGGLE_OUTPUT_DIR, os.W_OK):
+        return KAGGLE_OUTPUT_DIR
+    return LOCAL_OUTPUT_DIR
+
+
+DEFAULT_OUTPUT_DIR = default_output_dir()
 DEFAULT_JSONL_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.jsonl"
 DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.csv"
 

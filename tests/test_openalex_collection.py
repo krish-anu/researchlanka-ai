@@ -480,6 +480,13 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     }
 
 
+def test_default_output_dir_supports_environment_override(tmp_path, monkeypatch):
+    """Local users can override the default output directory without Kaggle paths."""
+    monkeypatch.setenv("OPENALEX_OUTPUT_DIR", str(tmp_path))
+
+    assert openalex_script.default_output_dir() == tmp_path
+
+
 def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
     """The collection report should summarize the final JSONL dataset."""
     first_work = sample_work("LK")
