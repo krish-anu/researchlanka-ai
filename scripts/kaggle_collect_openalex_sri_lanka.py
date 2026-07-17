@@ -16,6 +16,7 @@ import csv
 import json
 import os
 import sys
+from collections import Counter
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +28,7 @@ from src.collectors.openalex_collector import (
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
     build_filters,
+    country_codes,
     work_to_row,
 )
 
@@ -109,6 +111,93 @@ def rebuild_csv_from_jsonl(jsonl_output: Path, csv_output: Path) -> None:
                     continue
                 if isinstance(work, dict):
                     writer.writerow(work_to_row(work))
+
+
+def is_blank(value: object) -> bool:
+    return value is None or str(value).strip() == ""
+
+
+def collect_quality_report(
+    jsonl_output: Path,
+    *,
+    records_skipped: int,
+) -> dict[str, object]:
+    openalex_ids: Counter[str] = Counter()
+    dois: Counter[str] = Counter()
+    years: list[int] = []
+    countries: set[str] = set()
+    total_saved = 0
+    missing_doi_count = 0
+    missing_title_count = 0
+
+    if jsonl_output.exists():
+        with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+            for line in jsonl_file:
+                if not line.strip():
+                    continue
+                try:
+                    work = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(work, dict):
+                    continue
+
+                total_saved += 1
+
+                openalex_id = work.get("id")
+                if not is_blank(openalex_id):
+                    openalex_ids[str(openalex_id).strip()] += 1
+
+                doi = work.get("doi")
+                if is_blank(doi):
+                    missing_doi_count += 1
+                else:
+                    dois[str(doi).strip().lower()] += 1
+
+                if is_blank(work.get("title")) and is_blank(work.get("display_name")):
+                    missing_title_count += 1
+
+                year = work.get("publication_year")
+                if isinstance(year, int):
+                    years.append(year)
+                elif isinstance(year, str) and year.isdigit():
+                    years.append(int(year))
+
+                for country_code in country_codes(work).split("; "):
+                    if country_code:
+                        countries.add(country_code)
+
+    year_range = None
+    if years:
+        year_range = f"{min(years)}-{max(years)}"
+
+    return {
+        "total_saved": total_saved,
+        "records_skipped": records_skipped,
+        "missing_doi_count": missing_doi_count,
+        "missing_title_count": missing_title_count,
+        "duplicate_openalex_ids": sum(
+            1 for count in openalex_ids.values() if count > 1
+        ),
+        "duplicate_doi_count": sum(1 for count in dois.values() if count > 1),
+        "year_range": year_range,
+        "countries_found": sorted(countries),
+    }
+
+
+def print_collection_report(report: dict[str, object]) -> None:
+    countries = report["countries_found"]
+    countries_text = "; ".join(countries) if isinstance(countries, list) else ""
+
+    print("Collection report:")
+    print(f"  Total saved: {report['total_saved']:,}")
+    print(f"  Records skipped: {report['records_skipped']:,}")
+    print(f"  Missing DOI count: {report['missing_doi_count']:,}")
+    print(f"  Missing title count: {report['missing_title_count']:,}")
+    print(f"  Duplicate OpenAlex IDs: {report['duplicate_openalex_ids']:,}")
+    print(f"  Duplicate DOI count: {report['duplicate_doi_count']:,}")
+    print(f"  Year range: {report['year_range'] or 'n/a'}")
+    print(f"  Countries found: {countries_text or 'n/a'}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -246,6 +335,7 @@ def main() -> None:
     output_mode = "a" if args.resume else "w"
     csv_mode = "a" if args.resume else "w"
     stop_requested = False
+    records_skipped = 0
 
     try:
         if not args.no_csv:
@@ -263,6 +353,7 @@ def main() -> None:
                 start_cursor=start_cursor,
             )
             for page in pages:
+                records_skipped += page.skipped_count
                 for work in page.works:
                     if args.max_records is not None and total >= args.max_records:
                         stop_requested = True
@@ -270,6 +361,7 @@ def main() -> None:
 
                     openalex_id = str(work.get("id", ""))
                     if args.resume and openalex_id and openalex_id in existing_ids:
+                        records_skipped += 1
                         continue
 
                     jsonl_file.write(json.dumps(work, ensure_ascii=False) + "\n")
@@ -301,6 +393,12 @@ def main() -> None:
     if not args.no_csv:
         print(f"Saved flat CSV to {args.csv_output}")
     print(f"Saved progress metadata to {progress_output}")
+    print_collection_report(
+        collect_quality_report(
+            args.jsonl_output,
+            records_skipped=records_skipped,
+        )
+    )
 
 
 if __name__ == "__main__":

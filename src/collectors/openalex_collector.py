@@ -262,6 +262,7 @@ class OpenAlexWorkPage:
     next_cursor: str | None
     filters: list[str]
     works: list[dict[str, Any]]
+    skipped_count: int = 0
 
 
 @dataclass
@@ -322,8 +323,10 @@ class OpenAlexCollector:
                 break
 
             works: list[dict[str, Any]] = []
+            skipped_count = 0
             for work in results:
                 if not isinstance(work, dict) or not has_sri_lankan_author(work):
+                    skipped_count += 1
                     continue
                 works.append(work)
 
@@ -333,6 +336,7 @@ class OpenAlexCollector:
                 next_cursor=next_cursor,
                 filters=built_filters,
                 works=works,
+                skipped_count=skipped_count,
             )
 
             cursor = next_cursor
