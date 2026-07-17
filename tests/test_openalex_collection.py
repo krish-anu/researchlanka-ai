@@ -1,7 +1,10 @@
 """Tests for OpenAlex Sri Lanka collection using sample publication records."""
 
 import argparse
+import csv
+import json
 
+from scripts import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
 
 
@@ -194,3 +197,115 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
             "per_page": 25,
         }
     ]
+
+
+def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
+    """Page iteration should support resuming from a saved OpenAlex cursor."""
+    calls = []
+
+    def fake_fetch_works(**kwargs):
+        calls.append(kwargs)
+        return {
+            "results": [sample_work("LK")],
+            "meta": {"next_cursor": None},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+
+    pages = list(
+        collector.iter_sri_lankan_work_pages(
+            filters=[openalex.LK_AUTHORSHIP_FILTER],
+            per_page=25,
+            start_cursor="saved-cursor",
+        )
+    )
+
+    assert len(pages) == 1
+    assert pages[0].cursor == "saved-cursor"
+    assert pages[0].next_cursor is None
+    assert pages[0].works == [sample_work("LK")]
+    assert calls == [
+        {
+            "filters": [openalex.LK_AUTHORSHIP_FILTER],
+            "cursor": "saved-cursor",
+            "per_page": 25,
+        }
+    ]
+
+
+def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatch):
+    """Resume should append new records and skip records already in the JSONL."""
+    existing_work = sample_work("LK")
+    existing_work["id"] = "https://openalex.org/W1"
+    new_work = sample_work("LK")
+    new_work["id"] = "https://openalex.org/W2"
+
+    jsonl_output = tmp_path / "works.jsonl"
+    csv_output = tmp_path / "works.csv"
+    progress_output = tmp_path / "works.progress.json"
+
+    jsonl_output.write_text(json.dumps(existing_work) + "\n", encoding="utf-8")
+    openalex_script.save_progress(
+        progress_output,
+        next_cursor="saved-cursor",
+        records_saved=0,
+        filters=[openalex.LK_AUTHORSHIP_FILTER],
+    )
+
+    class FakeCollector:
+        def __init__(self, *, email, api_key):
+            self.email = email
+            self.api_key = api_key
+
+        def iter_sri_lankan_work_pages(self, **kwargs):
+            assert kwargs["start_cursor"] == "saved-cursor"
+            yield openalex.OpenAlexWorkPage(
+                cursor="saved-cursor",
+                next_cursor=None,
+                filters=[openalex.LK_AUTHORSHIP_FILTER],
+                works=[existing_work, new_work],
+            )
+
+    args = argparse.Namespace(
+        jsonl_output=jsonl_output,
+        csv_output=csv_output,
+        no_csv=False,
+        resume=True,
+        progress_output=progress_output,
+        filter=[openalex.LK_AUTHORSHIP_FILTER],
+        from_year=None,
+        to_year=None,
+        per_page=25,
+        max_records=None,
+        email="tester@example.com",
+        api_key=None,
+    )
+
+    monkeypatch.setattr(openalex_script, "parse_args", lambda: args)
+    monkeypatch.setattr(openalex_script, "OpenAlexCollector", FakeCollector)
+
+    openalex_script.main()
+
+    jsonl_records = [
+        json.loads(line)
+        for line in jsonl_output.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [record["id"] for record in jsonl_records] == [
+        "https://openalex.org/W1",
+        "https://openalex.org/W2",
+    ]
+
+    with csv_output.open("r", encoding="utf-8", newline="") as csv_file:
+        csv_rows = list(csv.DictReader(csv_file))
+    assert [row["openalex_id"] for row in csv_rows] == [
+        "https://openalex.org/W1",
+        "https://openalex.org/W2",
+    ]
+
+    progress = openalex_script.load_progress(progress_output)
+    assert progress == {
+        "next_cursor": None,
+        "records_saved": 2,
+        "filters": [openalex.LK_AUTHORSHIP_FILTER],
+    }

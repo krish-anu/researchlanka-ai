@@ -205,6 +205,16 @@ def build_filters(
 
 
 @dataclass
+class OpenAlexWorkPage:
+    """A fetched OpenAlex page after local Sri Lankan-affiliation filtering."""
+
+    cursor: str
+    next_cursor: str | None
+    filters: list[str]
+    works: list[dict[str, Any]]
+
+
+@dataclass
 class OpenAlexCollector:
     """Collect OpenAlex works with Sri Lankan affiliation metadata."""
 
@@ -239,18 +249,17 @@ class OpenAlexCollector:
         response.raise_for_status()
         return response.json()
 
-    def iter_sri_lankan_works(
+    def iter_sri_lankan_work_pages(
         self,
         *,
         filters: list[str] | None = None,
         from_year: int | None = None,
         to_year: int | None = None,
         per_page: int = 200,
-        max_records: int | None = None,
-    ) -> Iterator[dict[str, Any]]:
+        start_cursor: str = "*",
+    ) -> Iterator[OpenAlexWorkPage]:
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
-        cursor = "*"
-        saved = 0
+        cursor = start_cursor
 
         while cursor:
             response = self.fetch_works(
@@ -262,13 +271,44 @@ class OpenAlexCollector:
             if not results:
                 break
 
+            works: list[dict[str, Any]] = []
             for work in results:
-                if max_records is not None and saved >= max_records:
-                    return
                 if not isinstance(work, dict) or not has_sri_lankan_author(work):
                     continue
+                works.append(work)
 
+            next_cursor = response.get("meta", {}).get("next_cursor")
+            yield OpenAlexWorkPage(
+                cursor=cursor,
+                next_cursor=next_cursor,
+                filters=built_filters,
+                works=works,
+            )
+
+            cursor = next_cursor
+
+    def iter_sri_lankan_works(
+        self,
+        *,
+        filters: list[str] | None = None,
+        from_year: int | None = None,
+        to_year: int | None = None,
+        per_page: int = 200,
+        max_records: int | None = None,
+        start_cursor: str = "*",
+        records_saved: int = 0,
+    ) -> Iterator[dict[str, Any]]:
+        saved = records_saved
+
+        for page in self.iter_sri_lankan_work_pages(
+            filters=filters,
+            from_year=from_year,
+            to_year=to_year,
+            per_page=per_page,
+            start_cursor=start_cursor,
+        ):
+            for work in page.works:
+                if max_records is not None and saved >= max_records:
+                    return
                 saved += 1
                 yield work
-
-            cursor = response.get("meta", {}).get("next_cursor")
