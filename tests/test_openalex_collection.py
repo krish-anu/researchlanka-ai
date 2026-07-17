@@ -43,12 +43,47 @@ def sample_work(country_code: str = "LK") -> dict:
         "primary_location": {
             "landing_page_url": "https://example.org/paper",
             "pdf_url": "https://example.org/paper.pdf",
+            "license": "cc-by",
             "source": {
                 "display_name": "Example Journal",
                 "host_organization_name": "Example Publisher",
+                "type": "journal",
+                "issn_l": "1234-5678",
             },
         },
-        "open_access": {"is_oa": True},
+        "open_access": {"is_oa": True, "oa_status": "gold", "license": "cc-by"},
+        "referenced_works_count": 3,
+        "referenced_works": [
+            "https://openalex.org/W1",
+            "https://openalex.org/W2",
+            "https://openalex.org/W3",
+        ],
+        "concepts": [
+            {"display_name": "Medicine"},
+            {"display_name": "Public health"},
+        ],
+        "topics": [
+            {
+                "display_name": "Dengue epidemiology",
+                "field": {"display_name": "Medicine"},
+                "subfield": {"display_name": "Epidemiology"},
+                "domain": {"display_name": "Health Sciences"},
+            },
+            {"display_name": "Vector control"},
+        ],
+        "primary_topic": {
+            "display_name": "Dengue epidemiology",
+            "field": {"display_name": "Medicine"},
+            "subfield": {"display_name": "Epidemiology"},
+            "domain": {"display_name": "Health Sciences"},
+        },
+        "language": "en",
+        "biblio": {
+            "volume": "12",
+            "issue": "3",
+            "first_page": "45",
+            "last_page": "59",
+        },
     }
 
 
@@ -85,6 +120,22 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["is_oa"] is True
     assert row["landing_page_url"] == "https://example.org/paper"
     assert row["pdf_url"] == "https://example.org/paper.pdf"
+    assert row["referenced_works_count"] == 3
+    assert row["concepts"] == "Medicine; Public health"
+    assert row["topics"] == "Dengue epidemiology; Vector control"
+    assert row["primary_topic"] == "Dengue epidemiology"
+    assert row["primary_field"] == "Medicine"
+    assert row["primary_subfield"] == "Epidemiology"
+    assert row["primary_domain"] == "Health Sciences"
+    assert row["language"] == "en"
+    assert row["oa_status"] == "gold"
+    assert row["license"] == "cc-by"
+    assert row["source_type"] == "journal"
+    assert row["issn_l"] == "1234-5678"
+    assert row["volume"] == "12"
+    assert row["issue"] == "3"
+    assert row["first_page"] == "45"
+    assert row["last_page"] == "59"
 
 
 def test_build_filters_adds_publication_year_range():
