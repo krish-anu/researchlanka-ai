@@ -63,3 +63,21 @@ Edit `.github/work-plan/owners.json`.
 
 `krish-anu` is already configured for Anusan. Add the GitHub usernames for
 Asma Rauff and Gishan Bandara to assign their issues automatically.
+
+## Automatic assignment
+
+Edit `.github/work-plan/owners.json`:
+
+```json
+{
+  "Anusan": "krish-anu",
+  "Asma Rauff": "ASMA_GITHUB_USERNAME",
+  "Gishan Bandara": "GISHAN_GITHUB_USERNAME"
+}
+```
+
+The workflow assigns both the person's group issue and every individual task
+under that person. It also applies assignments to previously created managed
+issues when the workflow is rerun.
+
+The GitHub usernames must have access to the repository.
