@@ -297,7 +297,7 @@ def ensure_parent(
     if not execute or parent_number is None:
         return
 
-    run(
+    result = run(
         [
             "gh",
             "issue",
@@ -307,7 +307,36 @@ def ensure_parent(
             repo,
             "--parent",
             str(parent_number),
-        ]
+        ],
+        check=False,
+    )
+
+    if result.returncode == 0:
+        return
+
+    details = "\n".join(
+        part.strip()
+        for part in (result.stdout, result.stderr)
+        if part and part.strip()
+    )
+
+    # Reruns are idempotent: GitHub returns an error when the issue is
+    # already attached to this parent. That relationship is already correct.
+    duplicate_messages = (
+        "duplicate sub-issues",
+        "may not contain duplicate sub-issues",
+        "already a sub-issue",
+    )
+    if any(message in details.lower() for message in duplicate_messages):
+        print(
+            f"PARENT ALREADY SET: issue #{issue_number} "
+            f"is already under #{parent_number}"
+        )
+        return
+
+    raise RuntimeError(
+        "Failed to set parent relationship:\n"
+        f"issue #{issue_number} -> parent #{parent_number}\n\n{details}"
     )
 
 
