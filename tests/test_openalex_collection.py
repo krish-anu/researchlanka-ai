@@ -360,3 +360,50 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         "records_saved": 2,
         "filters": [openalex.LK_AUTHORSHIP_FILTER],
     }
+
+
+def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
+    """The collection report should summarize the final JSONL dataset."""
+    first_work = sample_work("LK")
+    first_work["id"] = "https://openalex.org/W1"
+    first_work["doi"] = "https://doi.org/10.1234/duplicate"
+    first_work["publication_year"] = 2022
+
+    duplicate_work = sample_work("LK")
+    duplicate_work["id"] = "https://openalex.org/W1"
+    duplicate_work["doi"] = "https://doi.org/10.1234/DUPLICATE"
+    duplicate_work["publication_year"] = 2024
+
+    missing_work = sample_work("LK")
+    missing_work["id"] = "https://openalex.org/W3"
+    missing_work["doi"] = None
+    missing_work["title"] = None
+    missing_work.pop("display_name", None)
+    missing_work["publication_year"] = None
+
+    jsonl_output = tmp_path / "works.jsonl"
+    jsonl_output.write_text(
+        "\n".join(
+            [
+                json.dumps(first_work),
+                json.dumps(duplicate_work),
+                json.dumps(missing_work),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert openalex_script.collect_quality_report(
+        jsonl_output,
+        records_skipped=5,
+    ) == {
+        "total_saved": 3,
+        "records_skipped": 5,
+        "missing_doi_count": 1,
+        "missing_title_count": 1,
+        "duplicate_openalex_ids": 1,
+        "duplicate_doi_count": 1,
+        "year_range": "2022-2024",
+        "countries_found": ["LK", "US"],
+    }
