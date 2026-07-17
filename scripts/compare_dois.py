@@ -44,35 +44,22 @@ def normalize_doi(doi):
 
     return doi.strip()
 
+START_YEAR = 2016
 
-def load_dois(path: Path, column: str) -> pd.DataFrame:
-    """
-    Load and normalize DOIs from CSV.
-
-    Args:
-        path: Path to CSV file.
-        column: Column name containing DOI values.
-
-    Returns:
-        DataFrame with normalized DOIs.
-
-    Raises:
-        FileNotFoundError: If CSV file doesn't exist.
-        ValueError: If column doesn't exist in CSV.
-    """
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"CSV file not found: {path}")
+def load_dois(
+    path: Path,
+    doi_column: str,
+    year_column: str | None = None,
+    start_year: int | None = None,
+):
 
     df = pd.read_csv(path)
 
-    if column not in df.columns:
-        available = ", ".join(df.columns)
-        raise ValueError(
-            f"Column '{column}' not found in {path}. Available: {available}"
-        )
+    if year_column and start_year:
+        df = df[df[year_column] >= start_year]
 
-    df["doi_clean"] = df[column].apply(normalize_doi)
+    df["doi_clean"] = df[doi_column].apply(normalize_doi)
+
     df = df.dropna(subset=["doi_clean"])
 
     return df
@@ -88,38 +75,31 @@ def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     try:
-        oa = load_dois(OPENALEX_PATH, "doi")
+        oa = load_dois(
+            OPENALEX_PATH, "doi", year_column="publication_year", start_year=2016
+        )
         cr = load_dois(CROSSREF_PATH, "DOI")
     except (FileNotFoundError, ValueError) as e:
         logger.error(f"Error loading data: {e}")
         raise
 
-    oa_dois = set(oa["doi_clean"])
-    cr_dois = set(cr["doi_clean"])
-
-    common = oa_dois & cr_dois
-    openalex_only = oa_dois - cr_dois
-    crossref_only = cr_dois - oa_dois
-
-    print(f"OpenAlex DOI: {len(oa_dois)}")
-    print(f"Crossref DOI: {len(cr_dois)}")
-    print(f"Common: {len(common)}")
-    print(f"OpenAlex only: {len(openalex_only)}")
-    print(f"Crossref only: {len(crossref_only)}")
-
-    pd.Series(sorted(openalex_only)).to_csv(
-        OUTPUT_DIR / "openalex_only_dois.txt",
-        index=False,
-        header=False,
+    oa_dois = set(
+        oa["doi_clean"]
     )
-    pd.Series(sorted(crossref_only)).to_csv(
-        OUTPUT_DIR / "crossref_only_dois.txt",
-        index=False,
-        header=False,
-)
 
-    pd.Series(sorted(common)).to_csv(
-        OUTPUT_DIR / "common_dois.txt",
+
+    cr_dois = set(
+        cr["doi_clean"]
+    )
+
+
+    missing_in_crossref = (
+        oa_dois - cr_dois
+    )
+
+    
+    pd.Series(sorted(missing_in_crossref)).to_csv(
+        OUTPUT_DIR / "openalex_2016_plus_missing_crossref.txt",
         index=False,
         header=False,
     )
