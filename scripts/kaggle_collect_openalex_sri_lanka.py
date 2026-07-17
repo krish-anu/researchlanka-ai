@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 OPENALEX_BASE_URL = "https://api.openalex.org"
@@ -48,6 +50,25 @@ CSV_COLUMNS = [
     "landing_page_url",
     "pdf_url",
 ]
+
+
+def create_session() -> requests.Session:
+    retry_strategy = Retry(
+        total=5,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+        respect_retry_after_header=True,
+    )
+
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+DEFAULT_SESSION = create_session()
 
 
 def parse_args() -> argparse.Namespace:
@@ -274,6 +295,7 @@ def fetch_works(
     per_page: int,
     email: str | None,
     api_key: str | None,
+    session: requests.Session | None = None,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {
         "filter": ",".join(filters),
@@ -285,7 +307,8 @@ def fetch_works(
     if api_key:
         params["api_key"] = api_key
 
-    response = requests.get(
+    request_session = session or DEFAULT_SESSION
+    response = request_session.get(
         f"{OPENALEX_BASE_URL}/works",
         params=params,
         timeout=60,

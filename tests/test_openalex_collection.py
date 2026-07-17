@@ -98,6 +98,18 @@ def test_build_filters_adds_publication_year_range():
     ]
 
 
+def test_create_session_retries_transient_openalex_errors():
+    """OpenAlex requests should retry rate limits and temporary server failures."""
+    session = openalex.create_session()
+    retries = session.adapters["https://"].max_retries
+
+    assert retries.total == 5
+    assert retries.backoff_factor == 2
+    assert retries.respect_retry_after_header is True
+    assert set(retries.status_forcelist) == {429, 500, 502, 503, 504}
+    assert set(retries.allowed_methods) == {"GET"}
+
+
 def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
     """The collector should keep only LK-affiliated works from sample API pages."""
     lk_work = sample_work("LK")
