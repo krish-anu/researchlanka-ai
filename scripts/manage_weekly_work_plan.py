@@ -403,21 +403,24 @@ def ensure_issue(
         )
         if execute:
             # Keep title/body synchronized with the source data.
-            run(
-                [
-                    "gh",
-                    "issue",
-                    "edit",
-                    str(existing["number"]),
-                    "--repo",
-                    repo,
-                    "--title",
-                    title,
-                    "--body-file",
-                    "-",
-                ],
-                input_text=body,
-            )
+            edit_command = [
+                "gh",
+                "issue",
+                "edit",
+                str(existing["number"]),
+                "--repo",
+                repo,
+                "--title",
+                title,
+                "--body-file",
+                "-",
+            ]
+            # Apply the configured owner to issues that already exist.
+            # GitHub treats adding an already assigned user as idempotent.
+            if assignee:
+                edit_command.extend(["--add-assignee", assignee])
+
+            run(edit_command, input_text=body)
         existing.update(
             {
                 "title": title,
