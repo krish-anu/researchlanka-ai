@@ -1,0 +1,140 @@
+[
+  {
+    "week": 1,
+    "period": "13 July to 19 July",
+    "theme": "Project Planning, Requirements and Source Validation",
+    "expected_outputs": [
+      "Final project scope.",
+      "Initial system requirements.",
+      "Dataset-source inventory.",
+      "Initial system architecture.",
+      "Initial SRS draft.",
+      "Initial feasibility-report draft."
+    ]
+  },
+  {
+    "week": 2,
+    "period": "20 July to 26 July",
+    "theme": "Collector Development and Common Data Design",
+    "expected_outputs": [
+      "Reusable collector modules.",
+      "Tested OpenAlex collector.",
+      "Tested Crossref collector.",
+      "Tested repository collectors.",
+      "Common metadata-schema draft.",
+      "Initial PostgreSQL schema.",
+      "Initial user-interface wireframes."
+    ]
+  },
+  {
+    "week": 3,
+    "period": "27 July to 2 August",
+    "theme": "Large-Scale Data Collection and Database Setup",
+    "expected_outputs": [
+      "Initial consolidated publication dataset.",
+      "PostgreSQL research database.",
+      "Source-coverage report.",
+      "Database-loading pipeline.",
+      "Updated system-design document."
+    ]
+  },
+  {
+    "week": 4,
+    "period": "3 August to 9 August",
+    "theme": "Data Cleaning and Standardization",
+    "expected_outputs": [
+      "Cleaned publication dataset.",
+      "Author-name normalization rules.",
+      "Institution-name normalization rules.",
+      "Missing-data report.",
+      "Updated ETL pipeline."
+    ]
+  },
+  {
+    "week": 5,
+    "period": "10 August to 16 August",
+    "theme": "Duplicate Detection and Entity Resolution",
+    "expected_outputs": [
+      "Deduplicated publication dataset.",
+      "Duplicate-detection module.",
+      "Author-disambiguation module.",
+      "Institution-disambiguation module.",
+      "Entity-resolution evaluation report."
+    ]
+  },
+  {
+    "week": 6,
+    "period": "17 August to 23 August",
+    "theme": "Dataset Validation and Classification-Model Development",
+    "expected_outputs": [
+      "Validated machine-learning-ready dataset.",
+      "Standardized research-category hierarchy.",
+      "Training, validation and test datasets.",
+      "Multiple classification models.",
+      "Model-comparison report.",
+      "Final selected classification model.",
+      "Saved preprocessing and inference pipeline."
+    ]
+  },
+  {
+    "week": 7,
+    "period": "24 August to 30 August",
+    "theme": "Topic Modelling, Semantic Search and Research Analytics",
+    "expected_outputs": [
+      "Research-topic results.",
+      "Semantic publication search.",
+      "Initial related-publication recommendations.",
+      "Topic-modelling evaluation report.",
+      "Initial research-analytics services.",
+      "Initial system test plan."
+    ]
+  },
+  {
+    "week": 8,
+    "period": "31 August to 6 September",
+    "theme": "Analytics, Product Implementation and Integration",
+    "expected_outputs": [
+      "Integrated backend services.",
+      "React product interface.",
+      "Publication search and filtering.",
+      "Researcher and institution profiles.",
+      "Citation analytics.",
+      "Productivity analytics.",
+      "Collaboration networks.",
+      "Topic and trend analytics.",
+      "Semantic search and recommendation features."
+    ]
+  },
+  {
+    "week": 9,
+    "period": "7 September to 13 September",
+    "theme": "System Testing and Beta Deployment",
+    "expected_outputs": [
+      "Beta-deployed product.",
+      "Unit-test results.",
+      "Integration-test results.",
+      "Data-quality test results.",
+      "Performance-test results.",
+      "User-feedback report.",
+      "Final machine-learning evaluation.",
+      "Initial final-report draft."
+    ]
+  },
+  {
+    "week": 10,
+    "period": "14 September to 20 September",
+    "theme": "Final Testing, Deployment and Delivery",
+    "expected_outputs": [
+      "Final deployed prototype.",
+      "Final cleaned research dataset.",
+      "Final machine-learning models.",
+      "Final testing and evaluation report.",
+      "User documentation.",
+      "Technical documentation.",
+      "Final project report.",
+      "Research paper.",
+      "Final presentation.",
+      "Final product demonstration."
+    ]
+  }
+]
