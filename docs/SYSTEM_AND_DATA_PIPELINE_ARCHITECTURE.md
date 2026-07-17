@@ -1,0 +1,178 @@
+# System and Data-Pipeline Architecture
+
+This document defines the first architecture draft for the AI Research Analytics Platform. The goal is to make the data flow clear enough for Week 1 work: collect Sri Lankan research publication records, normalize them, compare sources, and prepare clean datasets for later analytics and dashboard work.
+
+## Scope
+
+The system focuses on publications connected to Sri Lankan researchers or institutions. In the OpenAlex pipeline, a record is considered Sri Lankan-affiliated when OpenAlex authorship or institution metadata contains country code `LK`. For strict Sri Lanka-only analysis, records are kept only when the detected affiliation country-code set is exactly `{"LK"}`.
+
+## High-Level Components
+
+```text
+External APIs
+  |-- OpenAlex works API
+  |-- Crossref works API
+  |-- SLJOL pages and article metadata
+
+Collection Layer
+  |-- scripts/kaggle_collect_openalex_sri_lanka.py
+  |-- scripts/collect_crossref.py
+  |-- notebooks/03-sljol.ipynb
+
+Raw and Interim Storage
+  |-- data/raw/
+  |-- data/interim/
+
+Preprocessing and Normalization
+  |-- src/preprocessing/crossref_normalizer.py
+  |-- src/preprocessing/clean_publications.py
+  |-- scripts/jsonl_to_csv.py
+
+Comparison and Quality Checks
+  |-- scripts/compare_dois.py
+  |-- tests/
+
+Processed Outputs
+  |-- data/processed/
+  |-- notebooks/analyze_openalex_sri_lanka_only.ipynb
+
+Future Application Layer
+  |-- analytics dashboards
+  |-- search and filtering interface
+  |-- AI/ML publication classification
+```
+
+## Pipeline Stages
+
+### 1. Source Collection
+
+OpenAlex collection is the primary source for Sri Lankan-affiliated works because OpenAlex exposes structured institution country codes. The current collector is:
+
+```bash
+python scripts/kaggle_collect_openalex_sri_lanka.py --max-records 1000
+```
+
+The collector:
+
+- calls the OpenAlex works API
+- applies `authorships.institutions.country_code:LK`
+- keeps records with at least one Sri Lankan authorship or LK institution
+- writes raw JSONL and a flattened CSV
+
+Crossref collection is used as a secondary source for DOI comparison and metadata coverage checks. SLJOL notebooks support local Sri Lankan journal exploration.
+
+### 2. Raw Storage
+
+Raw API responses should be stored without changing field names or nested structure.
+
+Recommended paths:
+
+```text
+data/raw/openalex/
+data/raw/crossref/
+data/raw/sljol/
+```
+
+Raw data files should not be committed when they are large. Commit only small test fixtures or derived documentation.
+
+### 3. Field Normalization
+
+Normalized datasets should use stable, analysis-friendly field names. The current OpenAlex flat export uses:
+
+```text
+openalex_id
+doi
+title
+publication_year
+publication_date
+type
+cited_by_count
+author_count
+authors
+sri_lankan_authors
+institutions
+sri_lankan_institutions
+countries
+source_name
+publisher
+is_oa
+landing_page_url
+pdf_url
+```
+
+Crossref normalization should continue to standardize DOI, title, authors, publication year, source, publisher, and event fields.
+
+### 4. Filtering Rules
+
+The project uses two Sri Lanka filters:
+
+- Broad Sri Lankan-affiliated: at least one detected country code or institution country code is `LK`.
+- Strict Sri Lanka-only: the full detected country-code set is exactly `{"LK"}`.
+
+Broad filtering is useful for collection. Strict filtering is useful for final Sri Lanka-only analysis when international collaborations should be excluded.
+
+### 5. Quality Checks
+
+Quality checks should run before a dataset is considered ready for analysis:
+
+- DOI presence and DOI normalization
+- duplicate DOI or OpenAlex ID checks
+- missing title/year/source checks
+- Sri Lankan affiliation validation
+- source comparison between OpenAlex and Crossref
+- schema consistency for expected output columns
+
+Automated tests live in `tests/`. OpenAlex sample-record tests verify the collector's filtering and flattening logic without using the live API.
+
+### 6. Processed Outputs
+
+Processed outputs should be saved under:
+
+```text
+data/processed/openalex/
+data/processed/crossref/
+data/processed/doi_comparison/
+```
+
+The OpenAlex analysis notebook writes strict Sri Lanka-only analysis tables and charts to `data/processed/openalex/` locally or `/kaggle/working/openalex_outputs/` on Kaggle.
+
+## Current Implementation Map
+
+| Area | Current file |
+|---|---|
+| OpenAlex collection | `scripts/kaggle_collect_openalex_sri_lanka.py` |
+| OpenAlex analysis | `notebooks/analyze_openalex_sri_lanka_only.ipynb` |
+| Crossref collection | `scripts/collect_crossref.py` |
+| Crossref collector class | `src/collectors/crossref_collector.py` |
+| Crossref normalization | `src/preprocessing/crossref_normalizer.py` |
+| DOI comparison | `scripts/compare_dois.py` |
+| JSONL to CSV conversion | `scripts/jsonl_to_csv.py` |
+| Tests | `tests/` |
+
+## Execution Order
+
+For a small validation run:
+
+```bash
+python scripts/kaggle_collect_openalex_sri_lanka.py --max-records 1000
+pytest -q
+```
+
+For a local analysis run:
+
+1. Collect OpenAlex records into JSONL and CSV.
+2. Place or copy the output into `data/raw/openalex/` or `data/processed/openalex/`.
+3. Run `notebooks/analyze_openalex_sri_lanka_only.ipynb`.
+4. Review filter summary, missing-field report, duplicate report, charts, and exported CSV tables.
+
+## Future Architecture Work
+
+The next architecture step is to move repeated notebook logic into reusable pipeline modules under `src/pipeline/`. The first useful modules would be:
+
+- OpenAlex raw-to-flat conversion
+- strict Sri Lanka-only filtering
+- dataset quality reporting
+- source comparison reporting
+- final dataset build orchestration
+
+This keeps notebooks focused on exploration while the repeatable production workflow lives in Python modules and tests.
