@@ -101,6 +101,46 @@ def test_has_sri_lankan_author_rejects_non_lk_authorships():
     assert openalex.has_sri_lankan_author(work) is False
 
 
+def test_strict_sri_lanka_only_accepts_only_lk_country_codes():
+    """Strict LK-only filtering should reject international collaborations."""
+    lk_only_work = sample_work("LK")
+    lk_only_work["authorships"] = [lk_only_work["authorships"][0]]
+
+    collaborative_work = sample_work("LK")
+
+    assert openalex.is_strict_sri_lanka_only(lk_only_work) is True
+    assert openalex.is_strict_sri_lanka_only(collaborative_work) is False
+
+
+def test_iter_sri_lankan_work_pages_supports_strict_lk_only(monkeypatch):
+    """Strict page iteration should keep only records with country-code set LK."""
+    lk_only_work = sample_work("LK")
+    lk_only_work["id"] = "https://openalex.org/W-LK"
+    lk_only_work["authorships"] = [lk_only_work["authorships"][0]]
+
+    collaborative_work = sample_work("LK")
+    collaborative_work["id"] = "https://openalex.org/W-COLLAB"
+
+    def fake_fetch_works(**_kwargs):
+        return {
+            "results": [lk_only_work, collaborative_work],
+            "meta": {"next_cursor": None},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+
+    pages = list(
+        collector.iter_sri_lankan_work_pages(
+            filters=[openalex.LK_AUTHORSHIP_FILTER],
+            strict_lk_only=True,
+        )
+    )
+
+    assert pages[0].works == [lk_only_work]
+    assert pages[0].skipped_count == 1
+
+
 def test_work_to_row_flattens_expected_openalex_fields():
     """Sample OpenAlex records should produce the expected flat CSV fields."""
     row = openalex.work_to_row(sample_work("LK"))
@@ -136,6 +176,30 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["issue"] == "3"
     assert row["first_page"] == "45"
     assert row["last_page"] == "59"
+
+
+def test_csv_columns_include_extra_flattened_analysis_fields():
+    """The flat CSV schema should expose fields used by analysis notebooks."""
+    expected_columns = {
+        "referenced_works_count",
+        "concepts",
+        "topics",
+        "primary_topic",
+        "primary_field",
+        "primary_subfield",
+        "primary_domain",
+        "language",
+        "oa_status",
+        "license",
+        "source_type",
+        "issn_l",
+        "volume",
+        "issue",
+        "first_page",
+        "last_page",
+    }
+
+    assert expected_columns.issubset(openalex.CSV_COLUMNS)
 
 
 def test_build_filters_adds_publication_year_range():
@@ -228,6 +292,7 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
         max_records=None,
         email="tester@example.com",
         api_key=None,
+        strict_lk_only=False,
     )
 
     works = list(
@@ -331,6 +396,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         max_records=None,
         email="tester@example.com",
         api_key=None,
+        strict_lk_only=False,
     )
 
     monkeypatch.setattr(openalex_script, "parse_args", lambda: args)
@@ -359,6 +425,52 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         "next_cursor": None,
         "records_saved": 2,
         "filters": [openalex.LK_AUTHORSHIP_FILTER],
+        "strict_lk_only": False,
+    }
+
+
+def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
+    """Fresh runs should create progress metadata before page collection starts."""
+    jsonl_output = tmp_path / "works.jsonl"
+    csv_output = tmp_path / "works.csv"
+    progress_output = tmp_path / "works.progress.json"
+
+    class FakeCollector:
+        def __init__(self, *, email, api_key):
+            self.email = email
+            self.api_key = api_key
+
+        def iter_sri_lankan_work_pages(self, **kwargs):
+            assert kwargs["strict_lk_only"] is True
+            return
+            yield
+
+    args = argparse.Namespace(
+        jsonl_output=jsonl_output,
+        csv_output=csv_output,
+        no_csv=True,
+        resume=False,
+        progress_output=progress_output,
+        filter=[openalex.LK_AUTHORSHIP_FILTER],
+        from_year=None,
+        to_year=None,
+        per_page=25,
+        max_records=None,
+        email=None,
+        api_key=None,
+        strict_lk_only=True,
+    )
+
+    monkeypatch.setattr(openalex_script, "parse_args", lambda: args)
+    monkeypatch.setattr(openalex_script, "OpenAlexCollector", FakeCollector)
+
+    openalex_script.main()
+
+    assert openalex_script.load_progress(progress_output) == {
+        "next_cursor": "*",
+        "records_saved": 0,
+        "filters": [openalex.LK_AUTHORSHIP_FILTER],
+        "strict_lk_only": True,
     }
 
 

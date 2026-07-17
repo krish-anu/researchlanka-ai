@@ -155,10 +155,23 @@ def institution_names(work: dict[str, Any], *, sri_lankan_only: bool = False) ->
 
 
 def country_codes(work: dict[str, Any]) -> str:
-    codes: list[str] = []
+    return unique_join(sorted(detected_country_codes(work)))
+
+
+def detected_country_codes(work: dict[str, Any]) -> set[str]:
+    codes: set[str] = set()
     for authorship in authorships(work):
-        codes.extend(sorted(country_codes_from_authorship(authorship)))
-    return unique_join(codes)
+        codes.update(country_codes_from_authorship(authorship))
+
+    for institution in as_list(work.get("institutions")):
+        if isinstance(institution, dict) and institution.get("country_code"):
+            codes.add(str(institution["country_code"]).upper())
+
+    return codes
+
+
+def is_strict_sri_lanka_only(work: dict[str, Any]) -> bool:
+    return detected_country_codes(work) == {SRI_LANKA_COUNTRY_CODE}
 
 
 def display_names(values: Any) -> str:
@@ -308,6 +321,7 @@ class OpenAlexCollector:
         to_year: int | None = None,
         per_page: int = 200,
         start_cursor: str = "*",
+        strict_lk_only: bool = False,
     ) -> Iterator[OpenAlexWorkPage]:
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
@@ -326,6 +340,9 @@ class OpenAlexCollector:
             skipped_count = 0
             for work in results:
                 if not isinstance(work, dict) or not has_sri_lankan_author(work):
+                    skipped_count += 1
+                    continue
+                if strict_lk_only and not is_strict_sri_lanka_only(work):
                     skipped_count += 1
                     continue
                 works.append(work)
@@ -351,6 +368,7 @@ class OpenAlexCollector:
         max_records: int | None = None,
         start_cursor: str = "*",
         records_saved: int = 0,
+        strict_lk_only: bool = False,
     ) -> Iterator[dict[str, Any]]:
         saved = records_saved
 
@@ -360,6 +378,7 @@ class OpenAlexCollector:
             to_year=to_year,
             per_page=per_page,
             start_cursor=start_cursor,
+            strict_lk_only=strict_lk_only,
         ):
             for work in page.works:
                 if max_records is not None and saved >= max_records:
