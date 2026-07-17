@@ -39,10 +39,12 @@ DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.csv"
 
 
 def default_progress_output(jsonl_output: Path) -> Path:
+    """Store resume metadata beside the JSONL output by default."""
     return jsonl_output.with_suffix(f"{jsonl_output.suffix}.progress.json")
 
 
 def load_progress(path: Path) -> dict:
+    """Load and validate the JSON progress metadata used by --resume."""
     with path.open("r", encoding="utf-8") as progress_file:
         progress = json.load(progress_file)
     if not isinstance(progress, dict):
@@ -58,6 +60,7 @@ def save_progress(
     filters: list[str],
     strict_lk_only: bool = False,
 ) -> None:
+    """Write resume metadata atomically so interrupted writes do not corrupt it."""
     path.parent.mkdir(parents=True, exist_ok=True)
     progress = {
         "next_cursor": next_cursor,
@@ -73,6 +76,7 @@ def save_progress(
 
 
 def read_existing_jsonl_state(path: Path) -> tuple[set[str], int]:
+    """Read existing output IDs and row count before appending during resume."""
     openalex_ids: set[str] = set()
     records_saved = 0
 
@@ -95,6 +99,7 @@ def read_existing_jsonl_state(path: Path) -> tuple[set[str], int]:
 
 
 def rebuild_csv_from_jsonl(jsonl_output: Path, csv_output: Path) -> None:
+    """Regenerate the flat CSV from raw JSONL before appending resumed records."""
     csv_output.parent.mkdir(parents=True, exist_ok=True)
     with csv_output.open("w", encoding="utf-8", newline="") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=CSV_COLUMNS)
@@ -116,6 +121,7 @@ def rebuild_csv_from_jsonl(jsonl_output: Path, csv_output: Path) -> None:
 
 
 def is_blank(value: object) -> bool:
+    """Treat None and whitespace-only strings as missing report values."""
     return value is None or str(value).strip() == ""
 
 
@@ -124,6 +130,7 @@ def collect_quality_report(
     *,
     records_skipped: int,
 ) -> dict[str, object]:
+    """Summarize quality metrics from the final raw JSONL output."""
     openalex_ids: Counter[str] = Counter()
     dois: Counter[str] = Counter()
     years: list[int] = []
@@ -188,6 +195,7 @@ def collect_quality_report(
 
 
 def print_collection_report(report: dict[str, object]) -> None:
+    """Print a compact human-readable collection quality report."""
     countries = report["countries_found"]
     countries_text = "; ".join(countries) if isinstance(countries, list) else ""
 
@@ -203,6 +211,7 @@ def print_collection_report(report: dict[str, object]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI flags while tolerating unknown notebook/Kaggle arguments."""
     parser = argparse.ArgumentParser(
         description="Collect OpenAlex works with at least one Sri Lankan affiliation."
     )
@@ -290,6 +299,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run collection, resume handling, output writing, and final reporting."""
     args = parse_args()
     progress_output = args.progress_output or default_progress_output(args.jsonl_output)
     filters = build_filters(
@@ -310,6 +320,8 @@ def main() -> None:
             raise SystemExit(f"Cannot resume: JSONL output not found: {args.jsonl_output}")
 
         progress = load_progress(progress_output)
+        # A resumed job must match the original query shape to avoid mixing
+        # incompatible result sets into the same raw and flat output files.
         if progress.get("filters") != filters:
             raise SystemExit(
                 "Cannot resume: current filters do not match saved progress filters."
@@ -333,6 +345,8 @@ def main() -> None:
     if not args.no_csv:
         args.csv_output.parent.mkdir(parents=True, exist_ok=True)
     if not args.resume:
+        # Create metadata before the first request so even early failures have
+        # enough state for a later --resume run.
         save_progress(
             progress_output,
             next_cursor=start_cursor,
@@ -373,6 +387,8 @@ def main() -> None:
                         break
 
                     openalex_id = str(work.get("id", ""))
+                    # If a crash happened after writing a record but before
+                    # advancing the cursor, resume may see that record again.
                     if args.resume and openalex_id and openalex_id in existing_ids:
                         records_skipped += 1
                         continue
