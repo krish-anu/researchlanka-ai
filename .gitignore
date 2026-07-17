@@ -17,7 +17,7 @@ htmlcov/
 *.log
 
 
-.github/
+
 
 
 .ipynb_checkpoints/
@@ -41,3 +41,6 @@ data/external/
 .DS_Store
 Thumbs.db
 
+# Track GitHub Actions and work-plan configuration
+!/.github/
+!/.github/**
