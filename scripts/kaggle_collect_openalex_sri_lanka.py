@@ -15,39 +15,191 @@ import argparse
 import csv
 import json
 import os
+import sys
+from collections import Counter
 from pathlib import Path
-from typing import Any
 
-import requests
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.collectors.openalex_collector import (
+    CSV_COLUMNS,
+    LK_AUTHORSHIP_FILTER,
+    OpenAlexCollector,
+    build_filters,
+    country_codes,
+    work_to_row,
+)
 
 
-OPENALEX_BASE_URL = "https://api.openalex.org"
-SRI_LANKA_COUNTRY_CODE = "LK"
-LK_AUTHORSHIP_FILTER = "authorships.institutions.country_code:LK"
 DEFAULT_OUTPUT_DIR = Path("/kaggle/working")
 DEFAULT_JSONL_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.jsonl"
 DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.csv"
 
-CSV_COLUMNS = [
-    "openalex_id",
-    "doi",
-    "title",
-    "publication_year",
-    "publication_date",
-    "type",
-    "cited_by_count",
-    "author_count",
-    "authors",
-    "sri_lankan_authors",
-    "institutions",
-    "sri_lankan_institutions",
-    "countries",
-    "source_name",
-    "publisher",
-    "is_oa",
-    "landing_page_url",
-    "pdf_url",
-]
+
+def default_progress_output(jsonl_output: Path) -> Path:
+    return jsonl_output.with_suffix(f"{jsonl_output.suffix}.progress.json")
+
+
+def load_progress(path: Path) -> dict:
+    with path.open("r", encoding="utf-8") as progress_file:
+        progress = json.load(progress_file)
+    if not isinstance(progress, dict):
+        raise ValueError(f"Progress metadata must be a JSON object: {path}")
+    return progress
+
+
+def save_progress(
+    path: Path,
+    *,
+    next_cursor: str | None,
+    records_saved: int,
+    filters: list[str],
+    strict_lk_only: bool = False,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    progress = {
+        "next_cursor": next_cursor,
+        "records_saved": records_saved,
+        "filters": filters,
+        "strict_lk_only": strict_lk_only,
+    }
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    with temp_path.open("w", encoding="utf-8") as progress_file:
+        json.dump(progress, progress_file, indent=2)
+        progress_file.write("\n")
+    temp_path.replace(path)
+
+
+def read_existing_jsonl_state(path: Path) -> tuple[set[str], int]:
+    openalex_ids: set[str] = set()
+    records_saved = 0
+
+    if not path.exists():
+        return openalex_ids, records_saved
+
+    with path.open("r", encoding="utf-8") as jsonl_file:
+        for line in jsonl_file:
+            if not line.strip():
+                continue
+            records_saved += 1
+            try:
+                work = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(work, dict) and work.get("id"):
+                openalex_ids.add(str(work["id"]))
+
+    return openalex_ids, records_saved
+
+
+def rebuild_csv_from_jsonl(jsonl_output: Path, csv_output: Path) -> None:
+    csv_output.parent.mkdir(parents=True, exist_ok=True)
+    with csv_output.open("w", encoding="utf-8", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+
+        if not jsonl_output.exists():
+            return
+
+        with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+            for line in jsonl_file:
+                if not line.strip():
+                    continue
+                try:
+                    work = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(work, dict):
+                    writer.writerow(work_to_row(work))
+
+
+def is_blank(value: object) -> bool:
+    return value is None or str(value).strip() == ""
+
+
+def collect_quality_report(
+    jsonl_output: Path,
+    *,
+    records_skipped: int,
+) -> dict[str, object]:
+    openalex_ids: Counter[str] = Counter()
+    dois: Counter[str] = Counter()
+    years: list[int] = []
+    countries: set[str] = set()
+    total_saved = 0
+    missing_doi_count = 0
+    missing_title_count = 0
+
+    if jsonl_output.exists():
+        with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+            for line in jsonl_file:
+                if not line.strip():
+                    continue
+                try:
+                    work = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(work, dict):
+                    continue
+
+                total_saved += 1
+
+                openalex_id = work.get("id")
+                if not is_blank(openalex_id):
+                    openalex_ids[str(openalex_id).strip()] += 1
+
+                doi = work.get("doi")
+                if is_blank(doi):
+                    missing_doi_count += 1
+                else:
+                    dois[str(doi).strip().lower()] += 1
+
+                if is_blank(work.get("title")) and is_blank(work.get("display_name")):
+                    missing_title_count += 1
+
+                year = work.get("publication_year")
+                if isinstance(year, int):
+                    years.append(year)
+                elif isinstance(year, str) and year.isdigit():
+                    years.append(int(year))
+
+                for country_code in country_codes(work).split("; "):
+                    if country_code:
+                        countries.add(country_code)
+
+    year_range = None
+    if years:
+        year_range = f"{min(years)}-{max(years)}"
+
+    return {
+        "total_saved": total_saved,
+        "records_skipped": records_skipped,
+        "missing_doi_count": missing_doi_count,
+        "missing_title_count": missing_title_count,
+        "duplicate_openalex_ids": sum(
+            1 for count in openalex_ids.values() if count > 1
+        ),
+        "duplicate_doi_count": sum(1 for count in dois.values() if count > 1),
+        "year_range": year_range,
+        "countries_found": sorted(countries),
+    }
+
+
+def print_collection_report(report: dict[str, object]) -> None:
+    countries = report["countries_found"]
+    countries_text = "; ".join(countries) if isinstance(countries, list) else ""
+
+    print("Collection report:")
+    print(f"  Total saved: {report['total_saved']:,}")
+    print(f"  Records skipped: {report['records_skipped']:,}")
+    print(f"  Missing DOI count: {report['missing_doi_count']:,}")
+    print(f"  Missing title count: {report['missing_title_count']:,}")
+    print(f"  Duplicate OpenAlex IDs: {report['duplicate_openalex_ids']:,}")
+    print(f"  Duplicate DOI count: {report['duplicate_doi_count']:,}")
+    print(f"  Year range: {report['year_range'] or 'n/a'}")
+    print(f"  Countries found: {countries_text or 'n/a'}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -72,6 +224,20 @@ def parse_args() -> argparse.Namespace:
         help="Only save JSONL; do not save the flat CSV.",
     )
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from saved progress metadata and append to existing outputs.",
+    )
+    parser.add_argument(
+        "--progress-output",
+        type=Path,
+        default=None,
+        help=(
+            "Progress metadata path. Default: JSONL output path with "
+            ".progress.json appended."
+        ),
+    )
+    parser.add_argument(
         "--filter",
         action="append",
         default=[LK_AUTHORSHIP_FILTER],
@@ -79,6 +245,11 @@ def parse_args() -> argparse.Namespace:
             "OpenAlex filter. Default: authorships.institutions.country_code:LK. "
             "Can be passed multiple times."
         ),
+    )
+    parser.add_argument(
+        "--strict-lk-only",
+        action="store_true",
+        help="Keep only works whose detected affiliation country-code set is exactly LK.",
     )
     parser.add_argument(
         "--from-year",
@@ -96,7 +267,7 @@ def parse_args() -> argparse.Namespace:
         "--per-page",
         type=int,
         default=200,
-        help="Records per OpenAlex request. Default: 100",
+        help="Records per OpenAlex request. Default: 200",
     )
     parser.add_argument(
         "--max-records",
@@ -118,235 +289,116 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def as_list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
-
-
-def unique_join(values: list[Any], separator: str = "; ") -> str:
-    seen: set[str] = set()
-    output: list[str] = []
-    for value in values:
-        if value is None:
-            continue
-        text = str(value).strip()
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        output.append(text)
-    return separator.join(output)
-
-
-def authorships(work: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        authorship
-        for authorship in as_list(work.get("authorships"))
-        if isinstance(authorship, dict)
-    ]
-
-
-def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
-    codes = {
-        str(country).upper()
-        for country in as_list(authorship.get("countries"))
-        if country
-    }
-    for institution in as_list(authorship.get("institutions")):
-        if isinstance(institution, dict) and institution.get("country_code"):
-            codes.add(str(institution["country_code"]).upper())
-    return codes
-
-
-def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
-    return SRI_LANKA_COUNTRY_CODE in country_codes_from_authorship(authorship)
-
-
-def has_sri_lankan_author(work: dict[str, Any]) -> bool:
-    if any(is_sri_lankan_authorship(authorship) for authorship in authorships(work)):
-        return True
-
-    for institution in as_list(work.get("institutions")):
-        if (
-            isinstance(institution, dict)
-            and str(institution.get("country_code", "")).upper()
-            == SRI_LANKA_COUNTRY_CODE
-        ):
-            return True
-
-    return False
-
-
-def author_name(authorship: dict[str, Any]) -> str | None:
-    author = authorship.get("author")
-    if isinstance(author, dict) and author.get("display_name"):
-        return str(author["display_name"])
-    if authorship.get("raw_author_name"):
-        return str(authorship["raw_author_name"])
-    return None
-
-
-def author_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
-    names: list[str] = []
-    for authorship in authorships(work):
-        if sri_lankan_only and not is_sri_lankan_authorship(authorship):
-            continue
-        names.append(author_name(authorship))
-    return unique_join(names)
-
-
-def institution_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
-    names: list[str] = []
-    for authorship in authorships(work):
-        for institution in as_list(authorship.get("institutions")):
-            if not isinstance(institution, dict):
-                continue
-            country_code = str(institution.get("country_code", "")).upper()
-            if sri_lankan_only and country_code != SRI_LANKA_COUNTRY_CODE:
-                continue
-            names.append(institution.get("display_name"))
-    return unique_join(names)
-
-
-def country_codes(work: dict[str, Any]) -> str:
-    codes: list[str] = []
-    for authorship in authorships(work):
-        codes.extend(sorted(country_codes_from_authorship(authorship)))
-    return unique_join(codes)
-
-
-def get_nested(value: dict[str, Any], *keys: str) -> Any:
-    current: Any = value
-    for key in keys:
-        if not isinstance(current, dict):
-            return None
-        current = current.get(key)
-    return current
-
-
-def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
-    source = get_nested(work, "primary_location", "source") or {}
-    primary_location = work.get("primary_location") or {}
-    open_access = work.get("open_access") or {}
-
-    if not isinstance(source, dict):
-        source = {}
-    if not isinstance(primary_location, dict):
-        primary_location = {}
-    if not isinstance(open_access, dict):
-        open_access = {}
-
-    return {
-        "openalex_id": work.get("id"),
-        "doi": work.get("doi"),
-        "title": work.get("title") or work.get("display_name"),
-        "publication_year": work.get("publication_year"),
-        "publication_date": work.get("publication_date"),
-        "type": work.get("type"),
-        "cited_by_count": work.get("cited_by_count"),
-        "author_count": len(authorships(work)),
-        "authors": author_names(work),
-        "sri_lankan_authors": author_names(work, sri_lankan_only=True),
-        "institutions": institution_names(work),
-        "sri_lankan_institutions": institution_names(work, sri_lankan_only=True),
-        "countries": country_codes(work),
-        "source_name": source.get("display_name"),
-        "publisher": source.get("host_organization_name"),
-        "is_oa": open_access.get("is_oa"),
-        "landing_page_url": primary_location.get("landing_page_url"),
-        "pdf_url": primary_location.get("pdf_url"),
-    }
-
-
-def build_filters(args: argparse.Namespace) -> list[str]:
-    filters = list(args.filter)
-
-    if args.from_year is not None or args.to_year is not None:
-        start = args.from_year if args.from_year is not None else "*"
-        end = args.to_year if args.to_year is not None else "*"
-        filters.append(f"publication_year:{start}-{end}")
-
-    return filters
-
-
-def fetch_works(
-    *,
-    filters: list[str],
-    cursor: str,
-    per_page: int,
-    email: str | None,
-    api_key: str | None,
-) -> dict[str, Any]:
-    params: dict[str, Any] = {
-        "filter": ",".join(filters),
-        "cursor": cursor,
-        "per-page": per_page,
-    }
-    if email:
-        params["mailto"] = email
-    if api_key:
-        params["api_key"] = api_key
-
-    response = requests.get(
-        f"{OPENALEX_BASE_URL}/works",
-        params=params,
-        timeout=60,
-    )
-    response.raise_for_status()
-    return response.json()
-
-
-def iter_sri_lankan_works(args: argparse.Namespace):
-    filters = build_filters(args)
-    cursor = "*"
-    saved = 0
-
-    while cursor:
-        response = fetch_works(
-            filters=filters,
-            cursor=cursor,
-            per_page=args.per_page,
-            email=args.email,
-            api_key=args.api_key,
-        )
-        results = as_list(response.get("results"))
-        if not results:
-            break
-
-        for work in results:
-            if args.max_records is not None and saved >= args.max_records:
-                return
-            if not isinstance(work, dict) or not has_sri_lankan_author(work):
-                continue
-
-            saved += 1
-            yield work
-
-        cursor = response.get("meta", {}).get("next_cursor")
-
-
 def main() -> None:
     args = parse_args()
+    progress_output = args.progress_output or default_progress_output(args.jsonl_output)
+    filters = build_filters(
+        args.filter,
+        from_year=args.from_year,
+        to_year=args.to_year,
+    )
+    start_cursor = "*"
+    existing_ids: set[str] = set()
+    total = 0
+
+    if args.resume:
+        if not progress_output.exists():
+            raise SystemExit(
+                f"Cannot resume: progress metadata not found: {progress_output}"
+            )
+        if not args.jsonl_output.exists():
+            raise SystemExit(f"Cannot resume: JSONL output not found: {args.jsonl_output}")
+
+        progress = load_progress(progress_output)
+        if progress.get("filters") != filters:
+            raise SystemExit(
+                "Cannot resume: current filters do not match saved progress filters."
+            )
+        if bool(progress.get("strict_lk_only", False)) != args.strict_lk_only:
+            raise SystemExit(
+                "Cannot resume: strict LK-only setting does not match saved progress."
+            )
+
+        start_cursor = progress.get("next_cursor")
+        if start_cursor is None:
+            print(f"Collection already completed according to {progress_output}")
+            return
+
+        existing_ids, total = read_existing_jsonl_state(args.jsonl_output)
+        total = max(total, int(progress.get("records_saved", 0)))
+        if not args.no_csv:
+            rebuild_csv_from_jsonl(args.jsonl_output, args.csv_output)
+
     args.jsonl_output.parent.mkdir(parents=True, exist_ok=True)
     if not args.no_csv:
         args.csv_output.parent.mkdir(parents=True, exist_ok=True)
+    if not args.resume:
+        save_progress(
+            progress_output,
+            next_cursor=start_cursor,
+            records_saved=total,
+            filters=filters,
+            strict_lk_only=args.strict_lk_only,
+        )
 
-    total = 0
+    collector = OpenAlexCollector(email=args.email, api_key=args.api_key)
     csv_file = None
     writer = None
+    output_mode = "a" if args.resume else "w"
+    csv_mode = "a" if args.resume else "w"
+    stop_requested = False
+    records_skipped = 0
 
     try:
         if not args.no_csv:
-            csv_file = args.csv_output.open("w", encoding="utf-8", newline="")
+            csv_file = args.csv_output.open(csv_mode, encoding="utf-8", newline="")
             writer = csv.DictWriter(csv_file, fieldnames=CSV_COLUMNS)
-            writer.writeheader()
+            if not args.resume:
+                writer.writeheader()
 
-        with args.jsonl_output.open("w", encoding="utf-8") as jsonl_file:
-            for work in iter_sri_lankan_works(args):
-                jsonl_file.write(json.dumps(work, ensure_ascii=False) + "\n")
-                if writer is not None:
-                    writer.writerow(work_to_row(work))
-                total += 1
-                if total % 100 == 0:
-                    print(f"Saved {total:,} Sri Lankan-affiliated works...")
+        with args.jsonl_output.open(output_mode, encoding="utf-8") as jsonl_file:
+            pages = collector.iter_sri_lankan_work_pages(
+                filters=args.filter,
+                from_year=args.from_year,
+                to_year=args.to_year,
+                per_page=args.per_page,
+                start_cursor=start_cursor,
+                strict_lk_only=args.strict_lk_only,
+            )
+            for page in pages:
+                records_skipped += page.skipped_count
+                for work in page.works:
+                    if args.max_records is not None and total >= args.max_records:
+                        stop_requested = True
+                        break
+
+                    openalex_id = str(work.get("id", ""))
+                    if args.resume and openalex_id and openalex_id in existing_ids:
+                        records_skipped += 1
+                        continue
+
+                    jsonl_file.write(json.dumps(work, ensure_ascii=False) + "\n")
+                    if writer is not None:
+                        writer.writerow(work_to_row(work))
+                    if openalex_id:
+                        existing_ids.add(openalex_id)
+                    total += 1
+                    if total % 100 == 0:
+                        print(f"Saved {total:,} Sri Lankan-affiliated works...")
+
+                jsonl_file.flush()
+                if csv_file is not None:
+                    csv_file.flush()
+
+                save_progress(
+                    progress_output,
+                    next_cursor=page.cursor if stop_requested else page.next_cursor,
+                    records_saved=total,
+                    filters=filters,
+                    strict_lk_only=args.strict_lk_only,
+                )
+                if stop_requested:
+                    break
     finally:
         if csv_file is not None:
             csv_file.close()
@@ -354,6 +406,13 @@ def main() -> None:
     print(f"Saved {total:,} records to {args.jsonl_output}")
     if not args.no_csv:
         print(f"Saved flat CSV to {args.csv_output}")
+    print(f"Saved progress metadata to {progress_output}")
+    print_collection_report(
+        collect_quality_report(
+            args.jsonl_output,
+            records_skipped=records_skipped,
+        )
+    )
 
 
 if __name__ == "__main__":
