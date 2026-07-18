@@ -148,6 +148,37 @@ def test_iter_sri_lankan_work_pages_supports_strict_lk_only(monkeypatch):
     assert pages[0].skipped_count == 1
 
 
+def test_iter_sri_lankan_work_pages_requires_unique_openalex_ids(monkeypatch):
+    """OpenAlex ID should behave as the required primary key for collected works."""
+    first_work = sample_work("LK")
+    first_work["id"] = "https://openalex.org/W1"
+    duplicate_work = sample_work("LK")
+    duplicate_work["id"] = "https://openalex.org/W1"
+    missing_id_work = sample_work("LK")
+    missing_id_work.pop("id")
+    second_work = sample_work("LK")
+    second_work["id"] = "https://openalex.org/W2"
+
+    def fake_fetch_works(**_kwargs):
+        return {
+            "results": [first_work, duplicate_work, missing_id_work, second_work],
+            "meta": {"next_cursor": None},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+
+    pages = list(
+        collector.iter_sri_lankan_work_pages(filters=[openalex.LK_AUTHORSHIP_FILTER])
+    )
+
+    assert [work["id"] for work in pages[0].works] == [
+        "https://openalex.org/W1",
+        "https://openalex.org/W2",
+    ]
+    assert pages[0].skipped_count == 2
+
+
 def test_work_to_row_flattens_expected_openalex_fields():
     """Sample OpenAlex records should produce the expected flat CSV fields."""
     row = openalex.work_to_row(sample_work("LK"))
