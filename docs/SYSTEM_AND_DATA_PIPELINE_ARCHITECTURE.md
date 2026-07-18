@@ -163,7 +163,8 @@ last_page
 ```
 
 `publication_year` is normalized to an integer. `publication_date` is validated
-and written as an ISO `YYYY-MM-DD` date string in CSV exports.
+and written as an ISO `YYYY-MM-DD` date string in CSV exports; Parquet exports
+store it as a native date value.
 
 Crossref normalization should continue to standardize DOI, title, authors, publication year, source, publisher, and event fields.
 
@@ -200,7 +201,10 @@ data/processed/crossref/
 data/processed/doi_comparison/
 ```
 
-The OpenAlex analysis notebook writes strict Sri Lanka-only analysis tables and charts to `data/processed/openalex/` locally or `/kaggle/working/openalex_outputs/` on Kaggle.
+The OpenAlex collector writes raw JSONL, flat CSV, cleaned Parquet, and a
+separate DOI conflict CSV. The OpenAlex analysis notebook writes strict
+Sri Lanka-only analysis tables and charts to `data/processed/openalex/` locally
+or `/kaggle/working/openalex_outputs/` on Kaggle.
 
 ## Current Implementation Map
 

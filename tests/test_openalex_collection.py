@@ -8,6 +8,9 @@ import argparse
 import csv
 import json
 import logging
+import sys
+from datetime import date
+from types import SimpleNamespace
 
 from scripts import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
@@ -558,6 +561,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     csv_output = tmp_path / "works.csv"
     progress_output = tmp_path / "works.progress.json"
     doi_conflicts_output = tmp_path / "doi_conflicts.csv"
+    parquet_output = tmp_path / "works.parquet"
 
     jsonl_output.write_text(json.dumps(existing_work) + "\n", encoding="utf-8")
     openalex_script.save_progress(
@@ -584,8 +588,10 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     args = argparse.Namespace(
         jsonl_output=jsonl_output,
         csv_output=csv_output,
+        parquet_output=parquet_output,
         doi_conflicts_output=doi_conflicts_output,
         no_csv=False,
+        no_parquet=True,
         resume=True,
         progress_output=progress_output,
         filter=[openalex.LK_AUTHORSHIP_FILTER],
@@ -636,6 +642,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     csv_output = tmp_path / "works.csv"
     progress_output = tmp_path / "works.progress.json"
     doi_conflicts_output = tmp_path / "doi_conflicts.csv"
+    parquet_output = tmp_path / "works.parquet"
 
     class FakeCollector:
         def __init__(self, *, email, api_key):
@@ -650,8 +657,10 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     args = argparse.Namespace(
         jsonl_output=jsonl_output,
         csv_output=csv_output,
+        parquet_output=parquet_output,
         doi_conflicts_output=doi_conflicts_output,
         no_csv=True,
+        no_parquet=True,
         resume=False,
         progress_output=progress_output,
         filter=[openalex.LK_AUTHORSHIP_FILTER],
@@ -803,3 +812,45 @@ def test_write_doi_conflict_report_outputs_different_ids_for_same_doi(tmp_path):
             "publication_years": "2024",
         }
     ]
+
+
+def test_write_parquet_from_jsonl_writes_flat_rows(tmp_path, monkeypatch):
+    """Parquet export should write the same flattened rows as the CSV path."""
+    work = sample_work("LK")
+    jsonl_output = tmp_path / "works.jsonl"
+    parquet_output = tmp_path / "works.parquet"
+    jsonl_output.write_text(json.dumps(work) + "\n", encoding="utf-8")
+    calls = []
+
+    class FakeDataFrame:
+        def __init__(self, rows, columns):
+            self.rows = rows
+            self.columns = columns
+
+        def __len__(self):
+            return len(self.rows)
+
+        def to_parquet(self, path, *, index):
+            calls.append(
+                {
+                    "path": path,
+                    "index": index,
+                    "rows": self.rows,
+                    "columns": self.columns,
+                }
+            )
+
+    fake_pandas = SimpleNamespace(DataFrame=FakeDataFrame)
+    monkeypatch.setitem(sys.modules, "pandas", fake_pandas)
+
+    assert openalex_script.write_parquet_from_jsonl(
+        jsonl_output,
+        parquet_output,
+    ) == 1
+
+    assert calls[0]["path"] == parquet_output
+    assert calls[0]["index"] is False
+    assert calls[0]["columns"] == openalex.CSV_COLUMNS
+    assert calls[0]["rows"][0]["openalex_id"] == "https://openalex.org/W123"
+    assert calls[0]["rows"][0]["doi"] == "10.1234/example"
+    assert calls[0]["rows"][0]["publication_date"] == date(2024, 1, 15)
