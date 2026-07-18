@@ -190,6 +190,7 @@ def collect_quality_report(
     total_saved = 0
     missing_doi_count = 0
     missing_title_count = 0
+    retracted_record_count = 0
 
     if jsonl_output.exists():
         with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
@@ -221,6 +222,8 @@ def collect_quality_report(
 
                 if is_blank(work.get("title")) and is_blank(work.get("display_name")):
                     missing_title_count += 1
+                if work.get("is_retracted") is True:
+                    retracted_record_count += 1
 
                 year = work.get("publication_year")
                 if isinstance(year, int):
@@ -241,6 +244,7 @@ def collect_quality_report(
         "records_skipped": records_skipped,
         "missing_doi_count": missing_doi_count,
         "missing_title_count": missing_title_count,
+        "retracted_record_count": retracted_record_count,
         "duplicate_openalex_ids": sum(
             1 for count in openalex_ids.values() if count > 1
         ),
@@ -260,6 +264,7 @@ def print_collection_report(report: dict[str, object]) -> None:
     print(f"  Records skipped: {report['records_skipped']:,}")
     print(f"  Missing DOI count: {report['missing_doi_count']:,}")
     print(f"  Missing title count: {report['missing_title_count']:,}")
+    print(f"  Retracted records: {report['retracted_record_count']:,}")
     print(f"  Duplicate OpenAlex IDs: {report['duplicate_openalex_ids']:,}")
     print(f"  Duplicate DOI count: {report['duplicate_doi_count']:,}")
     print(f"  Year range: {report['year_range'] or 'n/a'}")

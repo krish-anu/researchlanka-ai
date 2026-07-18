@@ -131,6 +131,7 @@ sri_lankan_institutions
 countries
 source_name
 publisher
+is_retracted
 is_oa
 landing_page_url
 pdf_url
