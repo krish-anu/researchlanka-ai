@@ -1,7 +1,6 @@
 from pathlib import Path
 import logging
 import pandas as pd
-import re
 import sys
 
 logger = logging.getLogger(__name__)
@@ -10,6 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.utils.file_naming import dataset_filename
+from src.utils.doi import normalize_doi
 
 OPENALEX_PATH = PROJECT_ROOT / "data" / "raw" / "openalex" / dataset_filename(
     "openalex",
@@ -25,40 +25,6 @@ CROSSREF_PATH = PROJECT_ROOT / "data" / "processed" / "crossref" / dataset_filen
 )
 
 OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "doi_comparison"
-
-
-def normalize_doi(doi):
-    """
-    Normalize DOI strings for matching.
-    """
-
-    if doi is None or pd.isna(doi):
-        return None
-
-    doi = str(doi).strip().lower()
-
-    # Remove DOI URLs
-    doi = re.sub(
-        r"^(https?://)?(dx\.)?doi\.org/",
-        "",
-        doi,
-        flags=re.I,
-    )
-
-    doi = re.sub(
-        r"^doi:\s*",
-        "",
-        doi,
-        flags=re.I,
-    )
-
-    # Remove spaces
-    doi = doi.replace(" ", "")
-
-    # Remove citation punctuation
-    doi = doi.rstrip(".,;:)]}")
-
-    return doi.strip()
 
 
 def load_dois(path: Path, column: str) -> pd.DataFrame:
