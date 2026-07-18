@@ -24,11 +24,23 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.crossref_collector import CrossrefCollector
 from src.preprocessing.crossref_normalizer import reduce_work
+from src.utils.file_naming import dataset_filename
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_OUTPUT_PATH = (
-    PROJECT_ROOT / "data" / "processed" / "crossref" / "lk_works.jsonl"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "crossref"
+DEFAULT_OUTPUT_PATH = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "crossref",
+    "sri_lanka",
+    "works",
+    "jsonl",
+)
+DEFAULT_ENRICHED_OUTPUT_PATH = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "crossref",
+    "sri_lanka",
+    "works",
+    "jsonl",
+    variant="doi_enriched",
 )
 
 
@@ -128,7 +140,7 @@ def parse_args() -> argparse.Namespace:
     enrich_parser.add_argument(
         "--output",
         type=Path,
-        default=PROJECT_ROOT / "data/processed/crossref/doi_enriched.jsonl",
+        default=DEFAULT_ENRICHED_OUTPUT_PATH,
     )
     args = parser.parse_args()
 
@@ -256,7 +268,7 @@ def enrich_from_dois(
 
 
     files_to_check = [
-        PROJECT_ROOT / "data/processed/crossref/lk_works.jsonl",
+        DEFAULT_OUTPUT_PATH,
         output,
     ]
 
