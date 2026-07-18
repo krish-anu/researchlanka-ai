@@ -8,6 +8,9 @@ import argparse
 import csv
 import json
 import logging
+import sys
+from datetime import date
+from types import SimpleNamespace
 
 from scripts import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
@@ -24,10 +27,14 @@ def sample_work(country_code: str = "LK") -> dict:
         "publication_year": 2024,
         "publication_date": "2024-01-15",
         "type": "article",
+        "is_retracted": False,
         "cited_by_count": 7,
         "authorships": [
             {
                 "author": {"display_name": "A. Researcher"},
+                "raw_affiliation_strings": [
+                    "Department of Public Health, University of Colombo, Sri Lanka",
+                ],
                 "countries": [country_code],
                 "institutions": [
                     {
@@ -38,6 +45,9 @@ def sample_work(country_code: str = "LK") -> dict:
             },
             {
                 "author": {"display_name": "B. Collaborator"},
+                "raw_affiliation_strings": [
+                    "Department of Epidemiology, Example University, United States",
+                ],
                 "countries": ["US"],
                 "institutions": [
                     {
@@ -58,6 +68,28 @@ def sample_work(country_code: str = "LK") -> dict:
                 "issn_l": "1234-5678",
             },
         },
+        "locations": [
+            {
+                "landing_page_url": "https://example.org/paper",
+                "pdf_url": "https://example.org/paper.pdf",
+                "license": "cc-by",
+                "version": "publishedVersion",
+                "source": {
+                    "display_name": "Example Journal",
+                    "type": "journal",
+                },
+            },
+            {
+                "landing_page_url": "https://repository.example.edu/paper",
+                "pdf_url": "https://repository.example.edu/paper.pdf",
+                "license": "cc-by",
+                "version": "acceptedVersion",
+                "source": {
+                    "display_name": "Example Repository",
+                    "type": "repository",
+                },
+            },
+        ],
         "open_access": {"is_oa": True, "oa_status": "gold", "license": "cc-by"},
         "referenced_works_count": 3,
         "referenced_works": [
@@ -148,12 +180,43 @@ def test_iter_sri_lankan_work_pages_supports_strict_lk_only(monkeypatch):
     assert pages[0].skipped_count == 1
 
 
+def test_iter_sri_lankan_work_pages_requires_unique_openalex_ids(monkeypatch):
+    """OpenAlex ID should behave as the required primary key for collected works."""
+    first_work = sample_work("LK")
+    first_work["id"] = "https://openalex.org/W1"
+    duplicate_work = sample_work("LK")
+    duplicate_work["id"] = "https://openalex.org/W1"
+    missing_id_work = sample_work("LK")
+    missing_id_work.pop("id")
+    second_work = sample_work("LK")
+    second_work["id"] = "https://openalex.org/W2"
+
+    def fake_fetch_works(**_kwargs):
+        return {
+            "results": [first_work, duplicate_work, missing_id_work, second_work],
+            "meta": {"next_cursor": None},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+
+    pages = list(
+        collector.iter_sri_lankan_work_pages(filters=[openalex.LK_AUTHORSHIP_FILTER])
+    )
+
+    assert [work["id"] for work in pages[0].works] == [
+        "https://openalex.org/W1",
+        "https://openalex.org/W2",
+    ]
+    assert pages[0].skipped_count == 2
+
+
 def test_work_to_row_flattens_expected_openalex_fields():
     """Sample OpenAlex records should produce the expected flat CSV fields."""
     row = openalex.work_to_row(sample_work("LK"))
 
     assert row["openalex_id"] == "https://openalex.org/W123"
-    assert row["doi"] == "https://doi.org/10.1234/example"
+    assert row["doi"] == "10.1234/example"
     assert row["title"] == "Sample Sri Lankan Research Publication"
     assert row["publication_year"] == 2024
     assert row["author_count"] == 2
@@ -161,12 +224,35 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["sri_lankan_authors"] == "A. Researcher"
     assert row["institutions"] == "University of Colombo; Example University"
     assert row["sri_lankan_institutions"] == "University of Colombo"
+    assert (
+        row["raw_affiliation_strings"]
+        == "Department of Public Health, University of Colombo, Sri Lanka; "
+        "Department of Epidemiology, Example University, United States"
+    )
+    assert (
+        row["sri_lankan_raw_affiliation_strings"]
+        == "Department of Public Health, University of Colombo, Sri Lanka"
+    )
     assert row["countries"] == "LK; US"
     assert row["source_name"] == "Example Journal"
     assert row["publisher"] == "Example Publisher"
+    assert row["is_retracted"] is False
     assert row["is_oa"] is True
     assert row["landing_page_url"] == "https://example.org/paper"
     assert row["pdf_url"] == "https://example.org/paper.pdf"
+    assert row["locations_count"] == 2
+    assert (
+        row["location_landing_page_urls"]
+        == "https://example.org/paper; https://repository.example.edu/paper"
+    )
+    assert (
+        row["location_pdf_urls"]
+        == "https://example.org/paper.pdf; https://repository.example.edu/paper.pdf"
+    )
+    assert row["location_source_names"] == "Example Journal; Example Repository"
+    assert row["location_source_types"] == "journal; repository"
+    assert row["location_licenses"] == "cc-by"
+    assert row["location_versions"] == "publishedVersion; acceptedVersion"
     assert row["referenced_works_count"] == 3
     assert row["concepts"] == "Medicine; Public health"
     assert row["topics"] == "Dengue epidemiology; Vector control"
@@ -185,6 +271,61 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["last_page"] == "59"
 
 
+def test_work_to_row_normalizes_mixed_case_doi_urls():
+    """Flat OpenAlex rows should use DOI keys without URL prefixes."""
+    work = sample_work("LK")
+    work["doi"] = "HTTPS://DOI.ORG/10.1234/Example.Article"
+
+    row = openalex.work_to_row(work)
+
+    assert row["doi"] == "10.1234/example.article"
+
+
+def test_work_to_row_flags_retracted_works():
+    """OpenAlex retraction status should be available in the flat CSV row."""
+    work = sample_work("LK")
+    work["is_retracted"] = True
+
+    row = openalex.work_to_row(work)
+
+    assert row["is_retracted"] is True
+
+
+def test_work_to_row_defaults_missing_retraction_status_to_false():
+    """Missing or null OpenAlex retraction status should become a clear flag."""
+    work = sample_work("LK")
+    work["is_retracted"] = None
+
+    row = openalex.work_to_row(work)
+
+    assert row["is_retracted"] is False
+
+
+def test_work_to_row_normalizes_publication_year_and_date():
+    """Flat rows should keep publication year as int and date as ISO date."""
+    work = sample_work("LK")
+    work["publication_year"] = "2024"
+    work["publication_date"] = "2024-01-15"
+
+    row = openalex.work_to_row(work)
+
+    assert row["publication_year"] == 2024
+    assert isinstance(row["publication_year"], int)
+    assert row["publication_date"] == "2024-01-15"
+
+
+def test_work_to_row_blanks_invalid_publication_year_and_date():
+    """Invalid year/date values should not leak into clean flat rows."""
+    work = sample_work("LK")
+    work["publication_year"] = "not-a-year"
+    work["publication_date"] = "2024-99-99"
+
+    row = openalex.work_to_row(work)
+
+    assert row["publication_year"] is None
+    assert row["publication_date"] is None
+
+
 def test_csv_columns_include_extra_flattened_analysis_fields():
     """The flat CSV schema should expose fields used by analysis notebooks."""
     expected_columns = {
@@ -196,6 +337,16 @@ def test_csv_columns_include_extra_flattened_analysis_fields():
         "primary_subfield",
         "primary_domain",
         "language",
+        "is_retracted",
+        "raw_affiliation_strings",
+        "sri_lankan_raw_affiliation_strings",
+        "locations_count",
+        "location_landing_page_urls",
+        "location_pdf_urls",
+        "location_source_names",
+        "location_source_types",
+        "location_licenses",
+        "location_versions",
         "oa_status",
         "license",
         "source_type",
@@ -404,10 +555,13 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     existing_work["id"] = "https://openalex.org/W1"
     new_work = sample_work("LK")
     new_work["id"] = "https://openalex.org/W2"
+    new_work["doi"] = "https://doi.org/10.1234/new"
 
     jsonl_output = tmp_path / "works.jsonl"
     csv_output = tmp_path / "works.csv"
     progress_output = tmp_path / "works.progress.json"
+    doi_conflicts_output = tmp_path / "doi_conflicts.csv"
+    parquet_output = tmp_path / "works.parquet"
 
     jsonl_output.write_text(json.dumps(existing_work) + "\n", encoding="utf-8")
     openalex_script.save_progress(
@@ -434,7 +588,10 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     args = argparse.Namespace(
         jsonl_output=jsonl_output,
         csv_output=csv_output,
+        parquet_output=parquet_output,
+        doi_conflicts_output=doi_conflicts_output,
         no_csv=False,
+        no_parquet=True,
         resume=True,
         progress_output=progress_output,
         filter=[openalex.LK_AUTHORSHIP_FILTER],
@@ -467,6 +624,8 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         "https://openalex.org/W1",
         "https://openalex.org/W2",
     ]
+    with doi_conflicts_output.open("r", encoding="utf-8", newline="") as csv_file:
+        assert list(csv.DictReader(csv_file)) == []
 
     progress = openalex_script.load_progress(progress_output)
     assert progress == {
@@ -482,6 +641,8 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     jsonl_output = tmp_path / "works.jsonl"
     csv_output = tmp_path / "works.csv"
     progress_output = tmp_path / "works.progress.json"
+    doi_conflicts_output = tmp_path / "doi_conflicts.csv"
+    parquet_output = tmp_path / "works.parquet"
 
     class FakeCollector:
         def __init__(self, *, email, api_key):
@@ -496,7 +657,10 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     args = argparse.Namespace(
         jsonl_output=jsonl_output,
         csv_output=csv_output,
+        parquet_output=parquet_output,
+        doi_conflicts_output=doi_conflicts_output,
         no_csv=True,
+        no_parquet=True,
         resume=False,
         progress_output=progress_output,
         filter=[openalex.LK_AUTHORSHIP_FILTER],
@@ -520,6 +684,8 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
         "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
         "strict_lk_only": True,
     }
+    with doi_conflicts_output.open("r", encoding="utf-8", newline="") as csv_file:
+        assert list(csv.DictReader(csv_file)) == []
 
 
 def test_default_output_dir_supports_environment_override(tmp_path, monkeypatch):
@@ -552,6 +718,13 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
     duplicate_work["id"] = "https://openalex.org/W1"
     duplicate_work["doi"] = "https://doi.org/10.1234/DUPLICATE"
     duplicate_work["publication_year"] = 2024
+    duplicate_work["is_retracted"] = True
+
+    conflict_work = sample_work("LK")
+    conflict_work["id"] = "https://openalex.org/W4"
+    conflict_work["doi"] = "10.1234/duplicate"
+    conflict_work["title"] = "Different OpenAlex Record With Same DOI"
+    conflict_work["publication_year"] = 2025
 
     missing_work = sample_work("LK")
     missing_work["id"] = "https://openalex.org/W3"
@@ -566,6 +739,7 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
             [
                 json.dumps(first_work),
                 json.dumps(duplicate_work),
+                json.dumps(conflict_work),
                 json.dumps(missing_work),
             ]
         )
@@ -577,12 +751,106 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
         jsonl_output,
         records_skipped=5,
     ) == {
-        "total_saved": 3,
+        "total_saved": 4,
         "records_skipped": 5,
         "missing_doi_count": 1,
         "missing_title_count": 1,
+        "retracted_record_count": 1,
+        "doi_conflict_count": 1,
         "duplicate_openalex_ids": 1,
         "duplicate_doi_count": 1,
-        "year_range": "2022-2024",
+        "year_range": "2022-2025",
         "countries_found": ["LK", "US"],
     }
+
+
+def test_write_doi_conflict_report_outputs_different_ids_for_same_doi(tmp_path):
+    """DOI conflicts should be exported separately from the main works dataset."""
+    first_work = sample_work("LK")
+    first_work["id"] = "https://openalex.org/W1"
+    first_work["doi"] = "https://doi.org/10.1234/conflict"
+    first_work["title"] = "First DOI Record"
+
+    second_work = sample_work("LK")
+    second_work["id"] = "https://openalex.org/W2"
+    second_work["doi"] = "10.1234/CONFLICT"
+    second_work["title"] = "Second DOI Record"
+
+    same_id_duplicate = sample_work("LK")
+    same_id_duplicate["id"] = "https://openalex.org/W1"
+    same_id_duplicate["doi"] = "10.1234/conflict"
+
+    jsonl_output = tmp_path / "works.jsonl"
+    conflict_output = tmp_path / "doi_conflicts.csv"
+    jsonl_output.write_text(
+        "\n".join(
+            [
+                json.dumps(first_work),
+                json.dumps(second_work),
+                json.dumps(same_id_duplicate),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert openalex_script.write_doi_conflict_report(
+        jsonl_output,
+        conflict_output,
+    ) == 1
+
+    with conflict_output.open("r", encoding="utf-8", newline="") as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    assert rows == [
+        {
+            "doi": "10.1234/conflict",
+            "openalex_id_count": "2",
+            "record_count": "3",
+            "openalex_ids": "https://openalex.org/W1; https://openalex.org/W2",
+            "titles": "First DOI Record; Second DOI Record; Sample Sri Lankan Research Publication",
+            "publication_years": "2024",
+        }
+    ]
+
+
+def test_write_parquet_from_jsonl_writes_flat_rows(tmp_path, monkeypatch):
+    """Parquet export should write the same flattened rows as the CSV path."""
+    work = sample_work("LK")
+    jsonl_output = tmp_path / "works.jsonl"
+    parquet_output = tmp_path / "works.parquet"
+    jsonl_output.write_text(json.dumps(work) + "\n", encoding="utf-8")
+    calls = []
+
+    class FakeDataFrame:
+        def __init__(self, rows, columns):
+            self.rows = rows
+            self.columns = columns
+
+        def __len__(self):
+            return len(self.rows)
+
+        def to_parquet(self, path, *, index):
+            calls.append(
+                {
+                    "path": path,
+                    "index": index,
+                    "rows": self.rows,
+                    "columns": self.columns,
+                }
+            )
+
+    fake_pandas = SimpleNamespace(DataFrame=FakeDataFrame)
+    monkeypatch.setitem(sys.modules, "pandas", fake_pandas)
+
+    assert openalex_script.write_parquet_from_jsonl(
+        jsonl_output,
+        parquet_output,
+    ) == 1
+
+    assert calls[0]["path"] == parquet_output
+    assert calls[0]["index"] is False
+    assert calls[0]["columns"] == openalex.CSV_COLUMNS
+    assert calls[0]["rows"][0]["openalex_id"] == "https://openalex.org/W123"
+    assert calls[0]["rows"][0]["doi"] == "10.1234/example"
+    assert calls[0]["rows"][0]["publication_date"] == date(2024, 1, 15)

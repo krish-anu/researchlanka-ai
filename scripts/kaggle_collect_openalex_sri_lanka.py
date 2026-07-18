@@ -17,7 +17,8 @@ import json
 import logging
 import os
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -25,15 +26,19 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.openalex_collector import (
-    CSV_COLUMNS,
     DEFAULT_FROM_YEAR,
     DEFAULT_TO_YEAR,
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
     build_filters,
+)
+from src.preprocessing.openalex_normalizer import (
+    CSV_COLUMNS,
     country_codes,
+    openalex_work_id,
     work_to_row,
 )
+from src.utils.doi import normalize_doi
 from src.utils.file_naming import dataset_filename
 
 
@@ -64,10 +69,31 @@ DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
     "works",
     "csv",
 )
+DEFAULT_PARQUET_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "openalex",
+    "sri_lanka",
+    "works",
+    "parquet",
+)
+DEFAULT_DOI_CONFLICTS_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "openalex",
+    "sri_lanka",
+    "doi_conflicts",
+    "csv",
+)
 DEFAULT_LOG_LEVEL = os.getenv("OPENALEX_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 logger = logging.getLogger(__name__)
+
+DOI_CONFLICT_COLUMNS = [
+    "doi",
+    "openalex_id_count",
+    "record_count",
+    "openalex_ids",
+    "titles",
+    "publication_years",
+]
 
 
 def setup_logging(level: str, log_file: Path | None = None) -> None:
@@ -140,8 +166,10 @@ def read_existing_jsonl_state(path: Path) -> tuple[set[str], int]:
                 work = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if isinstance(work, dict) and work.get("id"):
-                openalex_ids.add(str(work["id"]))
+            if isinstance(work, dict):
+                work_id = openalex_work_id(work)
+                if work_id is not None:
+                    openalex_ids.add(work_id)
 
     return openalex_ids, records_saved
 
@@ -153,24 +181,140 @@ def rebuild_csv_from_jsonl(jsonl_output: Path, csv_output: Path) -> None:
         writer = csv.DictWriter(csv_file, fieldnames=CSV_COLUMNS)
         writer.writeheader()
 
-        if not jsonl_output.exists():
-            return
+        for row in iter_flat_rows_from_jsonl(jsonl_output):
+            writer.writerow(row)
 
-        with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
-            for line in jsonl_file:
-                if not line.strip():
-                    continue
-                try:
-                    work = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(work, dict):
-                    writer.writerow(work_to_row(work))
+
+def iter_flat_rows_from_jsonl(jsonl_output: Path):
+    """Yield flattened OpenAlex rows from raw JSONL records."""
+    if not jsonl_output.exists():
+        return
+
+    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+        for line in jsonl_file:
+            if not line.strip():
+                continue
+            try:
+                work = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(work, dict):
+                yield work_to_row(work)
+
+
+def write_parquet_from_jsonl(jsonl_output: Path, parquet_output: Path) -> int:
+    """Write flattened OpenAlex rows to Parquet and return the row count."""
+    try:
+        import pandas as pd
+    except ImportError as exc:
+        raise RuntimeError(
+            "Parquet export requires pandas and a Parquet engine such as pyarrow."
+        ) from exc
+
+    rows = []
+    for row in iter_flat_rows_from_jsonl(jsonl_output):
+        parquet_row = dict(row)
+        publication_date = parquet_row.get("publication_date")
+        if publication_date:
+            parquet_row["publication_date"] = date.fromisoformat(str(publication_date))
+        rows.append(parquet_row)
+
+    dataframe = pd.DataFrame(rows, columns=CSV_COLUMNS)
+    parquet_output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        dataframe.to_parquet(parquet_output, index=False)
+    except ImportError as exc:
+        raise RuntimeError(
+            "Parquet export requires pyarrow or fastparquet. "
+            "Install project requirements before writing Parquet."
+        ) from exc
+    return len(dataframe)
 
 
 def is_blank(value: object) -> bool:
     """Treat None and whitespace-only strings as missing report values."""
     return value is None or str(value).strip() == ""
+
+
+def collect_doi_conflicts(jsonl_output: Path) -> list[dict[str, object]]:
+    """Find normalized DOIs attached to more than one distinct OpenAlex ID."""
+    doi_records: dict[str, list[dict[str, object]]] = defaultdict(list)
+
+    if not jsonl_output.exists():
+        return []
+
+    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+        for line in jsonl_file:
+            if not line.strip():
+                continue
+            try:
+                work = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(work, dict):
+                continue
+
+            openalex_id = openalex_work_id(work)
+            doi = normalize_doi(work.get("doi"))
+            if openalex_id is None or doi is None:
+                continue
+
+            doi_records[doi].append(
+                {
+                    "openalex_id": openalex_id,
+                    "title": work.get("title") or work.get("display_name"),
+                    "publication_year": work.get("publication_year"),
+                }
+            )
+
+    conflicts: list[dict[str, object]] = []
+    for doi, records in sorted(doi_records.items()):
+        openalex_ids = sorted(
+            {str(record["openalex_id"]) for record in records if record.get("openalex_id")}
+        )
+        if len(openalex_ids) <= 1:
+            continue
+
+        titles = unique_preserving_order(record.get("title") for record in records)
+        years = unique_preserving_order(record.get("publication_year") for record in records)
+        conflicts.append(
+            {
+                "doi": doi,
+                "openalex_id_count": len(openalex_ids),
+                "record_count": len(records),
+                "openalex_ids": "; ".join(openalex_ids),
+                "titles": "; ".join(titles),
+                "publication_years": "; ".join(years),
+            }
+        )
+
+    return conflicts
+
+
+def unique_preserving_order(values: object) -> list[str]:
+    """Return unique non-blank string values in first-seen order."""
+    seen: set[str] = set()
+    output: list[str] = []
+    for value in values:
+        if is_blank(value):
+            continue
+        text = str(value).strip()
+        if text in seen:
+            continue
+        seen.add(text)
+        output.append(text)
+    return output
+
+
+def write_doi_conflict_report(jsonl_output: Path, csv_output: Path) -> int:
+    """Write a separate CSV for DOI conflicts and return the conflict count."""
+    conflicts = collect_doi_conflicts(jsonl_output)
+    csv_output.parent.mkdir(parents=True, exist_ok=True)
+    with csv_output.open("w", encoding="utf-8", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=DOI_CONFLICT_COLUMNS)
+        writer.writeheader()
+        writer.writerows(conflicts)
+    return len(conflicts)
 
 
 def collect_quality_report(
@@ -186,6 +330,8 @@ def collect_quality_report(
     total_saved = 0
     missing_doi_count = 0
     missing_title_count = 0
+    retracted_record_count = 0
+    doi_conflict_count = len(collect_doi_conflicts(jsonl_output))
 
     if jsonl_output.exists():
         with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
@@ -201,18 +347,24 @@ def collect_quality_report(
 
                 total_saved += 1
 
-                openalex_id = work.get("id")
-                if not is_blank(openalex_id):
-                    openalex_ids[str(openalex_id).strip()] += 1
+                openalex_id = openalex_work_id(work)
+                if openalex_id is not None:
+                    openalex_ids[openalex_id] += 1
 
                 doi = work.get("doi")
                 if is_blank(doi):
                     missing_doi_count += 1
                 else:
-                    dois[str(doi).strip().lower()] += 1
+                    normalized_doi = normalize_doi(doi)
+                    if normalized_doi is None:
+                        missing_doi_count += 1
+                    else:
+                        dois[normalized_doi] += 1
 
                 if is_blank(work.get("title")) and is_blank(work.get("display_name")):
                     missing_title_count += 1
+                if work.get("is_retracted") is True:
+                    retracted_record_count += 1
 
                 year = work.get("publication_year")
                 if isinstance(year, int):
@@ -233,6 +385,8 @@ def collect_quality_report(
         "records_skipped": records_skipped,
         "missing_doi_count": missing_doi_count,
         "missing_title_count": missing_title_count,
+        "retracted_record_count": retracted_record_count,
+        "doi_conflict_count": doi_conflict_count,
         "duplicate_openalex_ids": sum(
             1 for count in openalex_ids.values() if count > 1
         ),
@@ -252,8 +406,10 @@ def print_collection_report(report: dict[str, object]) -> None:
     print(f"  Records skipped: {report['records_skipped']:,}")
     print(f"  Missing DOI count: {report['missing_doi_count']:,}")
     print(f"  Missing title count: {report['missing_title_count']:,}")
+    print(f"  Retracted records: {report['retracted_record_count']:,}")
     print(f"  Duplicate OpenAlex IDs: {report['duplicate_openalex_ids']:,}")
     print(f"  Duplicate DOI count: {report['duplicate_doi_count']:,}")
+    print(f"  DOI conflicts: {report['doi_conflict_count']:,}")
     print(f"  Year range: {report['year_range'] or 'n/a'}")
     print(f"  Countries found: {countries_text or 'n/a'}")
 
@@ -276,9 +432,26 @@ def parse_args() -> argparse.Namespace:
         help=f"Flat CSV output path. Default: {DEFAULT_CSV_OUTPUT}",
     )
     parser.add_argument(
+        "--parquet-output",
+        type=Path,
+        default=DEFAULT_PARQUET_OUTPUT,
+        help=f"Cleaned Parquet output path. Default: {DEFAULT_PARQUET_OUTPUT}",
+    )
+    parser.add_argument(
+        "--doi-conflicts-output",
+        type=Path,
+        default=DEFAULT_DOI_CONFLICTS_OUTPUT,
+        help=f"Separate DOI conflict report path. Default: {DEFAULT_DOI_CONFLICTS_OUTPUT}",
+    )
+    parser.add_argument(
         "--no-csv",
         action="store_true",
         help="Only save JSONL; do not save the flat CSV.",
+    )
+    parser.add_argument(
+        "--no-parquet",
+        action="store_true",
+        help="Do not write the cleaned Parquet output.",
     )
     parser.add_argument(
         "--resume",
@@ -468,18 +641,20 @@ def main() -> None:
                         stop_requested = True
                         break
 
-                    openalex_id = str(work.get("id", ""))
+                    openalex_id = openalex_work_id(work)
+                    if openalex_id is None:
+                        records_skipped += 1
+                        continue
                     # If a crash happened after writing a record but before
                     # advancing the cursor, resume may see that record again.
-                    if args.resume and openalex_id and openalex_id in existing_ids:
+                    if openalex_id in existing_ids:
                         records_skipped += 1
                         continue
 
                     jsonl_file.write(json.dumps(work, ensure_ascii=False) + "\n")
                     if writer is not None:
                         writer.writerow(work_to_row(work))
-                    if openalex_id:
-                        existing_ids.add(openalex_id)
+                    existing_ids.add(openalex_id)
                     total += 1
                     if total % 100 == 0:
                         logger.info("Saved %s Sri Lankan-affiliated works", f"{total:,}")
@@ -504,6 +679,24 @@ def main() -> None:
     logger.info("Saved %s records to %s", f"{total:,}", args.jsonl_output)
     if not args.no_csv:
         logger.info("Saved flat CSV to %s", args.csv_output)
+    if not getattr(args, "no_parquet", False):
+        parquet_output = getattr(args, "parquet_output", DEFAULT_PARQUET_OUTPUT)
+        parquet_count = write_parquet_from_jsonl(args.jsonl_output, parquet_output)
+        logger.info("Saved %s records to %s", f"{parquet_count:,}", parquet_output)
+    doi_conflicts_output = getattr(
+        args,
+        "doi_conflicts_output",
+        DEFAULT_DOI_CONFLICTS_OUTPUT,
+    )
+    doi_conflict_count = write_doi_conflict_report(
+        args.jsonl_output,
+        doi_conflicts_output,
+    )
+    logger.info(
+        "Saved %s DOI conflicts to %s",
+        f"{doi_conflict_count:,}",
+        doi_conflicts_output,
+    )
     logger.info("Saved progress metadata to %s", progress_output)
     print_collection_report(
         collect_quality_report(

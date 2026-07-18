@@ -38,6 +38,7 @@ def test_dataset_filename_rejects_unsupported_extensions():
 
 def test_is_dataset_filename_accepts_lower_snake_case_supported_outputs():
     assert is_dataset_filename("openalex_sri_lanka_works.csv")
+    assert is_dataset_filename("openalex_sri_lanka_works.parquet")
     assert is_dataset_filename("doi_comparison_common_dois.txt")
 
 
@@ -51,6 +52,7 @@ def test_script_defaults_follow_dataset_naming_convention():
     default_paths = [
         kaggle_collect_openalex_sri_lanka.DEFAULT_JSONL_OUTPUT,
         kaggle_collect_openalex_sri_lanka.DEFAULT_CSV_OUTPUT,
+        kaggle_collect_openalex_sri_lanka.DEFAULT_PARQUET_OUTPUT,
         collect_crossref.DEFAULT_OUTPUT_PATH,
         collect_crossref.DEFAULT_ENRICHED_OUTPUT_PATH,
         compare_dois.OPENALEX_PATH,

@@ -38,6 +38,9 @@ def test_openalex_helpers_ignore_malformed_authorships():
             "not-a-dict",
             {
                 "raw_author_name": "Fallback Author",
+                "raw_affiliation_strings": [
+                    "Department of Medicine, University of Colombo, Sri Lanka",
+                ],
                 "countries": ["LK"],
                 "institutions": [
                     {"display_name": "University of Colombo", "country_code": "LK"}
@@ -45,6 +48,7 @@ def test_openalex_helpers_ignore_malformed_authorships():
             },
             {
                 "author": {"display_name": "Foreign Author"},
+                "raw_affiliation_string": "School of Public Health, Example University, USA",
                 "countries": ["US"],
                 "institutions": [
                     {"display_name": "Example University", "country_code": "US"}
@@ -57,6 +61,15 @@ def test_openalex_helpers_ignore_malformed_authorships():
     assert openalex.author_names(work, sri_lankan_only=True) == "Fallback Author"
     assert openalex.institution_names(work) == "University of Colombo; Example University"
     assert openalex.institution_names(work, sri_lankan_only=True) == "University of Colombo"
+    assert (
+        openalex.raw_affiliation_strings(work)
+        == "Department of Medicine, University of Colombo, Sri Lanka; "
+        "School of Public Health, Example University, USA"
+    )
+    assert (
+        openalex.raw_affiliation_strings(work, sri_lankan_only=True)
+        == "Department of Medicine, University of Colombo, Sri Lanka"
+    )
 
 
 def test_openalex_work_to_row_falls_back_to_first_topic_when_primary_topic_missing():
