@@ -24,6 +24,7 @@ def sample_work(country_code: str = "LK") -> dict:
         "publication_year": 2024,
         "publication_date": "2024-01-15",
         "type": "article",
+        "is_retracted": False,
         "cited_by_count": 7,
         "authorships": [
             {
@@ -195,6 +196,7 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["countries"] == "LK; US"
     assert row["source_name"] == "Example Journal"
     assert row["publisher"] == "Example Publisher"
+    assert row["is_retracted"] is False
     assert row["is_oa"] is True
     assert row["landing_page_url"] == "https://example.org/paper"
     assert row["pdf_url"] == "https://example.org/paper.pdf"
@@ -226,6 +228,26 @@ def test_work_to_row_normalizes_mixed_case_doi_urls():
     assert row["doi"] == "10.1234/example.article"
 
 
+def test_work_to_row_flags_retracted_works():
+    """OpenAlex retraction status should be available in the flat CSV row."""
+    work = sample_work("LK")
+    work["is_retracted"] = True
+
+    row = openalex.work_to_row(work)
+
+    assert row["is_retracted"] is True
+
+
+def test_work_to_row_defaults_missing_retraction_status_to_false():
+    """Missing or null OpenAlex retraction status should become a clear flag."""
+    work = sample_work("LK")
+    work["is_retracted"] = None
+
+    row = openalex.work_to_row(work)
+
+    assert row["is_retracted"] is False
+
+
 def test_csv_columns_include_extra_flattened_analysis_fields():
     """The flat CSV schema should expose fields used by analysis notebooks."""
     expected_columns = {
@@ -237,6 +259,7 @@ def test_csv_columns_include_extra_flattened_analysis_fields():
         "primary_subfield",
         "primary_domain",
         "language",
+        "is_retracted",
         "oa_status",
         "license",
         "source_type",
@@ -593,6 +616,7 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
     duplicate_work["id"] = "https://openalex.org/W1"
     duplicate_work["doi"] = "https://doi.org/10.1234/DUPLICATE"
     duplicate_work["publication_year"] = 2024
+    duplicate_work["is_retracted"] = True
 
     missing_work = sample_work("LK")
     missing_work["id"] = "https://openalex.org/W3"
@@ -622,6 +646,7 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
         "records_skipped": 5,
         "missing_doi_count": 1,
         "missing_title_count": 1,
+        "retracted_record_count": 1,
         "duplicate_openalex_ids": 1,
         "duplicate_doi_count": 1,
         "year_range": "2022-2024",
