@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -66,10 +66,25 @@ DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
     "works",
     "csv",
 )
+DEFAULT_DOI_CONFLICTS_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "openalex",
+    "sri_lanka",
+    "doi_conflicts",
+    "csv",
+)
 DEFAULT_LOG_LEVEL = os.getenv("OPENALEX_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 logger = logging.getLogger(__name__)
+
+DOI_CONFLICT_COLUMNS = [
+    "doi",
+    "openalex_id_count",
+    "record_count",
+    "openalex_ids",
+    "titles",
+    "publication_years",
+]
 
 
 def setup_logging(level: str, log_file: Path | None = None) -> None:
@@ -177,6 +192,87 @@ def is_blank(value: object) -> bool:
     return value is None or str(value).strip() == ""
 
 
+def collect_doi_conflicts(jsonl_output: Path) -> list[dict[str, object]]:
+    """Find normalized DOIs attached to more than one distinct OpenAlex ID."""
+    doi_records: dict[str, list[dict[str, object]]] = defaultdict(list)
+
+    if not jsonl_output.exists():
+        return []
+
+    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+        for line in jsonl_file:
+            if not line.strip():
+                continue
+            try:
+                work = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(work, dict):
+                continue
+
+            openalex_id = openalex_work_id(work)
+            doi = normalize_doi(work.get("doi"))
+            if openalex_id is None or doi is None:
+                continue
+
+            doi_records[doi].append(
+                {
+                    "openalex_id": openalex_id,
+                    "title": work.get("title") or work.get("display_name"),
+                    "publication_year": work.get("publication_year"),
+                }
+            )
+
+    conflicts: list[dict[str, object]] = []
+    for doi, records in sorted(doi_records.items()):
+        openalex_ids = sorted(
+            {str(record["openalex_id"]) for record in records if record.get("openalex_id")}
+        )
+        if len(openalex_ids) <= 1:
+            continue
+
+        titles = unique_preserving_order(record.get("title") for record in records)
+        years = unique_preserving_order(record.get("publication_year") for record in records)
+        conflicts.append(
+            {
+                "doi": doi,
+                "openalex_id_count": len(openalex_ids),
+                "record_count": len(records),
+                "openalex_ids": "; ".join(openalex_ids),
+                "titles": "; ".join(titles),
+                "publication_years": "; ".join(years),
+            }
+        )
+
+    return conflicts
+
+
+def unique_preserving_order(values: object) -> list[str]:
+    """Return unique non-blank string values in first-seen order."""
+    seen: set[str] = set()
+    output: list[str] = []
+    for value in values:
+        if is_blank(value):
+            continue
+        text = str(value).strip()
+        if text in seen:
+            continue
+        seen.add(text)
+        output.append(text)
+    return output
+
+
+def write_doi_conflict_report(jsonl_output: Path, csv_output: Path) -> int:
+    """Write a separate CSV for DOI conflicts and return the conflict count."""
+    conflicts = collect_doi_conflicts(jsonl_output)
+    csv_output.parent.mkdir(parents=True, exist_ok=True)
+    with csv_output.open("w", encoding="utf-8", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=DOI_CONFLICT_COLUMNS)
+        writer.writeheader()
+        writer.writerows(conflicts)
+    return len(conflicts)
+
+
 def collect_quality_report(
     jsonl_output: Path,
     *,
@@ -191,6 +287,7 @@ def collect_quality_report(
     missing_doi_count = 0
     missing_title_count = 0
     retracted_record_count = 0
+    doi_conflict_count = len(collect_doi_conflicts(jsonl_output))
 
     if jsonl_output.exists():
         with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
@@ -245,6 +342,7 @@ def collect_quality_report(
         "missing_doi_count": missing_doi_count,
         "missing_title_count": missing_title_count,
         "retracted_record_count": retracted_record_count,
+        "doi_conflict_count": doi_conflict_count,
         "duplicate_openalex_ids": sum(
             1 for count in openalex_ids.values() if count > 1
         ),
@@ -267,6 +365,7 @@ def print_collection_report(report: dict[str, object]) -> None:
     print(f"  Retracted records: {report['retracted_record_count']:,}")
     print(f"  Duplicate OpenAlex IDs: {report['duplicate_openalex_ids']:,}")
     print(f"  Duplicate DOI count: {report['duplicate_doi_count']:,}")
+    print(f"  DOI conflicts: {report['doi_conflict_count']:,}")
     print(f"  Year range: {report['year_range'] or 'n/a'}")
     print(f"  Countries found: {countries_text or 'n/a'}")
 
@@ -287,6 +386,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_CSV_OUTPUT,
         help=f"Flat CSV output path. Default: {DEFAULT_CSV_OUTPUT}",
+    )
+    parser.add_argument(
+        "--doi-conflicts-output",
+        type=Path,
+        default=DEFAULT_DOI_CONFLICTS_OUTPUT,
+        help=f"Separate DOI conflict report path. Default: {DEFAULT_DOI_CONFLICTS_OUTPUT}",
     )
     parser.add_argument(
         "--no-csv",
@@ -519,6 +624,20 @@ def main() -> None:
     logger.info("Saved %s records to %s", f"{total:,}", args.jsonl_output)
     if not args.no_csv:
         logger.info("Saved flat CSV to %s", args.csv_output)
+    doi_conflicts_output = getattr(
+        args,
+        "doi_conflicts_output",
+        DEFAULT_DOI_CONFLICTS_OUTPUT,
+    )
+    doi_conflict_count = write_doi_conflict_report(
+        args.jsonl_output,
+        doi_conflicts_output,
+    )
+    logger.info(
+        "Saved %s DOI conflicts to %s",
+        f"{doi_conflict_count:,}",
+        doi_conflicts_output,
+    )
     logger.info("Saved progress metadata to %s", progress_output)
     print_collection_report(
         collect_quality_report(

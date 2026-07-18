@@ -173,6 +173,7 @@ Quality checks should run before a dataset is considered ready for analysis:
 
 - DOI presence and DOI normalization
 - duplicate DOI or OpenAlex ID checks
+- separate DOI conflict reporting when one normalized DOI maps to multiple OpenAlex IDs
 - missing title/year/source checks
 - Sri Lankan affiliation validation
 - source comparison between OpenAlex and Crossref

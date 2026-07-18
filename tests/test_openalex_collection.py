@@ -493,10 +493,12 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     existing_work["id"] = "https://openalex.org/W1"
     new_work = sample_work("LK")
     new_work["id"] = "https://openalex.org/W2"
+    new_work["doi"] = "https://doi.org/10.1234/new"
 
     jsonl_output = tmp_path / "works.jsonl"
     csv_output = tmp_path / "works.csv"
     progress_output = tmp_path / "works.progress.json"
+    doi_conflicts_output = tmp_path / "doi_conflicts.csv"
 
     jsonl_output.write_text(json.dumps(existing_work) + "\n", encoding="utf-8")
     openalex_script.save_progress(
@@ -523,6 +525,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     args = argparse.Namespace(
         jsonl_output=jsonl_output,
         csv_output=csv_output,
+        doi_conflicts_output=doi_conflicts_output,
         no_csv=False,
         resume=True,
         progress_output=progress_output,
@@ -556,6 +559,8 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         "https://openalex.org/W1",
         "https://openalex.org/W2",
     ]
+    with doi_conflicts_output.open("r", encoding="utf-8", newline="") as csv_file:
+        assert list(csv.DictReader(csv_file)) == []
 
     progress = openalex_script.load_progress(progress_output)
     assert progress == {
@@ -571,6 +576,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     jsonl_output = tmp_path / "works.jsonl"
     csv_output = tmp_path / "works.csv"
     progress_output = tmp_path / "works.progress.json"
+    doi_conflicts_output = tmp_path / "doi_conflicts.csv"
 
     class FakeCollector:
         def __init__(self, *, email, api_key):
@@ -585,6 +591,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     args = argparse.Namespace(
         jsonl_output=jsonl_output,
         csv_output=csv_output,
+        doi_conflicts_output=doi_conflicts_output,
         no_csv=True,
         resume=False,
         progress_output=progress_output,
@@ -609,6 +616,8 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
         "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
         "strict_lk_only": True,
     }
+    with doi_conflicts_output.open("r", encoding="utf-8", newline="") as csv_file:
+        assert list(csv.DictReader(csv_file)) == []
 
 
 def test_default_output_dir_supports_environment_override(tmp_path, monkeypatch):
@@ -643,6 +652,12 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
     duplicate_work["publication_year"] = 2024
     duplicate_work["is_retracted"] = True
 
+    conflict_work = sample_work("LK")
+    conflict_work["id"] = "https://openalex.org/W4"
+    conflict_work["doi"] = "10.1234/duplicate"
+    conflict_work["title"] = "Different OpenAlex Record With Same DOI"
+    conflict_work["publication_year"] = 2025
+
     missing_work = sample_work("LK")
     missing_work["id"] = "https://openalex.org/W3"
     missing_work["doi"] = None
@@ -656,6 +671,7 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
             [
                 json.dumps(first_work),
                 json.dumps(duplicate_work),
+                json.dumps(conflict_work),
                 json.dumps(missing_work),
             ]
         )
@@ -667,13 +683,64 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
         jsonl_output,
         records_skipped=5,
     ) == {
-        "total_saved": 3,
+        "total_saved": 4,
         "records_skipped": 5,
         "missing_doi_count": 1,
         "missing_title_count": 1,
         "retracted_record_count": 1,
+        "doi_conflict_count": 1,
         "duplicate_openalex_ids": 1,
         "duplicate_doi_count": 1,
-        "year_range": "2022-2024",
+        "year_range": "2022-2025",
         "countries_found": ["LK", "US"],
     }
+
+
+def test_write_doi_conflict_report_outputs_different_ids_for_same_doi(tmp_path):
+    """DOI conflicts should be exported separately from the main works dataset."""
+    first_work = sample_work("LK")
+    first_work["id"] = "https://openalex.org/W1"
+    first_work["doi"] = "https://doi.org/10.1234/conflict"
+    first_work["title"] = "First DOI Record"
+
+    second_work = sample_work("LK")
+    second_work["id"] = "https://openalex.org/W2"
+    second_work["doi"] = "10.1234/CONFLICT"
+    second_work["title"] = "Second DOI Record"
+
+    same_id_duplicate = sample_work("LK")
+    same_id_duplicate["id"] = "https://openalex.org/W1"
+    same_id_duplicate["doi"] = "10.1234/conflict"
+
+    jsonl_output = tmp_path / "works.jsonl"
+    conflict_output = tmp_path / "doi_conflicts.csv"
+    jsonl_output.write_text(
+        "\n".join(
+            [
+                json.dumps(first_work),
+                json.dumps(second_work),
+                json.dumps(same_id_duplicate),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert openalex_script.write_doi_conflict_report(
+        jsonl_output,
+        conflict_output,
+    ) == 1
+
+    with conflict_output.open("r", encoding="utf-8", newline="") as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    assert rows == [
+        {
+            "doi": "10.1234/conflict",
+            "openalex_id_count": "2",
+            "record_count": "3",
+            "openalex_ids": "https://openalex.org/W1; https://openalex.org/W2",
+            "titles": "First DOI Record; Second DOI Record; Sample Sri Lankan Research Publication",
+            "publication_years": "2024",
+        }
+    ]
