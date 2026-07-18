@@ -2,13 +2,29 @@ from pathlib import Path
 import logging
 import pandas as pd
 import re
+import sys
 
 logger = logging.getLogger(__name__)
 
-OPENALEX_PATH = "data/raw/open-alex/open-alex.csv"
-CROSSREF_PATH = "data/processed/crossref/lk_works.csv"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
-OUTPUT_DIR = Path("data/processed/doi_comparison")
+from src.utils.file_naming import dataset_filename
+
+OPENALEX_PATH = PROJECT_ROOT / "data" / "raw" / "openalex" / dataset_filename(
+    "openalex",
+    "sri_lanka",
+    "works",
+    "csv",
+)
+CROSSREF_PATH = PROJECT_ROOT / "data" / "processed" / "crossref" / dataset_filename(
+    "crossref",
+    "sri_lanka",
+    "works",
+    "csv",
+)
+
+OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "doi_comparison"
 
 
 def normalize_doi(doi):
@@ -108,18 +124,20 @@ def main() -> None:
     print(f"Crossref only: {len(crossref_only)}")
 
     pd.Series(sorted(openalex_only)).to_csv(
-        OUTPUT_DIR / "openalex_only_dois.txt",
+        OUTPUT_DIR
+        / dataset_filename("doi_comparison", "openalex_only", "dois", "txt"),
         index=False,
         header=False,
     )
     pd.Series(sorted(crossref_only)).to_csv(
-        OUTPUT_DIR / "crossref_only_dois.txt",
+        OUTPUT_DIR
+        / dataset_filename("doi_comparison", "crossref_only", "dois", "txt"),
         index=False,
         header=False,
 )
 
     pd.Series(sorted(common)).to_csv(
-        OUTPUT_DIR / "common_dois.txt",
+        OUTPUT_DIR / dataset_filename("doi_comparison", "common", "dois", "txt"),
         index=False,
         header=False,
     )
@@ -133,5 +151,5 @@ if __name__ == "__main__":
 
 
 # python scripts/collect_crossref.py enrich-dois \
-# --doi-file data/processed/doi_comparison/openalex_only_dois.txt \
+# --doi-file data/processed/doi_comparison/doi_comparison_openalex_only_dois.txt \
 # --email your_email@example.com
