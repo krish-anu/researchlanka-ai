@@ -34,6 +34,7 @@ from src.collectors.openalex_collector import (
     country_codes,
     work_to_row,
 )
+from src.utils.doi import normalize_doi
 from src.utils.file_naming import dataset_filename
 
 
@@ -209,7 +210,11 @@ def collect_quality_report(
                 if is_blank(doi):
                     missing_doi_count += 1
                 else:
-                    dois[str(doi).strip().lower()] += 1
+                    normalized_doi = normalize_doi(doi)
+                    if normalized_doi is None:
+                        missing_doi_count += 1
+                    else:
+                        dois[normalized_doi] += 1
 
                 if is_blank(work.get("title")) and is_blank(work.get("display_name")):
                     missing_title_count += 1

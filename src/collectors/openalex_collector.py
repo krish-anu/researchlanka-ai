@@ -10,6 +10,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from src.utils.doi import normalize_doi
+
 
 OPENALEX_BASE_URL = "https://api.openalex.org"
 SRI_LANKA_COUNTRY_CODE = "LK"
@@ -239,7 +241,7 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "openalex_id": work.get("id"),
-        "doi": work.get("doi"),
+        "doi": normalize_doi(work.get("doi")),
         "title": work.get("title") or work.get("display_name"),
         "publication_year": work.get("publication_year"),
         "publication_date": work.get("publication_date"),

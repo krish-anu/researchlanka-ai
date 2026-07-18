@@ -153,7 +153,7 @@ def test_work_to_row_flattens_expected_openalex_fields():
     row = openalex.work_to_row(sample_work("LK"))
 
     assert row["openalex_id"] == "https://openalex.org/W123"
-    assert row["doi"] == "https://doi.org/10.1234/example"
+    assert row["doi"] == "10.1234/example"
     assert row["title"] == "Sample Sri Lankan Research Publication"
     assert row["publication_year"] == 2024
     assert row["author_count"] == 2
@@ -183,6 +183,16 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["issue"] == "3"
     assert row["first_page"] == "45"
     assert row["last_page"] == "59"
+
+
+def test_work_to_row_normalizes_mixed_case_doi_urls():
+    """Flat OpenAlex rows should use DOI keys without URL prefixes."""
+    work = sample_work("LK")
+    work["doi"] = "HTTPS://DOI.ORG/10.1234/Example.Article"
+
+    row = openalex.work_to_row(work)
+
+    assert row["doi"] == "10.1234/example.article"
 
 
 def test_csv_columns_include_extra_flattened_analysis_fields():
