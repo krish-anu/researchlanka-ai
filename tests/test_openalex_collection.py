@@ -29,6 +29,9 @@ def sample_work(country_code: str = "LK") -> dict:
         "authorships": [
             {
                 "author": {"display_name": "A. Researcher"},
+                "raw_affiliation_strings": [
+                    "Department of Public Health, University of Colombo, Sri Lanka",
+                ],
                 "countries": [country_code],
                 "institutions": [
                     {
@@ -39,6 +42,9 @@ def sample_work(country_code: str = "LK") -> dict:
             },
             {
                 "author": {"display_name": "B. Collaborator"},
+                "raw_affiliation_strings": [
+                    "Department of Epidemiology, Example University, United States",
+                ],
                 "countries": ["US"],
                 "institutions": [
                     {
@@ -215,6 +221,15 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["sri_lankan_authors"] == "A. Researcher"
     assert row["institutions"] == "University of Colombo; Example University"
     assert row["sri_lankan_institutions"] == "University of Colombo"
+    assert (
+        row["raw_affiliation_strings"]
+        == "Department of Public Health, University of Colombo, Sri Lanka; "
+        "Department of Epidemiology, Example University, United States"
+    )
+    assert (
+        row["sri_lankan_raw_affiliation_strings"]
+        == "Department of Public Health, University of Colombo, Sri Lanka"
+    )
     assert row["countries"] == "LK; US"
     assert row["source_name"] == "Example Journal"
     assert row["publisher"] == "Example Publisher"
@@ -320,6 +335,8 @@ def test_csv_columns_include_extra_flattened_analysis_fields():
         "primary_domain",
         "language",
         "is_retracted",
+        "raw_affiliation_strings",
+        "sri_lankan_raw_affiliation_strings",
         "locations_count",
         "location_landing_page_urls",
         "location_pdf_urls",
