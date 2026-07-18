@@ -6,9 +6,9 @@ import re
 from pathlib import Path
 
 
-VALID_DATASET_EXTENSIONS = {"csv", "json", "jsonl", "log", "txt"}
+VALID_DATASET_EXTENSIONS = {"csv", "json", "jsonl", "log", "parquet", "txt"}
 DATASET_FILENAME_RE = re.compile(
-    r"^[a-z0-9]+(?:_[a-z0-9]+){2,}\.(?:csv|json|jsonl|log|txt)$"
+    r"^[a-z0-9]+(?:_[a-z0-9]+){2,}\.(?:csv|json|jsonl|log|parquet|txt)$"
 )
 
 

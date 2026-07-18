@@ -18,6 +18,7 @@ import logging
 import os
 import sys
 from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -65,6 +66,12 @@ DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
     "sri_lanka",
     "works",
     "csv",
+)
+DEFAULT_PARQUET_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "openalex",
+    "sri_lanka",
+    "works",
+    "parquet",
 )
 DEFAULT_DOI_CONFLICTS_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
     "openalex",
@@ -172,19 +179,54 @@ def rebuild_csv_from_jsonl(jsonl_output: Path, csv_output: Path) -> None:
         writer = csv.DictWriter(csv_file, fieldnames=CSV_COLUMNS)
         writer.writeheader()
 
-        if not jsonl_output.exists():
-            return
+        for row in iter_flat_rows_from_jsonl(jsonl_output):
+            writer.writerow(row)
 
-        with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
-            for line in jsonl_file:
-                if not line.strip():
-                    continue
-                try:
-                    work = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(work, dict):
-                    writer.writerow(work_to_row(work))
+
+def iter_flat_rows_from_jsonl(jsonl_output: Path):
+    """Yield flattened OpenAlex rows from raw JSONL records."""
+    if not jsonl_output.exists():
+        return
+
+    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+        for line in jsonl_file:
+            if not line.strip():
+                continue
+            try:
+                work = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(work, dict):
+                yield work_to_row(work)
+
+
+def write_parquet_from_jsonl(jsonl_output: Path, parquet_output: Path) -> int:
+    """Write flattened OpenAlex rows to Parquet and return the row count."""
+    try:
+        import pandas as pd
+    except ImportError as exc:
+        raise RuntimeError(
+            "Parquet export requires pandas and a Parquet engine such as pyarrow."
+        ) from exc
+
+    rows = []
+    for row in iter_flat_rows_from_jsonl(jsonl_output):
+        parquet_row = dict(row)
+        publication_date = parquet_row.get("publication_date")
+        if publication_date:
+            parquet_row["publication_date"] = date.fromisoformat(str(publication_date))
+        rows.append(parquet_row)
+
+    dataframe = pd.DataFrame(rows, columns=CSV_COLUMNS)
+    parquet_output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        dataframe.to_parquet(parquet_output, index=False)
+    except ImportError as exc:
+        raise RuntimeError(
+            "Parquet export requires pyarrow or fastparquet. "
+            "Install project requirements before writing Parquet."
+        ) from exc
+    return len(dataframe)
 
 
 def is_blank(value: object) -> bool:
@@ -388,6 +430,12 @@ def parse_args() -> argparse.Namespace:
         help=f"Flat CSV output path. Default: {DEFAULT_CSV_OUTPUT}",
     )
     parser.add_argument(
+        "--parquet-output",
+        type=Path,
+        default=DEFAULT_PARQUET_OUTPUT,
+        help=f"Cleaned Parquet output path. Default: {DEFAULT_PARQUET_OUTPUT}",
+    )
+    parser.add_argument(
         "--doi-conflicts-output",
         type=Path,
         default=DEFAULT_DOI_CONFLICTS_OUTPUT,
@@ -397,6 +445,11 @@ def parse_args() -> argparse.Namespace:
         "--no-csv",
         action="store_true",
         help="Only save JSONL; do not save the flat CSV.",
+    )
+    parser.add_argument(
+        "--no-parquet",
+        action="store_true",
+        help="Do not write the cleaned Parquet output.",
     )
     parser.add_argument(
         "--resume",
@@ -624,6 +677,10 @@ def main() -> None:
     logger.info("Saved %s records to %s", f"{total:,}", args.jsonl_output)
     if not args.no_csv:
         logger.info("Saved flat CSV to %s", args.csv_output)
+    if not getattr(args, "no_parquet", False):
+        parquet_output = getattr(args, "parquet_output", DEFAULT_PARQUET_OUTPUT)
+        parquet_count = write_parquet_from_jsonl(args.jsonl_output, parquet_output)
+        logger.info("Saved %s records to %s", f"{parquet_count:,}", parquet_output)
     doi_conflicts_output = getattr(
         args,
         "doi_conflicts_output",
