@@ -1,4 +1,4 @@
-"""Reusable OpenAlex collection and flattening helpers for Sri Lanka datasets."""
+"""Reusable OpenAlex API collection helpers for Sri Lanka datasets."""
 
 from __future__ import annotations
 
@@ -10,51 +10,39 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from src.preprocessing.openalex_normalizer import (
+    CSV_COLUMNS,
+    SRI_LANKA_COUNTRY_CODE,
+    as_list,
+    author_name,
+    author_names,
+    authorships,
+    country_codes,
+    country_codes_from_authorship,
+    detected_country_codes,
+    display_names,
+    get_nested,
+    has_sri_lankan_author,
+    institution_names,
+    is_sri_lankan_authorship,
+    is_strict_sri_lanka_only,
+    location_values,
+    locations,
+    normalize_publication_date,
+    normalize_publication_year,
+    openalex_work_id,
+    raw_affiliation_strings,
+    unique_join,
+    work_to_row,
+)
+
 
 OPENALEX_BASE_URL = "https://api.openalex.org"
-SRI_LANKA_COUNTRY_CODE = "LK"
 LK_AUTHORSHIP_FILTER = "authorships.institutions.country_code:LK"
 DEFAULT_FROM_YEAR = 2016
 DEFAULT_TO_YEAR = 2026
 
 logger = logging.getLogger(__name__)
-
-CSV_COLUMNS = [
-    "openalex_id",
-    "doi",
-    "title",
-    "publication_year",
-    "publication_date",
-    "type",
-    "cited_by_count",
-    "author_count",
-    "authors",
-    "sri_lankan_authors",
-    "institutions",
-    "sri_lankan_institutions",
-    "countries",
-    "source_name",
-    "publisher",
-    "is_oa",
-    "landing_page_url",
-    "pdf_url",
-    "referenced_works_count",
-    "concepts",
-    "topics",
-    "primary_topic",
-    "primary_field",
-    "primary_subfield",
-    "primary_domain",
-    "language",
-    "oa_status",
-    "license",
-    "source_type",
-    "issn_l",
-    "volume",
-    "issue",
-    "first_page",
-    "last_page",
-]
 
 
 def create_session() -> requests.Session:
@@ -72,208 +60,6 @@ def create_session() -> requests.Session:
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
-
-
-def as_list(value: Any) -> list[Any]:
-    """Return OpenAlex list fields safely when a response omits or nulls them."""
-    return value if isinstance(value, list) else []
-
-
-def unique_join(values: list[Any], separator: str = "; ") -> str:
-    """Join unique non-empty values in first-seen order for flat CSV columns."""
-    seen: set[str] = set()
-    output: list[str] = []
-    for value in values:
-        if value is None:
-            continue
-        text = str(value).strip()
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        output.append(text)
-    return separator.join(output)
-
-
-def authorships(work: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return only dict-shaped authorships from an OpenAlex work."""
-    return [
-        authorship
-        for authorship in as_list(work.get("authorships"))
-        if isinstance(authorship, dict)
-    ]
-
-
-def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
-    """Collect country codes from both authorship countries and institutions."""
-    codes = {
-        str(country).upper()
-        for country in as_list(authorship.get("countries"))
-        if country
-    }
-    for institution in as_list(authorship.get("institutions")):
-        if isinstance(institution, dict) and institution.get("country_code"):
-            codes.add(str(institution["country_code"]).upper())
-    return codes
-
-
-def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
-    """Check whether one authorship has a Sri Lankan affiliation signal."""
-    return SRI_LANKA_COUNTRY_CODE in country_codes_from_authorship(authorship)
-
-
-def has_sri_lankan_author(work: dict[str, Any]) -> bool:
-    """Keep broad Sri Lankan-affiliated works with at least one LK signal."""
-    if any(is_sri_lankan_authorship(authorship) for authorship in authorships(work)):
-        return True
-
-    for institution in as_list(work.get("institutions")):
-        if (
-            isinstance(institution, dict)
-            and str(institution.get("country_code", "")).upper()
-            == SRI_LANKA_COUNTRY_CODE
-        ):
-            return True
-
-    return False
-
-
-def author_name(authorship: dict[str, Any]) -> str | None:
-    """Prefer normalized OpenAlex author names, falling back to raw names."""
-    author = authorship.get("author")
-    if isinstance(author, dict) and author.get("display_name"):
-        return str(author["display_name"])
-    if authorship.get("raw_author_name"):
-        return str(authorship["raw_author_name"])
-    return None
-
-
-def author_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
-    """Flatten author names, optionally keeping only LK-affiliated authorships."""
-    names: list[str] = []
-    for authorship in authorships(work):
-        if sri_lankan_only and not is_sri_lankan_authorship(authorship):
-            continue
-        names.append(author_name(authorship))
-    return unique_join(names)
-
-
-def institution_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
-    """Flatten institution names, optionally keeping only Sri Lankan institutions."""
-    names: list[str] = []
-    for authorship in authorships(work):
-        for institution in as_list(authorship.get("institutions")):
-            if not isinstance(institution, dict):
-                continue
-            country_code = str(institution.get("country_code", "")).upper()
-            if sri_lankan_only and country_code != SRI_LANKA_COUNTRY_CODE:
-                continue
-            names.append(institution.get("display_name"))
-    return unique_join(names)
-
-
-def country_codes(work: dict[str, Any]) -> str:
-    """Flatten all detected country codes into a stable semicolon-separated value."""
-    return unique_join(sorted(detected_country_codes(work)))
-
-
-def detected_country_codes(work: dict[str, Any]) -> set[str]:
-    """Detect affiliation country codes from work-level and authorship metadata."""
-    codes: set[str] = set()
-    for authorship in authorships(work):
-        codes.update(country_codes_from_authorship(authorship))
-
-    for institution in as_list(work.get("institutions")):
-        if isinstance(institution, dict) and institution.get("country_code"):
-            codes.add(str(institution["country_code"]).upper())
-
-    return codes
-
-
-def is_strict_sri_lanka_only(work: dict[str, Any]) -> bool:
-    """Return True only when every detected affiliation country code is LK."""
-    return detected_country_codes(work) == {SRI_LANKA_COUNTRY_CODE}
-
-
-def display_names(values: Any) -> str:
-    """Flatten OpenAlex lists of objects that expose a display_name field."""
-    names: list[str] = []
-    for value in as_list(values):
-        if isinstance(value, dict):
-            names.append(value.get("display_name"))
-    return unique_join(names)
-
-
-def get_nested(value: dict[str, Any], *keys: str) -> Any:
-    """Read a nested dictionary path without raising on missing levels."""
-    current: Any = value
-    for key in keys:
-        if not isinstance(current, dict):
-            return None
-        current = current.get(key)
-    return current
-
-
-def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
-    """Convert one raw OpenAlex work into the analysis-friendly CSV schema."""
-    source = get_nested(work, "primary_location", "source") or {}
-    primary_location = work.get("primary_location") or {}
-    open_access = work.get("open_access") or {}
-    biblio = work.get("biblio") or {}
-    primary_topic = work.get("primary_topic")
-    # Older or partial OpenAlex records may not include primary_topic, so use
-    # the first topic as a best-effort classification fallback.
-    if not isinstance(primary_topic, dict):
-        primary_topic = next(
-            (topic for topic in as_list(work.get("topics")) if isinstance(topic, dict)),
-            {},
-        )
-
-    if not isinstance(source, dict):
-        source = {}
-    if not isinstance(primary_location, dict):
-        primary_location = {}
-    if not isinstance(open_access, dict):
-        open_access = {}
-    if not isinstance(biblio, dict):
-        biblio = {}
-
-    return {
-        "openalex_id": work.get("id"),
-        "doi": work.get("doi"),
-        "title": work.get("title") or work.get("display_name"),
-        "publication_year": work.get("publication_year"),
-        "publication_date": work.get("publication_date"),
-        "type": work.get("type"),
-        "cited_by_count": work.get("cited_by_count"),
-        "author_count": len(authorships(work)),
-        "authors": author_names(work),
-        "sri_lankan_authors": author_names(work, sri_lankan_only=True),
-        "institutions": institution_names(work),
-        "sri_lankan_institutions": institution_names(work, sri_lankan_only=True),
-        "countries": country_codes(work),
-        "source_name": source.get("display_name"),
-        "publisher": source.get("host_organization_name"),
-        "is_oa": open_access.get("is_oa"),
-        "landing_page_url": primary_location.get("landing_page_url"),
-        "pdf_url": primary_location.get("pdf_url"),
-        "referenced_works_count": work.get("referenced_works_count")
-        or len(as_list(work.get("referenced_works"))),
-        "concepts": display_names(work.get("concepts")),
-        "topics": display_names(work.get("topics")),
-        "primary_topic": primary_topic.get("display_name"),
-        "primary_field": get_nested(primary_topic, "field", "display_name"),
-        "primary_subfield": get_nested(primary_topic, "subfield", "display_name"),
-        "primary_domain": get_nested(primary_topic, "domain", "display_name"),
-        "language": work.get("language"),
-        "oa_status": open_access.get("oa_status"),
-        "license": open_access.get("license") or primary_location.get("license"),
-        "source_type": source.get("type"),
-        "issn_l": source.get("issn_l"),
-        "volume": biblio.get("volume"),
-        "issue": biblio.get("issue"),
-        "first_page": biblio.get("first_page"),
-        "last_page": biblio.get("last_page"),
-    }
 
 
 def build_filters(
@@ -371,6 +157,7 @@ class OpenAlexCollector:
         """Yield cursor pages after applying broad or strict LK filtering."""
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
+        seen_ids: set[str] = set()
         logger.info(
             "Starting OpenAlex page iteration start_cursor=%s per_page=%s strict_lk_only=%s filters=%s",
             start_cursor,
@@ -395,9 +182,14 @@ class OpenAlexCollector:
                 if not isinstance(work, dict) or not has_sri_lankan_author(work):
                     skipped_count += 1
                     continue
+                work_id = openalex_work_id(work)
+                if work_id is None or work_id in seen_ids:
+                    skipped_count += 1
+                    continue
                 if strict_lk_only and not is_strict_sri_lanka_only(work):
                     skipped_count += 1
                     continue
+                seen_ids.add(work_id)
                 works.append(work)
 
             next_cursor = response.get("meta", {}).get("next_cursor")
