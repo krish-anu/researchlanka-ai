@@ -215,6 +215,15 @@ def get_nested(value: dict[str, Any], *keys: str) -> Any:
     return current
 
 
+def openalex_work_id(work: dict[str, Any]) -> str | None:
+    """Return the required OpenAlex work ID used as the record key."""
+    work_id = work.get("id")
+    if work_id is None:
+        return None
+    normalized_id = str(work_id).strip()
+    return normalized_id or None
+
+
 def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
     """Convert one raw OpenAlex work into the analysis-friendly CSV schema."""
     source = get_nested(work, "primary_location", "source") or {}
@@ -240,7 +249,7 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
         biblio = {}
 
     return {
-        "openalex_id": work.get("id"),
+        "openalex_id": openalex_work_id(work),
         "doi": normalize_doi(work.get("doi")),
         "title": work.get("title") or work.get("display_name"),
         "publication_year": work.get("publication_year"),
@@ -373,6 +382,7 @@ class OpenAlexCollector:
         """Yield cursor pages after applying broad or strict LK filtering."""
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
+        seen_ids: set[str] = set()
         logger.info(
             "Starting OpenAlex page iteration start_cursor=%s per_page=%s strict_lk_only=%s filters=%s",
             start_cursor,
@@ -397,9 +407,14 @@ class OpenAlexCollector:
                 if not isinstance(work, dict) or not has_sri_lankan_author(work):
                     skipped_count += 1
                     continue
+                work_id = openalex_work_id(work)
+                if work_id is None or work_id in seen_ids:
+                    skipped_count += 1
+                    continue
                 if strict_lk_only and not is_strict_sri_lanka_only(work):
                     skipped_count += 1
                     continue
+                seen_ids.add(work_id)
                 works.append(work)
 
             next_cursor = response.get("meta", {}).get("next_cursor")

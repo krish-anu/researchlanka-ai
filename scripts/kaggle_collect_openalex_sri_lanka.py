@@ -32,6 +32,7 @@ from src.collectors.openalex_collector import (
     OpenAlexCollector,
     build_filters,
     country_codes,
+    openalex_work_id,
     work_to_row,
 )
 from src.utils.doi import normalize_doi
@@ -141,8 +142,10 @@ def read_existing_jsonl_state(path: Path) -> tuple[set[str], int]:
                 work = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if isinstance(work, dict) and work.get("id"):
-                openalex_ids.add(str(work["id"]))
+            if isinstance(work, dict):
+                work_id = openalex_work_id(work)
+                if work_id is not None:
+                    openalex_ids.add(work_id)
 
     return openalex_ids, records_saved
 
@@ -202,9 +205,9 @@ def collect_quality_report(
 
                 total_saved += 1
 
-                openalex_id = work.get("id")
-                if not is_blank(openalex_id):
-                    openalex_ids[str(openalex_id).strip()] += 1
+                openalex_id = openalex_work_id(work)
+                if openalex_id is not None:
+                    openalex_ids[openalex_id] += 1
 
                 doi = work.get("doi")
                 if is_blank(doi):
@@ -473,18 +476,20 @@ def main() -> None:
                         stop_requested = True
                         break
 
-                    openalex_id = str(work.get("id", ""))
+                    openalex_id = openalex_work_id(work)
+                    if openalex_id is None:
+                        records_skipped += 1
+                        continue
                     # If a crash happened after writing a record but before
                     # advancing the cursor, resume may see that record again.
-                    if args.resume and openalex_id and openalex_id in existing_ids:
+                    if openalex_id in existing_ids:
                         records_skipped += 1
                         continue
 
                     jsonl_file.write(json.dumps(work, ensure_ascii=False) + "\n")
                     if writer is not None:
                         writer.writerow(work_to_row(work))
-                    if openalex_id:
-                        existing_ids.add(openalex_id)
+                    existing_ids.add(openalex_id)
                     total += 1
                     if total % 100 == 0:
                         logger.info("Saved %s Sri Lankan-affiliated works", f"{total:,}")
