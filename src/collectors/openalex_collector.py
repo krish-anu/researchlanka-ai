@@ -42,6 +42,13 @@ CSV_COLUMNS = [
     "is_oa",
     "landing_page_url",
     "pdf_url",
+    "locations_count",
+    "location_landing_page_urls",
+    "location_pdf_urls",
+    "location_source_names",
+    "location_source_types",
+    "location_licenses",
+    "location_versions",
     "referenced_works_count",
     "concepts",
     "topics",
@@ -207,6 +214,23 @@ def display_names(values: Any) -> str:
     return unique_join(names)
 
 
+def locations(work: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return only dict-shaped locations from an OpenAlex work."""
+    return [
+        location
+        for location in as_list(work.get("locations"))
+        if isinstance(location, dict)
+    ]
+
+
+def location_values(work: dict[str, Any], *keys: str) -> str:
+    """Flatten values from every OpenAlex location for one nested path."""
+    values: list[Any] = []
+    for location in locations(work):
+        values.append(get_nested(location, *keys))
+    return unique_join(values)
+
+
 def get_nested(value: dict[str, Any], *keys: str) -> Any:
     """Read a nested dictionary path without raising on missing levels."""
     current: Any = value
@@ -303,6 +327,13 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
         "is_oa": open_access.get("is_oa"),
         "landing_page_url": primary_location.get("landing_page_url"),
         "pdf_url": primary_location.get("pdf_url"),
+        "locations_count": len(locations(work)),
+        "location_landing_page_urls": location_values(work, "landing_page_url"),
+        "location_pdf_urls": location_values(work, "pdf_url"),
+        "location_source_names": location_values(work, "source", "display_name"),
+        "location_source_types": location_values(work, "source", "type"),
+        "location_licenses": location_values(work, "license"),
+        "location_versions": location_values(work, "version"),
         "referenced_works_count": work.get("referenced_works_count")
         or len(as_list(work.get("referenced_works"))),
         "concepts": display_names(work.get("concepts")),

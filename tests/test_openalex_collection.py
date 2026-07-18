@@ -59,6 +59,28 @@ def sample_work(country_code: str = "LK") -> dict:
                 "issn_l": "1234-5678",
             },
         },
+        "locations": [
+            {
+                "landing_page_url": "https://example.org/paper",
+                "pdf_url": "https://example.org/paper.pdf",
+                "license": "cc-by",
+                "version": "publishedVersion",
+                "source": {
+                    "display_name": "Example Journal",
+                    "type": "journal",
+                },
+            },
+            {
+                "landing_page_url": "https://repository.example.edu/paper",
+                "pdf_url": "https://repository.example.edu/paper.pdf",
+                "license": "cc-by",
+                "version": "acceptedVersion",
+                "source": {
+                    "display_name": "Example Repository",
+                    "type": "repository",
+                },
+            },
+        ],
         "open_access": {"is_oa": True, "oa_status": "gold", "license": "cc-by"},
         "referenced_works_count": 3,
         "referenced_works": [
@@ -200,6 +222,19 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["is_oa"] is True
     assert row["landing_page_url"] == "https://example.org/paper"
     assert row["pdf_url"] == "https://example.org/paper.pdf"
+    assert row["locations_count"] == 2
+    assert (
+        row["location_landing_page_urls"]
+        == "https://example.org/paper; https://repository.example.edu/paper"
+    )
+    assert (
+        row["location_pdf_urls"]
+        == "https://example.org/paper.pdf; https://repository.example.edu/paper.pdf"
+    )
+    assert row["location_source_names"] == "Example Journal; Example Repository"
+    assert row["location_source_types"] == "journal; repository"
+    assert row["location_licenses"] == "cc-by"
+    assert row["location_versions"] == "publishedVersion; acceptedVersion"
     assert row["referenced_works_count"] == 3
     assert row["concepts"] == "Medicine; Public health"
     assert row["topics"] == "Dengue epidemiology; Vector control"
@@ -285,6 +320,13 @@ def test_csv_columns_include_extra_flattened_analysis_fields():
         "primary_domain",
         "language",
         "is_retracted",
+        "locations_count",
+        "location_landing_page_urls",
+        "location_pdf_urls",
+        "location_source_names",
+        "location_source_types",
+        "location_licenses",
+        "location_versions",
         "oa_status",
         "license",
         "source_type",

@@ -135,6 +135,13 @@ is_retracted
 is_oa
 landing_page_url
 pdf_url
+locations_count
+location_landing_page_urls
+location_pdf_urls
+location_source_names
+location_source_types
+location_licenses
+location_versions
 referenced_works_count
 concepts
 topics
