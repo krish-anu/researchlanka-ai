@@ -24,6 +24,7 @@ Raw and Interim Storage
   |-- data/interim/
 
 Preprocessing and Normalization
+  |-- src/preprocessing/openalex_normalizer.py
   |-- src/preprocessing/crossref_normalizer.py
   |-- src/preprocessing/clean_publications.py
   |-- scripts/jsonl_to_csv.py
@@ -57,7 +58,7 @@ The collector:
 - calls the OpenAlex works API
 - applies `authorships.institutions.country_code:LK`
 - keeps records with at least one Sri Lankan authorship or LK institution
-- writes raw JSONL and a flattened CSV
+- writes raw JSONL plus flattened CSV and Parquet outputs
 
 Crossref collection is used as a secondary source for DOI comparison and metadata coverage checks. SLJOL notebooks support local Sri Lankan journal exploration.
 
@@ -90,7 +91,7 @@ Rules:
 - Use `sri_lanka` for Sri Lanka-focused datasets instead of abbreviations such as `lk`.
 - Use plural entity names for record collections, such as `works`, `publications`, or `dois`.
 - Add a variant only when needed, such as `strict_lk_only`, `doi_enriched`, or `openalex_only`.
-- Supported data-output extensions are `.jsonl`, `.json`, `.csv`, `.txt`, and `.log`.
+- Supported data-output extensions are `.jsonl`, `.json`, `.csv`, `.parquet`, `.txt`, and `.log`.
 
 Examples:
 
@@ -211,6 +212,7 @@ or `/kaggle/working/openalex_outputs/` on Kaggle.
 | Area | Current file |
 |---|---|
 | OpenAlex collection | `scripts/kaggle_collect_openalex_sri_lanka.py` |
+| OpenAlex normalization | `src/preprocessing/openalex_normalizer.py` |
 | OpenAlex analysis | `notebooks/analyze_openalex_sri_lanka_only.ipynb` |
 | Crossref collection | `scripts/collect_crossref.py` |
 | Crossref collector class | `src/collectors/crossref_collector.py` |
