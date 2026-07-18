@@ -26,12 +26,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.openalex_collector import (
-    CSV_COLUMNS,
     DEFAULT_FROM_YEAR,
     DEFAULT_TO_YEAR,
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
     build_filters,
+)
+from src.preprocessing.openalex_normalizer import (
+    CSV_COLUMNS,
     country_codes,
     openalex_work_id,
     work_to_row,
