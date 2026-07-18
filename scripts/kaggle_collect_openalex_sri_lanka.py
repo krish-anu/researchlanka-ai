@@ -34,6 +34,7 @@ from src.collectors.openalex_collector import (
     country_codes,
     work_to_row,
 )
+from src.utils.file_naming import dataset_filename
 
 
 LOCAL_OUTPUT_DIR = PROJECT_ROOT / "data" / "raw" / "openalex"
@@ -51,8 +52,18 @@ def default_output_dir() -> Path:
 
 
 DEFAULT_OUTPUT_DIR = default_output_dir()
-DEFAULT_JSONL_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.jsonl"
-DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / "openalex_sri_lanka_works.csv"
+DEFAULT_JSONL_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "openalex",
+    "sri_lanka",
+    "works",
+    "jsonl",
+)
+DEFAULT_CSV_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "openalex",
+    "sri_lanka",
+    "works",
+    "csv",
+)
 DEFAULT_LOG_LEVEL = os.getenv("OPENALEX_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 

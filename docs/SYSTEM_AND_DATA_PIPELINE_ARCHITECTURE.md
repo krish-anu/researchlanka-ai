@@ -75,7 +75,43 @@ data/raw/sljol/
 
 Raw data files should not be committed when they are large. Commit only small test fixtures or derived documentation.
 
-### 3. Field Normalization
+### 3. File-Naming Conventions
+
+Project dataset outputs use lower snake case:
+
+```text
+source_scope_entity[_variant].extension
+```
+
+Rules:
+
+- Use lowercase letters, numbers, and underscores only.
+- Start with the data source or pipeline area, such as `openalex`, `crossref`, `sljol`, or `doi_comparison`.
+- Use `sri_lanka` for Sri Lanka-focused datasets instead of abbreviations such as `lk`.
+- Use plural entity names for record collections, such as `works`, `publications`, or `dois`.
+- Add a variant only when needed, such as `strict_lk_only`, `doi_enriched`, or `openalex_only`.
+- Supported data-output extensions are `.jsonl`, `.json`, `.csv`, `.txt`, and `.log`.
+
+Examples:
+
+```text
+data/raw/openalex/openalex_sri_lanka_works.jsonl
+data/raw/openalex/openalex_sri_lanka_works.csv
+data/processed/crossref/crossref_sri_lanka_works.jsonl
+data/processed/crossref/crossref_sri_lanka_works_doi_enriched.jsonl
+data/processed/doi_comparison/doi_comparison_openalex_only_dois.txt
+```
+
+Code, notebook, and documentation names follow the existing repository style:
+
+- Python modules and scripts: lower snake case, for example `collect_crossref.py`.
+- Tests: `test_<module_or_behavior>.py`.
+- Notebooks: ordered kebab case, for example `01-data-collection.ipynb`.
+- Formal docs: uppercase snake case, for example `SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md`.
+
+The helper in `src/utils/file_naming.py` builds and validates dataset filenames used by pipeline scripts.
+
+### 4. Field Normalization
 
 Normalized datasets should use stable, analysis-friendly field names. The current OpenAlex flat export uses:
 
@@ -118,7 +154,7 @@ last_page
 
 Crossref normalization should continue to standardize DOI, title, authors, publication year, source, publisher, and event fields.
 
-### 4. Filtering Rules
+### 5. Filtering Rules
 
 The project uses two Sri Lanka filters:
 
@@ -127,7 +163,7 @@ The project uses two Sri Lanka filters:
 
 Broad filtering is useful for collection. Strict filtering is useful for final Sri Lanka-only analysis when international collaborations should be excluded.
 
-### 5. Quality Checks
+### 6. Quality Checks
 
 Quality checks should run before a dataset is considered ready for analysis:
 
@@ -140,7 +176,7 @@ Quality checks should run before a dataset is considered ready for analysis:
 
 Automated tests live in `tests/`. OpenAlex sample-record tests verify the collector's filtering and flattening logic without using the live API.
 
-### 6. Processed Outputs
+### 7. Processed Outputs
 
 Processed outputs should be saved under:
 
