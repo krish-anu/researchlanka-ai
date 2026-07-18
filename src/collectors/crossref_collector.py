@@ -116,7 +116,7 @@ class CrossrefCollector:
         cursor = "*"
         records_seen = 0
 
-        while cursor:
+        while cursor and (max_records is None or records_seen < max_records):
             response = self.fetch_works(
                 affiliation_query=affiliation_query,
                 filters=filters,
