@@ -35,6 +35,8 @@ CSV_COLUMNS = [
     "sri_lankan_authors",
     "institutions",
     "sri_lankan_institutions",
+    "raw_affiliation_strings",
+    "sri_lankan_raw_affiliation_strings",
     "countries",
     "source_name",
     "publisher",
@@ -182,6 +184,26 @@ def institution_names(work: dict[str, Any], *, sri_lankan_only: bool = False) ->
     return unique_join(names)
 
 
+def raw_affiliation_strings(
+    work: dict[str, Any],
+    *,
+    sri_lankan_only: bool = False,
+) -> str:
+    """Flatten raw affiliation strings preserved on OpenAlex authorships."""
+    values: list[Any] = []
+    for authorship in authorships(work):
+        if sri_lankan_only and not is_sri_lankan_authorship(authorship):
+            continue
+
+        raw_strings = as_list(authorship.get("raw_affiliation_strings"))
+        if raw_strings:
+            values.extend(raw_strings)
+        elif authorship.get("raw_affiliation_string"):
+            values.append(authorship.get("raw_affiliation_string"))
+
+    return unique_join(values)
+
+
 def country_codes(work: dict[str, Any]) -> str:
     """Flatten all detected country codes into a stable semicolon-separated value."""
     return unique_join(sorted(detected_country_codes(work)))
@@ -320,6 +342,11 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
         "sri_lankan_authors": author_names(work, sri_lankan_only=True),
         "institutions": institution_names(work),
         "sri_lankan_institutions": institution_names(work, sri_lankan_only=True),
+        "raw_affiliation_strings": raw_affiliation_strings(work),
+        "sri_lankan_raw_affiliation_strings": raw_affiliation_strings(
+            work,
+            sri_lankan_only=True,
+        ),
         "countries": country_codes(work),
         "source_name": source.get("display_name"),
         "publisher": source.get("host_organization_name"),

@@ -128,6 +128,8 @@ authors
 sri_lankan_authors
 institutions
 sri_lankan_institutions
+raw_affiliation_strings
+sri_lankan_raw_affiliation_strings
 countries
 source_name
 publisher
