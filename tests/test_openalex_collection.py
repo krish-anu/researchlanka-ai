@@ -248,6 +248,31 @@ def test_work_to_row_defaults_missing_retraction_status_to_false():
     assert row["is_retracted"] is False
 
 
+def test_work_to_row_normalizes_publication_year_and_date():
+    """Flat rows should keep publication year as int and date as ISO date."""
+    work = sample_work("LK")
+    work["publication_year"] = "2024"
+    work["publication_date"] = "2024-01-15"
+
+    row = openalex.work_to_row(work)
+
+    assert row["publication_year"] == 2024
+    assert isinstance(row["publication_year"], int)
+    assert row["publication_date"] == "2024-01-15"
+
+
+def test_work_to_row_blanks_invalid_publication_year_and_date():
+    """Invalid year/date values should not leak into clean flat rows."""
+    work = sample_work("LK")
+    work["publication_year"] = "not-a-year"
+    work["publication_date"] = "2024-99-99"
+
+    row = openalex.work_to_row(work)
+
+    assert row["publication_year"] is None
+    assert row["publication_date"] is None
+
+
 def test_csv_columns_include_extra_flattened_analysis_fields():
     """The flat CSV schema should expose fields used by analysis notebooks."""
     expected_columns = {

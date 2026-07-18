@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any, Iterator
 
 import requests
@@ -225,6 +226,39 @@ def openalex_work_id(work: dict[str, Any]) -> str | None:
     return normalized_id or None
 
 
+def normalize_publication_year(value: Any) -> int | None:
+    """Normalize OpenAlex publication_year to an integer when valid."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if text.isdigit():
+            return int(text)
+    return None
+
+
+def normalize_publication_date(value: Any) -> str | None:
+    """Normalize OpenAlex publication_date to ISO YYYY-MM-DD for CSV output."""
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if value is None:
+        return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text).isoformat()
+    except ValueError:
+        return None
+
+
 def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
     """Convert one raw OpenAlex work into the analysis-friendly CSV schema."""
     source = get_nested(work, "primary_location", "source") or {}
@@ -253,8 +287,8 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
         "openalex_id": openalex_work_id(work),
         "doi": normalize_doi(work.get("doi")),
         "title": work.get("title") or work.get("display_name"),
-        "publication_year": work.get("publication_year"),
-        "publication_date": work.get("publication_date"),
+        "publication_year": normalize_publication_year(work.get("publication_year")),
+        "publication_date": normalize_publication_date(work.get("publication_date")),
         "type": work.get("type"),
         "cited_by_count": work.get("cited_by_count"),
         "author_count": len(authorships(work)),
