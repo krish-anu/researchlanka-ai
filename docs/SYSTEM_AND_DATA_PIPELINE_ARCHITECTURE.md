@@ -153,6 +153,9 @@ first_page
 last_page
 ```
 
+`publication_year` is normalized to an integer. `publication_date` is validated
+and written as an ISO `YYYY-MM-DD` date string in CSV exports.
+
 Crossref normalization should continue to standardize DOI, title, authors, publication year, source, publisher, and event fields.
 
 ### 5. Filtering Rules
