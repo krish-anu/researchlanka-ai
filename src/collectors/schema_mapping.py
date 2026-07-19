@@ -1,0 +1,114 @@
+"""Map raw OAI Dublin Core records (see oai_pmh_collector.py) into the
+project's common publication-metadata schema (proposal Sec. 3: title, DOI,
+abstract, keywords, publication year/date, type, journal/publisher, authors,
+institution).
+
+This is a draft, source-specific mapping for repository (OAI-DC) records
+only -- OpenAlex/Crossref collectors will need their own mappers into the
+same target field names. Dublin Core is flat and unqualified (no way to
+tell dc:date "issued" from "accessioned" apart, for example), so several
+fields below are best-effort heuristics; see inline notes.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+DOI_PATTERN = re.compile(r"10\.\d{4,9}/[^\s\"'<>]+", re.IGNORECASE)
+URL_PATTERN = re.compile(r"https?://\S+")
+YEAR_PATTERN = re.compile(r"(1[5-9]\d{2}|20\d{2})")
+
+
+def _first(values: list[str] | None) -> str | None:
+    return values[0] if values else None
+
+
+def _pick_issued_date(dates: list[str] | None) -> str | None:
+    """Best-effort pick of the "date issued" value out of DSpace's flat
+    dc:date list, which commonly mixes dateAccessioned/dateAvailable
+    (full timestamps) with dateIssued (often just a year or year-month).
+
+    Heuristic: prefer a value without a time component ('T'), since
+    accession/availability timestamps are typically full ISO datetimes
+    and the issued date is typically coarser. Falls back to the last
+    value, then the first, since DSpace tends to emit dateIssued last.
+    """
+
+    if not dates:
+        return None
+
+    coarse = [d for d in dates if "T" not in d]
+    if coarse:
+        return coarse[-1]
+    return dates[-1]
+
+
+def _extract_year(date_value: str | None, all_dates: list[str] | None) -> int | None:
+    candidates = [date_value] if date_value else []
+    candidates += all_dates or []
+    for candidate in candidates:
+        if not candidate:
+            continue
+        match = YEAR_PATTERN.search(candidate)
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _extract_doi(identifiers: list[str] | None) -> str | None:
+    for identifier in identifiers or []:
+        match = DOI_PATTERN.search(identifier)
+        if match:
+            return match.group(0).rstrip(".,)")
+    return None
+
+
+def _extract_url(identifiers: list[str] | None) -> str | None:
+    for identifier in identifiers or []:
+        match = URL_PATTERN.search(identifier)
+        if match:
+            return match.group(0).rstrip(".,)")
+    return None
+
+
+def map_oai_dc_record(record: dict[str, Any], *, institution_id: str) -> dict[str, Any]:
+    """Map one harvested OAI-DC record (from OaiPmhCollector) into the
+    common publication schema. Deleted records are passed through with
+    only provenance fields populated -- callers should filter on
+    ``deleted`` before using the rest.
+    """
+
+    if record.get("deleted"):
+        return {
+            "source": "institutional_repository",
+            "source_institution_id": institution_id,
+            "source_record_id": record.get("oai_identifier"),
+            "deleted": True,
+        }
+
+    dates = record.get("date")
+    issued_date = _pick_issued_date(dates)
+
+    return {
+        "source": "institutional_repository",
+        "source_institution_id": institution_id,
+        "source_record_id": record.get("oai_identifier"),
+        "source_datestamp": record.get("datestamp"),
+        "source_set_specs": record.get("set_specs", []),
+        "deleted": False,
+        "title": _first(record.get("title")),
+        "abstract": _first(record.get("description")),
+        "keywords": record.get("subject", []),
+        "authors": record.get("creator", []),
+        "contributors": record.get("contributor", []),
+        "publication_date": issued_date,
+        "publication_year": _extract_year(issued_date, dates),
+        "publication_type": _first(record.get("type")),
+        "publisher": _first(record.get("publisher")),
+        "language": _first(record.get("language")),
+        "rights": _first(record.get("rights")),
+        "doi": _extract_doi(record.get("identifier")),
+        "url": _extract_url(record.get("identifier")),
+        "raw_identifiers": record.get("identifier", []),
+    }
