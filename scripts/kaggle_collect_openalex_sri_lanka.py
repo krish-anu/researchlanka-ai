@@ -81,6 +81,12 @@ DEFAULT_DOI_CONFLICTS_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
     "doi_conflicts",
     "csv",
 )
+DEFAULT_PAGINATION_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
+    "openalex",
+    "sri_lanka",
+    "pagination_audit",
+    "json",
+)
 DEFAULT_LOG_LEVEL = os.getenv("OPENALEX_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
@@ -117,6 +123,11 @@ def default_progress_output(jsonl_output: Path) -> Path:
     return jsonl_output.with_suffix(f"{jsonl_output.suffix}.progress.json")
 
 
+def default_pagination_output(jsonl_output: Path) -> Path:
+    """Store pagination audit metadata beside custom JSONL outputs."""
+    return jsonl_output.with_name("openalex_sri_lanka_pagination_audit.json")
+
+
 def load_progress(path: Path) -> dict:
     """Load and validate the JSON progress metadata used by --resume."""
     with path.open("r", encoding="utf-8") as progress_file:
@@ -146,6 +157,80 @@ def save_progress(
     with temp_path.open("w", encoding="utf-8") as progress_file:
         json.dump(progress, progress_file, indent=2)
         progress_file.write("\n")
+    temp_path.replace(path)
+
+
+def load_pagination_events(path: Path) -> list[dict[str, object]]:
+    """Load existing pagination events so resume runs keep one audit trail."""
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as audit_file:
+        audit = json.load(audit_file)
+    if not isinstance(audit, dict):
+        return []
+    events = audit.get("pages")
+    if not isinstance(events, list):
+        return []
+    return [event for event in events if isinstance(event, dict)]
+
+
+def pagination_event_from_page(
+    page,
+    *,
+    global_page_number: int,
+    records_saved: int,
+    records_skipped: int,
+) -> dict[str, object]:
+    """Create one serializable audit row for a fetched OpenAlex cursor page."""
+    return {
+        "page_number": global_page_number,
+        "run_page_number": page.page_number,
+        "cursor": page.cursor,
+        "next_cursor": page.next_cursor,
+        "fetched_count": page.fetched_count,
+        "kept_count": len(page.works),
+        "skipped_count": page.skipped_count,
+        "records_saved_total": records_saved,
+        "records_skipped_total": records_skipped,
+        "api_total_count": page.api_total_count,
+        "estimated_total_pages": page.estimated_total_pages,
+        "progress_percent": page.progress_percent,
+        "db_response_time_ms": page.db_response_time_ms,
+        "filters": page.filters,
+    }
+
+
+def write_pagination_audit_report(
+    path: Path,
+    *,
+    pages: list[dict[str, object]],
+    filters: list[str],
+    strict_lk_only: bool,
+    records_saved: int,
+    records_skipped: int,
+    next_cursor: str | None,
+    status: str,
+) -> None:
+    """Write page-by-page pagination monitoring and validation results."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    latest_page = pages[-1] if pages else {}
+    audit = {
+        "status": status,
+        "pages_fetched": len(pages),
+        "records_saved": records_saved,
+        "records_skipped": records_skipped,
+        "next_cursor": next_cursor,
+        "filters": filters,
+        "strict_lk_only": strict_lk_only,
+        "api_total_count": latest_page.get("api_total_count"),
+        "estimated_total_pages": latest_page.get("estimated_total_pages"),
+        "progress_percent": latest_page.get("progress_percent"),
+        "pages": pages,
+    }
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    with temp_path.open("w", encoding="utf-8") as audit_file:
+        json.dump(audit, audit_file, indent=2, ensure_ascii=False)
+        audit_file.write("\n")
     temp_path.replace(path)
 
 
@@ -444,6 +529,12 @@ def parse_args() -> argparse.Namespace:
         help=f"Separate DOI conflict report path. Default: {DEFAULT_DOI_CONFLICTS_OUTPUT}",
     )
     parser.add_argument(
+        "--pagination-output",
+        type=Path,
+        default=DEFAULT_PAGINATION_OUTPUT,
+        help=f"Pagination audit JSON path. Default: {DEFAULT_PAGINATION_OUTPUT}",
+    )
+    parser.add_argument(
         "--no-csv",
         action="store_true",
         help="Only save JSONL; do not save the flat CSV.",
@@ -539,6 +630,11 @@ def main() -> None:
         getattr(args, "log_file", None),
     )
     progress_output = args.progress_output or default_progress_output(args.jsonl_output)
+    pagination_output = getattr(
+        args,
+        "pagination_output",
+        default_pagination_output(args.jsonl_output),
+    )
     filters = build_filters(
         args.filter,
         from_year=args.from_year,
@@ -547,6 +643,7 @@ def main() -> None:
     start_cursor = "*"
     existing_ids: set[str] = set()
     total = 0
+    pagination_events = load_pagination_events(pagination_output) if args.resume else []
     logger.info(
         "Starting OpenAlex collection jsonl_output=%s csv_output=%s resume=%s filters=%s strict_lk_only=%s",
         args.jsonl_output,
@@ -609,6 +706,16 @@ def main() -> None:
             filters=filters,
             strict_lk_only=args.strict_lk_only,
         )
+        write_pagination_audit_report(
+            pagination_output,
+            pages=pagination_events,
+            filters=filters,
+            strict_lk_only=args.strict_lk_only,
+            records_saved=total,
+            records_skipped=0,
+            next_cursor=start_cursor,
+            status="started",
+        )
 
     collector = OpenAlexCollector(email=args.email, api_key=args.api_key)
     csv_file = None
@@ -617,6 +724,7 @@ def main() -> None:
     csv_mode = "a" if args.resume else "w"
     stop_requested = False
     records_skipped = 0
+    last_next_cursor: str | None = start_cursor
 
     try:
         if not args.no_csv:
@@ -663,12 +771,31 @@ def main() -> None:
                 if csv_file is not None:
                     csv_file.flush()
 
+                last_next_cursor = page.cursor if stop_requested else page.next_cursor
                 save_progress(
                     progress_output,
-                    next_cursor=page.cursor if stop_requested else page.next_cursor,
+                    next_cursor=last_next_cursor,
                     records_saved=total,
                     filters=filters,
                     strict_lk_only=args.strict_lk_only,
+                )
+                pagination_events.append(
+                    pagination_event_from_page(
+                        page,
+                        global_page_number=len(pagination_events) + 1,
+                        records_saved=total,
+                        records_skipped=records_skipped,
+                    )
+                )
+                write_pagination_audit_report(
+                    pagination_output,
+                    pages=pagination_events,
+                    filters=filters,
+                    strict_lk_only=args.strict_lk_only,
+                    records_saved=total,
+                    records_skipped=records_skipped,
+                    next_cursor=last_next_cursor,
+                    status="partial" if last_next_cursor else "complete",
                 )
                 if stop_requested:
                     break
@@ -698,6 +825,17 @@ def main() -> None:
         doi_conflicts_output,
     )
     logger.info("Saved progress metadata to %s", progress_output)
+    write_pagination_audit_report(
+        pagination_output,
+        pages=pagination_events,
+        filters=filters,
+        strict_lk_only=args.strict_lk_only,
+        records_saved=total,
+        records_skipped=records_skipped,
+        next_cursor=last_next_cursor,
+        status="partial" if last_next_cursor else "complete",
+    )
+    logger.info("Saved pagination audit to %s", pagination_output)
     print_collection_report(
         collect_quality_report(
             args.jsonl_output,
