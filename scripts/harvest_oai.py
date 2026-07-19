@@ -17,6 +17,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import requests
+
 from src.collectors.oai_pmh_collector import OaiPmhCollector, OaiPmhError
 from src.collectors.repository_registry import harvestable_targets, load_registry
 
@@ -46,11 +48,11 @@ def list_targets() -> None:
         print(f"{target.id:<16}{target.phase:<12}{target.name}")
 
 
-def resolve_endpoint(args: argparse.Namespace) -> tuple[str, str]:
-    """Return (endpoint, output_id) for either --endpoint or --id."""
+def resolve_endpoint(args: argparse.Namespace) -> tuple[str, str, bool]:
+    """Return (endpoint, output_id, verify_ssl) for either --endpoint or --id."""
 
     if args.endpoint:
-        return args.endpoint, "custom"
+        return args.endpoint, "custom", True
 
     if not args.id:
         raise SystemExit("Provide --id <target> or --endpoint <url> (see --list).")
@@ -61,7 +63,8 @@ def resolve_endpoint(args: argparse.Namespace) -> tuple[str, str]:
     if not target.oai_endpoint:
         raise SystemExit(f"Target {args.id!r} has no OAI endpoint on record.")
 
-    return target.oai_endpoint, target.id
+    verify_ssl = not target.extra.get("ssl_verify_failed", False)
+    return target.oai_endpoint, target.id, verify_ssl
 
 
 def main() -> None:
@@ -71,12 +74,16 @@ def main() -> None:
         list_targets()
         return
 
-    endpoint, output_id = resolve_endpoint(args)
+    endpoint, output_id, verify_ssl = resolve_endpoint(args)
     output_path = args.output or DEFAULT_RAW_DIR / output_id / "oai_dc.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    if not verify_ssl:
+        print(f"Note: {output_id} has a known-broken TLS certificate; disabling certificate verification for this host only.")
+
     collector = OaiPmhCollector(
         base_url=endpoint,
+        verify_ssl=verify_ssl,
         metadata_prefix=args.metadata_prefix,
         timeout=args.timeout,
     )
@@ -98,6 +105,11 @@ def main() -> None:
                     print(f"Collected {total} records...")
     except OaiPmhError as exc:
         print(f"OAI-PMH error after {total} records: {exc}")
+        print(f"Saved {total} records collected before the error to {output_path}")
+        raise SystemExit(1) from exc
+    except requests.RequestException as exc:
+        print(f"Request failed after {total} records: {exc}")
+        print(f"Saved {total} records collected before the error to {output_path}")
         raise SystemExit(1) from exc
 
     print(f"Saved {total} records to {output_path}")
