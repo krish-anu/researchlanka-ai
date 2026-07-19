@@ -764,8 +764,7 @@ def main() -> None:
                         writer.writerow(work_to_row(work))
                     existing_ids.add(openalex_id)
                     total += 1
-                    if total % 100 == 0:
-                        logger.info("Saved %s Sri Lankan-affiliated works", f"{total:,}")
+                    logger.info("Saved Sri Lankan-affiliated work number=%s", f"{total:,}")
 
                 jsonl_file.flush()
                 if csv_file is not None:

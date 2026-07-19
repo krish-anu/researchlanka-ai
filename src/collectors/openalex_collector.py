@@ -210,9 +210,13 @@ class OpenAlexCollector:
                 meta = {}
             next_cursor = meta.get("next_cursor")
             if next_cursor == cursor:
-                raise RuntimeError(f"OpenAlex pagination did not advance from cursor: {cursor}")
+                raise RuntimeError(
+                    f"OpenAlex pagination did not advance from cursor: {cursor}"
+                )
             if next_cursor is not None and next_cursor in seen_cursors:
-                raise RuntimeError(f"OpenAlex pagination returned an earlier cursor: {next_cursor}")
+                raise RuntimeError(
+                    f"OpenAlex pagination returned an earlier cursor: {next_cursor}"
+                )
 
             api_total_count = meta.get("count")
             if not isinstance(api_total_count, int):
@@ -223,16 +227,23 @@ class OpenAlexCollector:
             estimated_total_pages = None
             progress_percent = None
             if api_total_count is not None and per_page > 0:
-                estimated_total_pages = max((api_total_count + per_page - 1) // per_page, 1)
+                estimated_total_pages = max(
+                    (api_total_count + per_page - 1) // per_page,
+                    1,
+                )
                 progress_percent = min(page_number / estimated_total_pages * 100, 100.0)
 
+            page_progress = (
+                f"{page_number}/{estimated_total_pages}"
+                if estimated_total_pages is not None
+                else str(page_number)
+            )
             logger.info(
-                "Fetched OpenAlex page page=%s fetched=%s kept=%s skipped=%s progress=%s next_cursor=%s",
-                page_number,
+                "Fetched OpenAlex page page=%s fetched=%s kept=%s skipped=%s next_cursor=%s",
+                page_progress,
                 len(results),
                 len(works),
                 skipped_count,
-                f"{progress_percent:.1f}%" if progress_percent is not None else "n/a",
                 "yes" if next_cursor else "no",
             )
             logger.debug(
