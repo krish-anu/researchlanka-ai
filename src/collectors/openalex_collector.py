@@ -239,8 +239,9 @@ class OpenAlexCollector:
                 else str(page_number)
             )
             logger.info(
-                "Fetched OpenAlex page page=%s fetched=%s kept=%s skipped=%s next_cursor=%s",
+                "Fetched OpenAlex page page=%s progress=%s fetched=%s kept=%s skipped=%s next_cursor=%s",
                 page_progress,
+                f"{progress_percent:.1f}%" if progress_percent is not None else "n/a",
                 len(results),
                 len(works),
                 skipped_count,

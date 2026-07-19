@@ -764,7 +764,17 @@ def main() -> None:
                         writer.writerow(work_to_row(work))
                     existing_ids.add(openalex_id)
                     total += 1
-                    logger.info("Saved Sri Lankan-affiliated work number=%s", f"{total:,}")
+                    saved_progress = (
+                        f"{min(total / page.api_total_count * 100, 100.0):.1f}%"
+                        if page.api_total_count
+                        else "n/a"
+                    )
+                    logger.info(
+                        "Saved Sri Lankan-affiliated work number=%s progress=%s api_total=%s",
+                        f"{total:,}",
+                        saved_progress,
+                        f"{page.api_total_count:,}" if page.api_total_count else "n/a",
+                    )
 
                 jsonl_file.flush()
                 if csv_file is not None:
