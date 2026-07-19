@@ -9,6 +9,7 @@ import pandas as pd
 
 from src.collectors.crossref_collector import CrossrefCollector
 from src.preprocessing.crossref_normalizer import normalize_crossref
+from src.utils.doi_utils import extract_unique_dois
 
 
 OPENALEX_PATH = Path("data/raw/open-alex/open-alex.csv")
@@ -20,9 +21,15 @@ def main():
 
     df = pd.read_csv(OPENALEX_PATH)
 
-    dois = df["doi"].dropna().unique()
+
+    dois = extract_unique_dois(df)
 
     collector = CrossrefCollector()
+
+    for doi in dois:
+        work = collector.fetch_work_by_doi(doi)
+
+    
 
     OUTPUT_PATH.parent.mkdir(
         parents=True,
