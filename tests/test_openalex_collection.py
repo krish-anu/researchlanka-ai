@@ -12,6 +12,8 @@ import sys
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
+
 from scripts import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
 
@@ -549,6 +551,65 @@ def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
     ]
 
 
+def test_iter_sri_lankan_work_pages_reports_pagination_progress(monkeypatch):
+    """Page objects should expose count-based progress details for audit files."""
+    first_work = sample_work("LK")
+    first_work["id"] = "https://openalex.org/W1"
+    second_work = sample_work("LK")
+    second_work["id"] = "https://openalex.org/W2"
+    responses = [
+        {
+            "results": [first_work],
+            "meta": {
+                "next_cursor": "cursor-2",
+                "count": 4,
+                "db_response_time_ms": 15,
+            },
+        },
+        {
+            "results": [second_work],
+            "meta": {
+                "next_cursor": None,
+                "count": 4,
+                "db_response_time_ms": 18,
+            },
+        },
+    ]
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", lambda **_kwargs: responses.pop(0))
+
+    pages = list(
+        collector.iter_sri_lankan_work_pages(
+            filters=[openalex.LK_AUTHORSHIP_FILTER],
+            per_page=2,
+        )
+    )
+
+    assert [page.page_number for page in pages] == [1, 2]
+    assert [page.fetched_count for page in pages] == [1, 1]
+    assert pages[0].api_total_count == 4
+    assert pages[0].estimated_total_pages == 2
+    assert pages[0].progress_percent == 50.0
+    assert pages[1].progress_percent == 100.0
+    assert pages[0].db_response_time_ms == 15
+
+
+def test_iter_sri_lankan_work_pages_rejects_repeated_cursor(monkeypatch):
+    """Pagination should fail loudly if OpenAlex returns a stuck cursor."""
+    def fake_fetch_works(**kwargs):
+        return {
+            "results": [sample_work("LK")],
+            "meta": {"next_cursor": kwargs["cursor"]},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+
+    with pytest.raises(RuntimeError, match="did not advance"):
+        list(collector.iter_sri_lankan_work_pages(filters=[openalex.LK_AUTHORSHIP_FILTER]))
+
+
 def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatch):
     """Resume should append new records and skip records already in the JSONL."""
     existing_work = sample_work("LK")
@@ -562,6 +623,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     progress_output = tmp_path / "works.progress.json"
     doi_conflicts_output = tmp_path / "doi_conflicts.csv"
     parquet_output = tmp_path / "works.parquet"
+    pagination_output = tmp_path / "pagination_audit.json"
 
     jsonl_output.write_text(json.dumps(existing_work) + "\n", encoding="utf-8")
     openalex_script.save_progress(
@@ -590,6 +652,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         csv_output=csv_output,
         parquet_output=parquet_output,
         doi_conflicts_output=doi_conflicts_output,
+        pagination_output=pagination_output,
         no_csv=False,
         no_parquet=True,
         resume=True,
@@ -634,6 +697,12 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
         "strict_lk_only": False,
     }
+    pagination_audit = json.loads(pagination_output.read_text(encoding="utf-8"))
+    assert pagination_audit["status"] == "complete"
+    assert pagination_audit["pages_fetched"] == 1
+    assert pagination_audit["records_saved"] == 2
+    assert pagination_audit["pages"][0]["cursor"] == "saved-cursor"
+    assert pagination_audit["pages"][0]["kept_count"] == 2
 
 
 def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
@@ -643,6 +712,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     progress_output = tmp_path / "works.progress.json"
     doi_conflicts_output = tmp_path / "doi_conflicts.csv"
     parquet_output = tmp_path / "works.parquet"
+    pagination_output = tmp_path / "pagination_audit.json"
 
     class FakeCollector:
         def __init__(self, *, email, api_key):
@@ -659,6 +729,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
         csv_output=csv_output,
         parquet_output=parquet_output,
         doi_conflicts_output=doi_conflicts_output,
+        pagination_output=pagination_output,
         no_csv=True,
         no_parquet=True,
         resume=False,
@@ -686,6 +757,53 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     }
     with doi_conflicts_output.open("r", encoding="utf-8", newline="") as csv_file:
         assert list(csv.DictReader(csv_file)) == []
+    pagination_audit = json.loads(pagination_output.read_text(encoding="utf-8"))
+    assert pagination_audit["status"] == "partial"
+    assert pagination_audit["pages_fetched"] == 0
+    assert pagination_audit["next_cursor"] == "*"
+
+
+def test_write_pagination_audit_report_outputs_page_details(tmp_path):
+    """Pagination audit JSON should keep page-level monitoring details."""
+    audit_output = tmp_path / "pagination.json"
+    pages = [
+        {
+            "page_number": 1,
+            "run_page_number": 1,
+            "cursor": "*",
+            "next_cursor": "cursor-2",
+            "fetched_count": 200,
+            "kept_count": 180,
+            "skipped_count": 20,
+            "records_saved_total": 180,
+            "records_skipped_total": 20,
+            "api_total_count": 400,
+            "estimated_total_pages": 2,
+            "progress_percent": 50.0,
+            "db_response_time_ms": 12,
+            "filters": [openalex.LK_AUTHORSHIP_FILTER],
+        }
+    ]
+
+    openalex_script.write_pagination_audit_report(
+        audit_output,
+        pages=pages,
+        filters=[openalex.LK_AUTHORSHIP_FILTER],
+        strict_lk_only=False,
+        records_saved=180,
+        records_skipped=20,
+        next_cursor="cursor-2",
+        status="partial",
+    )
+
+    audit = json.loads(audit_output.read_text(encoding="utf-8"))
+    assert audit["status"] == "partial"
+    assert audit["pages_fetched"] == 1
+    assert audit["records_saved"] == 180
+    assert audit["api_total_count"] == 400
+    assert audit["estimated_total_pages"] == 2
+    assert audit["progress_percent"] == 50.0
+    assert audit["pages"] == pages
 
 
 def test_default_output_dir_supports_environment_override(tmp_path, monkeypatch):
