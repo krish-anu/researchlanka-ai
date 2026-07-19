@@ -13,6 +13,7 @@ OPENALEX_CSV ?= $(OPENALEX_DIR)/openalex_sri_lanka_works.csv
 OPENALEX_PARQUET ?= $(OPENALEX_DIR)/openalex_sri_lanka_works.parquet
 OPENALEX_DOI_CONFLICTS ?= $(OPENALEX_DIR)/openalex_sri_lanka_doi_conflicts.csv
 OPENALEX_PROGRESS ?= $(OPENALEX_JSONL).progress.json
+OPENALEX_PAGINATION ?= $(OPENALEX_DIR)/openalex_sri_lanka_pagination_audit.json
 OPENALEX_LOG ?= $(OPENALEX_DIR)/openalex_collection.log
 
 # OpenAlex collection settings.
@@ -34,6 +35,7 @@ OPENALEX_OUTPUT_ARGS = \
 	--csv-output $(OPENALEX_CSV) \
 	--parquet-output $(OPENALEX_PARQUET) \
 	--doi-conflicts-output $(OPENALEX_DOI_CONFLICTS) \
+	--pagination-output $(OPENALEX_PAGINATION) \
 	--progress-output $(OPENALEX_PROGRESS)
 
 # Runtime arguments shared by collect, sample, and resume targets.
@@ -55,7 +57,7 @@ help:
 	@echo ""
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
-	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, log"
+	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
 	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
 	@echo "  make openalex-resume         Resume an interrupted OpenAlex collection"
 	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
@@ -77,7 +79,7 @@ test:
 	$(PYTHON) -m pytest
 
 # Run the full OpenAlex API collection pipeline.
-# This writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts, progress, and logs.
+# This writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts, pagination audit, progress, and logs.
 openalex:
 	$(PYTHON) scripts/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS)
 
