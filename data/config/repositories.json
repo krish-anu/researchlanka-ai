@@ -7,7 +7,9 @@
     "For DSpace 6 sites use /oai/request; for DSpace 7/8 (Angular UI) sites use /server/oai/request.",
     "dspace.ac.lk (LEARN/ODRaaS) is a near-empty pilot as of mid-2026 and is deliberately excluded from harvesting; revisit quarterly.",
     "2026-07-19 live validation pass (scripts/validate_repositories.py + manual web-search cross-checks): several sites only serve OAI-PMH over plain http:// (broken/absent HTTPS), one needs a 'www.' host prefix, and jfn_research/jfn_medicine's OAI service lives at the server root rather than under /ujrr or /med. endpoint_verified_live=true entries below were confirmed with a real ?verb=Identify response on that date; see each entry's notes for specifics.",
-    "2026-07-19 Week 3 large-scale harvest finding, IMPORTANT for planning: 'endpoint reachable' does not mean 'has harvestable data'. Of the 17 targets with a live OAI-PMH endpoint, only 7 (uom, cmb, seu, sltc, ruh, uwu, sliit) actually returned records via ListRecords/ListIdentifiers; the other 10 responded fine to ?verb=Identify and ?verb=ListMetadataFormats (and in several cases ?verb=ListSets shows real collections with content) but return 'noRecordsMatch' for the actual data query -- almost certainly a stale/unbuilt OAI index on the DSpace side (a known DSpace admin issue: 'dspace oai import' needs to be re-run after certain changes), not a wrong URL or missing content. scripts/validate_repositories.py now checks this directly (has_records field) instead of only checking Identify. This is a real blocker for full national coverage and likely needs direct outreach to those institutions' IT/library staff to ask them to rebuild their OAI index."
+    "2026-07-19 Week 3 large-scale harvest finding, IMPORTANT for planning: 'endpoint reachable' does not mean 'has harvestable data'. Of the 17 targets with a live OAI-PMH endpoint, only 7 (uom, cmb, seu, sltc, ruh, uwu, sliit) actually returned records via ListRecords/ListIdentifiers; the other 10 responded fine to ?verb=Identify and ?verb=ListMetadataFormats (and in several cases ?verb=ListSets shows real collections with content) but return 'noRecordsMatch' for the actual data query -- almost certainly a stale/unbuilt OAI index on the DSpace side (a known DSpace admin issue: 'dspace oai import' needs to be re-run after certain changes), not a wrong URL or missing content. scripts/validate_repositories.py now checks this directly (has_records field) instead of only checking Identify.",
+    "2026-07-20 update on the empty-OAI-index problem: PARTIALLY RESOLVED. For the DSpace 7/8 instances among the empty ones (pdn, nsf, busl), the public REST discover endpoint (/server/api/discover/search/objects?dsoType=item -- note /server/api/core/items returns 401) serves full qualified-DC metadata regardless of OAI index state; scripts/harvest_dspace_rest.py collected 100% from all three (7,682 + 15,792 + 2,873 items). The remaining empty-index institutions (jfn_research, jfn_medicine, ou, vpa, rjt, esn, vau) are legacy DSpace 5/6 with no public REST route (checked 2026-07-20: /rest paths 404, redirect to broken https, or redirect to intranet 192.168.x.x addresses) -- for these, outreach to their IT/library staff to rebuild the OAI index ('dspace oai import') remains the only fix. The 8 blocked/unreachable targets (kln, sjp, sab, wyb, kdu, ucsc, sljol, pgim) were re-validated 2026-07-20: all still blocked, no change.",
+    "Per-institution harvest_route field (where present): 'rest' = use scripts/harvest_dspace_rest.py; default/absent = OAI via scripts/harvest_oai.py or, for cmb/ruh (pagination-bug hosts), scripts/harvest_large_repository.py."
   ],
   "repositories": [
     {
@@ -32,9 +34,11 @@
       "oai_endpoint": "https://archive.cmb.ac.lk/server/oai/request",
       "rest_api_endpoint": "https://archive.cmb.ac.lk/server/api",
       "on_dspace_ac_lk": false,
-      "status": "endpoint_inferred",
+      "status": "confirmed_live",
       "phase": "phase_2",
-      "notes": "Endpoint inferred; needs re-validation."
+      "endpoint_verified_live": true,
+      "harvest_route": "rest",
+      "notes": "Endpoint confirmed live 2026-07-19. OAI ListRecords pagination crashes around resumptionToken offset ~3000 (HTTP 500, 'No converter for [class java.util.LinkedHashMap]' -- Spring/DSpace serialization fault, not transient); date-slicing (harvest_large_repository.py) recovered 8,355 of ~8,540 but one window stayed broken. RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 8,447 items (scripts/harvest_dspace_rest.py --id cmb). Old xmlui instance on :8080 referenced in older records is gone (404) -- those are stale links, not missing content."
     },
     {
       "id": "ucsc",
@@ -59,9 +63,11 @@
       "oai_endpoint": "https://ir.lib.pdn.ac.lk/server/oai/request",
       "rest_api_endpoint": "https://ir.lib.pdn.ac.lk/server/api",
       "on_dspace_ac_lk": false,
-      "status": "endpoint_inferred",
+      "status": "confirmed_live",
       "phase": "phase_2",
-      "notes": "Old instance at dlib.pdn.ac.lk may still hold legacy content. Endpoint inferred; needs re-validation."
+      "endpoint_verified_live": true,
+      "harvest_route": "rest",
+      "notes": "Confirmed live 2026-07-19, but OAI index is empty (noRecordsMatch on all queries/prefixes). RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 7,682 items (scripts/harvest_dspace_rest.py --id pdn). LEGACY GAP: the old instance dlib.pdn.ac.lk (still Google-indexed with real handle pages, OpenDOAR repository 4542) is completely unreachable as of 2026-07-20 -- connect timeout on http/https/www/:8080 -- likely offline or mid-migration into ir.lib.pdn.ac.lk. Peradeniya's historic collection may substantially exceed the new instance's 7,682 items; re-check dlib periodically and harvest it if it comes back."
     },
     {
       "id": "kln",
@@ -96,6 +102,7 @@
       "name": "University of Jaffna (research repository, UJRR)",
       "group": "A",
       "repository_url": "http://repo.lib.jfn.ac.lk",
+      "browse_url": "http://repo.lib.jfn.ac.lk/ujrr",
       "software": "DSpace XMLUI",
       "oai_endpoint": "http://repo.lib.jfn.ac.lk/oai/request",
       "rest_api_endpoint": null,
@@ -110,6 +117,7 @@
       "name": "University of Jaffna (Faculty of Medicine)",
       "group": "A",
       "repository_url": "http://repo.jfn.ac.lk",
+      "browse_url": "http://repo.jfn.ac.lk/med",
       "software": "DSpace",
       "oai_endpoint": "http://repo.jfn.ac.lk/oai/request",
       "rest_api_endpoint": null,
@@ -131,7 +139,7 @@
       "status": "confirmed_live",
       "phase": "phase_2",
       "endpoint_verified_live": true,
-      "notes": "Verified 2026-07-19 over http (https unreachable; no valid TLS listener). A separate 'Digital Archive' also exists at ar.lib.seu.ac.lk -- not yet checked, may be a distinct DSpace instance worth a second look."
+      "notes": "Verified 2026-07-19 over http (https unreachable; no valid TLS listener). A separate 'Digital Archive' also exists at ar.lib.seu.ac.lk -- not yet checked, may be a distinct DSpace instance worth a second look. Also has the cmb/ruh-style pagination-depth server bug, crashing plain harvest at ~5,902 of ~6,713 total records (88%). IMPORTANT: unlike cmb/ruh, the date-slicing workaround (harvest_large_repository.py) makes this WORSE for SEU (only found 273 records total) -- the OAI 'from'/'until' date filter appears to still walk the same underlying broken offset internally rather than reducing it, so date-narrowed queries hit the crash even on tiny/empty ranges. For this institution specifically, use the plain harvest_oai.py (accept the ~5,902-record partial result), not the date-sliced script."
     },
     {
       "id": "ou",
@@ -187,7 +195,8 @@
       "status": "confirmed_live",
       "phase": "phase_2",
       "endpoint_verified_live": true,
-      "notes": "Hosted under NSF infrastructure, distinct from dl.nsf.gov.lk itself. Verified 2026-07-19: original guess (/oai/request, DSpace 6-style) was wrong -- it's actually DSpace 7+ and needs /server/oai/request. Its own <baseURL> in the Identify response self-reports as https://repo.busl.ac.lk/server/oai/request (a different canonical domain) -- worth testing that domain directly too. Currently returns noRecordsMatch on ListIdentifiers (empty/stale OAI index, same pattern as several other institutions -- see top-level notes)."
+      "harvest_route": "rest",
+      "notes": "Hosted under NSF infrastructure, distinct from dl.nsf.gov.lk itself. Verified 2026-07-19: original guess (/oai/request, DSpace 6-style) was wrong -- it's actually DSpace 7+ and needs /server/oai/request. Its own <baseURL> self-reports as https://repo.busl.ac.lk/server/oai/request. OAI index empty (noRecordsMatch). RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 2,873 items (scripts/harvest_dspace_rest.py --id busl)."
     },
     {
       "id": "sltc",
@@ -211,9 +220,10 @@
       "oai_endpoint": "https://ir.lib.ruh.ac.lk/oai/request",
       "rest_api_endpoint": null,
       "on_dspace_ac_lk": false,
-      "status": "endpoint_inferred",
+      "status": "confirmed_live",
       "phase": "phase_1",
-      "notes": "Confirmed XMLUI DSpace; exact version not read. Endpoint inferred from software."
+      "endpoint_verified_live": true,
+      "notes": "Confirmed XMLUI DSpace; exact version not read. Endpoint inferred from software, confirmed live 2026-07-19. Same pagination-depth server bug as cmb (see that entry) -- plain harvest crashed at ~1,992 records. scripts/harvest_large_repository.py's date-slicing workaround collected 14,743 of ~15,290 total records (96%); one narrow window (2024-11-03..2024-11-15) could not be recovered."
     },
     {
       "id": "esn",
@@ -269,7 +279,8 @@
       "status": "confirmed_live",
       "phase": "phase_1",
       "endpoint_verified_live": true,
-      "notes": "Verified 2026-07-19: live over https as originally documented; has real data (100 records collected before failure). But a real large-scale harvest (scripts/harvest_all.py) hit a server-side HTTP 500 on the second page, when following the resumptionToken -- the first page (100 records) works, ListRecords with resumptionToken=oai_dc////100 does not. Looks like a bug/misconfiguration in this instance's resumption-token handling, not a client-side issue. Harvesting this fully will need either retry/backoff logic, a smaller page size, or a fix on UWU's end."
+      "harvest_route": "rest",
+      "notes": "Verified 2026-07-19: OAI endpoint live but effectively unusable -- ListRecords 500s on the second page (resumptionToken=oai_dc////100) and on every date-filtered query, even empty 1990 ranges, so neither plain pagination nor date-slicing works; 100 records was the OAI ceiling. RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 8,897 items (scripts/harvest_dspace_rest.py --id uwu)."
     },
     {
       "id": "vau",
@@ -363,7 +374,8 @@
       "status": "confirmed_live",
       "phase": "phase_1",
       "endpoint_verified_live": true,
-      "notes": "Verified 2026-07-19: live over https exactly as documented -- OAI Identify + ListMetadataFormats (13 formats) and REST API both returned 200, robots.txt allows it. This is a clean, ready-to-harvest endpoint. HOWEVER: a real ListRecords/ListIdentifiers harvest returns 'noRecordsMatch' for oai_dc with no filters -- the OAI index currently has zero exposed records, despite earliestDatestamp being recent (2026-05-11), suggesting the instance is new/reindexing rather than actually empty of content. Re-check periodically; this is a data-availability gap, not a reachability problem. High-value aggregator when populated: 'Journals Published in Sri Lanka' and 'Conferences and Workshops of Sri Lanka' communities give broad national coverage in one feed. Deduplicate against SLJOL and institutional feeds."
+      "harvest_route": "rest",
+      "notes": "Verified 2026-07-19: OAI endpoint live but its index is empty (noRecordsMatch on every ListRecords/ListIdentifiers query, all metadata prefixes). RESOLVED 2026-07-20 via the REST route: /server/api/core/items returns 401, but the public discover endpoint (/server/api/discover/search/objects?dsoType=item) serves everything -- full harvest collected all 15,792 items (scripts/harvest_dspace_rest.py --id nsf). High-value aggregator confirmed: 'Journals Published in Sri Lanka' and 'Conferences and Workshops of Sri Lanka' communities. Deduplicate against institutional feeds."
     },
     {
       "id": "sljol",

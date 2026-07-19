@@ -39,7 +39,15 @@ DC_FIELDS = [
 
 
 class OaiPmhError(RuntimeError):
-    """Raised when an OAI-PMH endpoint returns an <error> response."""
+    """Raised when an OAI-PMH endpoint returns an <error> response.
+
+    Carries the OAI error ``code`` (e.g. "noRecordsMatch") so callers can
+    tell a benign "nothing in this range" apart from a real fault.
+    """
+
+    def __init__(self, code: str, message: str | None) -> None:
+        self.code = code
+        super().__init__(f"OAI-PMH error [{code}]: {message}")
 
 
 @dataclass
@@ -50,20 +58,26 @@ class OaiPmhCollector:
     metadata_prefix: str = "oai_dc"
     timeout: int = 30
     session: requests.Session | None = None
+    # Some institutions (e.g. SLIIT) have a live endpoint behind a broken/
+    # misconfigured TLS certificate -- see repositories.json ssl_verify_failed.
+    # Only set this False for hosts already confirmed reachable-but-bad-cert
+    # by scripts/validate_repositories.py; never as a blanket default.
+    verify_ssl: bool = True
 
     def __post_init__(self) -> None:
         if self.session is None:
             self.session = requests.Session()
 
     def _request(self, params: dict[str, str]) -> ElementTree.Element:
-        response = self.session.get(self.base_url, params=params, timeout=self.timeout)
+        response = self.session.get(
+            self.base_url, params=params, timeout=self.timeout, verify=self.verify_ssl
+        )
         response.raise_for_status()
         root = ElementTree.fromstring(response.text)
 
         error = root.find(f"{OAI_NS}error")
         if error is not None:
-            code = error.get("code", "unknown")
-            raise OaiPmhError(f"OAI-PMH error [{code}]: {error.text}")
+            raise OaiPmhError(error.get("code", "unknown"), error.text)
 
         return root
 

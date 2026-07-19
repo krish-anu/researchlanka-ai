@@ -48,7 +48,8 @@ def harvest_one(target, *, max_records: int, timeout: int) -> HarvestOutcome:
     output_path = DEFAULT_RAW_DIR / target.id / "oai_dc.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    collector = OaiPmhCollector(base_url=target.oai_endpoint, timeout=timeout)
+    verify_ssl = not target.extra.get("ssl_verify_failed", False)
+    collector = OaiPmhCollector(base_url=target.oai_endpoint, timeout=timeout, verify_ssl=verify_ssl)
     total = 0
 
     try:

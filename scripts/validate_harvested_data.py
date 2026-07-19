@@ -98,11 +98,37 @@ def validate_institution(target, harvest_errors: dict[str, str]) -> InstitutionV
     )
 
     raw_path = RAW_DIR / target.id / "oai_dc.jsonl"
+    rest_path = RAW_DIR / target.id / "rest_items.jsonl"
     expected_host = urlparse(target.oai_endpoint).netloc if target.oai_endpoint else None
     seen_ids: set[str] = set()
     hosts_seen: set[str] = set()
 
-    if raw_path.exists():
+    # Mirror map_to_common_schema.py's source choice: when both routes were
+    # harvested, only the larger one feeds the mapped output, so only count
+    # that one as "raw" here -- counting both would double-count the same
+    # items and never reconcile with the mapped total.
+    def _line_count(path: Path) -> int:
+        with path.open(encoding="utf-8") as f:
+            return sum(1 for line in f if line.strip())
+
+    oai_line_count = _line_count(raw_path) if raw_path.exists() else 0
+    rest_line_count = _line_count(rest_path) if rest_path.exists() else 0
+    use_rest = rest_line_count > oai_line_count
+
+    if use_rest:
+        with rest_path.open(encoding="utf-8") as rest_file:
+            for line in rest_file:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                result.raw_record_count += 1
+                record_id = record.get("uuid")
+                if record_id:
+                    if record_id in seen_ids:
+                        result.duplicate_source_ids += 1
+                    seen_ids.add(record_id)
+
+    if not use_rest and raw_path.exists():
         with raw_path.open(encoding="utf-8") as raw_file:
             for line in raw_file:
                 record = json.loads(line)

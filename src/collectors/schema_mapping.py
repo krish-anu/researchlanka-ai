@@ -112,3 +112,88 @@ def map_oai_dc_record(record: dict[str, Any], *, institution_id: str) -> dict[st
         "url": _extract_url(record.get("identifier")),
         "raw_identifiers": record.get("identifier", []),
     }
+
+
+def map_html_meta_record(record: dict[str, Any], *, institution_id: str) -> dict[str, Any]:
+    """Map one crawled item-page record (from HtmlMetaCollector) into the
+    common publication schema. Metadata comes from the DC/DCTERMS/citation
+    <meta> tags DSpace embeds in item pages.
+    """
+
+    meta = record.get("meta") or {}
+
+    def values(*fields: str) -> list[str]:
+        for field in fields:
+            if meta.get(field):
+                return meta[field]
+        return []
+
+    identifiers = meta.get("DC.identifier", [])
+    issued_date = _first(values("DCTERMS.issued", "citation_date"))
+
+    return {
+        "source": "institutional_repository",
+        "source_institution_id": institution_id,
+        "source_record_id": record.get("handle_path"),
+        "source_datestamp": _first(values("DCTERMS.available", "DCTERMS.dateAccepted")),
+        "source_set_specs": [],
+        "deleted": False,
+        "title": _first(values("DC.title", "citation_title")),
+        "abstract": _first(values("DCTERMS.abstract", "DC.description")),
+        "keywords": values("DC.subject", "citation_keywords"),
+        "authors": values("DC.creator", "citation_author"),
+        "contributors": values("DC.contributor"),
+        "publication_date": issued_date,
+        "publication_year": _extract_year(issued_date, values("DCTERMS.issued")),
+        "publication_type": _first(values("DC.type")),
+        "publisher": _first(values("DC.publisher", "citation_publisher")),
+        "language": _first(values("DC.language")),
+        "rights": _first(values("DC.rights")),
+        "doi": _extract_doi(identifiers),
+        "url": record.get("url") or _extract_url(identifiers),
+        "raw_identifiers": identifiers,
+    }
+
+
+def map_dspace_rest_record(record: dict[str, Any], *, institution_id: str) -> dict[str, Any]:
+    """Map one DSpace 7/8 REST item (from DspaceRestCollector) into the
+    common publication schema.
+
+    REST metadata is qualified Dublin Core keyed by full field name
+    (e.g. ``dc.date.issued`` separate from ``dc.date.accessioned``), so
+    unlike the flat OAI mapping no date heuristics are needed.
+    """
+
+    metadata = record.get("metadata") or {}
+
+    def values(field: str) -> list[str]:
+        return metadata.get(field, [])
+
+    identifiers = values("dc.identifier.uri") + values("dc.identifier.citation") + values(
+        "dc.identifier.doi"
+    )
+    issued_date = _first(values("dc.date.issued"))
+    abstract = _first(values("dc.description.abstract")) or _first(values("dc.description"))
+
+    return {
+        "source": "institutional_repository",
+        "source_institution_id": institution_id,
+        "source_record_id": record.get("uuid"),
+        "source_datestamp": record.get("last_modified"),
+        "source_set_specs": [],
+        "deleted": bool(record.get("withdrawn")),
+        "title": _first(values("dc.title")) or record.get("name"),
+        "abstract": abstract,
+        "keywords": values("dc.subject"),
+        "authors": values("dc.contributor.author") or values("dc.creator"),
+        "contributors": values("dc.contributor") + values("dc.contributor.advisor"),
+        "publication_date": issued_date,
+        "publication_year": _extract_year(issued_date, values("dc.date.issued")),
+        "publication_type": _first(values("dc.type")),
+        "publisher": _first(values("dc.publisher")),
+        "language": _first(values("dc.language.iso")) or _first(values("dc.language")),
+        "rights": _first(values("dc.rights")),
+        "doi": _extract_doi(identifiers),
+        "url": _extract_url(values("dc.identifier.uri")),
+        "raw_identifiers": identifiers,
+    }
