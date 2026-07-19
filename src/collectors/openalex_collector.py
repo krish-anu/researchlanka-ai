@@ -88,6 +88,12 @@ class OpenAlexWorkPage:
     filters: list[str]
     works: list[dict[str, Any]]
     skipped_count: int = 0
+    page_number: int = 0
+    fetched_count: int = 0
+    api_total_count: int | None = None
+    estimated_total_pages: int | None = None
+    progress_percent: float | None = None
+    db_response_time_ms: int | None = None
 
 
 @dataclass
@@ -158,6 +164,8 @@ class OpenAlexCollector:
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
         seen_ids: set[str] = set()
+        seen_cursors: set[str] = set()
+        page_number = 0
         logger.info(
             "Starting OpenAlex page iteration start_cursor=%s per_page=%s strict_lk_only=%s filters=%s",
             start_cursor,
@@ -167,6 +175,11 @@ class OpenAlexCollector:
         )
 
         while cursor:
+            if cursor in seen_cursors:
+                raise RuntimeError(f"OpenAlex pagination cursor repeated: {cursor}")
+            seen_cursors.add(cursor)
+            page_number += 1
+
             response = self.fetch_works(
                 filters=built_filters,
                 cursor=cursor,
@@ -192,13 +205,55 @@ class OpenAlexCollector:
                 seen_ids.add(work_id)
                 works.append(work)
 
-            next_cursor = response.get("meta", {}).get("next_cursor")
+            meta = response.get("meta", {})
+            if not isinstance(meta, dict):
+                meta = {}
+            next_cursor = meta.get("next_cursor")
+            if next_cursor == cursor:
+                raise RuntimeError(
+                    f"OpenAlex pagination did not advance from cursor: {cursor}"
+                )
+            if next_cursor is not None and next_cursor in seen_cursors:
+                raise RuntimeError(
+                    f"OpenAlex pagination returned an earlier cursor: {next_cursor}"
+                )
+
+            api_total_count = meta.get("count")
+            if not isinstance(api_total_count, int):
+                api_total_count = None
+            db_response_time_ms = meta.get("db_response_time_ms")
+            if not isinstance(db_response_time_ms, int):
+                db_response_time_ms = None
+            estimated_total_pages = None
+            progress_percent = None
+            if api_total_count is not None and per_page > 0:
+                estimated_total_pages = max(
+                    (api_total_count + per_page - 1) // per_page,
+                    1,
+                )
+                progress_percent = min(page_number / estimated_total_pages * 100, 100.0)
+
+            page_progress = (
+                f"{page_number}/{estimated_total_pages}"
+                if estimated_total_pages is not None
+                else str(page_number)
+            )
             logger.info(
-                "Fetched OpenAlex page cursor=%s kept=%s skipped=%s next_cursor=%s",
-                cursor,
+                "Fetched OpenAlex page page=%s progress=%s fetched=%s kept=%s skipped=%s next_cursor=%s",
+                page_progress,
+                f"{progress_percent:.1f}%" if progress_percent is not None else "n/a",
+                len(results),
                 len(works),
                 skipped_count,
                 "yes" if next_cursor else "no",
+            )
+            logger.debug(
+                "OpenAlex pagination detail cursor=%s next_cursor=%s api_total_count=%s estimated_total_pages=%s db_response_time_ms=%s",
+                cursor,
+                next_cursor,
+                api_total_count,
+                estimated_total_pages,
+                db_response_time_ms,
             )
             yield OpenAlexWorkPage(
                 cursor=cursor,
@@ -206,6 +261,12 @@ class OpenAlexCollector:
                 filters=built_filters,
                 works=works,
                 skipped_count=skipped_count,
+                page_number=page_number,
+                fetched_count=len(results),
+                api_total_count=api_total_count,
+                estimated_total_pages=estimated_total_pages,
+                progress_percent=progress_percent,
+                db_response_time_ms=db_response_time_ms,
             )
 
             cursor = next_cursor

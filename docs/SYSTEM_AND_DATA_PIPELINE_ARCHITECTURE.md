@@ -59,6 +59,7 @@ The collector:
 - applies `authorships.institutions.country_code:LK`
 - keeps records with at least one Sri Lankan authorship or LK institution
 - writes raw JSONL plus flattened CSV and Parquet outputs
+- logs cursor-pagination progress and writes a pagination audit JSON file
 
 Crossref collection is used as a secondary source for DOI comparison and metadata coverage checks. SLJOL notebooks support local Sri Lankan journal exploration.
 
@@ -98,6 +99,7 @@ Examples:
 ```text
 data/raw/openalex/openalex_sri_lanka_works.jsonl
 data/raw/openalex/openalex_sri_lanka_works.csv
+data/raw/openalex/openalex_sri_lanka_pagination_audit.json
 data/processed/crossref/crossref_sri_lanka_works.jsonl
 data/processed/crossref/crossref_sri_lanka_works_doi_enriched.jsonl
 data/processed/doi_comparison/doi_comparison_openalex_only_dois.txt
@@ -187,6 +189,7 @@ Quality checks should run before a dataset is considered ready for analysis:
 - separate DOI conflict reporting when one normalized DOI maps to multiple OpenAlex IDs
 - missing title/year/source checks
 - Sri Lankan affiliation validation
+- OpenAlex cursor-pagination validation, including repeated/stuck cursor detection
 - source comparison between OpenAlex and Crossref
 - schema consistency for expected output columns
 
@@ -202,8 +205,10 @@ data/processed/crossref/
 data/processed/doi_comparison/
 ```
 
-The OpenAlex collector writes raw JSONL, flat CSV, cleaned Parquet, and a
-separate DOI conflict CSV. The OpenAlex analysis notebook writes strict
+The OpenAlex collector writes raw JSONL, flat CSV, cleaned Parquet, a
+separate DOI conflict CSV, and a pagination audit JSON with page-by-page cursor,
+kept/skipped count, estimated page count, progress percentage, and API response
+timing metadata. The OpenAlex analysis notebook writes strict
 Sri Lanka-only analysis tables and charts to `data/processed/openalex/` locally
 or `/kaggle/working/openalex_outputs/` on Kaggle.
 
