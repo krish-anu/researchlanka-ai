@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.schema_mapping import (
+    map_crossref_record,
     map_dspace_rest_record,
     map_html_meta_record,
     map_oai_dc_record,
@@ -45,6 +46,7 @@ def map_one(institution_id: str) -> int:
         (DEFAULT_RAW_DIR / institution_id / "oai_dc.jsonl", map_oai_dc_record, "oai"),
         (DEFAULT_RAW_DIR / institution_id / "rest_items.jsonl", map_dspace_rest_record, "rest"),
         (DEFAULT_RAW_DIR / institution_id / "html_meta.jsonl", map_html_meta_record, "html"),
+        (DEFAULT_RAW_DIR / institution_id / "crossref_works.jsonl", map_crossref_record, "crossref"),
     ]
     counted = [
         (path.exists() and _count_lines(path) or 0, path, mapper, kind)
@@ -103,14 +105,14 @@ def main() -> None:
         print(f"No raw data directory at {DEFAULT_RAW_DIR}")
         return
 
+    raw_filenames = ("oai_dc.jsonl", "rest_items.jsonl", "html_meta.jsonl", "crossref_works.jsonl")
     ids = sorted(
         p.name
         for p in DEFAULT_RAW_DIR.iterdir()
-        if p.is_dir()
-        and ((p / "oai_dc.jsonl").exists() or (p / "rest_items.jsonl").exists())
+        if p.is_dir() and any((p / name).exists() for name in raw_filenames)
     )
     if not ids:
-        print("No harvested oai_dc.jsonl or rest_items.jsonl files found under data/raw/.")
+        print("No harvested raw files found under data/raw/.")
         return
 
     total = 0

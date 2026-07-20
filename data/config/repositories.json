@@ -81,7 +81,7 @@
       "status": "blocked_for_automated_requests",
       "phase": "phase_2",
       "endpoint_verified_live": false,
-      "notes": "Site is live and indexed publicly (confirmed via web search; http://repository.kln.ac.lk/ serves real content to browsers). But every scripted request we made -- https (SSL handshake fails: TLSV1_UNRECOGNIZED_NAME) and http on /oai/request, /xmlui/oai/request, /jspui/oai/request (all HTTP 403 with a 'NOINDEX, NOFOLLOW' WAF page) -- was blocked. Sitemap fallback also checked 2026-07-19 -- no sitemap_index.xml/sitemap.xml reachable either (same block). Looks like bot/WAF protection covering the whole site, not just OAI. Also hosts Gampaha Wickramarachchi University of Ayurveda as a sub-community (see gwuas entry)."
+      "notes": "Site is live and indexed publicly (confirmed via web search; http://repository.kln.ac.lk/ serves real content to browsers). But every scripted request we made -- https (SSL handshake fails: TLSV1_UNRECOGNIZED_NAME) and http on /oai/request, /xmlui/oai/request, /jspui/oai/request (all HTTP 403 with a 'NOINDEX, NOFOLLOW' WAF page) -- was blocked. Sitemap fallback also checked 2026-07-19 -- no sitemap reachable either (same block). Re-checked 2026-07-20: still blocked, URL confirmed canonical (OpenDOAR 3821), repository actively maintained (2025-2026 content visible to browsers/Google). Aggregator routes checked 2026-07-20: NOT in CORE (only 2 LK providers there: SEU and OUSL); FAO AGRIS lists University of Kelaniya as a data provider but that is an agriculture-only subset. Kelaniya-affiliated JOURNAL articles will still arrive via the OpenAlex LK-institution harvest (other pipeline); what stays inaccessible is repository-only content (theses, proceedings). Only route: outreach to Kelaniya library/IT for allow-listing. Also hosts Gampaha Wickramarachchi University of Ayurveda as a sub-community (see gwuas entry)."
     },
     {
       "id": "sjp",
@@ -110,7 +110,8 @@
       "status": "confirmed_live",
       "phase": "phase_2",
       "endpoint_verified_live": true,
-      "notes": "Verified 2026-07-19: OAI service lives at the server root (http://repo.lib.jfn.ac.lk/oai/request), NOT under /ujrr (that 404s -- /ujrr is only the XMLUI browse path). https is unreachable (connect timeout); must use http. Also has a community on dspace.ac.lk, but production repository stays on its own domain."
+      "harvest_route": "html",
+      "notes": "Verified 2026-07-19: OAI service lives at the server root (http://repo.lib.jfn.ac.lk/oai/request), NOT under /ujrr. https unreachable; must use http. OAI record store is truly empty -- ListRecords/ListIdentifiers/GetRecord all fail (sampleIdentifier namespace is 'oai:researchrepo:...'; even correctly-namespaced GetRecord returns idDoesNotExist), though ListSets shows 100+ real communities. No REST (/rest redirects to intranet 192.168.x.x), no sitemap. RESOLVED 2026-07-20 via HTML meta-tag crawl (scripts/harvest_html_meta.py): robots.txt is 404 (no restrictions declared), item pages embed full DC/DCTERMS meta tags; browse-by-title enumeration collected 11,049 items. Also has a community on dspace.ac.lk, but production repository stays on its own domain."
     },
     {
       "id": "jfn_medicine",
@@ -125,7 +126,8 @@
       "status": "confirmed_live",
       "phase": "phase_2",
       "endpoint_verified_live": true,
-      "notes": "Verified 2026-07-19: OAI service lives at the server root, NOT under /med (that 404s -- /med is only the browse path). https is unreachable; must use http."
+      "harvest_route": "html",
+      "notes": "Verified 2026-07-19: OAI service lives at the server root, NOT under /med. https unreachable; must use http. Same empty-OAI-store situation as jfn_research (see that entry). RESOLVED 2026-07-20 via HTML meta-tag crawl: 3,758 items collected (robots.txt 404, no restrictions declared)."
     },
     {
       "id": "seu",
@@ -153,7 +155,7 @@
       "status": "confirmed_live",
       "phase": "phase_2",
       "endpoint_verified_live": true,
-      "notes": "Verified 2026-07-19 over http (https SSL handshake fails). Also known as digital.lib.ou.ac.lk. OpenDOAR-listed."
+      "notes": "Verified 2026-07-19 over http (https SSL handshake fails). Also known as digital.lib.ou.ac.lk. OpenDOAR-listed. OAI index empty (noRecordsMatch); legacy DSpace, no REST/sitemap route. POSSIBLE RECOVERY ROUTE found 2026-07-20: OUSL is one of only two Sri Lankan data providers aggregated by CORE (core.ac.uk, provider id 13528, 'The Open University of Sri Lanka: OUSL Digital Archive') -- CORE holds a harvested copy from when the OAI feed worked. Querying it properly needs a free CORE API key (registration required); worth doing alongside outreach to OUSL to rebuild their index."
     },
     {
       "id": "vpa",
@@ -389,8 +391,9 @@
       "status": "blocked_for_automated_requests",
       "phase": "phase_1",
       "endpoint_verified_live": false,
-      "notes": "176 journals, 25,506 articles, 2,988 issues (as of July 2026). Richest single journal-article feed for Sri Lanka; covers institutions lacking their own repository (PGIA, PGIS-adjacent, Pali & Buddhist Studies, Buddhist & Pali University). 2026-07-19: every request we made -- including just GET / -- returned HTTP 403 with a bare '403 Forbidden' body, regardless of User-Agent. This is WAF/bot-protection (likely Cloudflare) blocking automated clients outright, not a wrong path.",
-      "action_needed": "DELIBERATE DECISION (2026-07-19, Week 3): we will not build any WAF-bypass/anti-bot-evasion logic for this endpoint -- that would mean deliberately circumventing NSF's access controls, which is out of scope regardless of technical feasibility. Path forward is to request official API access or IP allow-listing directly from NSF/SLJOL admins before this source can be harvested. Until that access is granted, SLJOL stays excluded from automated collection; do not retry with spoofed headers, proxies, or headless-browser tricks to work around the 403."
+      "harvest_route": "crossref",
+      "doi_prefix": "10.4038",
+      "notes": "176 journals, 25,506 articles, 2,988 issues (as of July 2026). Richest single journal-article feed for Sri Lanka; covers institutions lacking their own repository (PGIA, PGIS-adjacent, Pali & Buddhist Studies, Buddhist & Pali University). 2026-07-19: direct access WAF-blocked (403 on everything, incl. GET /). DELIBERATE DECISION: no WAF-bypass attempts -- official access would need an NSF request. RESOLVED 2026-07-20 via Crossref instead: all SLJOL articles carry DOIs under NSF's prefix 10.4038, and Crossref's public REST API serves the same bibliographic metadata openly -- scripts/collect_sljol.py collected all 26,200 works (more than the homepage's claimed 25,506). Note Crossref records lack abstracts for most SLJOL items and carry no subject keywords; if full abstracts are needed later, that's an argument for requesting official SLJOL/OJS access from NSF."
     },
     {
       "id": "pgim",

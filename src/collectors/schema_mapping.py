@@ -114,6 +114,65 @@ def map_oai_dc_record(record: dict[str, Any], *, institution_id: str) -> dict[st
     }
 
 
+JATS_TAG_RE = re.compile(r"</?jats:[^>]+>|</?[a-z]+:?[^>]*>")
+
+
+def _strip_jats(abstract: str | None) -> str | None:
+    """Crossref abstracts arrive as JATS XML fragments -- strip the tags."""
+
+    if not abstract:
+        return None
+    text = JATS_TAG_RE.sub(" ", abstract)
+    return re.sub(r"\s+", " ", text).strip() or None
+
+
+def map_crossref_record(record: dict[str, Any], *, institution_id: str) -> dict[str, Any]:
+    """Map one raw Crossref work (from CrossrefPrefixCollector) into the
+    common publication schema. Used for SLJOL (prefix 10.4038).
+    """
+
+    def author_name(author: dict[str, Any]) -> str | None:
+        if author.get("name"):
+            return author["name"]
+        parts = [author.get("given"), author.get("family")]
+        joined = " ".join(p for p in parts if p)
+        return joined or None
+
+    authors = [name for a in record.get("author", []) if (name := author_name(a))]
+
+    date_parts = (record.get("issued") or {}).get("date-parts") or [[]]
+    issued = date_parts[0]
+    publication_date = "-".join(f"{part:02d}" if i else str(part) for i, part in enumerate(issued)) or None
+    publication_year = issued[0] if issued else None
+
+    doi = record.get("DOI")
+    container_titles = record.get("container-title") or []
+
+    return {
+        "source": "sljol_via_crossref",
+        "source_institution_id": institution_id,
+        "source_record_id": doi,
+        "source_datestamp": (record.get("deposited") or {}).get("date-time"),
+        "source_set_specs": [],
+        "deleted": False,
+        "title": _first(record.get("title")),
+        "abstract": _strip_jats(record.get("abstract")),
+        "keywords": record.get("subject", []),
+        "authors": authors,
+        "contributors": [],
+        "publication_date": publication_date,
+        "publication_year": publication_year,
+        "publication_type": record.get("type"),
+        "publisher": record.get("publisher"),
+        "journal": _first(container_titles),
+        "language": record.get("language"),
+        "rights": None,
+        "doi": doi,
+        "url": record.get("URL"),
+        "raw_identifiers": [x for x in [doi, record.get("URL")] + (record.get("ISSN") or []) if x],
+    }
+
+
 def map_html_meta_record(record: dict[str, Any], *, institution_id: str) -> dict[str, Any]:
     """Map one crawled item-page record (from HtmlMetaCollector) into the
     common publication schema. Metadata comes from the DC/DCTERMS/citation

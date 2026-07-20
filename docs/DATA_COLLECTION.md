@@ -229,32 +229,35 @@ source.
 
 ## Current Status (2026-07-20)
 
-**85,433 records** collected from 10 institutions (Jaffna crawl in
-progress, expected to add roughly 10-15k more):
+**126,440 records** collected from 12 institutions plus SLJOL:
 
 | id | Institution | Records | Route | Coverage |
 |---|---|---|---|---|
+| sljol | SLJOL (176 journals, via Crossref prefix 10.4038) | 26,200 | Crossref | 100%+ |
 | uom | Moratuwa | 16,565 | OAI | ~100% |
 | nsf | NSF national aggregator | 15,792 | REST | 100% |
 | ruh | Ruhuna | 14,743 | OAI date-sliced | ~96% |
+| jfn_research | Jaffna (UJRR) | 11,049 | HTML meta | ~100% |
 | uwu | Uva Wellassa | 8,897 | REST | 100% |
 | cmb | Colombo | 8,447 | REST | 100% |
 | pdn | Peradeniya (new instance) | 7,682 | REST | 100% of new server |
 | seu | South Eastern | 5,902 | OAI | ~88% (server bug) |
 | sliit | SLIIT | 4,057 | OAI | ~100% |
+| jfn_medicine | Jaffna (Medicine) | 3,758 | HTML meta | ~100% |
 | busl | Buddhasravaka Bhiksu | 2,873 | REST | 100% |
 | sltc | SLTC | 475 | OAI | ~100% |
-| jfn_research | Jaffna (UJRR) | in progress | HTML meta | - |
-| jfn_medicine | Jaffna (Medicine) | in progress | HTML meta | - |
+
+SLJOL is also exported standalone as `data/processed/sljol.csv`. Note
+Crossref-sourced SLJOL records mostly lack abstracts/keywords; if those
+are needed for topic modelling, request official SLJOL access from NSF.
 
 ### Blocked - needs outreach (no technical workaround)
 
 | Target | Problem | Ask |
 |---|---|---|
-| kln (Kelaniya) | WAF blocks all scripted requests (403) | API access / allow-listing |
-| sljol (SLJOL, 25k articles) | WAF blocks everything incl. homepage (403). **Decision: no bypass attempts** - request official access from NSF | API access / allow-listing |
+| kln (Kelaniya) | WAF blocks all scripted requests (403); not in CORE; AGRIS covers agriculture only. Journal articles still arrive via OpenAlex; theses stay locked | API access / allow-listing |
 | pgim | OAI returns 403 specifically; site otherwise fine | Enable public OAI |
-| ou, vpa, rjt, esn, vau | OAI live but index empty; legacy DSpace, no REST/sitemap | Run `dspace oai import` to rebuild index |
+| ou, vpa, rjt, esn, vau | OAI live but index empty; legacy DSpace, no REST/sitemap. **ou**: CORE aggregates OUSL (provider 13528) - a free CORE API key could recover a copy | Run `dspace oai import` to rebuild index |
 | kdu | Cloudflare 522 - DSpace backend down | Fix origin server |
 | sjp | Connection dropped on every request | Investigate server |
 | sab | Port 8080 unreachable (possibly our network) | Retest from another network first |
