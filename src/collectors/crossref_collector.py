@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any, Iterator
-
-import logging
 from urllib.parse import quote
 
 import requests
@@ -24,11 +24,10 @@ KEEP_TYPES = {
 logger = logging.getLogger(__name__)
 
 
-# shift to util?
 def create_session(
     user_agent: str,
 ) -> requests.Session:
-
+    """Create a retrying HTTP session for Crossref API requests."""
     retry_strategy = Retry(
         total=5,
         backoff_factor=2,
@@ -116,13 +115,118 @@ class CrossrefCollector:
         cursor = "*"
         records_seen = 0
 
-        while cursor:
+        while cursor and (max_records is None or records_seen < max_records):
+            response = self.fetch_works(
+                affiliation_query=affiliation_query,
+                filters=filters,
+                rows=rows,
+                cursor=cursor,
+            )
+
+            message = response.get("message", {})
+            items = message.get("items", [])
+
+            if not items:
+                break
+
+            for work in items:
+                if self.keep_types and work.get("type") not in self.keep_types:
+                    continue
+                if max_records is not None and records_seen >= max_records:
+                    return
+                try:
+                    normalized = reduce_work(work)
+                except Exception:
+                    logger.exception("Failed to normalize work %s", work.get("DOI"))
+                    continue
+                records_seen += 1
+                yield normalized
+
+            cursor = message.get("next-cursor")
+
+            if not cursor:
+                break
+
+    def fetch_work_by_doi(
+        self,
+        doi: str,
+    ) -> dict[str, Any] | None:
+        """Fetch a single work from Crossref by DOI."""
+
+        quoted_doi = quote(doi, safe="")
+        url = f"{self.base_url}/works/{quoted_doi}"
+
+        try:
+            response = self.session.get(
+                url,
+                timeout=self.timeout,
+            )
+
+            if response.status_code == 404:
+                return None
+
+            response.raise_for_status()
+
+            return response.json().get("message")
+
+        except requests.RequestException as exc:
+            logger.warning(
+                "Failed DOI lookup %s: %s",
+                doi,
+                exc,
+            )
+            return None
+
+
+@dataclass
+class CrossrefPrefixCollector:
+    """Fetch all works registered under one DOI prefix."""
+
+    prefix: str
+    email: str | None = None
+    rows: int = 500
+    timeout: int | tuple[int, int] = 60
+    delay: float = 0.5
+    base_url: str = CROSSREF_BASE_URL
+    user_agent: str = USER_AGENT
+    session: requests.Session = field(init=False)
+
+    def __post_init__(self) -> None:
+        user_agent = self.user_agent
+
+        if self.email:
+            user_agent = f"{self.user_agent} (mailto:{self.email})"
+
+        self.session = create_session(user_agent)
+
+    def total_works(self) -> int:
+        params: dict[str, Any] = {"rows": 0}
+
+        if self.email:
+            params["mailto"] = self.email
+
+        response = self.session.get(
+            f"{self.base_url}/prefixes/{self.prefix}/works",
+            params=params,
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        return response.json()["message"]["total-results"]
+
+    def iter_works(self, *, max_records: int | None = None) -> Iterator[dict[str, Any]]:
+        """Yield raw Crossref work records using cursor pagination."""
+
+        cursor = "*"
+        records_seen = 0
+
+        while cursor and (max_records is None or records_seen < max_records):
             params: dict[str, Any] = {"rows": self.rows, "cursor": cursor}
+
             if self.email:
                 params["mailto"] = self.email
 
             response = self.session.get(
-                f"{CROSSREF_BASE_URL}/prefixes/{self.prefix}/works",
+                f"{self.base_url}/prefixes/{self.prefix}/works",
                 params=params,
                 timeout=self.timeout,
             )
@@ -130,8 +234,9 @@ class CrossrefCollector:
             message = response.json()["message"]
 
             items = message.get("items", [])
+
             if not items:
-                return
+                break
 
             for work in items:
                 if max_records is not None and records_seen >= max_records:
@@ -140,5 +245,6 @@ class CrossrefCollector:
                 yield work
 
             cursor = message.get("next-cursor")
+
             if self.delay:
                 time.sleep(self.delay)
