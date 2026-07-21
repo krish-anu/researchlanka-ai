@@ -120,7 +120,7 @@ def setup_logging(level: str, log_file: Path | None = None) -> None:
 
 def default_progress_output(jsonl_output: Path) -> Path:
     """Store resume metadata beside the JSONL output by default."""
-    return jsonl_output.with_suffix(f"{jsonl_output.suffix}.progress.json")
+    return jsonl_output.with_name(f"{jsonl_output.stem}_progress.json")
 
 
 def default_pagination_output(jsonl_output: Path) -> Path:
@@ -554,8 +554,8 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help=(
-            "Progress metadata path. Default: JSONL output path with "
-            ".progress.json appended."
+            "Progress metadata path. Default: JSONL output stem with "
+            "_progress.json appended."
         ),
     )
     parser.add_argument(
