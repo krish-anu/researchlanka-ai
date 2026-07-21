@@ -139,26 +139,17 @@ class CrossrefCollector:
         quoted_doi = quote(doi, safe="")
         url = f"{self.base_url}/works/{quoted_doi}"
 
-        try:
-            response = self.session.get(
-                url,
-                timeout=self.timeout,
-            )
+        response = self.session.get(
+            url,
+            timeout=self.timeout,
+        )
 
-            if response.status_code == 404:
-                return None
-
-            response.raise_for_status()
-
-            return response.json().get("message")
-
-        except requests.RequestException as exc:
-            logger.warning(
-                "Failed DOI lookup %s: %s",
-                doi,
-                exc,
-            )
+        if response.status_code == 404:
             return None
+
+        response.raise_for_status()
+
+        return response.json().get("message")
 
 
 @dataclass
@@ -201,6 +192,7 @@ class CrossrefPrefixCollector:
 
         cursor = "*"
         records_seen = 0
+        seen_cursors = {cursor}
 
         while cursor and (max_records is None or records_seen < max_records):
             params: dict[str, Any] = {"rows": self.rows, "cursor": cursor}
@@ -228,6 +220,11 @@ class CrossrefPrefixCollector:
                 yield work
 
             cursor = message.get("next-cursor")
+
+            if cursor:
+                if cursor in seen_cursors:
+                    raise RuntimeError(f"Crossref cursor repeated: {cursor}")
+                seen_cursors.add(cursor)
 
             if self.delay:
                 time.sleep(self.delay)
