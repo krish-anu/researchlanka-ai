@@ -1,0 +1,436 @@
+{
+  "generated_at": "2026-07-19T16:37:35.964496+00:00",
+  "institutions_checked": 26,
+  "institutions_with_data": 6,
+  "institutions_with_issues": 12,
+  "total_raw_records": 2575,
+  "total_mapped_records": 2575,
+  "results": [
+    {
+      "id": "uom",
+      "name": "University of Moratuwa",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 500,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 500,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 2,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [
+        "dl.lib.uom.lk"
+      ],
+      "issues": []
+    },
+    {
+      "id": "cmb",
+      "name": "University of Colombo (main)",
+      "declared_status": "endpoint_inferred",
+      "raw_record_count": 500,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 500,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 2,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [
+        "archive.cmb.ac.lk"
+      ],
+      "issues": []
+    },
+    {
+      "id": "ucsc",
+      "name": "UCSC (Colombo School of Computing)",
+      "declared_status": "unreachable",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "pdn",
+      "name": "University of Peradeniya",
+      "declared_status": "endpoint_inferred",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "kln",
+      "name": "University of Kelaniya",
+      "declared_status": "blocked_for_automated_requests",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "sjp",
+      "name": "University of Sri Jayewardenepura",
+      "declared_status": "unreachable",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "jfn_research",
+      "name": "University of Jaffna (research repository, UJRR)",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "jfn_medicine",
+      "name": "University of Jaffna (Faculty of Medicine)",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "seu",
+      "name": "South Eastern University",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 500,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 500,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 10,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 500,
+      "identifier_host_seen": [
+        "http"
+      ],
+      "issues": [
+        "500 record(s) have an OAI identifier host that doesn't match the registry's declared endpoint host (ir.lib.seu.ac.lk); seen hosts: ['http']"
+      ]
+    },
+    {
+      "id": "ou",
+      "name": "Open University of Sri Lanka",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "vpa",
+      "name": "University of Visual & Performing Arts",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "rjt",
+      "name": "Rajarata University",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "busl",
+      "name": "Buddhasravaka Bhiksu University",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "sltc",
+      "name": "SLTC Research University",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 475,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 475,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 1,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [
+        "repo.sltc.ac.lk"
+      ],
+      "issues": []
+    },
+    {
+      "id": "ruh",
+      "name": "University of Ruhuna (IRUOR)",
+      "declared_status": "endpoint_inferred",
+      "raw_record_count": 500,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 500,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 9,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [
+        "ir.lib.ruh.ac.lk"
+      ],
+      "issues": []
+    },
+    {
+      "id": "esn",
+      "name": "Eastern University (EUSL e-Repository)",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "sab",
+      "name": "Sabaragamuwa University",
+      "declared_status": "unreachable",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "wyb",
+      "name": "Wayamba University (WUSL Repo)",
+      "declared_status": "unreachable",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "uwu",
+      "name": "Uva Wellassa University (UWU eRepo)",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 100,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 100,
+      "missing_title_count": 1,
+      "missing_authors_and_contributors_count": 1,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [
+        "erepo.lib.uwu.ac.lk"
+      ],
+      "issues": [
+        "1 mapped record(s) missing a title."
+      ]
+    },
+    {
+      "id": "vau",
+      "name": "University of Vavuniya (DRR)",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "kdu",
+      "name": "Gen. Sir John Kotelawala Defence University (KDU)",
+      "declared_status": "unreachable",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "nsf",
+      "name": "National Science Foundation (NSF), Colombo",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "sljol",
+      "name": "NSF -- SLJOL journal platform",
+      "declared_status": "blocked_for_automated_requests",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "pgim",
+      "name": "Postgraduate Institute of Medicine (PGIM), Colombo",
+      "declared_status": "blocked_for_automated_requests",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    },
+    {
+      "id": "sliit",
+      "name": "SLIIT (Sri Lanka Institute of Information Technology)",
+      "declared_status": "confirmed_live",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": [
+        "Registry marks this target confirmed_live with an OAI endpoint, but no raw records were harvested -- likely an empty/stale OAI index (see repositories.json notes) or harvest wasn't run."
+      ]
+    },
+    {
+      "id": "learn_dspace_ac_lk",
+      "name": "LEARN shared platform (dspace.ac.lk / ODRaaS)",
+      "declared_status": "pilot_do_not_harvest",
+      "raw_record_count": 0,
+      "raw_deleted_count": 0,
+      "duplicate_source_ids": 0,
+      "mapped_record_count": 0,
+      "missing_title_count": 0,
+      "missing_authors_and_contributors_count": 0,
+      "implausible_year_count": 0,
+      "identifier_host_mismatches": 0,
+      "identifier_host_seen": [],
+      "issues": []
+    }
+  ]
+}

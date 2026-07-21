@@ -1,0 +1,166 @@
+{
+  "generated_at": "2026-07-19T12:58:36.698643+00:00",
+  "target_count": 4,
+  "results": [
+    {
+      "id": "uom",
+      "name": "University of Moratuwa",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T12:56:07.273321+00:00",
+      "oai": {
+        "endpoint_tried": "https://dl.lib.uom.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "Institutional Repository University of Moratuwa",
+        "base_url": "https://dl.lib.uom.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "1851-12-31T18:30:00Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "xoai",
+          "dim",
+          "rioxx",
+          "uketd_dc",
+          "qdc",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": true,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://dl.lib.uom.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://dl.lib.uom.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sab",
+      "name": "Sabaragamuwa University",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T12:56:08.692211+00:00",
+      "oai": {
+        "endpoint_tried": "https://repo.lib.sab.ac.lk:8080/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repo.lib.sab.ac.lk:8080/jspui/oai/request: HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x1a47f8c2d50>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=20)'))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repo.lib.sab.ac.lk:8080/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x1a47f8c3250>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=20)'))"
+      },
+      "sitemap": {
+        "origin": "https://repo.lib.sab.ac.lk:8080",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "nsf",
+      "name": "National Science Foundation (NSF), Colombo",
+      "group": "D",
+      "phase": "phase_1",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T12:58:29.443540+00:00",
+      "oai": {
+        "endpoint_tried": "https://dl.nsf.gov.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "DSpace at National Science Foundation",
+        "base_url": "https://dl.nsf.gov.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "2026-05-11T11:01:21Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "xoai",
+          "dim",
+          "rioxx",
+          "uketd_dc",
+          "qdc",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": true,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://dl.nsf.gov.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://dl.nsf.gov.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sljol",
+      "name": "NSF -- SLJOL journal platform",
+      "group": "D",
+      "phase": "phase_1",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T12:58:30.701120+00:00",
+      "oai": {
+        "endpoint_tried": "https://sljol.info/oai",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTP 403 from https://sljol.info/jspui/oai/request"
+      },
+      "rest_api_ok": false,
+      "rest_api_error": "HTTP 403",
+      "robots_txt": {
+        "url": "https://sljol.info/robots.txt",
+        "found": false,
+        "http_status": 403
+      },
+      "sitemap": {
+        "origin": "https://sljol.info",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    }
+  ]
+}

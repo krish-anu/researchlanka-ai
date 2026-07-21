@@ -116,64 +116,29 @@ class CrossrefCollector:
         cursor = "*"
         records_seen = 0
 
-        while cursor and (max_records is None or records_seen < max_records):
-            response = self.fetch_works(
-                affiliation_query=affiliation_query,
-                filters=filters,
-                rows=rows,
-                cursor=cursor,
-            )
+        while cursor:
+            params: dict[str, Any] = {"rows": self.rows, "cursor": cursor}
+            if self.email:
+                params["mailto"] = self.email
 
-            message = response.get("message", {})
-            items = message.get("items", [])
-
-            if not items:
-                break
-
-            for work in items:
-                if self.keep_types and work.get("type") not in self.keep_types:
-                    continue
-                if max_records is not None and records_seen >= max_records:
-                    return
-                try:
-                    normalized = reduce_work(work)
-                except Exception:
-                    logger.exception("Failed to normalize work %s", work.get("DOI"))
-                    continue
-                records_seen += 1
-                yield normalized
-
-            cursor = message.get("next-cursor")
-
-            if not cursor:
-                break
-
-    def fetch_work_by_doi(
-        self,
-        doi: str,
-    ) -> dict[str, Any] | None:
-        """Fetch a single work from Crossref by DOI."""
-
-        doi = quote(doi, safe="")
-        url = f"{self.base_url}/works/{doi}"
-
-        try:
             response = self.session.get(
-                url,
+                f"{CROSSREF_BASE_URL}/prefixes/{self.prefix}/works",
+                params=params,
                 timeout=self.timeout,
             )
-
-            if response.status_code == 404:
-                return None
-
             response.raise_for_status()
+            message = response.json()["message"]
 
-            return response.json().get("message")
+            items = message.get("items", [])
+            if not items:
+                return
 
-        except requests.RequestException as e:
-            logger.warning(
-                "Failed DOI lookup %s: %s",
-                doi,
-                e,
-            )
-            return None
+            for work in items:
+                if max_records is not None and records_seen >= max_records:
+                    return
+                records_seen += 1
+                yield work
+
+            cursor = message.get("next-cursor")
+            if self.delay:
+                time.sleep(self.delay)
