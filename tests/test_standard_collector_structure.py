@@ -107,6 +107,9 @@ def test_html_meta_collector_discovers_and_fetches_items():
         ),
         "https://repo.example.edu/ujrr/handle/123456789/1": (
             '<meta name="DC.title" content="Encoded &amp; Title">'
+            "<meta content='Reversed Attribute Title' name='DC.alternative'>"
+            "<META CONTENT='Uppercase Attribute Author' NAME='citation_author'>"
+            "<meta data-extra='x' content='2026-07-21' name='DCTERMS.dateAccepted'>"
             '<meta name="citation_author" content="A. Author">'
         ),
     }
@@ -137,7 +140,9 @@ def test_html_meta_collector_discovers_and_fetches_items():
             "url": "https://repo.example.edu/ujrr/handle/123456789/1",
             "meta": {
                 "DC.title": ["Encoded & Title"],
-                "citation_author": ["A. Author"],
+                "DC.alternative": ["Reversed Attribute Title"],
+                "citation_author": ["Uppercase Attribute Author", "A. Author"],
+                "DCTERMS.dateAccepted": ["2026-07-21"],
             },
         }
     ]
