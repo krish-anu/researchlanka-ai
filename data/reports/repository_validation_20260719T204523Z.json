@@ -1,0 +1,841 @@
+{
+  "generated_at": "2026-07-19T20:45:23.882886+00:00",
+  "target_count": 8,
+  "results": [
+    {
+      "id": "ucsc",
+      "name": "UCSC (Colombo School of Computing)",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "unreachable",
+      "checked_at": "2026-07-19T20:34:58.112783+00:00",
+      "oai": {
+        "endpoint_tried": "https://dl.ucsc.cmb.ac.lk/jspui/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTP 404",
+        "ssl_verify_failed": false,
+        "attempts": [
+          {
+            "url": "https://dl.ucsc.cmb.ac.lk/jspui/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "http://dl.ucsc.cmb.ac.lk/jspui/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "https://www.dl.ucsc.cmb.ac.lk/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.dl.ucsc.cmb.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.dl.ucsc.cmb.ac.lk', port=443): Failed to resolve 'www.dl.ucsc.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.dl.ucsc.cmb.ac.lk/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='www.dl.ucsc.cmb.ac.lk', port=80): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.dl.ucsc.cmb.ac.lk', port=80): Failed to resolve 'www.dl.ucsc.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://dl.ucsc.cmb.ac.lk/server/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "https://dl.ucsc.cmb.ac.lk/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "https://dl.ucsc.cmb.ac.lk/xmlui/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "http://dl.ucsc.cmb.ac.lk/server/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "http://dl.ucsc.cmb.ac.lk/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "http://dl.ucsc.cmb.ac.lk/xmlui/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "https://www.dl.ucsc.cmb.ac.lk/server/oai/request",
+            "error": "HTTPSConnectionPool(host='www.dl.ucsc.cmb.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.dl.ucsc.cmb.ac.lk', port=443): Failed to resolve 'www.dl.ucsc.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.dl.ucsc.cmb.ac.lk/oai/request",
+            "error": "HTTPSConnectionPool(host='www.dl.ucsc.cmb.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.dl.ucsc.cmb.ac.lk', port=443): Failed to resolve 'www.dl.ucsc.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.dl.ucsc.cmb.ac.lk/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.dl.ucsc.cmb.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.dl.ucsc.cmb.ac.lk', port=443): Failed to resolve 'www.dl.ucsc.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.dl.ucsc.cmb.ac.lk/server/oai/request",
+            "error": "HTTPConnectionPool(host='www.dl.ucsc.cmb.ac.lk', port=80): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.dl.ucsc.cmb.ac.lk', port=80): Failed to resolve 'www.dl.ucsc.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.dl.ucsc.cmb.ac.lk/oai/request",
+            "error": "HTTPConnectionPool(host='www.dl.ucsc.cmb.ac.lk', port=80): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.dl.ucsc.cmb.ac.lk', port=80): Failed to resolve 'www.dl.ucsc.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.dl.ucsc.cmb.ac.lk/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='www.dl.ucsc.cmb.ac.lk', port=80): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.dl.ucsc.cmb.ac.lk', port=80): Failed to resolve 'www.dl.ucsc.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          }
+        ],
+        "has_records": null,
+        "list_records_error": null
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "rest_api_ssl_verify_failed": false,
+      "robots_txt": {
+        "url": "https://dl.ucsc.cmb.ac.lk/robots.txt",
+        "found": false,
+        "http_status": 404
+      },
+      "sitemap": {
+        "origin": "https://dl.ucsc.cmb.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "kln",
+      "name": "University of Kelaniya",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "blocked_for_automated_requests",
+      "checked_at": "2026-07-19T20:35:01.317733+00:00",
+      "oai": {
+        "endpoint_tried": "https://repository.kln.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='repository.kln.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by SSLError(SSLError(1, '[SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1018)')))",
+        "ssl_verify_failed": false,
+        "attempts": [
+          {
+            "url": "https://repository.kln.ac.lk/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='repository.kln.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by SSLError(SSLError(1, '[SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1018)')))"
+          },
+          {
+            "url": "http://repository.kln.ac.lk/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://www.repository.kln.ac.lk/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repository.kln.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repository.kln.ac.lk', port=443): Failed to resolve 'www.repository.kln.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repository.kln.ac.lk/oai/request",
+            "error": "HTTPConnectionPool(host='www.repository.kln.ac.lk', port=80): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repository.kln.ac.lk', port=80): Failed to resolve 'www.repository.kln.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://repository.kln.ac.lk/server/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='repository.kln.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by SSLError(SSLError(1, '[SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1018)')))"
+          },
+          {
+            "url": "https://repository.kln.ac.lk/xmlui/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='repository.kln.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by SSLError(SSLError(1, '[SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1018)')))"
+          },
+          {
+            "url": "https://repository.kln.ac.lk/jspui/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='repository.kln.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by SSLError(SSLError(1, '[SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1018)')))"
+          },
+          {
+            "url": "http://repository.kln.ac.lk/server/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://repository.kln.ac.lk/xmlui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://repository.kln.ac.lk/jspui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://www.repository.kln.ac.lk/server/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repository.kln.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repository.kln.ac.lk', port=443): Failed to resolve 'www.repository.kln.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.repository.kln.ac.lk/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repository.kln.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repository.kln.ac.lk', port=443): Failed to resolve 'www.repository.kln.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.repository.kln.ac.lk/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repository.kln.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repository.kln.ac.lk', port=443): Failed to resolve 'www.repository.kln.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repository.kln.ac.lk/server/oai/request",
+            "error": "HTTPConnectionPool(host='www.repository.kln.ac.lk', port=80): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repository.kln.ac.lk', port=80): Failed to resolve 'www.repository.kln.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repository.kln.ac.lk/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='www.repository.kln.ac.lk', port=80): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repository.kln.ac.lk', port=80): Failed to resolve 'www.repository.kln.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repository.kln.ac.lk/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='www.repository.kln.ac.lk', port=80): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repository.kln.ac.lk', port=80): Failed to resolve 'www.repository.kln.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          }
+        ],
+        "has_records": null,
+        "list_records_error": null
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "rest_api_ssl_verify_failed": false,
+      "robots_txt": {
+        "url": "https://repository.kln.ac.lk/robots.txt",
+        "found": false,
+        "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='repository.kln.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by SSLError(SSLError(1, '[SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1018)')))"
+      },
+      "sitemap": {
+        "origin": "https://repository.kln.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sjp",
+      "name": "University of Sri Jayewardenepura",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "unreachable",
+      "checked_at": "2026-07-19T20:35:06.576388+00:00",
+      "oai": {
+        "endpoint_tried": "http://dr.lib.sjp.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+        "ssl_verify_failed": false,
+        "attempts": [
+          {
+            "url": "http://dr.lib.sjp.ac.lk/oai/request",
+            "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+          },
+          {
+            "url": "https://dr.lib.sjp.ac.lk/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+          },
+          {
+            "url": "http://www.dr.lib.sjp.ac.lk/oai/request",
+            "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+          },
+          {
+            "url": "https://www.dr.lib.sjp.ac.lk/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='www.dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+          },
+          {
+            "url": "http://dr.lib.sjp.ac.lk/server/oai/request",
+            "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+          },
+          {
+            "url": "http://dr.lib.sjp.ac.lk/xmlui/oai/request",
+            "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+          },
+          {
+            "url": "http://dr.lib.sjp.ac.lk/jspui/oai/request",
+            "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+          },
+          {
+            "url": "https://dr.lib.sjp.ac.lk/server/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+          },
+          {
+            "url": "https://dr.lib.sjp.ac.lk/xmlui/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+          },
+          {
+            "url": "https://dr.lib.sjp.ac.lk/jspui/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+          },
+          {
+            "url": "http://www.dr.lib.sjp.ac.lk/server/oai/request",
+            "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+          },
+          {
+            "url": "http://www.dr.lib.sjp.ac.lk/xmlui/oai/request",
+            "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+          },
+          {
+            "url": "http://www.dr.lib.sjp.ac.lk/jspui/oai/request",
+            "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+          },
+          {
+            "url": "https://www.dr.lib.sjp.ac.lk/server/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='www.dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+          },
+          {
+            "url": "https://www.dr.lib.sjp.ac.lk/xmlui/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='www.dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+          },
+          {
+            "url": "https://www.dr.lib.sjp.ac.lk/jspui/oai/request",
+            "error": "SSL error, insecure retry also failed: HTTPSConnectionPool(host='www.dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+          }
+        ],
+        "has_records": null,
+        "list_records_error": null
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "rest_api_ssl_verify_failed": false,
+      "robots_txt": {
+        "url": "http://dr.lib.sjp.ac.lk/robots.txt",
+        "found": false,
+        "error": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+      },
+      "sitemap": {
+        "origin": "http://dr.lib.sjp.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sab",
+      "name": "Sabaragamuwa University",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "unreachable",
+      "checked_at": "2026-07-19T20:35:11.099416+00:00",
+      "oai": {
+        "endpoint_tried": "https://repo.lib.sab.ac.lk:8080/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e7f7d90>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))",
+        "ssl_verify_failed": false,
+        "attempts": [
+          {
+            "url": "https://repo.lib.sab.ac.lk:8080/oai/request",
+            "error": "HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e7f7d90>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://repo.lib.sab.ac.lk:8080/oai/request",
+            "error": "HTTPConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e868490>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://www.repo.lib.sab.ac.lk:8080/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repo.lib.sab.ac.lk', port=8080): Failed to resolve 'www.repo.lib.sab.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repo.lib.sab.ac.lk:8080/oai/request",
+            "error": "HTTPConnectionPool(host='www.repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repo.lib.sab.ac.lk', port=8080): Failed to resolve 'www.repo.lib.sab.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://repo.lib.sab.ac.lk:8080/server/oai/request",
+            "error": "HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e865450>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://repo.lib.sab.ac.lk:8080/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e8656d0>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://repo.lib.sab.ac.lk:8080/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e865bd0>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://repo.lib.sab.ac.lk:8080/server/oai/request",
+            "error": "HTTPConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e868d10>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://repo.lib.sab.ac.lk:8080/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e869040>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://repo.lib.sab.ac.lk:8080/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e869370>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://www.repo.lib.sab.ac.lk:8080/server/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repo.lib.sab.ac.lk', port=8080): Failed to resolve 'www.repo.lib.sab.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.repo.lib.sab.ac.lk:8080/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repo.lib.sab.ac.lk', port=8080): Failed to resolve 'www.repo.lib.sab.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.repo.lib.sab.ac.lk:8080/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repo.lib.sab.ac.lk', port=8080): Failed to resolve 'www.repo.lib.sab.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repo.lib.sab.ac.lk:8080/server/oai/request",
+            "error": "HTTPConnectionPool(host='www.repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repo.lib.sab.ac.lk', port=8080): Failed to resolve 'www.repo.lib.sab.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repo.lib.sab.ac.lk:8080/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='www.repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repo.lib.sab.ac.lk', port=8080): Failed to resolve 'www.repo.lib.sab.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repo.lib.sab.ac.lk:8080/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='www.repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repo.lib.sab.ac.lk', port=8080): Failed to resolve 'www.repo.lib.sab.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          }
+        ],
+        "has_records": null,
+        "list_records_error": null
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "rest_api_ssl_verify_failed": false,
+      "robots_txt": {
+        "url": "https://repo.lib.sab.ac.lk:8080/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2249e7f65d0>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "sitemap": {
+        "origin": "https://repo.lib.sab.ac.lk:8080",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "wyb",
+      "name": "Wayamba University (WUSL Repo)",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "unreachable",
+      "checked_at": "2026-07-19T20:37:57.269600+00:00",
+      "oai": {
+        "endpoint_tried": "https://repository.wyb.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTPSConnectionPool(host='repository.wyb.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.wyb.ac.lk', port=443) at 0x2249e7f5f90>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))",
+        "ssl_verify_failed": false,
+        "attempts": [
+          {
+            "url": "https://repository.wyb.ac.lk/oai/request",
+            "error": "HTTPSConnectionPool(host='repository.wyb.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.wyb.ac.lk', port=443) at 0x2249e7f5f90>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://repository.wyb.ac.lk/oai/request",
+            "error": "HTTPConnectionPool(host='repository.wyb.ac.lk', port=80): Max retries exceeded with url: /oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPConnection(host='repository.wyb.ac.lk', port=80) at 0x2249e869590>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://www.repository.wyb.ac.lk/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repository.wyb.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repository.wyb.ac.lk', port=443): Failed to resolve 'www.repository.wyb.ac.lk' ([Errno 11002] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repository.wyb.ac.lk/oai/request",
+            "error": "HTTPConnectionPool(host='www.repository.wyb.ac.lk', port=80): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repository.wyb.ac.lk', port=80): Failed to resolve 'www.repository.wyb.ac.lk' ([Errno 11002] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://repository.wyb.ac.lk/server/oai/request",
+            "error": "HTTPSConnectionPool(host='repository.wyb.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.wyb.ac.lk', port=443) at 0x2249e7f7390>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://repository.wyb.ac.lk/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='repository.wyb.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.wyb.ac.lk', port=443) at 0x2249e7f6ad0>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://repository.wyb.ac.lk/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='repository.wyb.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.wyb.ac.lk', port=443) at 0x2249e866490>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://repository.wyb.ac.lk/server/oai/request",
+            "error": "HTTPConnectionPool(host='repository.wyb.ac.lk', port=80): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPConnection(host='repository.wyb.ac.lk', port=80) at 0x2249e869260>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://repository.wyb.ac.lk/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='repository.wyb.ac.lk', port=80): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPConnection(host='repository.wyb.ac.lk', port=80) at 0x2249e868f30>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://repository.wyb.ac.lk/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='repository.wyb.ac.lk', port=80): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPConnection(host='repository.wyb.ac.lk', port=80) at 0x2249e868c00>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://www.repository.wyb.ac.lk/server/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repository.wyb.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repository.wyb.ac.lk', port=443): Failed to resolve 'www.repository.wyb.ac.lk' ([Errno 11002] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.repository.wyb.ac.lk/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repository.wyb.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repository.wyb.ac.lk', port=443): Failed to resolve 'www.repository.wyb.ac.lk' ([Errno 11002] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.repository.wyb.ac.lk/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.repository.wyb.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.repository.wyb.ac.lk', port=443): Failed to resolve 'www.repository.wyb.ac.lk' ([Errno 11002] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repository.wyb.ac.lk/server/oai/request",
+            "error": "HTTPConnectionPool(host='www.repository.wyb.ac.lk', port=80): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repository.wyb.ac.lk', port=80): Failed to resolve 'www.repository.wyb.ac.lk' ([Errno 11002] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repository.wyb.ac.lk/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='www.repository.wyb.ac.lk', port=80): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repository.wyb.ac.lk', port=80): Failed to resolve 'www.repository.wyb.ac.lk' ([Errno 11002] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.repository.wyb.ac.lk/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='www.repository.wyb.ac.lk', port=80): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.repository.wyb.ac.lk', port=80): Failed to resolve 'www.repository.wyb.ac.lk' ([Errno 11002] getaddrinfo failed)\"))"
+          }
+        ],
+        "has_records": null,
+        "list_records_error": null
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "rest_api_ssl_verify_failed": false,
+      "robots_txt": {
+        "url": "https://repository.wyb.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repository.wyb.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.wyb.ac.lk', port=443) at 0x2249e864410>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "sitemap": {
+        "origin": "https://repository.wyb.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "kdu",
+      "name": "Gen. Sir John Kotelawala Defence University (KDU)",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "unreachable",
+      "checked_at": "2026-07-19T20:41:03.593075+00:00",
+      "oai": {
+        "endpoint_tried": "https://ir.kdu.ac.lk/server/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTPSConnectionPool(host='ir.kdu.ac.lk', port=443): Read timed out. (read timeout=15)",
+        "ssl_verify_failed": false,
+        "attempts": [
+          {
+            "url": "https://ir.kdu.ac.lk/server/oai/request",
+            "error": "HTTPSConnectionPool(host='ir.kdu.ac.lk', port=443): Read timed out. (read timeout=15)"
+          },
+          {
+            "url": "http://ir.kdu.ac.lk/server/oai/request",
+            "error": "HTTPConnectionPool(host='ir.kdu.ac.lk', port=80): Read timed out. (read timeout=15)"
+          },
+          {
+            "url": "https://www.ir.kdu.ac.lk/server/oai/request",
+            "error": "HTTPSConnectionPool(host='www.ir.kdu.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.ir.kdu.ac.lk', port=443): Failed to resolve 'www.ir.kdu.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.ir.kdu.ac.lk/server/oai/request",
+            "error": "HTTPConnectionPool(host='www.ir.kdu.ac.lk', port=80): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.ir.kdu.ac.lk', port=80): Failed to resolve 'www.ir.kdu.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://ir.kdu.ac.lk/oai/request",
+            "error": "HTTPSConnectionPool(host='ir.kdu.ac.lk', port=443): Read timed out. (read timeout=15)"
+          },
+          {
+            "url": "https://ir.kdu.ac.lk/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='ir.kdu.ac.lk', port=443): Read timed out. (read timeout=15)"
+          },
+          {
+            "url": "https://ir.kdu.ac.lk/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='ir.kdu.ac.lk', port=443): Read timed out. (read timeout=15)"
+          },
+          {
+            "url": "http://ir.kdu.ac.lk/oai/request",
+            "error": "HTTPConnectionPool(host='ir.kdu.ac.lk', port=80): Read timed out. (read timeout=15)"
+          },
+          {
+            "url": "http://ir.kdu.ac.lk/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='ir.kdu.ac.lk', port=80): Read timed out. (read timeout=15)"
+          },
+          {
+            "url": "http://ir.kdu.ac.lk/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='ir.kdu.ac.lk', port=80): Read timed out. (read timeout=15)"
+          },
+          {
+            "url": "https://www.ir.kdu.ac.lk/oai/request",
+            "error": "HTTPSConnectionPool(host='www.ir.kdu.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.ir.kdu.ac.lk', port=443): Failed to resolve 'www.ir.kdu.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.ir.kdu.ac.lk/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.ir.kdu.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.ir.kdu.ac.lk', port=443): Failed to resolve 'www.ir.kdu.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.ir.kdu.ac.lk/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.ir.kdu.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.ir.kdu.ac.lk', port=443): Failed to resolve 'www.ir.kdu.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.ir.kdu.ac.lk/oai/request",
+            "error": "HTTPConnectionPool(host='www.ir.kdu.ac.lk', port=80): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.ir.kdu.ac.lk', port=80): Failed to resolve 'www.ir.kdu.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.ir.kdu.ac.lk/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='www.ir.kdu.ac.lk', port=80): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.ir.kdu.ac.lk', port=80): Failed to resolve 'www.ir.kdu.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.ir.kdu.ac.lk/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='www.ir.kdu.ac.lk', port=80): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.ir.kdu.ac.lk', port=80): Failed to resolve 'www.ir.kdu.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          }
+        ],
+        "has_records": null,
+        "list_records_error": null
+      },
+      "rest_api_ok": false,
+      "rest_api_error": "HTTPSConnectionPool(host='ir.kdu.ac.lk', port=443): Read timed out. (read timeout=15)",
+      "rest_api_ssl_verify_failed": false,
+      "robots_txt": {
+        "url": "https://ir.kdu.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='ir.kdu.ac.lk', port=443): Read timed out. (read timeout=15)"
+      },
+      "sitemap": {
+        "origin": "https://ir.kdu.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sljol",
+      "name": "NSF -- SLJOL journal platform",
+      "group": "D",
+      "phase": "phase_1",
+      "declared_status": "blocked_for_automated_requests",
+      "checked_at": "2026-07-19T20:44:07.648628+00:00",
+      "oai": {
+        "endpoint_tried": "https://sljol.info/oai",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTP 403",
+        "ssl_verify_failed": false,
+        "attempts": [
+          {
+            "url": "https://sljol.info/oai",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://sljol.info/oai",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://www.sljol.info/oai",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://www.sljol.info/oai",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://sljol.info/server/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://sljol.info/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://sljol.info/xmlui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://sljol.info/jspui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://sljol.info/server/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://sljol.info/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://sljol.info/xmlui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://sljol.info/jspui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://www.sljol.info/server/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://www.sljol.info/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://www.sljol.info/xmlui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://www.sljol.info/jspui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://www.sljol.info/server/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://www.sljol.info/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://www.sljol.info/xmlui/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "http://www.sljol.info/jspui/oai/request",
+            "error": "HTTP 403"
+          }
+        ],
+        "has_records": null,
+        "list_records_error": null
+      },
+      "rest_api_ok": false,
+      "rest_api_error": "HTTP 403",
+      "rest_api_ssl_verify_failed": false,
+      "robots_txt": {
+        "url": "https://sljol.info/robots.txt",
+        "found": false,
+        "http_status": 403
+      },
+      "sitemap": {
+        "origin": "https://sljol.info",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "pgim",
+      "name": "Postgraduate Institute of Medicine (PGIM), Colombo",
+      "group": "D",
+      "phase": "phase_1",
+      "declared_status": "blocked_for_automated_requests",
+      "checked_at": "2026-07-19T20:44:22.427954+00:00",
+      "oai": {
+        "endpoint_tried": "http://librepository.pgim.cmb.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTP 403",
+        "ssl_verify_failed": false,
+        "attempts": [
+          {
+            "url": "http://librepository.pgim.cmb.ac.lk/oai/request",
+            "error": "HTTP 403"
+          },
+          {
+            "url": "https://librepository.pgim.cmb.ac.lk/oai/request",
+            "error": "HTTPSConnectionPool(host='librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='librepository.pgim.cmb.ac.lk', port=443) at 0x2249e865d10>, 'Connection to librepository.pgim.cmb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://www.librepository.pgim.cmb.ac.lk/oai/request",
+            "error": "HTTPConnectionPool(host='www.librepository.pgim.cmb.ac.lk', port=80): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.librepository.pgim.cmb.ac.lk', port=80): Failed to resolve 'www.librepository.pgim.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.librepository.pgim.cmb.ac.lk/oai/request",
+            "error": "HTTPSConnectionPool(host='www.librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.librepository.pgim.cmb.ac.lk', port=443): Failed to resolve 'www.librepository.pgim.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://librepository.pgim.cmb.ac.lk/server/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "http://librepository.pgim.cmb.ac.lk/xmlui/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "http://librepository.pgim.cmb.ac.lk/jspui/oai/request",
+            "error": "HTTP 404"
+          },
+          {
+            "url": "https://librepository.pgim.cmb.ac.lk/server/oai/request",
+            "error": "HTTPSConnectionPool(host='librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='librepository.pgim.cmb.ac.lk', port=443) at 0x2249e866490>, 'Connection to librepository.pgim.cmb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://librepository.pgim.cmb.ac.lk/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='librepository.pgim.cmb.ac.lk', port=443) at 0x2249e866e90>, 'Connection to librepository.pgim.cmb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "https://librepository.pgim.cmb.ac.lk/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='librepository.pgim.cmb.ac.lk', port=443) at 0x2249e867110>, 'Connection to librepository.pgim.cmb.ac.lk timed out. (connect timeout=15)'))"
+          },
+          {
+            "url": "http://www.librepository.pgim.cmb.ac.lk/server/oai/request",
+            "error": "HTTPConnectionPool(host='www.librepository.pgim.cmb.ac.lk', port=80): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.librepository.pgim.cmb.ac.lk', port=80): Failed to resolve 'www.librepository.pgim.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.librepository.pgim.cmb.ac.lk/xmlui/oai/request",
+            "error": "HTTPConnectionPool(host='www.librepository.pgim.cmb.ac.lk', port=80): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.librepository.pgim.cmb.ac.lk', port=80): Failed to resolve 'www.librepository.pgim.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "http://www.librepository.pgim.cmb.ac.lk/jspui/oai/request",
+            "error": "HTTPConnectionPool(host='www.librepository.pgim.cmb.ac.lk', port=80): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPConnection(host='www.librepository.pgim.cmb.ac.lk', port=80): Failed to resolve 'www.librepository.pgim.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.librepository.pgim.cmb.ac.lk/server/oai/request",
+            "error": "HTTPSConnectionPool(host='www.librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.librepository.pgim.cmb.ac.lk', port=443): Failed to resolve 'www.librepository.pgim.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.librepository.pgim.cmb.ac.lk/xmlui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /xmlui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.librepository.pgim.cmb.ac.lk', port=443): Failed to resolve 'www.librepository.pgim.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          },
+          {
+            "url": "https://www.librepository.pgim.cmb.ac.lk/jspui/oai/request",
+            "error": "HTTPSConnectionPool(host='www.librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='www.librepository.pgim.cmb.ac.lk', port=443): Failed to resolve 'www.librepository.pgim.cmb.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+          }
+        ],
+        "has_records": null,
+        "list_records_error": null
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "rest_api_ssl_verify_failed": false,
+      "robots_txt": {
+        "url": "http://librepository.pgim.cmb.ac.lk/robots.txt",
+        "found": true,
+        "ssl_verify_failed": false,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": false
+      },
+      "sitemap": {
+        "origin": "http://librepository.pgim.cmb.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    }
+  ]
+}

@@ -11,7 +11,8 @@ Next week
         └── Individual task
 
 The script is idempotent. Each managed issue has a unique hidden marker, so
-re-running it updates/reopens existing items instead of creating duplicates.
+re-running it updates existing items instead of creating duplicates. Issues
+that were manually closed stay closed.
 """
 
 from __future__ import annotations
@@ -255,12 +256,16 @@ def label_names(issue: dict[str, Any]) -> set[str]:
     return names
 
 
+def issue_is_closed(issue: dict[str, Any]) -> bool:
+    return str(issue.get("state") or "").lower() == "closed"
+
+
 def patch_issue(
     repo: str,
     number: int,
     *,
     labels: list[str],
-    state: str,
+    state: str | None = None,
     execute: bool,
 ) -> None:
     if not execute:
@@ -268,8 +273,9 @@ def patch_issue(
 
     payload: dict[str, Any] = {
         "labels": labels,
-        "state": state,
     }
+    if state is not None:
+        payload["state"] = state
     if state == "closed":
         payload["state_reason"] = "completed"
 
@@ -416,12 +422,14 @@ def ensure_issue(
     existing = managed.get(marker_id)
 
     if existing:
-        print(f"UPDATE #{existing['number']}: {title}")
+        is_closed = issue_is_closed(existing)
+        action = "SYNC CLOSED" if is_closed else "UPDATE"
+        print(f"{action} #{existing['number']}: {title}")
         patch_issue(
             repo,
             int(existing["number"]),
             labels=labels,
-            state="open",
+            state=None if is_closed else "open",
             execute=execute,
         )
         ensure_parent(
@@ -454,7 +462,7 @@ def ensure_issue(
             {
                 "title": title,
                 "body": body,
-                "state": "OPEN",
+                "state": "CLOSED" if is_closed else "OPEN",
                 "labels": [{"name": name} for name in labels],
             }
         )
@@ -572,7 +580,7 @@ def mark_earlier_weeks_historical(
     current_week: int,
     execute: bool,
 ) -> None:
-    """Keep earlier managed issues open and mark them as historical."""
+    """Mark earlier managed issues historical without reopening closed items."""
     for issue in managed.values():
         marker = issue.get("_marker") or parse_marker(issue.get("body"))
         if not marker or marker["week"] >= current_week:
@@ -583,12 +591,14 @@ def mark_earlier_weeks_historical(
         labels.discard("next-week")
         labels.add("historical-week")
 
-        print(f"KEEP OPEN / MARK HISTORICAL #{issue['number']}: {issue['title']}")
+        is_closed = issue_is_closed(issue)
+        action = "MARK HISTORICAL CLOSED" if is_closed else "KEEP OPEN / MARK HISTORICAL"
+        print(f"{action} #{issue['number']}: {issue['title']}")
         patch_issue(
             repo,
             int(issue["number"]),
             labels=sorted(labels),
-            state="open",
+            state=None if is_closed else "open",
             execute=execute,
         )
 
