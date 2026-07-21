@@ -1,6 +1,7 @@
 """Tests for reusable collector helper functions."""
 
 import requests
+import pytest
 
 from src.collectors import crossref_collector as crossref
 from src.collectors import openalex_collector as openalex
@@ -234,7 +235,7 @@ def test_crossref_fetch_work_by_doi_returns_none_for_404():
     assert collector.fetch_work_by_doi("10.404/missing") is None
 
 
-def test_crossref_fetch_work_by_doi_returns_none_for_request_errors():
+def test_crossref_fetch_work_by_doi_raises_request_errors():
     class FakeSession:
         def get(self, url, *, timeout):
             raise requests.RequestException("network unavailable")
@@ -242,4 +243,5 @@ def test_crossref_fetch_work_by_doi_returns_none_for_request_errors():
     collector = crossref.CrossrefCollector()
     collector.session = FakeSession()
 
-    assert collector.fetch_work_by_doi("10.500/error") is None
+    with pytest.raises(requests.RequestException, match="network unavailable"):
+        collector.fetch_work_by_doi("10.500/error")

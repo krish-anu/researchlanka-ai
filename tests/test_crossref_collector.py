@@ -3,6 +3,7 @@ from src.collectors.crossref_collector import (
     CrossrefPrefixCollector,
     create_session,
 )
+import pytest
 
 def test_create_session():
     session=create_session("TestAgent/1.0")
@@ -115,3 +116,28 @@ def test_prefix_iter_works_honors_max_records_across_pages():
         }
     ]
 
+
+def test_prefix_iter_works_rejects_repeated_cursor():
+    page = {
+        "message": {
+            "items": [{"DOI": "10.4038/one"}],
+            "next-cursor": "*",
+        }
+    }
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return page
+
+    class FakeSession:
+        def get(self, url, *, params, timeout):
+            return FakeResponse()
+
+    collector = CrossrefPrefixCollector(prefix="10.4038", delay=0)
+    collector.session = FakeSession()
+
+    with pytest.raises(RuntimeError, match="Crossref cursor repeated"):
+        list(collector.iter_works())

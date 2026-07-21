@@ -14,6 +14,8 @@ from xml.etree import ElementTree
 
 import requests
 
+from src.collectors.http import create_retry_session
+
 OAI_NS = "{http://www.openarchives.org/OAI/2.0/}"
 OAI_DC_NS = "{http://www.openarchives.org/OAI/2.0/oai_dc/}"
 DC_NS = "{http://purl.org/dc/elements/1.1/}"
@@ -66,7 +68,7 @@ class OaiPmhCollector:
 
     def __post_init__(self) -> None:
         if self.session is None:
-            self.session = requests.Session()
+            self.session = create_retry_session()
 
     def _request(self, params: dict[str, str]) -> ElementTree.Element:
         response = self.session.get(
@@ -168,6 +170,7 @@ class OaiPmhCollector:
         resumption_token: str | None = None
         records_seen = 0
         first_page = True
+        seen_tokens: set[str] = set()
 
         while first_page or resumption_token:
             first_page = False
@@ -185,3 +188,10 @@ class OaiPmhCollector:
                     return
                 records_seen += 1
                 yield record
+
+            if resumption_token is not None:
+                if resumption_token in seen_tokens:
+                    raise RuntimeError(
+                        f"OAI-PMH resumption token repeated: {resumption_token}"
+                    )
+                seen_tokens.add(resumption_token)

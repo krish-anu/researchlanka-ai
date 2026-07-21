@@ -49,23 +49,21 @@ def parse_args() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command")
 
     inspect_parser = subparsers.add_parser(
-        "inspect", help="Inspect Crossref response structure."
+        "inspect",
+        help="Inspect Crossref response structure.",
     )
-
     inspect_parser.add_argument(
         "--query",
         action="append",
         default=None,
-        help=("Crossref affiliation query. Can be repeated."),
+        help="Crossref affiliation query. Can be repeated.",
     )
-
     inspect_parser.add_argument(
         "--limit",
         type=int,
         default=3,
-        help="Number of records to inspect",
+        help="Number of records to inspect.",
     )
-
     inspect_parser.add_argument(
         "--email",
         default=None,
@@ -74,80 +72,71 @@ def parse_args() -> argparse.Namespace:
 
     collect_parser = subparsers.add_parser(
         "collect-lk",
-        help="Collect Sri Lankan related Crossref works",
+        help="Collect Sri Lankan related Crossref works.",
     )
-
     collect_parser.add_argument(
         "--query",
         action="append",
         default=None,
-        help=("Crossref affiliation query. Can be repeated."),
+        help="Crossref affiliation query. Can be repeated.",
     )
-
     collect_parser.add_argument(
         "--rows",
         type=int,
         default=100,
         help="Number of records per Crossref request.",
     )
-
     collect_parser.add_argument(
         "--max-records",
         type=int,
         default=None,
         help="Maximum number of records to collect.",
     )
-
     collect_parser.add_argument(
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT_PATH,
         help="Output JSONL path.",
     )
-
     collect_parser.add_argument(
         "--email",
         default=None,
         help="Email for Crossref polite pool.",
     )
-
     collect_parser.add_argument(
         "--from-year",
         type=int,
         default=2000,
-        help="Start publication year",
+        help="Start publication year.",
     )
-
     collect_parser.add_argument(
         "--until-year",
         type=int,
         default=2026,
-        help="End publication year",
+        help="End publication year.",
     )
 
     enrich_parser = subparsers.add_parser(
-        "enrich-dois", help="Fetch Crossref metadata using DOI list"
+        "enrich-dois",
+        help="Fetch Crossref metadata using DOI list.",
     )
-
     enrich_parser.add_argument(
         "--email",
         default=None,
         help="Email for Crossref polite pool.",
     )
-
     enrich_parser.add_argument("--doi-file", type=Path, required=True)
-
     enrich_parser.add_argument(
         "--output",
         type=Path,
         default=DEFAULT_ENRICHED_OUTPUT_PATH,
+        help="Output JSONL path.",
     )
-    args = parser.parse_args()
 
+    args = parser.parse_args()
 
     if args.command == "inspect" and args.query is None:
         args.query = ["lanka"]
-
     elif args.command == "collect-lk" and args.query is None:
         args.query = ["lanka", "ceylon"]
 
@@ -158,7 +147,6 @@ def inspect_crossref(
     collector: CrossrefCollector,
     args: argparse.Namespace,
 ) -> None:
-
     for query in args.query:
         print(f"\nSearching Crossref with query: {query}")
 
@@ -166,7 +154,6 @@ def inspect_crossref(
             affiliation_query=query,
             rows=args.limit,
         )
-
         items = response.get("message", {}).get("items", [])
 
         if not items:
@@ -187,25 +174,19 @@ def collect_crossref(
     collector: CrossrefCollector,
     args: argparse.Namespace,
 ) -> None:
-
     args.output.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     total = 0
-
     seen_dois = set()
-
     date_filters = [
         f"from-pub-date:{args.from_year}-01-01",
         f"until-pub-date:{args.until_year}-12-31",
     ]
 
-    with args.output.open(
-        "w",
-        encoding="utf-8",
-    ) as output_file:
+    with args.output.open("w", encoding="utf-8") as output_file:
         for query in args.query:
             print(f"\nCollecting query: {query}")
             remaining = None
@@ -232,14 +213,7 @@ def collect_crossref(
 
                     seen_dois.add(doi_key)
 
-                output_file.write(
-                    json.dumps(
-                        work,
-                        ensure_ascii=False,
-                    )
-                    + "\n"
-                )
-
+                output_file.write(json.dumps(work, ensure_ascii=False) + "\n")
                 total += 1
 
                 print(f"Collected {total} works...")
@@ -257,16 +231,13 @@ def enrich_from_dois(
     collector: CrossrefCollector,
     doi_file: Path,
     output: Path,
-):
-
+) -> None:
     output.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     existing_dois = set()
-
-
     files_to_check = [
         DEFAULT_OUTPUT_PATH,
         output,
@@ -276,36 +247,26 @@ def enrich_from_dois(
         if not file_path.exists():
             continue
 
-        with file_path.open(
-            "r",
-            encoding="utf-8",
-        ) as f:
+        with file_path.open("r", encoding="utf-8") as f:
             for line in f:
                 try:
                     record = json.loads(line)
-
-                    doi = record.get("DOI") or record.get("doi")
-
-                    if doi:
-                        existing_dois.add(doi.casefold())
-
                 except Exception:
                     continue
+
+                doi = record.get("DOI") or record.get("doi")
+
+                if doi:
+                    existing_dois.add(doi.casefold())
 
     found = 0
     missing = 0
     processed = 0
 
     with (
-    doi_file.open(
-        "r",
-        encoding="utf-8",
-    ) as f,
-    output.open(
-        "a",
-        encoding="utf-8",
-    ) as out,
-):
+        doi_file.open("r", encoding="utf-8") as f,
+        output.open("a", encoding="utf-8") as out,
+    ):
         for line in f:
             doi = line.strip()
 
@@ -316,7 +277,6 @@ def enrich_from_dois(
                 continue
 
             work = collector.fetch_work_by_doi(doi)
-
             processed += 1
 
             if work is None:
@@ -325,28 +285,21 @@ def enrich_from_dois(
 
             try:
                 normalized = reduce_work(work)
-
-                out.write(
-                    json.dumps(
-                        normalized,
-                        ensure_ascii=False,
-                    )
-                    + "\n"
-                )
-
-                found += 1
-
-                saved_doi = normalized.get("DOI")
-
-                if saved_doi:
-                    existing_dois.add(saved_doi.casefold())
-
-            except Exception as e:
+            except Exception as exc:
                 logger.error(
                     "Normalization failed for DOI %s: %s",
                     doi,
-                    e,
+                    exc,
                 )
+                continue
+
+            out.write(json.dumps(normalized, ensure_ascii=False) + "\n")
+            found += 1
+
+            saved_doi = normalized.get("DOI")
+
+            if saved_doi:
+                existing_dois.add(saved_doi.casefold())
 
             time.sleep(0.1)
 
@@ -357,12 +310,12 @@ def enrich_from_dois(
                     f"Missing: {missing}"
                 )
 
-def main() -> None:
 
+def main() -> None:
     args = parse_args()
 
     if args.command is None:
-        print("Please specify a command: inspect or collect-lk")
+        print("Please specify a command: inspect, collect-lk, or enrich-dois")
         return
 
     collector = CrossrefCollector(email=args.email)
@@ -372,14 +325,12 @@ def main() -> None:
             collector,
             args,
         )
-
     elif args.command == "enrich-dois":
         enrich_from_dois(
             collector,
             args.doi_file,
             args.output,
         )
-
     else:
         inspect_crossref(
             collector,

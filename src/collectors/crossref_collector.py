@@ -7,9 +7,8 @@ from typing import Any, Iterator
 from urllib.parse import quote
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
+from src.collectors.http import create_retry_session
 from src.preprocessing.crossref_normalizer import reduce_work
 
 CROSSREF_BASE_URL = "https://api.crossref.org"
@@ -28,23 +27,7 @@ def create_session(
     user_agent: str,
 ) -> requests.Session:
     """Create a retrying HTTP session for Crossref API requests."""
-    retry_strategy = Retry(
-        total=5,
-        backoff_factor=2,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"],
-        respect_retry_after_header=True,
-    )
-
-    session = requests.Session()
-
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-
-    session.mount("https://", adapter)
-
-    session.headers.update({"User-Agent": user_agent})
-
-    return session
+    return create_retry_session(user_agent=user_agent)
 
 
 @dataclass
@@ -156,26 +139,17 @@ class CrossrefCollector:
         quoted_doi = quote(doi, safe="")
         url = f"{self.base_url}/works/{quoted_doi}"
 
-        try:
-            response = self.session.get(
-                url,
-                timeout=self.timeout,
-            )
+        response = self.session.get(
+            url,
+            timeout=self.timeout,
+        )
 
-            if response.status_code == 404:
-                return None
-
-            response.raise_for_status()
-
-            return response.json().get("message")
-
-        except requests.RequestException as exc:
-            logger.warning(
-                "Failed DOI lookup %s: %s",
-                doi,
-                exc,
-            )
+        if response.status_code == 404:
             return None
+
+        response.raise_for_status()
+
+        return response.json().get("message")
 
 
 @dataclass
@@ -218,6 +192,7 @@ class CrossrefPrefixCollector:
 
         cursor = "*"
         records_seen = 0
+        seen_cursors = {cursor}
 
         while cursor and (max_records is None or records_seen < max_records):
             params: dict[str, Any] = {"rows": self.rows, "cursor": cursor}
@@ -245,6 +220,11 @@ class CrossrefPrefixCollector:
                 yield work
 
             cursor = message.get("next-cursor")
+
+            if cursor:
+                if cursor in seen_cursors:
+                    raise RuntimeError(f"Crossref cursor repeated: {cursor}")
+                seen_cursors.add(cursor)
 
             if self.delay:
                 time.sleep(self.delay)

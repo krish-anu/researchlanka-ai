@@ -15,24 +15,54 @@ university servers.
 
 from __future__ import annotations
 
+import html
 import re
 import time
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from typing import Any, Iterator
 
 import requests
 
+from src.collectors.http import create_retry_session
+
 HANDLE_LINK_RE = re.compile(r'href="([^"]*?/handle/[0-9.]+/\d+)"')
-META_TAG_RE = re.compile(
-    r'<meta\s+name="((?:DC|DCTERMS|citation)[.\w]*)"\s+content="([^"]*)"',
-    re.IGNORECASE,
-)
+META_NAME_RE = re.compile(r"^(?:DC|DCTERMS|citation)[.\w]*$", re.IGNORECASE)
 
 
-def _decode_entities(text: str) -> str:
-    import html
+class _MetaTagParser(HTMLParser):
+    """Extract Dublin Core and citation metadata from HTML <meta> tags."""
 
-    return html.unescape(text)
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.meta: dict[str, list[str]] = {}
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        if tag.casefold() != "meta":
+            return
+
+        attr_map = {
+            name.casefold(): value
+            for name, value in attrs
+            if name is not None and value is not None
+        }
+        meta_name = attr_map.get("name")
+        content = attr_map.get("content")
+
+        if not meta_name or not content or not META_NAME_RE.match(meta_name):
+            return
+
+        self.meta.setdefault(meta_name, []).append(html.unescape(content))
+
+
+def _parse_meta_tags(page_html: str) -> dict[str, list[str]]:
+    parser = _MetaTagParser()
+    parser.feed(page_html)
+    return parser.meta
 
 
 @dataclass
@@ -47,7 +77,7 @@ class HtmlMetaCollector:
 
     def __post_init__(self) -> None:
         if self.session is None:
-            self.session = requests.Session()
+            self.session = create_retry_session()
         self.base_url = self.base_url.rstrip("/")
         match = re.match(r"(https?://[^/]+)(/.*)?", self.base_url)
         self.origin = match.group(1)
@@ -95,11 +125,7 @@ class HtmlMetaCollector:
         if response.status_code != 200:
             return None
 
-        meta: dict[str, list[str]] = {}
-        for name, content in META_TAG_RE.findall(response.text):
-            if not content:
-                continue
-            meta.setdefault(name, []).append(_decode_entities(content))
+        meta = _parse_meta_tags(response.text)
 
         if not meta:
             return None

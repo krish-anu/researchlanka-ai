@@ -19,6 +19,8 @@ from typing import Any, Iterator
 
 import requests
 
+from src.collectors.http import create_retry_session
+
 
 @dataclass
 class DspaceRestCollector:
@@ -33,7 +35,7 @@ class DspaceRestCollector:
 
     def __post_init__(self) -> None:
         if self.session is None:
-            self.session = requests.Session()
+            self.session = create_retry_session()
         self.api_base_url = self.api_base_url.rstrip("/")
 
     def _fetch_page(self, page: int) -> dict[str, Any]:
@@ -48,10 +50,14 @@ class DspaceRestCollector:
 
     @staticmethod
     def _parse_item(indexable_object: dict[str, Any]) -> dict[str, Any]:
-        metadata = {
-            field: [entry.get("value") for entry in entries if entry.get("value")]
-            for field, entries in (indexable_object.get("metadata") or {}).items()
-        }
+        metadata = {}
+
+        for field, entries in (indexable_object.get("metadata") or {}).items():
+            values = [entry.get("value") for entry in entries if entry.get("value")]
+
+            if values:
+                metadata[field] = values
+
         return {
             "uuid": indexable_object.get("uuid"),
             "name": indexable_object.get("name"),
