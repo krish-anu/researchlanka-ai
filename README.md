@@ -74,6 +74,20 @@ git push origin feature/openalex-collector
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
 - [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
 
+## Collector Structure
+
+Collector implementations live in `src/collectors/` and should keep network
+access separate from command-line orchestration. Each collector follows the
+same shape:
+
+- `fetch_*()` methods request one API resource or page.
+- `iter_*()` methods handle pagination and yield records.
+- `total_*()` methods are used only when the source API exposes reliable counts.
+- Shared HTTP retry/session behavior lives in `src/collectors/http.py`.
+- Source-specific normalization lives in `src/preprocessing/`.
+- CLI entrypoints live in `scripts/` and should call collector classes instead
+  of duplicating request or pagination logic.
+
 ## Team
 
 - ANUSAN K. - 230048J
