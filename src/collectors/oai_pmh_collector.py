@@ -14,6 +14,8 @@ from xml.etree import ElementTree
 
 import requests
 
+from src.collectors.http import create_retry_session
+
 OAI_NS = "{http://www.openarchives.org/OAI/2.0/}"
 OAI_DC_NS = "{http://www.openarchives.org/OAI/2.0/oai_dc/}"
 DC_NS = "{http://purl.org/dc/elements/1.1/}"
@@ -66,7 +68,7 @@ class OaiPmhCollector:
 
     def __post_init__(self) -> None:
         if self.session is None:
-            self.session = requests.Session()
+            self.session = create_retry_session()
 
     def _request(self, params: dict[str, str]) -> ElementTree.Element:
         response = self.session.get(
