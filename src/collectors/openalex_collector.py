@@ -1,5 +1,8 @@
+"""Reusable OpenAlex API collection helpers for Sri Lanka datasets."""
+
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
@@ -7,50 +10,43 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from src.preprocessing.openalex_normalizer import (
+    CSV_COLUMNS,
+    SRI_LANKA_COUNTRY_CODE,
+    as_list,
+    author_name,
+    author_names,
+    authorships,
+    country_codes,
+    country_codes_from_authorship,
+    detected_country_codes,
+    display_names,
+    get_nested,
+    has_sri_lankan_author,
+    institution_names,
+    is_sri_lankan_authorship,
+    is_strict_sri_lanka_only,
+    location_values,
+    locations,
+    normalize_publication_date,
+    normalize_publication_year,
+    openalex_work_id,
+    raw_affiliation_strings,
+    unique_join,
+    work_to_row,
+)
+
 
 OPENALEX_BASE_URL = "https://api.openalex.org"
-SRI_LANKA_COUNTRY_CODE = "LK"
 LK_AUTHORSHIP_FILTER = "authorships.institutions.country_code:LK"
+DEFAULT_FROM_YEAR = 2016
+DEFAULT_TO_YEAR = 2026
 
-CSV_COLUMNS = [
-    "openalex_id",
-    "doi",
-    "title",
-    "publication_year",
-    "publication_date",
-    "type",
-    "cited_by_count",
-    "author_count",
-    "authors",
-    "sri_lankan_authors",
-    "institutions",
-    "sri_lankan_institutions",
-    "countries",
-    "source_name",
-    "publisher",
-    "is_oa",
-    "landing_page_url",
-    "pdf_url",
-    "referenced_works_count",
-    "concepts",
-    "topics",
-    "primary_topic",
-    "primary_field",
-    "primary_subfield",
-    "primary_domain",
-    "language",
-    "oa_status",
-    "license",
-    "source_type",
-    "issn_l",
-    "volume",
-    "issue",
-    "first_page",
-    "last_page",
-]
+logger = logging.getLogger(__name__)
 
 
 def create_session() -> requests.Session:
+    """Create a retrying HTTP session for transient OpenAlex API failures."""
     retry_strategy = Retry(
         total=5,
         backoff_factor=2,
@@ -66,197 +62,13 @@ def create_session() -> requests.Session:
     return session
 
 
-def as_list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
-
-
-def unique_join(values: list[Any], separator: str = "; ") -> str:
-    seen: set[str] = set()
-    output: list[str] = []
-    for value in values:
-        if value is None:
-            continue
-        text = str(value).strip()
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        output.append(text)
-    return separator.join(output)
-
-
-def authorships(work: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        authorship
-        for authorship in as_list(work.get("authorships"))
-        if isinstance(authorship, dict)
-    ]
-
-
-def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
-    codes = {
-        str(country).upper()
-        for country in as_list(authorship.get("countries"))
-        if country
-    }
-    for institution in as_list(authorship.get("institutions")):
-        if isinstance(institution, dict) and institution.get("country_code"):
-            codes.add(str(institution["country_code"]).upper())
-    return codes
-
-
-def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
-    return SRI_LANKA_COUNTRY_CODE in country_codes_from_authorship(authorship)
-
-
-def has_sri_lankan_author(work: dict[str, Any]) -> bool:
-    if any(is_sri_lankan_authorship(authorship) for authorship in authorships(work)):
-        return True
-
-    for institution in as_list(work.get("institutions")):
-        if (
-            isinstance(institution, dict)
-            and str(institution.get("country_code", "")).upper()
-            == SRI_LANKA_COUNTRY_CODE
-        ):
-            return True
-
-    return False
-
-
-def author_name(authorship: dict[str, Any]) -> str | None:
-    author = authorship.get("author")
-    if isinstance(author, dict) and author.get("display_name"):
-        return str(author["display_name"])
-    if authorship.get("raw_author_name"):
-        return str(authorship["raw_author_name"])
-    return None
-
-
-def author_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
-    names: list[str] = []
-    for authorship in authorships(work):
-        if sri_lankan_only and not is_sri_lankan_authorship(authorship):
-            continue
-        names.append(author_name(authorship))
-    return unique_join(names)
-
-
-def institution_names(work: dict[str, Any], *, sri_lankan_only: bool = False) -> str:
-    names: list[str] = []
-    for authorship in authorships(work):
-        for institution in as_list(authorship.get("institutions")):
-            if not isinstance(institution, dict):
-                continue
-            country_code = str(institution.get("country_code", "")).upper()
-            if sri_lankan_only and country_code != SRI_LANKA_COUNTRY_CODE:
-                continue
-            names.append(institution.get("display_name"))
-    return unique_join(names)
-
-
-def country_codes(work: dict[str, Any]) -> str:
-    return unique_join(sorted(detected_country_codes(work)))
-
-
-def detected_country_codes(work: dict[str, Any]) -> set[str]:
-    codes: set[str] = set()
-    for authorship in authorships(work):
-        codes.update(country_codes_from_authorship(authorship))
-
-    for institution in as_list(work.get("institutions")):
-        if isinstance(institution, dict) and institution.get("country_code"):
-            codes.add(str(institution["country_code"]).upper())
-
-    return codes
-
-
-def is_strict_sri_lanka_only(work: dict[str, Any]) -> bool:
-    return detected_country_codes(work) == {SRI_LANKA_COUNTRY_CODE}
-
-
-def display_names(values: Any) -> str:
-    names: list[str] = []
-    for value in as_list(values):
-        if isinstance(value, dict):
-            names.append(value.get("display_name"))
-    return unique_join(names)
-
-
-def get_nested(value: dict[str, Any], *keys: str) -> Any:
-    current: Any = value
-    for key in keys:
-        if not isinstance(current, dict):
-            return None
-        current = current.get(key)
-    return current
-
-
-def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
-    source = get_nested(work, "primary_location", "source") or {}
-    primary_location = work.get("primary_location") or {}
-    open_access = work.get("open_access") or {}
-    biblio = work.get("biblio") or {}
-    primary_topic = work.get("primary_topic")
-    if not isinstance(primary_topic, dict):
-        primary_topic = next(
-            (topic for topic in as_list(work.get("topics")) if isinstance(topic, dict)),
-            {},
-        )
-
-    if not isinstance(source, dict):
-        source = {}
-    if not isinstance(primary_location, dict):
-        primary_location = {}
-    if not isinstance(open_access, dict):
-        open_access = {}
-    if not isinstance(biblio, dict):
-        biblio = {}
-
-    return {
-        "openalex_id": work.get("id"),
-        "doi": work.get("doi"),
-        "title": work.get("title") or work.get("display_name"),
-        "publication_year": work.get("publication_year"),
-        "publication_date": work.get("publication_date"),
-        "type": work.get("type"),
-        "cited_by_count": work.get("cited_by_count"),
-        "author_count": len(authorships(work)),
-        "authors": author_names(work),
-        "sri_lankan_authors": author_names(work, sri_lankan_only=True),
-        "institutions": institution_names(work),
-        "sri_lankan_institutions": institution_names(work, sri_lankan_only=True),
-        "countries": country_codes(work),
-        "source_name": source.get("display_name"),
-        "publisher": source.get("host_organization_name"),
-        "is_oa": open_access.get("is_oa"),
-        "landing_page_url": primary_location.get("landing_page_url"),
-        "pdf_url": primary_location.get("pdf_url"),
-        "referenced_works_count": work.get("referenced_works_count")
-        or len(as_list(work.get("referenced_works"))),
-        "concepts": display_names(work.get("concepts")),
-        "topics": display_names(work.get("topics")),
-        "primary_topic": primary_topic.get("display_name"),
-        "primary_field": get_nested(primary_topic, "field", "display_name"),
-        "primary_subfield": get_nested(primary_topic, "subfield", "display_name"),
-        "primary_domain": get_nested(primary_topic, "domain", "display_name"),
-        "language": work.get("language"),
-        "oa_status": open_access.get("oa_status"),
-        "license": open_access.get("license") or primary_location.get("license"),
-        "source_type": source.get("type"),
-        "issn_l": source.get("issn_l"),
-        "volume": biblio.get("volume"),
-        "issue": biblio.get("issue"),
-        "first_page": biblio.get("first_page"),
-        "last_page": biblio.get("last_page"),
-    }
-
-
 def build_filters(
     filters: list[str] | None = None,
     *,
-    from_year: int | None = None,
-    to_year: int | None = None,
+    from_year: int | None = DEFAULT_FROM_YEAR,
+    to_year: int | None = DEFAULT_TO_YEAR,
 ) -> list[str]:
+    """Build OpenAlex filter strings from CLI filters and optional year bounds."""
     built_filters = list(filters or [LK_AUTHORSHIP_FILTER])
 
     if from_year is not None or to_year is not None:
@@ -276,6 +88,12 @@ class OpenAlexWorkPage:
     filters: list[str]
     works: list[dict[str, Any]]
     skipped_count: int = 0
+    page_number: int = 0
+    fetched_count: int = 0
+    api_total_count: int | None = None
+    estimated_total_pages: int | None = None
+    progress_percent: float | None = None
+    db_response_time_ms: int | None = None
 
 
 @dataclass
@@ -295,6 +113,7 @@ class OpenAlexCollector:
         cursor: str,
         per_page: int,
     ) -> dict[str, Any]:
+        """Fetch one cursor page from the OpenAlex works endpoint."""
         params: dict[str, Any] = {
             "filter": ",".join(filters),
             "cursor": cursor,
@@ -305,11 +124,29 @@ class OpenAlexCollector:
         if self.api_key:
             params["api_key"] = self.api_key
 
-        response = self.session.get(
-            f"{self.base_url}/works",
-            params=params,
-            timeout=self.timeout,
+        logger.debug(
+            "Fetching OpenAlex works cursor=%s per_page=%s filters=%s",
+            cursor,
+            per_page,
+            filters,
         )
+        try:
+            response = self.session.get(
+                f"{self.base_url}/works",
+                params=params,
+                timeout=self.timeout,
+            )
+        except requests.RequestException:
+            logger.exception("OpenAlex request failed cursor=%s", cursor)
+            raise
+
+        if not response.ok:
+            logger.error(
+                "OpenAlex request returned status=%s cursor=%s body=%s",
+                response.status_code,
+                cursor,
+                response.text[:500],
+            )
         response.raise_for_status()
         return response.json()
 
@@ -317,16 +154,32 @@ class OpenAlexCollector:
         self,
         *,
         filters: list[str] | None = None,
-        from_year: int | None = None,
-        to_year: int | None = None,
+        from_year: int | None = DEFAULT_FROM_YEAR,
+        to_year: int | None = DEFAULT_TO_YEAR,
         per_page: int = 200,
         start_cursor: str = "*",
         strict_lk_only: bool = False,
     ) -> Iterator[OpenAlexWorkPage]:
+        """Yield cursor pages after applying broad or strict LK filtering."""
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
+        seen_ids: set[str] = set()
+        seen_cursors: set[str] = set()
+        page_number = 0
+        logger.info(
+            "Starting OpenAlex page iteration start_cursor=%s per_page=%s strict_lk_only=%s filters=%s",
+            start_cursor,
+            per_page,
+            strict_lk_only,
+            built_filters,
+        )
 
         while cursor:
+            if cursor in seen_cursors:
+                raise RuntimeError(f"OpenAlex pagination cursor repeated: {cursor}")
+            seen_cursors.add(cursor)
+            page_number += 1
+
             response = self.fetch_works(
                 filters=built_filters,
                 cursor=cursor,
@@ -342,18 +195,78 @@ class OpenAlexCollector:
                 if not isinstance(work, dict) or not has_sri_lankan_author(work):
                     skipped_count += 1
                     continue
+                work_id = openalex_work_id(work)
+                if work_id is None or work_id in seen_ids:
+                    skipped_count += 1
+                    continue
                 if strict_lk_only and not is_strict_sri_lanka_only(work):
                     skipped_count += 1
                     continue
+                seen_ids.add(work_id)
                 works.append(work)
 
-            next_cursor = response.get("meta", {}).get("next_cursor")
+            meta = response.get("meta", {})
+            if not isinstance(meta, dict):
+                meta = {}
+            next_cursor = meta.get("next_cursor")
+            if next_cursor == cursor:
+                raise RuntimeError(
+                    f"OpenAlex pagination did not advance from cursor: {cursor}"
+                )
+            if next_cursor is not None and next_cursor in seen_cursors:
+                raise RuntimeError(
+                    f"OpenAlex pagination returned an earlier cursor: {next_cursor}"
+                )
+
+            api_total_count = meta.get("count")
+            if not isinstance(api_total_count, int):
+                api_total_count = None
+            db_response_time_ms = meta.get("db_response_time_ms")
+            if not isinstance(db_response_time_ms, int):
+                db_response_time_ms = None
+            estimated_total_pages = None
+            progress_percent = None
+            if api_total_count is not None and per_page > 0:
+                estimated_total_pages = max(
+                    (api_total_count + per_page - 1) // per_page,
+                    1,
+                )
+                progress_percent = min(page_number / estimated_total_pages * 100, 100.0)
+
+            page_progress = (
+                f"{page_number}/{estimated_total_pages}"
+                if estimated_total_pages is not None
+                else str(page_number)
+            )
+            logger.info(
+                "Fetched OpenAlex page page=%s progress=%s fetched=%s kept=%s skipped=%s next_cursor=%s",
+                page_progress,
+                f"{progress_percent:.1f}%" if progress_percent is not None else "n/a",
+                len(results),
+                len(works),
+                skipped_count,
+                "yes" if next_cursor else "no",
+            )
+            logger.debug(
+                "OpenAlex pagination detail cursor=%s next_cursor=%s api_total_count=%s estimated_total_pages=%s db_response_time_ms=%s",
+                cursor,
+                next_cursor,
+                api_total_count,
+                estimated_total_pages,
+                db_response_time_ms,
+            )
             yield OpenAlexWorkPage(
                 cursor=cursor,
                 next_cursor=next_cursor,
                 filters=built_filters,
                 works=works,
                 skipped_count=skipped_count,
+                page_number=page_number,
+                fetched_count=len(results),
+                api_total_count=api_total_count,
+                estimated_total_pages=estimated_total_pages,
+                progress_percent=progress_percent,
+                db_response_time_ms=db_response_time_ms,
             )
 
             cursor = next_cursor
@@ -362,14 +275,15 @@ class OpenAlexCollector:
         self,
         *,
         filters: list[str] | None = None,
-        from_year: int | None = None,
-        to_year: int | None = None,
+        from_year: int | None = DEFAULT_FROM_YEAR,
+        to_year: int | None = DEFAULT_TO_YEAR,
         per_page: int = 200,
         max_records: int | None = None,
         start_cursor: str = "*",
         records_saved: int = 0,
         strict_lk_only: bool = False,
     ) -> Iterator[dict[str, Any]]:
+        """Yield individual Sri Lankan-affiliated works from cursor pages."""
         saved = records_saved
 
         for page in self.iter_sri_lankan_work_pages(

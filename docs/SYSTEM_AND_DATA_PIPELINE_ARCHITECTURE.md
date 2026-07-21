@@ -24,6 +24,7 @@ Raw and Interim Storage
   |-- data/interim/
 
 Preprocessing and Normalization
+  |-- src/preprocessing/openalex_normalizer.py
   |-- src/preprocessing/crossref_normalizer.py
   |-- src/preprocessing/clean_publications.py
   |-- scripts/jsonl_to_csv.py
@@ -57,7 +58,8 @@ The collector:
 - calls the OpenAlex works API
 - applies `authorships.institutions.country_code:LK`
 - keeps records with at least one Sri Lankan authorship or LK institution
-- writes raw JSONL and a flattened CSV
+- writes raw JSONL plus flattened CSV and Parquet outputs
+- logs cursor-pagination progress and writes a pagination audit JSON file
 
 Crossref collection is used as a secondary source for DOI comparison and metadata coverage checks. SLJOL notebooks support local Sri Lankan journal exploration.
 
@@ -75,7 +77,44 @@ data/raw/sljol/
 
 Raw data files should not be committed when they are large. Commit only small test fixtures or derived documentation.
 
-### 3. Field Normalization
+### 3. File-Naming Conventions
+
+Project dataset outputs use lower snake case:
+
+```text
+source_scope_entity[_variant].extension
+```
+
+Rules:
+
+- Use lowercase letters, numbers, and underscores only.
+- Start with the data source or pipeline area, such as `openalex`, `crossref`, `sljol`, or `doi_comparison`.
+- Use `sri_lanka` for Sri Lanka-focused datasets instead of abbreviations such as `lk`.
+- Use plural entity names for record collections, such as `works`, `publications`, or `dois`.
+- Add a variant only when needed, such as `strict_lk_only`, `doi_enriched`, or `openalex_only`.
+- Supported data-output extensions are `.jsonl`, `.json`, `.csv`, `.parquet`, `.txt`, and `.log`.
+
+Examples:
+
+```text
+data/raw/openalex/openalex_sri_lanka_works.jsonl
+data/raw/openalex/openalex_sri_lanka_works.csv
+data/raw/openalex/openalex_sri_lanka_pagination_audit.json
+data/processed/crossref/crossref_sri_lanka_works.jsonl
+data/processed/crossref/crossref_sri_lanka_works_doi_enriched.jsonl
+data/processed/doi_comparison/doi_comparison_openalex_only_dois.txt
+```
+
+Code, notebook, and documentation names follow the existing repository style:
+
+- Python modules and scripts: lower snake case, for example `collect_crossref.py`.
+- Tests: `test_<module_or_behavior>.py`.
+- Notebooks: ordered kebab case, for example `01-data-collection.ipynb`.
+- Formal docs: uppercase snake case, for example `SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md`.
+
+The helper in `src/utils/file_naming.py` builds and validates dataset filenames used by pipeline scripts.
+
+### 4. Field Normalization
 
 Normalized datasets should use stable, analysis-friendly field names. The current OpenAlex flat export uses:
 
@@ -92,12 +131,22 @@ authors
 sri_lankan_authors
 institutions
 sri_lankan_institutions
+raw_affiliation_strings
+sri_lankan_raw_affiliation_strings
 countries
 source_name
 publisher
+is_retracted
 is_oa
 landing_page_url
 pdf_url
+locations_count
+location_landing_page_urls
+location_pdf_urls
+location_source_names
+location_source_types
+location_licenses
+location_versions
 referenced_works_count
 concepts
 topics
@@ -116,9 +165,13 @@ first_page
 last_page
 ```
 
+`publication_year` is normalized to an integer. `publication_date` is validated
+and written as an ISO `YYYY-MM-DD` date string in CSV exports; Parquet exports
+store it as a native date value.
+
 Crossref normalization should continue to standardize DOI, title, authors, publication year, source, publisher, and event fields.
 
-### 4. Filtering Rules
+### 5. Filtering Rules
 
 The project uses two Sri Lanka filters:
 
@@ -127,20 +180,22 @@ The project uses two Sri Lanka filters:
 
 Broad filtering is useful for collection. Strict filtering is useful for final Sri Lanka-only analysis when international collaborations should be excluded.
 
-### 5. Quality Checks
+### 6. Quality Checks
 
 Quality checks should run before a dataset is considered ready for analysis:
 
 - DOI presence and DOI normalization
 - duplicate DOI or OpenAlex ID checks
+- separate DOI conflict reporting when one normalized DOI maps to multiple OpenAlex IDs
 - missing title/year/source checks
 - Sri Lankan affiliation validation
+- OpenAlex cursor-pagination validation, including repeated/stuck cursor detection
 - source comparison between OpenAlex and Crossref
 - schema consistency for expected output columns
 
 Automated tests live in `tests/`. OpenAlex sample-record tests verify the collector's filtering and flattening logic without using the live API.
 
-### 6. Processed Outputs
+### 7. Processed Outputs
 
 Processed outputs should be saved under:
 
@@ -150,13 +205,19 @@ data/processed/crossref/
 data/processed/doi_comparison/
 ```
 
-The OpenAlex analysis notebook writes strict Sri Lanka-only analysis tables and charts to `data/processed/openalex/` locally or `/kaggle/working/openalex_outputs/` on Kaggle.
+The OpenAlex collector writes raw JSONL, flat CSV, cleaned Parquet, a
+separate DOI conflict CSV, and a pagination audit JSON with page-by-page cursor,
+kept/skipped count, estimated page count, progress percentage, and API response
+timing metadata. The OpenAlex analysis notebook writes strict
+Sri Lanka-only analysis tables and charts to `data/processed/openalex/` locally
+or `/kaggle/working/openalex_outputs/` on Kaggle.
 
 ## Current Implementation Map
 
 | Area | Current file |
 |---|---|
 | OpenAlex collection | `scripts/kaggle_collect_openalex_sri_lanka.py` |
+| OpenAlex normalization | `src/preprocessing/openalex_normalizer.py` |
 | OpenAlex analysis | `notebooks/analyze_openalex_sri_lanka_only.ipynb` |
 | Crossref collection | `scripts/collect_crossref.py` |
 | Crossref collector class | `src/collectors/crossref_collector.py` |
