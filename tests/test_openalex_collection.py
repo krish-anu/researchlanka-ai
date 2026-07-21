@@ -620,7 +620,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
 
     jsonl_output = tmp_path / "works.jsonl"
     csv_output = tmp_path / "works.csv"
-    progress_output = tmp_path / "works.progress.json"
+    progress_output = tmp_path / "works_progress.json"
     doi_conflicts_output = tmp_path / "doi_conflicts.csv"
     parquet_output = tmp_path / "works.parquet"
     pagination_output = tmp_path / "pagination_audit.json"
@@ -709,7 +709,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     """Fresh runs should create progress metadata before page collection starts."""
     jsonl_output = tmp_path / "works.jsonl"
     csv_output = tmp_path / "works.csv"
-    progress_output = tmp_path / "works.progress.json"
+    progress_output = tmp_path / "works_progress.json"
     doi_conflicts_output = tmp_path / "doi_conflicts.csv"
     parquet_output = tmp_path / "works.parquet"
     pagination_output = tmp_path / "pagination_audit.json"
@@ -813,9 +813,19 @@ def test_default_output_dir_supports_environment_override(tmp_path, monkeypatch)
     assert openalex_script.default_output_dir() == tmp_path
 
 
+def test_default_progress_output_uses_dataset_filename_shape(tmp_path):
+    """Default progress metadata should keep lower snake-case dataset naming."""
+    jsonl_output = tmp_path / "openalex_sri_lanka_works.jsonl"
+
+    assert (
+        openalex_script.default_progress_output(jsonl_output)
+        == tmp_path / "openalex_sri_lanka_works_progress.json"
+    )
+
+
 def test_setup_logging_can_write_to_log_file(tmp_path):
     """CLI logging should support mirroring logs to a file."""
-    log_file = tmp_path / "openalex.log"
+    log_file = tmp_path / "openalex_sri_lanka_collection.log"
     openalex_script.setup_logging("INFO", log_file)
 
     logging.getLogger("openalex-test").info("hello logging")
