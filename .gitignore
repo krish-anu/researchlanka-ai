@@ -16,6 +16,10 @@ htmlcov/
 .env.local
 *.log
 
+
+
+
+
 .ipynb_checkpoints/
 
 data/raw/
@@ -28,6 +32,7 @@ data/external/
 *.jsonl
 *.sqlite
 *.db
+*.json
 
 !data/.gitkeep
 !data/sample/
@@ -35,3 +40,7 @@ data/external/
 
 .DS_Store
 Thumbs.db
+
+# Track GitHub Actions and work-plan configuration
+!/.github/
+!/.github/**
