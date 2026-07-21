@@ -58,3 +58,19 @@ Not enriched because OpenAlex already provides better versions:
 - Authors
 - Publisher
 - Publication Year
+
+
+
+PUBLICATION_TYPES = [
+    "Journal Article",
+    "Conference Paper",
+    "Book Chapter",
+    "Book",
+    "Preprint",
+    "Review Article",
+    "Dataset",
+    "Report",
+    "Thesis",
+    "Reference Work",
+    "Other"
+]
