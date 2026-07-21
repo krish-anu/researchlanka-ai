@@ -1,0 +1,933 @@
+{
+  "generated_at": "2026-07-19T13:13:44.513979+00:00",
+  "target_count": 25,
+  "results": [
+    {
+      "id": "uom",
+      "name": "University of Moratuwa",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:01:02.073658+00:00",
+      "oai": {
+        "endpoint_tried": "https://dl.lib.uom.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "Institutional Repository University of Moratuwa",
+        "base_url": "https://dl.lib.uom.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "1851-12-31T18:30:00Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "xoai",
+          "dim",
+          "rioxx",
+          "uketd_dc",
+          "qdc",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": true,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://dl.lib.uom.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://dl.lib.uom.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "cmb",
+      "name": "University of Colombo (main)",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:01:03.752147+00:00",
+      "oai": {
+        "endpoint_tried": "https://archive.cmb.ac.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "UCER:UOC e-Repository",
+        "base_url": "https://archive.cmb.ac.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "2011-10-04T05:02:59Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "xoai",
+          "dim",
+          "rioxx",
+          "uketd_dc",
+          "qdc",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": true,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://archive.cmb.ac.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://archive.cmb.ac.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "ucsc",
+      "name": "UCSC (Colombo School of Computing)",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:01:05.250668+00:00",
+      "oai": {
+        "endpoint_tried": "https://dl.ucsc.cmb.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTP 404 from https://dl.ucsc.cmb.ac.lk/jspui/oai/request"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://dl.ucsc.cmb.ac.lk/robots.txt",
+        "found": false,
+        "http_status": 404
+      },
+      "sitemap": {
+        "origin": "https://dl.ucsc.cmb.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "pdn",
+      "name": "University of Peradeniya",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:01:07.024468+00:00",
+      "oai": {
+        "endpoint_tried": "https://ir.lib.pdn.ac.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "DSpace at University of Peradeniya",
+        "base_url": "https://ir.lib.pdn.ac.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "2026-05-15T08:39:11Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "uketd_dc",
+          "qdc",
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "xoai",
+          "dim",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": true,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://ir.lib.pdn.ac.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://ir.lib.pdn.ac.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "kln",
+      "name": "University of Kelaniya",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:01:08.795180+00:00",
+      "oai": {
+        "endpoint_tried": "https://repository.kln.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repository.kln.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='repository.kln.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by SSLError(SSLError(1, '[SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1018)')))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repository.kln.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repository.kln.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by SSLError(SSLError(1, '[SSL: TLSV1_UNRECOGNIZED_NAME] tlsv1 unrecognized name (_ssl.c:1018)')))"
+      },
+      "sitemap": {
+        "origin": "https://repository.kln.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sjp",
+      "name": "University of Sri Jayewardenepura",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:01:12.270496+00:00",
+      "oai": {
+        "endpoint_tried": "https://dr.lib.sjp.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://dr.lib.sjp.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://dr.lib.sjp.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='dr.lib.sjp.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+      },
+      "sitemap": {
+        "origin": "https://dr.lib.sjp.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "jfn_research",
+      "name": "University of Jaffna (research repository, UJRR)",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:01:15.189207+00:00",
+      "oai": {
+        "endpoint_tried": "https://repo.lib.jfn.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repo.lib.jfn.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='repo.lib.jfn.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.jfn.ac.lk', port=443) at 0x2a2651f51d0>, 'Connection to repo.lib.jfn.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repo.lib.jfn.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repo.lib.jfn.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.jfn.ac.lk', port=443) at 0x2a2651f5590>, 'Connection to repo.lib.jfn.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "sitemap": {
+        "origin": "https://repo.lib.jfn.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "jfn_medicine",
+      "name": "University of Jaffna (Faculty of Medicine)",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:03:01.158437+00:00",
+      "oai": {
+        "endpoint_tried": "https://repo.jfn.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repo.jfn.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='repo.jfn.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NewConnectionError(\"HTTPSConnection(host='repo.jfn.ac.lk', port=443): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repo.jfn.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repo.jfn.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by NewConnectionError(\"HTTPSConnection(host='repo.jfn.ac.lk', port=443): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+      },
+      "sitemap": {
+        "origin": "https://repo.jfn.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "seu",
+      "name": "South Eastern University",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:03:18.281442+00:00",
+      "oai": {
+        "endpoint_tried": "https://ir.lib.seu.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://ir.lib.seu.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='ir.lib.seu.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NewConnectionError(\"HTTPSConnection(host='ir.lib.seu.ac.lk', port=443): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://ir.lib.seu.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='ir.lib.seu.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by NewConnectionError(\"HTTPSConnection(host='ir.lib.seu.ac.lk', port=443): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+      },
+      "sitemap": {
+        "origin": "https://ir.lib.seu.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "ou",
+      "name": "Open University of Sri Lanka",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:03:34.965851+00:00",
+      "oai": {
+        "endpoint_tried": "https://repository.ou.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repository.ou.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='repository.ou.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repository.ou.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repository.ou.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
+      },
+      "sitemap": {
+        "origin": "https://repository.ou.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "vpa",
+      "name": "University of Visual & Performing Arts",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:03:39.851123+00:00",
+      "oai": {
+        "endpoint_tried": "https://repository.lib.vpa.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repository.lib.vpa.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='repository.lib.vpa.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.lib.vpa.ac.lk', port=443) at 0x2a2651f6710>, 'Connection to repository.lib.vpa.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repository.lib.vpa.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repository.lib.vpa.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.lib.vpa.ac.lk', port=443) at 0x2a2651f6ad0>, 'Connection to repository.lib.vpa.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "sitemap": {
+        "origin": "https://repository.lib.vpa.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "rjt",
+      "name": "Rajarata University",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:07:10.821811+00:00",
+      "oai": {
+        "endpoint_tried": "https://repository.rjt.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repository.rjt.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='repository.rjt.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NewConnectionError(\"HTTPSConnection(host='repository.rjt.ac.lk', port=443): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repository.rjt.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repository.rjt.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by NewConnectionError(\"HTTPSConnection(host='repository.rjt.ac.lk', port=443): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+      },
+      "sitemap": {
+        "origin": "https://repository.rjt.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "busl",
+      "name": "Buddhasravaka Bhiksu University",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:07:27.442290+00:00",
+      "oai": {
+        "endpoint_tried": "https://dl-busl.nsf.gov.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "DSpace at BUSL",
+        "base_url": "https://repo.busl.ac.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "2025-11-18T07:26:36Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "xoai",
+          "dim",
+          "rioxx",
+          "uketd_dc",
+          "qdc",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://dl-busl.nsf.gov.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://dl-busl.nsf.gov.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sltc",
+      "name": "SLTC Research University",
+      "group": "A",
+      "phase": "phase_2",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:07:29.261941+00:00",
+      "oai": {
+        "endpoint_tried": "https://repo.sltc.ac.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "SLTC e-Repository",
+        "base_url": "https://repo.sltc.ac.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "2020-09-29T10:37:19Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "xoai",
+          "dim",
+          "rioxx",
+          "uketd_dc",
+          "qdc",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": true,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repo.sltc.ac.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://repo.sltc.ac.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "ruh",
+      "name": "University of Ruhuna (IRUOR)",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:07:32.217592+00:00",
+      "oai": {
+        "endpoint_tried": "https://ir.lib.ruh.ac.lk/oai/request",
+        "reachable": true,
+        "repository_name": "IRUoR",
+        "base_url": "http://ir.lib.ruh.ac.lk/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "2025-09-08T08:14:24Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "uketd_dc",
+          "qdc",
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "xoai",
+          "dim",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://ir.lib.ruh.ac.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": false
+      },
+      "sitemap": {
+        "origin": "https://ir.lib.ruh.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "esn",
+      "name": "Eastern University (EUSL e-Repository)",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:07:34.059062+00:00",
+      "oai": {
+        "endpoint_tried": "https://digital.lib.esn.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://digital.lib.esn.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='digital.lib.esn.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NameResolutionError(\"HTTPSConnection(host='digital.lib.esn.ac.lk', port=443): Failed to resolve 'digital.lib.esn.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://digital.lib.esn.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='digital.lib.esn.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by NameResolutionError(\"HTTPSConnection(host='digital.lib.esn.ac.lk', port=443): Failed to resolve 'digital.lib.esn.ac.lk' ([Errno 11001] getaddrinfo failed)\"))"
+      },
+      "sitemap": {
+        "origin": "https://digital.lib.esn.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sab",
+      "name": "Sabaragamuwa University",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:07:34.843249+00:00",
+      "oai": {
+        "endpoint_tried": "https://repo.lib.sab.ac.lk:8080/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repo.lib.sab.ac.lk:8080/jspui/oai/request: HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2a2651f4910>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repo.lib.sab.ac.lk:8080/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repo.lib.sab.ac.lk', port=8080): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<HTTPSConnection(host='repo.lib.sab.ac.lk', port=8080) at 0x2a2651f4cd0>, 'Connection to repo.lib.sab.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "sitemap": {
+        "origin": "https://repo.lib.sab.ac.lk:8080",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "wyb",
+      "name": "Wayamba University (WUSL Repo)",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:09:20.863110+00:00",
+      "oai": {
+        "endpoint_tried": "https://repository.wyb.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://repository.wyb.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='repository.wyb.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.wyb.ac.lk', port=443) at 0x2a2651f7110>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://repository.wyb.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='repository.wyb.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<HTTPSConnection(host='repository.wyb.ac.lk', port=443) at 0x2a2651f74d0>, 'Connection to repository.wyb.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "sitemap": {
+        "origin": "https://repository.wyb.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "uwu",
+      "name": "Uva Wellassa University (UWU eRepo)",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:11:06.873294+00:00",
+      "oai": {
+        "endpoint_tried": "https://erepo.lib.uwu.ac.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "DSpace at My University",
+        "base_url": "https://erepo.lib.uwu.ac.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "2023-11-02T10:39:42Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "uketd_dc",
+          "qdc",
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "xoai",
+          "dim",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": true,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://erepo.lib.uwu.ac.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://erepo.lib.uwu.ac.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "vau",
+      "name": "University of Vavuniya (DRR)",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:11:23.477515+00:00",
+      "oai": {
+        "endpoint_tried": "https://drr.vau.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://drr.vau.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='drr.vau.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by NewConnectionError(\"HTTPSConnection(host='drr.vau.ac.lk', port=443): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://drr.vau.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='drr.vau.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by NewConnectionError(\"HTTPSConnection(host='drr.vau.ac.lk', port=443): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+      },
+      "sitemap": {
+        "origin": "https://drr.vau.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "kdu",
+      "name": "Gen. Sir John Kotelawala Defence University (KDU)",
+      "group": "B",
+      "phase": "phase_1",
+      "declared_status": "endpoint_inferred",
+      "checked_at": "2026-07-19T13:11:40.627359+00:00",
+      "oai": {
+        "endpoint_tried": "https://ir.kdu.ac.lk/server/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTP 404 from https://ir.kdu.ac.lk/jspui/oai/request"
+      },
+      "rest_api_ok": false,
+      "rest_api_error": "HTTP 404",
+      "robots_txt": {
+        "url": "https://ir.kdu.ac.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://ir.kdu.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "nsf",
+      "name": "National Science Foundation (NSF), Colombo",
+      "group": "D",
+      "phase": "phase_1",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:11:47.945881+00:00",
+      "oai": {
+        "endpoint_tried": "https://dl.nsf.gov.lk/server/oai/request",
+        "reachable": true,
+        "repository_name": "DSpace at National Science Foundation",
+        "base_url": "https://dl.nsf.gov.lk/server/oai/request",
+        "protocol_version": "2.0",
+        "earliest_datestamp": "2026-05-11T11:01:21Z",
+        "granularity": "YYYY-MM-DDThh:mm:ssZ",
+        "deleted_record": "transient",
+        "metadata_formats": [
+          "didl",
+          "mods",
+          "ore",
+          "mets",
+          "xoai",
+          "dim",
+          "rioxx",
+          "uketd_dc",
+          "qdc",
+          "oai_dc",
+          "rdf",
+          "marc",
+          "etdms"
+        ],
+        "error": null
+      },
+      "rest_api_ok": true,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://dl.nsf.gov.lk/robots.txt",
+        "found": true,
+        "oai_request_allowed": true,
+        "server_oai_request_allowed": true,
+        "discover_allowed": true
+      },
+      "sitemap": {
+        "origin": "https://dl.nsf.gov.lk",
+        "sitemap_index.xml": true,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sljol",
+      "name": "NSF -- SLJOL journal platform",
+      "group": "D",
+      "phase": "phase_1",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:11:49.383667+00:00",
+      "oai": {
+        "endpoint_tried": "https://sljol.info/oai",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "HTTP 403 from https://sljol.info/jspui/oai/request"
+      },
+      "rest_api_ok": false,
+      "rest_api_error": "HTTP 403",
+      "robots_txt": {
+        "url": "https://sljol.info/robots.txt",
+        "found": false,
+        "http_status": 403
+      },
+      "sitemap": {
+        "origin": "https://sljol.info",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "pgim",
+      "name": "Postgraduate Institute of Medicine (PGIM), Colombo",
+      "group": "D",
+      "phase": "phase_1",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:11:55.625199+00:00",
+      "oai": {
+        "endpoint_tried": "https://librepository.pgim.cmb.ac.lk/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://librepository.pgim.cmb.ac.lk/jspui/oai/request: HTTPSConnectionPool(host='librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by ConnectTimeoutError(<HTTPSConnection(host='librepository.pgim.cmb.ac.lk', port=443) at 0x2a265182ad0>, 'Connection to librepository.pgim.cmb.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "rest_api_ok": null,
+      "rest_api_error": null,
+      "robots_txt": {
+        "url": "https://librepository.pgim.cmb.ac.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='librepository.pgim.cmb.ac.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by ConnectTimeoutError(<HTTPSConnection(host='librepository.pgim.cmb.ac.lk', port=443) at 0x2a265181d10>, 'Connection to librepository.pgim.cmb.ac.lk timed out. (connect timeout=15)'))"
+      },
+      "sitemap": {
+        "origin": "https://librepository.pgim.cmb.ac.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    },
+    {
+      "id": "sliit",
+      "name": "SLIIT (Sri Lanka Institute of Information Technology)",
+      "group": "E",
+      "phase": "phase_1",
+      "declared_status": "confirmed_live",
+      "checked_at": "2026-07-19T13:13:41.641610+00:00",
+      "oai": {
+        "endpoint_tried": "https://rda.sliit.lk/server/oai/request",
+        "reachable": false,
+        "repository_name": null,
+        "base_url": null,
+        "protocol_version": null,
+        "earliest_datestamp": null,
+        "granularity": null,
+        "deleted_record": null,
+        "metadata_formats": [],
+        "error": "https://rda.sliit.lk/jspui/oai/request: HTTPSConnectionPool(host='rda.sliit.lk', port=443): Max retries exceeded with url: /jspui/oai/request?verb=Identify (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1018)')))"
+      },
+      "rest_api_ok": false,
+      "rest_api_error": "HTTPSConnectionPool(host='rda.sliit.lk', port=443): Max retries exceeded with url: /server/api (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1018)')))",
+      "robots_txt": {
+        "url": "https://rda.sliit.lk/robots.txt",
+        "found": false,
+        "error": "HTTPSConnectionPool(host='rda.sliit.lk', port=443): Max retries exceeded with url: /robots.txt (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1018)')))"
+      },
+      "sitemap": {
+        "origin": "https://rda.sliit.lk",
+        "sitemap_index.xml": false,
+        "sitemap.xml": false
+      }
+    }
+  ]
+}
