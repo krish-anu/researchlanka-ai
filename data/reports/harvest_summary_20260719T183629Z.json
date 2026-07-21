@@ -1,0 +1,144 @@
+{
+  "generated_at": "2026-07-19T18:36:29.171271+00:00",
+  "max_records_per_target": null,
+  "target_count": 17,
+  "total_records": 28007,
+  "results": [
+    {
+      "id": "uom",
+      "name": "University of Moratuwa",
+      "record_count": 16565,
+      "status": "ok",
+      "error": null,
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\uom\\oai_dc.jsonl"
+    },
+    {
+      "id": "cmb",
+      "name": "University of Colombo (main)",
+      "record_count": 2973,
+      "status": "error",
+      "error": "500 Server Error:  for url: https://archive.cmb.ac.lk/server/oai/request?verb=ListRecords&resumptionToken=oai_dc%2F%2F%2F%2F3000",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\cmb\\oai_dc.jsonl"
+    },
+    {
+      "id": "pdn",
+      "name": "University of Peradeniya",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\pdn\\oai_dc.jsonl"
+    },
+    {
+      "id": "jfn_research",
+      "name": "University of Jaffna (research repository, UJRR)",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\jfn_research\\oai_dc.jsonl"
+    },
+    {
+      "id": "jfn_medicine",
+      "name": "University of Jaffna (Faculty of Medicine)",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\jfn_medicine\\oai_dc.jsonl"
+    },
+    {
+      "id": "seu",
+      "name": "South Eastern University",
+      "record_count": 5902,
+      "status": "error",
+      "error": "500 Server Error:  for url: http://ir.lib.seu.ac.lk/oai/request?verb=ListRecords&resumptionToken=oai_dc%2F%2F%2F%2F6000",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\seu\\oai_dc.jsonl"
+    },
+    {
+      "id": "ou",
+      "name": "Open University of Sri Lanka",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\ou\\oai_dc.jsonl"
+    },
+    {
+      "id": "vpa",
+      "name": "University of Visual & Performing Arts",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\vpa\\oai_dc.jsonl"
+    },
+    {
+      "id": "rjt",
+      "name": "Rajarata University",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\rjt\\oai_dc.jsonl"
+    },
+    {
+      "id": "busl",
+      "name": "Buddhasravaka Bhiksu University",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\busl\\oai_dc.jsonl"
+    },
+    {
+      "id": "sltc",
+      "name": "SLTC Research University",
+      "record_count": 475,
+      "status": "ok",
+      "error": null,
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\sltc\\oai_dc.jsonl"
+    },
+    {
+      "id": "ruh",
+      "name": "University of Ruhuna (IRUOR)",
+      "record_count": 1992,
+      "status": "error",
+      "error": "500 Server Error:  for url: https://ir.lib.ruh.ac.lk/oai/request?verb=ListRecords&resumptionToken=oai_dc%2F%2F%2F%2F2000",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\ruh\\oai_dc.jsonl"
+    },
+    {
+      "id": "esn",
+      "name": "Eastern University (EUSL e-Repository)",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\esn\\oai_dc.jsonl"
+    },
+    {
+      "id": "uwu",
+      "name": "Uva Wellassa University (UWU eRepo)",
+      "record_count": 100,
+      "status": "error",
+      "error": "500 Server Error:  for url: https://erepo.lib.uwu.ac.lk/server/oai/request?verb=ListRecords&resumptionToken=oai_dc%2F%2F%2F%2F100",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\uwu\\oai_dc.jsonl"
+    },
+    {
+      "id": "vau",
+      "name": "University of Vavuniya (DRR)",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\vau\\oai_dc.jsonl"
+    },
+    {
+      "id": "nsf",
+      "name": "National Science Foundation (NSF), Colombo",
+      "record_count": 0,
+      "status": "empty",
+      "error": "OAI-PMH error [noRecordsMatch]: No matches for the query",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\nsf\\oai_dc.jsonl"
+    },
+    {
+      "id": "sliit",
+      "name": "SLIIT (Sri Lanka Institute of Information Technology)",
+      "record_count": 0,
+      "status": "error",
+      "error": "HTTPSConnectionPool(host='rda.sliit.lk', port=443): Max retries exceeded with url: /server/oai/request?verb=ListRecords&metadataPrefix=oai_dc (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1018)')))",
+      "output_path": "C:\\Users\\MSI\\Documents\\Github\\researchlanka-ai\\data\\raw\\sliit\\oai_dc.jsonl"
+    }
+  ]
+}

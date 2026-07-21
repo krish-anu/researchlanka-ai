@@ -67,6 +67,8 @@ git push origin feature/openalex-collector
 
 ## Useful Docs
 
+- [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
+- [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
 - [Contributing Guide](CONTRIBUTING.md)
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
