@@ -7,9 +7,8 @@ from typing import Any, Iterator
 from urllib.parse import quote
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
+from src.collectors.http import create_retry_session
 from src.preprocessing.crossref_normalizer import reduce_work
 
 CROSSREF_BASE_URL = "https://api.crossref.org"
@@ -28,23 +27,7 @@ def create_session(
     user_agent: str,
 ) -> requests.Session:
     """Create a retrying HTTP session for Crossref API requests."""
-    retry_strategy = Retry(
-        total=5,
-        backoff_factor=2,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"],
-        respect_retry_after_header=True,
-    )
-
-    session = requests.Session()
-
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-
-    session.mount("https://", adapter)
-
-    session.headers.update({"User-Agent": user_agent})
-
-    return session
+    return create_retry_session(user_agent=user_agent)
 
 
 @dataclass

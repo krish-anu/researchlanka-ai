@@ -16,6 +16,8 @@ from xml.etree import ElementTree
 
 import requests
 
+from src.collectors.http import create_retry_session
+
 SITEMAP_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
 
 # DSpace item-page URL fragments, used to filter out non-item pages
@@ -34,7 +36,7 @@ class SitemapCollector:
 
     def __post_init__(self) -> None:
         if self.session is None:
-            self.session = requests.Session()
+            self.session = create_retry_session()
         parsed = urlparse(self.repository_url)
         self.origin = f"{parsed.scheme}://{parsed.netloc}"
 

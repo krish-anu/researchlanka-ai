@@ -22,6 +22,8 @@ from typing import Any, Iterator
 
 import requests
 
+from src.collectors.http import create_retry_session
+
 HANDLE_LINK_RE = re.compile(r'href="([^"]*?/handle/[0-9.]+/\d+)"')
 META_TAG_RE = re.compile(
     r'<meta\s+name="((?:DC|DCTERMS|citation)[.\w]*)"\s+content="([^"]*)"',
@@ -47,7 +49,7 @@ class HtmlMetaCollector:
 
     def __post_init__(self) -> None:
         if self.session is None:
-            self.session = requests.Session()
+            self.session = create_retry_session()
         self.base_url = self.base_url.rstrip("/")
         match = re.match(r"(https?://[^/]+)(/.*)?", self.base_url)
         self.origin = match.group(1)
