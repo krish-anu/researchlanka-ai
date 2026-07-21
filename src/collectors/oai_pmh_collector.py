@@ -170,6 +170,7 @@ class OaiPmhCollector:
         resumption_token: str | None = None
         records_seen = 0
         first_page = True
+        seen_tokens: set[str] = set()
 
         while first_page or resumption_token:
             first_page = False
@@ -187,3 +188,10 @@ class OaiPmhCollector:
                     return
                 records_seen += 1
                 yield record
+
+            if resumption_token is not None:
+                if resumption_token in seen_tokens:
+                    raise RuntimeError(
+                        f"OAI-PMH resumption token repeated: {resumption_token}"
+                    )
+                seen_tokens.add(resumption_token)

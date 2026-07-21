@@ -1,3 +1,5 @@
+import pytest
+
 from src.collectors.dspace_rest_collector import DspaceRestCollector
 from src.collectors.html_meta_collector import HtmlMetaCollector
 from src.collectors.http import create_retry_session
@@ -219,6 +221,39 @@ def test_oai_pmh_collector_follows_resumption_tokens_and_skips_deleted():
         {"verb": "ListRecords", "metadataPrefix": "oai_dc"},
         {"verb": "ListRecords", "resumptionToken": "token-2"},
     ]
+
+
+def test_oai_pmh_collector_rejects_repeated_resumption_token():
+    response = """<?xml version="1.0" encoding="UTF-8"?>
+    <OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/">
+      <ListRecords>
+        <record>
+          <header>
+            <identifier>oai:repo:1</identifier>
+            <datestamp>2026-01-01</datestamp>
+          </header>
+        </record>
+        <resumptionToken>stuck-token</resumptionToken>
+      </ListRecords>
+    </OAI-PMH>"""
+
+    class FakeResponse:
+        text = response
+
+        def raise_for_status(self):
+            return None
+
+    class FakeSession:
+        def get(self, url, *, params, timeout, verify):
+            return FakeResponse()
+
+    collector = OaiPmhCollector(
+        base_url="https://repo.example.edu/oai",
+        session=FakeSession(),
+    )
+
+    with pytest.raises(RuntimeError, match="resumption token repeated"):
+        list(collector.iter_records())
 
 
 def test_sitemap_collector_follows_indexes_and_filters_item_urls():
