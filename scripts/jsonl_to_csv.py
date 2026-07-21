@@ -4,11 +4,19 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 import pandas as pd
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.utils.file_naming import dataset_filename
+
 logger = logging.getLogger(__name__)
+
+CROSSREF_OUTPUT_DIR = Path("data") / "processed" / "crossref"
 
 
 def convert_to_csv(jsonl_path: Path, csv_path: Path, chunksize: int = 10000) -> int:
@@ -59,13 +67,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input",
         type=Path,
-        default=Path("data/processed/crossref/lk_works.jsonl"),
+        default=CROSSREF_OUTPUT_DIR
+        / dataset_filename("crossref", "sri_lanka", "works", "jsonl"),
         help="Input JSONL path.",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/processed/crossref/lk_works.csv"),
+        default=CROSSREF_OUTPUT_DIR
+        / dataset_filename("crossref", "sri_lanka", "works", "csv"),
         help="Output CSV path.",
     )
     parser.add_argument(
