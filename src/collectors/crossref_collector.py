@@ -1,53 +1,117 @@
-"""Crossref works collector, by DOI prefix.
-
-Used to collect SLJOL (Sri Lanka Journals Online) metadata: sljol.info
-itself WAF-blocks all scripted access (see registry -- we do not bypass
-it), but every SLJOL article has a DOI under the NSF-registered prefix
-10.4038, and Crossref's public REST API serves the same bibliographic
-metadata openly. Coverage check 2026-07-20: 26,200 works under 10.4038
-vs "25,506 articles" claimed on the SLJOL homepage.
-"""
-
 from __future__ import annotations
 
-import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterator
 
+import logging
+from urllib.parse import quote
+
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from src.preprocessing.crossref_normalizer import reduce_work
 
 CROSSREF_BASE_URL = "https://api.crossref.org"
+USER_AGENT = "SriLankaCollector/1.0"
+
+KEEP_TYPES = {
+    "journal-article",
+    "proceedings-article",
+    "posted-content",
+}
+
+logger = logging.getLogger(__name__)
+
+
+# shift to util?
+def create_session(
+    user_agent: str,
+) -> requests.Session:
+
+    retry_strategy = Retry(
+        total=5,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+        respect_retry_after_header=True,
+    )
+
+    session = requests.Session()
+
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+
+    session.mount("https://", adapter)
+
+    session.headers.update({"User-Agent": user_agent})
+
+    return session
 
 
 @dataclass
-class CrossrefPrefixCollector:
-    """Fetch all works registered under one DOI prefix."""
+class CrossrefCollector:
+    """Collect and normalize publication records from Crossref."""
 
-    prefix: str
-    email: str | None = None  # for the Crossref polite pool
-    rows: int = 500
-    timeout: int = 60
-    delay: float = 0.5
-    session: requests.Session | None = None
+    email: str | None = None
+    timeout: tuple[int, int] = (10, 60)
+    base_url: str = CROSSREF_BASE_URL
+    user_agent: str = USER_AGENT
+    session: requests.Session = field(init=False)
+    keep_types: set[str] | None = field(default_factory=lambda: KEEP_TYPES.copy())
 
     def __post_init__(self) -> None:
-        if self.session is None:
-            self.session = requests.Session()
+        user_agent = self.user_agent
 
-    def total_works(self) -> int:
-        params: dict[str, Any] = {"rows": 0}
         if self.email:
-            params["mailto"] = self.email
+            user_agent = f"{self.user_agent} (mailto:{self.email})"
+
+        self.session = create_session(user_agent)
+
+    def fetch_works(
+        self,
+        *,
+        affiliation_query: str,
+        filters: list[str] | None = None,
+        rows: int = 100,
+        cursor: str = "*",
+    ) -> dict[str, Any]:
+
+        params = {
+            "query.affiliation": affiliation_query,
+            "rows": rows,
+        }
+        if cursor:
+            params["cursor"] = cursor
+
+        if filters:
+            params["filter"] = ",".join(filters)
+
         response = self.session.get(
-            f"{CROSSREF_BASE_URL}/prefixes/{self.prefix}/works",
+            f"{self.base_url}/works",
             params=params,
             timeout=self.timeout,
         )
-        response.raise_for_status()
-        return response.json()["message"]["total-results"]
 
-    def iter_works(self, *, max_records: int | None = None) -> Iterator[dict[str, Any]]:
-        """Yield raw Crossref work records using cursor pagination."""
+        if not response.ok:
+            logger.error(
+                "Crossref request failed: %s %s",
+                response.status_code,
+                response.text,
+            )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    def iter_works(
+        self,
+        *,
+        affiliation_query: str,
+        filters: list[str] | None = None,
+        rows: int = 100,
+        max_records: int | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Iterate over Crossref works with cursor pagination."""
 
         cursor = "*"
         records_seen = 0
