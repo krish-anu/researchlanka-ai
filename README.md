@@ -1,16 +1,19 @@
-# AI Research Analytics Platform
+# National Research Analytics Framework
 
-AI-Powered Research Portfolio and Analytics Platform for Sri Lanka.
+A reusable, configurable framework for national-level research analytics.
 
-This project collects, cleans, analyzes, and visualizes research publications by Sri Lankan researchers and institutions.
+The framework collects, integrates, cleans, analyses, and exports scholarly
+publication data for an entire country. Sri Lanka is the first implementation
+and evaluation case; another country can reuse the same pipeline by changing
+configuration, institution registries, mappings, and source settings.
 
 ## Main Outputs
 
-- Consolidated Sri Lankan research publication dataset.
-- Cleaned and standardized publication database.
+- Consolidated national research publication dataset.
+- Cleaned and standardized national research database.
 - AI/ML-based publication classification.
-- Research analytics for productivity, citations, topics, and collaboration.
-- Interactive dashboard for searching and visualizing research trends.
+- Research analytics for productivity, citations, topics, trends, and collaboration.
+- Standard national exports for publications, authors, institutions, links, data quality, and analytics.
 
 ## Setup
 
@@ -69,10 +72,52 @@ git push origin feature/openalex-collector
 
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
+- [Reusable Framework Guide](documentation/REUSABLE_FRAMEWORK.md) - national framework package, configuration workflow, templates, and example runs
+- [National Framework Guide](documentation/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
+- [Migration to Framework Pipeline](documentation/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
 - [Contributing Guide](CONTRIBUTING.md)
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
 - [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
+
+## National Framework Mode
+
+The reusable national framework code lives in `research_analytics/`.
+Country-specific settings, source choices, institution registries, year ranges,
+categories, field mappings, dashboard labels, and aliases live in
+`configurations/`.
+
+Run the example project:
+
+```bash
+python -m research_analytics.cli run-all --config configurations/example_country/config.json
+```
+
+Run the Sri Lankan implementation with the same framework code:
+
+```bash
+python -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
+```
+
+The Makefile uses the framework pipeline as the national workflow:
+
+```bash
+make framework-sri-lanka
+make framework-example
+```
+
+After installing the package, the CLI command is:
+
+```bash
+research-framework run-all --config configurations/example_country/config.json
+```
+
+To onboard a new source before full import:
+
+```bash
+research-framework source-validate --config configurations/example_country/config.json
+research-framework preview --config configurations/example_country/config.json --sample-size 5
+```
 
 ## Collector Structure
 
@@ -88,7 +133,9 @@ same shape:
 - CLI entrypoints live in `scripts/` and should call collector classes instead
   of duplicating request or pagination logic.
 
-Run the OpenAlex pipeline with Crossref DOI enrichment in one command:
+Legacy Sri Lanka-specific collection scripts remain available while the project
+is being migrated into the reusable framework. For example, the older OpenAlex
+collector can still run with:
 
 ```bash
 python scripts/kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com

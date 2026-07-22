@@ -1,0 +1,142 @@
+country:
+  name: "My Country"
+  code: "MC"
+
+coverage:
+  start_year: 2010
+  end_year: 2026
+
+project:
+  name: "My National Research Analytics Project"
+  country_name: "My Country"
+  country_code: "MC"
+  dashboard_title: "My Country Research Overview"
+
+institution_registry:
+  path: "configurations/user_dataset/institution_alias_template.csv"
+
+input:
+  path: "examples/sample_publications.csv"
+  format: "csv"
+  source_name: "my_dataset"
+
+source:
+  name: "my_dataset"
+  type: "csv"
+  path: "examples/sample_publications.csv"
+  delimiter: ","
+  encoding: "utf-8"
+  adapter_version: "1.0"
+  mapping_version: "1.0"
+
+collection:
+  start_year: 2010
+  end_year: 2026
+  batch_size: 200
+  retry_limit: 3
+  request_delay_seconds: 1
+
+pipeline:
+  collect: true
+  transform: true
+  validate: true
+  clean: true
+  enrich: false
+  deduplicate: true
+  resolve_entities: false
+  load_database: false
+  run_analytics: true
+  export: true
+  classify: false
+  topic_modeling: false
+  semantic_search: false
+  forecasting: false
+
+column_mapping:
+  paper_name: title
+  researcher: authors
+  university: institutions
+  published_year: publication_year
+  countries: countries
+
+transformations:
+  publication_year:
+    type: extract_year
+  authors:
+    type: split
+    separator: ";"
+  keywords:
+    type: split
+    separator: ","
+  doi:
+    type: normalize_doi
+  countries:
+    type: split
+    separator: ";"
+
+validation:
+  required:
+    - title
+  require_any:
+    - doi
+    - authors
+    - publication_year
+    - source_record_id
+
+cleaning:
+  normalize_doi: true
+  normalize_title: true
+  normalize_author_names: true
+  normalize_institutions: true
+  valid_year:
+    minimum: 1950
+    maximum: 2026
+  required_fields:
+    - title
+  optional_fields:
+    - doi
+    - abstract
+    - keywords
+
+deduplication:
+  enabled: true
+  doi_match:
+    enabled: true
+    automatic_merge: true
+  exact_title_match:
+    enabled: true
+    require_same_year: true
+  fuzzy_title_match:
+    enabled: false
+    threshold: 90
+  author_match:
+    minimum_matching_authors: 1
+  year_difference:
+    maximum: 1
+  uncertain_matches:
+    send_to_manual_review: true
+
+categories:
+  - Engineering
+  - Medicine
+  - Social Sciences
+
+publication_types:
+  - journal-article
+  - conference-paper
+  - book-chapter
+  - thesis
+  - report
+
+analytics:
+  citation_analysis: true
+  collaboration_analysis: true
+  topic_analysis: true
+  trend_analysis: true
+  semantic_search: false
+
+export:
+  output_dir: "outputs/my_project"
+  formats:
+    - csv
+    - json
