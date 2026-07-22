@@ -1,0 +1,5 @@
+column_mapping:
+  recordId: source_record_id
+  paperTitle: title
+  creators: authors
+  year: publication_year

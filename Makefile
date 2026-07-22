@@ -5,6 +5,10 @@
 PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
+# Reusable national framework settings.
+NATIONAL_CONFIG ?= configurations/sri_lanka/config.json
+NATIONAL_SAMPLE_SIZE ?= 5
+
 # Default OpenAlex output folder.
 # JSONL is raw API data. CSV/Parquet and DOI conflicts are cleaned outputs.
 OPENALEX_DIR ?= data/raw/openalex
@@ -49,15 +53,20 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report
+.PHONY: help install test framework framework-validate framework-preview framework-sri-lanka framework-example openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report
 
 # Show available targets and common overrides.
 help:
-	@echo "ResearchLanka pipeline targets"
+	@echo "ResearchLanka national research analytics targets"
 	@echo ""
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
-	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
+	@echo "  make framework               Run the reusable national framework pipeline, default NATIONAL_CONFIG=$(NATIONAL_CONFIG)"
+	@echo "  make framework-validate      Validate/preview source mapping before full framework import"
+	@echo "  make framework-preview       Show transformed sample records from the framework pipeline"
+	@echo "  make framework-sri-lanka     Run Sri Lanka as the first national framework implementation"
+	@echo "  make framework-example       Run the second-country reusability demonstration"
+	@echo "  make openalex                Legacy Sri Lanka-specific OpenAlex collection script"
 	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
 	@echo "  make openalex-resume         Resume an interrupted OpenAlex collection"
 	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
@@ -69,6 +78,7 @@ help:
 	@echo "  OPENALEX_EMAIL=you@example.com"
 	@echo "  OPENALEX_EXTRA_ARGS='--strict-lk-only'"
 	@echo "  OPENALEX_DIR=data/processed/openalex"
+	@echo "  NATIONAL_CONFIG=configurations/example_country/config.json"
 
 # Install project dependencies into the configured virtual environment.
 install:
@@ -78,8 +88,29 @@ install:
 test:
 	$(PYTHON) -m pytest
 
+# Run the reusable national research analytics framework.
+framework:
+	$(PYTHON) -m research_analytics.cli run-all --config $(NATIONAL_CONFIG)
+
+# Validate the selected national source before full import.
+framework-validate:
+	$(PYTHON) -m research_analytics.cli source-validate --config $(NATIONAL_CONFIG) --sample-size $(NATIONAL_SAMPLE_SIZE)
+
+# Preview transformed records from the selected national framework config.
+framework-preview:
+	$(PYTHON) -m research_analytics.cli preview --config $(NATIONAL_CONFIG) --sample-size $(NATIONAL_SAMPLE_SIZE)
+
+# Run Sri Lanka through the reusable framework pipeline.
+framework-sri-lanka:
+	$(PYTHON) -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
+
+# Run the second-country proof with the same framework code.
+framework-example:
+	$(PYTHON) -m research_analytics.cli run-all --config configurations/example_country/config.json
+
 # Run the full OpenAlex API collection pipeline.
-# This writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts, pagination audit, progress, and logs.
+# Legacy path: this writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts,
+# pagination audit, progress, and logs. Prefer make framework for national analytics.
 openalex:
 	$(PYTHON) scripts/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS)
 
