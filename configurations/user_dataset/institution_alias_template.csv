@@ -1,0 +1,3 @@
+institution_id,preferred_name,alternative_name,country_code,ror_id,parent_institution_id,institution_type
+MC001,Example University,EU,MC,,,
+MC001,Example University,Example Univ.,MC,,,
