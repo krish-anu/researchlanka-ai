@@ -44,3 +44,7 @@ Thumbs.db
 # Track GitHub Actions and work-plan configuration
 !/.github/
 !/.github/**
+
+notebooks/outputs/
+
+.ipynb_checkpoints/
