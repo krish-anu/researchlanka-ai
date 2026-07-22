@@ -2,6 +2,7 @@
 
 Run in Kaggle:
     python kaggle_collect_openalex_sri_lanka.py --max-records 1000
+    python kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com
 
 This script keeps a work when at least one authorship has a Sri Lankan
 affiliation in OpenAlex. OpenAlex provides affiliation countries, not author
@@ -17,6 +18,7 @@ import json
 import logging
 import os
 import sys
+import time
 from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
@@ -25,6 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.collectors.crossref_collector import CrossrefCollector
 from src.collectors.openalex_collector import (
     DEFAULT_FROM_YEAR,
     DEFAULT_TO_YEAR,
@@ -32,6 +35,7 @@ from src.collectors.openalex_collector import (
     OpenAlexCollector,
     build_filters,
 )
+from src.preprocessing.crossref_normalizer import reduce_work as reduce_crossref_work
 from src.preprocessing.openalex_normalizer import (
     CSV_COLUMNS,
     country_codes,
@@ -80,6 +84,19 @@ DEFAULT_DOI_CONFLICTS_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
     "sri_lanka",
     "doi_conflicts",
     "csv",
+)
+DEFAULT_CROSSREF_ENRICHED_OUTPUT = (
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "crossref"
+    / dataset_filename(
+        "crossref",
+        "sri_lanka",
+        "works",
+        "jsonl",
+        variant="doi_enriched",
+    )
 )
 DEFAULT_PAGINATION_OUTPUT = DEFAULT_OUTPUT_DIR / dataset_filename(
     "openalex",
@@ -402,6 +419,124 @@ def write_doi_conflict_report(jsonl_output: Path, csv_output: Path) -> int:
     return len(conflicts)
 
 
+def extract_openalex_dois(jsonl_output: Path) -> list[str]:
+    """Return unique normalized DOI values from an OpenAlex raw JSONL file."""
+    dois: list[str] = []
+    seen: set[str] = set()
+
+    if not jsonl_output.exists():
+        return dois
+
+    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+        for line in jsonl_file:
+            if not line.strip():
+                continue
+            try:
+                work = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(work, dict):
+                continue
+
+            doi = normalize_doi(work.get("doi"))
+
+            if doi is None or doi in seen:
+                continue
+
+            seen.add(doi)
+            dois.append(doi)
+
+    return dois
+
+
+def load_existing_crossref_dois(jsonl_output: Path) -> set[str]:
+    """Return normalized DOI values already present in a Crossref JSONL file."""
+    existing: set[str] = set()
+
+    if not jsonl_output.exists():
+        return existing
+
+    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
+        for line in jsonl_file:
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict):
+                continue
+
+            doi = normalize_doi(record.get("DOI") or record.get("doi"))
+
+            if doi is not None:
+                existing.add(doi)
+
+    return existing
+
+
+def enrich_crossref_from_openalex(
+    *,
+    openalex_jsonl: Path,
+    crossref_output: Path,
+    email: str | None = None,
+    delay: float = 0.1,
+    collector: CrossrefCollector | None = None,
+) -> dict[str, int | str]:
+    """Fetch Crossref metadata for DOI-bearing OpenAlex records.
+
+    Existing Crossref output is treated as a checkpoint, so interrupted
+    enrichment runs can be safely re-run without duplicating records.
+    """
+    dois = extract_openalex_dois(openalex_jsonl)
+    existing_dois = load_existing_crossref_dois(crossref_output)
+    collector = collector or CrossrefCollector(email=email)
+
+    report = {
+        "total_openalex_dois": len(dois),
+        "skipped_existing": 0,
+        "looked_up": 0,
+        "found": 0,
+        "missing": 0,
+        "normalization_failed": 0,
+        "output": str(crossref_output),
+    }
+
+    crossref_output.parent.mkdir(parents=True, exist_ok=True)
+
+    with crossref_output.open("a", encoding="utf-8") as output_file:
+        for doi in dois:
+            if doi in existing_dois:
+                report["skipped_existing"] += 1
+                continue
+
+            work = collector.fetch_work_by_doi(doi)
+            report["looked_up"] += 1
+
+            if work is None:
+                report["missing"] += 1
+                continue
+
+            try:
+                normalized = reduce_crossref_work(work)
+            except Exception:
+                logger.exception("Crossref normalization failed for DOI %s", doi)
+                report["normalization_failed"] += 1
+                continue
+
+            output_file.write(json.dumps(normalized, ensure_ascii=False) + "\n")
+            report["found"] += 1
+
+            saved_doi = normalize_doi(normalized.get("DOI") or doi)
+            if saved_doi is not None:
+                existing_dois.add(saved_doi)
+
+            if delay:
+                time.sleep(delay)
+
+    return report
+
+
 def collect_quality_report(
     jsonl_output: Path,
     *,
@@ -533,6 +668,28 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_PAGINATION_OUTPUT,
         help=f"Pagination audit JSON path. Default: {DEFAULT_PAGINATION_OUTPUT}",
+    )
+    parser.add_argument(
+        "--enrich-crossref",
+        action="store_true",
+        help="After OpenAlex collection, fetch Crossref metadata for saved OpenAlex DOIs.",
+    )
+    parser.add_argument(
+        "--crossref-output",
+        type=Path,
+        default=DEFAULT_CROSSREF_ENRICHED_OUTPUT,
+        help=f"Crossref enrichment JSONL output path. Default: {DEFAULT_CROSSREF_ENRICHED_OUTPUT}",
+    )
+    parser.add_argument(
+        "--crossref-email",
+        default=os.getenv("CROSSREF_EMAIL"),
+        help="Email for Crossref polite pool. Defaults to CROSSREF_EMAIL.",
+    )
+    parser.add_argument(
+        "--crossref-delay",
+        type=float,
+        default=0.1,
+        help="Delay between Crossref DOI lookups in seconds. Default: 0.1",
     )
     parser.add_argument(
         "--no-csv",
@@ -851,6 +1008,34 @@ def main() -> None:
             records_skipped=records_skipped,
         )
     )
+
+    if getattr(args, "enrich_crossref", False):
+        crossref_output = getattr(
+            args,
+            "crossref_output",
+            DEFAULT_CROSSREF_ENRICHED_OUTPUT,
+        )
+        crossref_email = getattr(args, "crossref_email", None) or args.email
+        crossref_delay = getattr(args, "crossref_delay", 0.1)
+        logger.info(
+            "Starting Crossref enrichment from OpenAlex DOIs output=%s",
+            crossref_output,
+        )
+        report = enrich_crossref_from_openalex(
+            openalex_jsonl=args.jsonl_output,
+            crossref_output=crossref_output,
+            email=crossref_email,
+            delay=crossref_delay,
+        )
+        logger.info("Crossref enrichment report: %s", report)
+        print("Crossref enrichment report:")
+        print(f"  Total OpenAlex DOIs: {report['total_openalex_dois']:,}")
+        print(f"  Skipped existing: {report['skipped_existing']:,}")
+        print(f"  Looked up: {report['looked_up']:,}")
+        print(f"  Found: {report['found']:,}")
+        print(f"  Missing: {report['missing']:,}")
+        print(f"  Normalization failed: {report['normalization_failed']:,}")
+        print(f"  Output: {report['output']}")
 
 
 if __name__ == "__main__":
