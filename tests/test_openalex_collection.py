@@ -942,6 +942,162 @@ def test_write_doi_conflict_report_outputs_different_ids_for_same_doi(tmp_path):
     ]
 
 
+def test_extract_openalex_dois_returns_unique_normalized_values(tmp_path):
+    jsonl_output = tmp_path / "works.jsonl"
+    jsonl_output.write_text(
+        "\n".join(
+            [
+                json.dumps({"doi": "https://doi.org/10.1234/Example"}),
+                json.dumps({"doi": "10.1234/example"}),
+                json.dumps({"doi": None}),
+                "not-json",
+                json.dumps({"doi": "DOI: 10.5678/Other"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert openalex_script.extract_openalex_dois(jsonl_output) == [
+        "10.1234/example",
+        "10.5678/other",
+    ]
+
+
+def test_enrich_crossref_from_openalex_skips_existing_and_writes_found(tmp_path):
+    openalex_jsonl = tmp_path / "openalex.jsonl"
+    crossref_output = tmp_path / "crossref_enriched.jsonl"
+    openalex_jsonl.write_text(
+        "\n".join(
+            [
+                json.dumps({"doi": "10.1234/existing"}),
+                json.dumps({"doi": "https://doi.org/10.1234/found"}),
+                json.dumps({"doi": "10.1234/missing"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    crossref_output.write_text(
+        json.dumps({"DOI": "10.1234/existing"}) + "\n",
+        encoding="utf-8",
+    )
+    calls = []
+
+    class FakeCrossrefCollector:
+        def fetch_work_by_doi(self, doi):
+            calls.append(doi)
+            if doi == "10.1234/missing":
+                return None
+            return {
+                "DOI": doi,
+                "type": "journal-article",
+                "title": ["Found Crossref Work"],
+            }
+
+    report = openalex_script.enrich_crossref_from_openalex(
+        openalex_jsonl=openalex_jsonl,
+        crossref_output=crossref_output,
+        collector=FakeCrossrefCollector(),
+        delay=0,
+    )
+
+    assert calls == ["10.1234/found", "10.1234/missing"]
+    assert report == {
+        "total_openalex_dois": 3,
+        "skipped_existing": 1,
+        "looked_up": 2,
+        "found": 1,
+        "missing": 1,
+        "normalization_failed": 0,
+        "output": str(crossref_output),
+    }
+    records = [
+        json.loads(line)
+        for line in crossref_output.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [record["DOI"] for record in records] == [
+        "10.1234/existing",
+        "10.1234/found",
+    ]
+
+
+def test_kaggle_script_runs_crossref_enrichment_when_enabled(tmp_path, monkeypatch):
+    jsonl_output = tmp_path / "works.jsonl"
+    csv_output = tmp_path / "works.csv"
+    progress_output = tmp_path / "works_progress.json"
+    doi_conflicts_output = tmp_path / "doi_conflicts.csv"
+    parquet_output = tmp_path / "works.parquet"
+    pagination_output = tmp_path / "pagination_audit.json"
+    crossref_output = tmp_path / "crossref_enriched.jsonl"
+    enrichment_calls = []
+
+    class FakeCollector:
+        def __init__(self, *, email, api_key):
+            self.email = email
+            self.api_key = api_key
+
+        def iter_sri_lankan_work_pages(self, **kwargs):
+            yield openalex.OpenAlexWorkPage(
+                cursor="*",
+                next_cursor=None,
+                filters=[openalex.LK_AUTHORSHIP_FILTER],
+                works=[sample_work("LK")],
+            )
+
+    def fake_enrich_crossref_from_openalex(**kwargs):
+        enrichment_calls.append(kwargs)
+        return {
+            "total_openalex_dois": 1,
+            "skipped_existing": 0,
+            "looked_up": 1,
+            "found": 1,
+            "missing": 0,
+            "normalization_failed": 0,
+            "output": str(kwargs["crossref_output"]),
+        }
+
+    args = argparse.Namespace(
+        jsonl_output=jsonl_output,
+        csv_output=csv_output,
+        parquet_output=parquet_output,
+        doi_conflicts_output=doi_conflicts_output,
+        pagination_output=pagination_output,
+        no_csv=True,
+        no_parquet=True,
+        resume=False,
+        progress_output=progress_output,
+        filter=[openalex.LK_AUTHORSHIP_FILTER],
+        from_year=openalex.DEFAULT_FROM_YEAR,
+        to_year=openalex.DEFAULT_TO_YEAR,
+        per_page=25,
+        max_records=None,
+        email="openalex@example.com",
+        api_key=None,
+        strict_lk_only=False,
+        enrich_crossref=True,
+        crossref_output=crossref_output,
+        crossref_email="crossref@example.com",
+        crossref_delay=0,
+    )
+
+    monkeypatch.setattr(openalex_script, "parse_args", lambda: args)
+    monkeypatch.setattr(openalex_script, "OpenAlexCollector", FakeCollector)
+    monkeypatch.setattr(
+        openalex_script,
+        "enrich_crossref_from_openalex",
+        fake_enrich_crossref_from_openalex,
+    )
+
+    openalex_script.main()
+
+    assert len(enrichment_calls) == 1
+    assert enrichment_calls[0]["openalex_jsonl"] == jsonl_output
+    assert enrichment_calls[0]["crossref_output"] == crossref_output
+    assert enrichment_calls[0]["email"] == "crossref@example.com"
+    assert enrichment_calls[0]["delay"] == 0
+
+
 def test_write_parquet_from_jsonl_writes_flat_rows(tmp_path, monkeypatch):
     """Parquet export should write the same flattened rows as the CSV path."""
     work = sample_work("LK")

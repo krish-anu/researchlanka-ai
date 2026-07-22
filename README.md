@@ -88,6 +88,12 @@ same shape:
 - CLI entrypoints live in `scripts/` and should call collector classes instead
   of duplicating request or pagination logic.
 
+Run the OpenAlex pipeline with Crossref DOI enrichment in one command:
+
+```bash
+python scripts/kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com
+```
+
 ## Team
 
 - ANUSAN K. - 230048J
