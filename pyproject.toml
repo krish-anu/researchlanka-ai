@@ -20,6 +20,7 @@ dev = ["pytest==9.1.1"]
 
 [project.scripts]
 research-framework = "research_analytics.cli:main"
+run-pipeline = "research_analytics.cli:run_stage_cli"
 
 [tool.setuptools.packages.find]
 include = ["research_analytics*", "src*"]

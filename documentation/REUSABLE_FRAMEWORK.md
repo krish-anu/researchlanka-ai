@@ -37,6 +37,12 @@ files.
 python -m research_analytics.cli run-all --config configurations/example_country/config.json
 ```
 
+The deployment-oriented wrapper uses the same core pipeline with a stage flag:
+
+```bash
+python run_pipeline.py --config configurations/example_country/config.json --stage all
+```
+
 The same framework can run the Sri Lankan configuration:
 
 ```bash
@@ -93,6 +99,10 @@ raw_record
 ## Command-Line Workflow
 
 ```bash
+python run_pipeline.py --config configurations/sri_lanka/config.json --stage collect
+python run_pipeline.py --config configurations/sri_lanka/config.json --stage clean
+python run_pipeline.py --config configurations/sri_lanka/config.json --stage deduplicate
+python run_pipeline.py --config configurations/sri_lanka/config.json --stage all
 research-framework source-validate --config config.json
 research-framework preview --config config.json --sample-size 5
 research-framework validate --config config.json

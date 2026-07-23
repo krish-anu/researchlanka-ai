@@ -4,13 +4,33 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+from typing import Any
 
 from research_analytics.config import load_config
 from research_analytics.pipeline import ResearchPipeline
 
 
-def main() -> None:
+STAGES = (
+    "collect",
+    "transform",
+    "validate",
+    "clean",
+    "resolve_entities",
+    "deduplicate",
+    "analyze",
+    "export",
+    "all",
+)
+
+
+def main(argv: list[str] | None = None) -> None:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--stage" in argv:
+        run_stage_cli(argv)
+        return
+
     parser = argparse.ArgumentParser(prog="research-framework")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -28,7 +48,7 @@ def main() -> None:
         command_parser.add_argument("--config", required=True, type=Path)
         command_parser.add_argument("--sample-size", type=int, default=100)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     config = load_config(args.config)
     pipeline = ResearchPipeline(config)
 
@@ -83,6 +103,93 @@ def main() -> None:
 
     result = pipeline.run_all()
     print(
+        "Run complete: "
+        f"{len(result.raw_records)} raw, "
+        f"{len(result.cleaned_records)} cleaned, "
+        f"{len(result.deduplicated_records)} deduplicated."
+    )
+
+
+def run_stage_cli(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog="run_pipeline.py")
+    parser.add_argument("--config", required=True, type=Path)
+    parser.add_argument("--stage", required=True, choices=STAGES)
+    parser.add_argument("--sample-size", type=int, default=100)
+    args = parser.parse_args(argv)
+
+    config = load_config(args.config)
+    pipeline = ResearchPipeline(config)
+    output = run_stage(pipeline, args.stage, sample_size=args.sample_size)
+
+    if isinstance(output, dict):
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+        return
+    print(output)
+
+
+def run_stage(pipeline: ResearchPipeline, stage: str, *, sample_size: int = 100) -> str | dict[str, Any]:
+    """Run one practical pipeline stage, including its prerequisites."""
+
+    if stage == "collect":
+        pipeline.collect()
+        return f"Collected {len(pipeline.result.raw_records)} raw records."
+
+    if stage == "transform":
+        pipeline.collect()
+        pipeline.transform()
+        return f"Transformed {len(pipeline.result.transformed_records)} records."
+
+    if stage == "validate":
+        pipeline.collect()
+        pipeline.transform()
+        return pipeline.validate().to_dict()
+
+    if stage == "clean":
+        pipeline.collect()
+        pipeline.transform()
+        pipeline.validate()
+        pipeline.clean()
+        return f"Cleaned {len(pipeline.result.cleaned_records)} records."
+
+    if stage == "resolve_entities":
+        pipeline.collect()
+        pipeline.transform()
+        pipeline.validate()
+        pipeline.clean()
+        pipeline.resolve_entities()
+        return f"Resolved national context for {len(pipeline.result.national_records)} records."
+
+    if stage == "deduplicate":
+        pipeline.collect()
+        pipeline.transform()
+        pipeline.validate()
+        pipeline.clean()
+        pipeline.resolve_entities()
+        pipeline.deduplicate()
+        return f"Found {len(pipeline.result.duplicate_candidates)} duplicate candidates."
+
+    if stage == "analyze":
+        pipeline.collect()
+        pipeline.transform()
+        pipeline.validate()
+        pipeline.clean()
+        pipeline.resolve_entities()
+        pipeline.deduplicate()
+        return pipeline.run_analytics()
+
+    if stage == "export":
+        pipeline.collect()
+        pipeline.transform()
+        pipeline.validate()
+        pipeline.clean()
+        pipeline.resolve_entities()
+        pipeline.deduplicate()
+        pipeline.run_analytics()
+        pipeline.export()
+        return "Export complete."
+
+    result = pipeline.run_all()
+    return (
         "Run complete: "
         f"{len(result.raw_records)} raw, "
         f"{len(result.cleaned_records)} cleaned, "

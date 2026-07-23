@@ -6,6 +6,7 @@ from research_analytics.adapters import SOURCE_REGISTRY
 from research_analytics.adapters.api import APIAdapter
 from research_analytics.adapters.registry import get_source_adapter
 from research_analytics.analytics import run_field_aware_analytics
+from research_analytics.cli import run_stage
 from research_analytics.config import config_from_dict
 from research_analytics.institutions import NationalInstitutionRegistry, enrich_national_context
 from research_analytics.schema import STANDARD_PUBLICATION_FIELDS
@@ -114,6 +115,47 @@ def test_project_country_is_supplied_by_config_not_pipeline_code(tmp_path):
     assert second.institution_registry.path == "configurations/example_country/institutions.csv"
     assert first.input.path == "data/processed/repositories_combined.csv"
     assert second.input.path == "examples/sample_publications.csv"
+
+
+def test_country_config_shape_can_select_first_enabled_source():
+    config = config_from_dict(
+        {
+            "country": {"name": "Malaysia", "code": "MY"},
+            "coverage": {"start_year": 2020, "end_year": 2026},
+            "institution_registry": "configurations/example_country/institutions.csv",
+            "sources": {
+                "openalex": {
+                    "enabled": True,
+                    "endpoint": "https://api.openalex.org/works",
+                    "filter": "institutions.country_code:MY",
+                    "options": {"max_records": 10},
+                },
+                "local_repository": {
+                    "enabled": False,
+                    "adapter": "oai_pmh",
+                    "endpoint": "https://repo.example/oai",
+                },
+            },
+            "dashboard": {"title": "Malaysia Research Portal"},
+        }
+    )
+
+    assert config.project.country_name == "Malaysia"
+    assert config.project.country_code == "MY"
+    assert config.project.dashboard_title == "Malaysia Research Portal"
+    assert config.collection.start_year == 2020
+    assert config.source.name == "openalex"
+    assert config.source.type == "openalex"
+    assert config.source.base_url == "https://api.openalex.org/works"
+    assert config.source.filter == "institutions.country_code:MY"
+    assert config.institution_registry.path == "configurations/example_country/institutions.csv"
+
+
+def test_stage_runner_executes_all_pipeline_steps_from_config():
+    config = load_config("configurations/example_country/config.json")
+    output = run_stage(ResearchPipeline(config), "all")
+
+    assert output == "Run complete: 4 raw, 4 cleaned, 3 deduplicated."
 
 
 def test_national_institution_registry_resolves_aliases_and_collaboration_type(tmp_path):

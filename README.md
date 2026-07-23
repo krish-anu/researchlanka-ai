@@ -99,6 +99,14 @@ Run the Sri Lankan implementation with the same framework code:
 python -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
 ```
 
+The practical deployment wrapper supports the stage workflow used when bringing
+a new country online:
+
+```bash
+python run_pipeline.py --config configurations/example_country/config.json --stage all
+python run_pipeline.py --config configurations/example_country/config.json --stage deduplicate
+```
+
 The Makefile uses the framework pipeline as the national workflow:
 
 ```bash
