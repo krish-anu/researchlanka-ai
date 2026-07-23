@@ -1,0 +1,148 @@
+{
+  "country": {
+    "name": "Example Country",
+    "code": "EX"
+  },
+  "coverage": {
+    "start_year": 2010,
+    "end_year": 2026
+  },
+  "project": {
+    "name": "Example Country Research Analytics",
+    "dashboard_title": "Example Country Research Portal"
+  },
+  "institution_registry": {
+    "path": "configurations/example_country/institutions.csv"
+  },
+  "input": {
+    "path": "examples/sample_publications.csv",
+    "format": "csv",
+    "source_name": "example_country_sample"
+  },
+  "source": {
+    "name": "example_country_sample",
+    "type": "csv",
+    "path": "examples/sample_publications.csv",
+    "delimiter": ",",
+    "encoding": "utf-8"
+  },
+  "pipeline": {
+    "collect": true,
+    "transform": true,
+    "validate": true,
+    "clean": true,
+    "deduplicate": true,
+    "resolve_entities": true,
+    "load_database": false,
+    "run_analytics": true,
+    "export": true,
+    "classify": false,
+    "topic_modeling": false
+  },
+  "column_mapping": {
+    "record_id": "source_record_id",
+    "paper_name": "title",
+    "researcher": "authors",
+    "university": "institutions",
+    "published_year": "publication_year",
+    "doi": "doi",
+    "citation_count": "citation_count",
+    "countries": "countries"
+  },
+  "transformations": {
+    "publication_year": {
+      "type": "extract_year"
+    },
+    "authors": {
+      "type": "split",
+      "separator": ";"
+    },
+    "countries": {
+      "type": "split",
+      "separator": ";"
+    },
+    "doi": {
+      "type": "normalize_doi"
+    }
+  },
+  "validation": {
+    "required": [
+      "title"
+    ],
+    "require_any": [
+      "doi",
+      "authors",
+      "publication_year",
+      "source_record_id"
+    ]
+  },
+  "cleaning": {
+    "normalize_doi": true,
+    "normalize_title": true,
+    "normalize_author_names": true,
+    "normalize_institutions": true,
+    "valid_year": {
+      "minimum": 2010,
+      "maximum": 2026
+    },
+    "required_fields": [
+      "title"
+    ]
+  },
+  "deduplication": {
+    "enabled": true,
+    "doi_match": {
+      "enabled": true,
+      "automatic_merge": true
+    },
+    "exact_title_match": {
+      "enabled": true,
+      "require_same_year": true
+    },
+    "fuzzy_title_match": {
+      "enabled": false,
+      "threshold": 90
+    },
+    "author_match": {
+      "minimum_matching_authors": 1
+    },
+    "year_difference": {
+      "maximum": 1
+    },
+    "uncertain_matches": {
+      "send_to_manual_review": true
+    }
+  },
+  "categories": [
+    "Engineering",
+    "Medicine",
+    "Social Sciences"
+  ],
+  "publication_types": [
+    "journal-article",
+    "conference-paper",
+    "book-chapter",
+    "thesis",
+    "report"
+  ],
+  "analytics": {
+    "citation_analysis": true,
+    "collaboration_analysis": true,
+    "topic_analysis": true,
+    "trend_analysis": true
+  },
+  "dashboard": {
+    "title": "Example Country Research Portal",
+    "export_formats": [
+      "csv",
+      "json"
+    ]
+  },
+  "export": {
+    "output_dir": "outputs/example_country",
+    "formats": [
+      "csv",
+      "json"
+    ]
+  }
+}

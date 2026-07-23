@@ -1,0 +1,11 @@
+institution_id,preferred_name,alternative_name,country_code,ror_id,parent_institution_id
+EX001,Example National University,Example National University,EX,,
+EX001,Example National University,ENU,EX,,
+EX002,Example Institute of Technology,Example Institute of Technology,EX,,
+EX002,Example Institute of Technology,EIT,EX,,
+EX003,Example Medical Research Institute,Example Medical Research Institute,EX,,
+EX003,Example Medical Research Institute,EMRI,EX,,
+EX004,Example Open University,Example Open University,EX,,
+EX004,Example Open University,EOU,EX,,
+EX005,National Policy Research Centre,National Policy Research Centre,EX,,
+EX005,National Policy Research Centre,NPRC,EX,,

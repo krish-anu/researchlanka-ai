@@ -84,6 +84,7 @@ class DeduplicationConfig:
 class SourceConfig:
     name: str | None = None
     type: str | None = None
+    adapter: str | None = None
     enabled: bool = True
     path: str | None = None
     format: str | None = None
@@ -92,6 +93,8 @@ class SourceConfig:
     sheet_name: str | int | None = None
     header_row: int = 0
     base_url: str | None = None
+    endpoint: str | None = None
+    filter: str | None = None
     method: str = "GET"
     headers: dict[str, str] = field(default_factory=dict)
     authentication: dict[str, Any] = field(default_factory=dict)
@@ -178,6 +181,7 @@ def config_from_dict(data: dict[str, Any]) -> FrameworkConfig:
 
     country = data.get("country", {})
     project = data.get("project", {})
+    dashboard = data.get("dashboard", {})
     project_data = {
         **project,
         **(
@@ -189,6 +193,8 @@ def config_from_dict(data: dict[str, Any]) -> FrameworkConfig:
             else {}
         ),
     }
+    if isinstance(dashboard, dict) and dashboard.get("title") and not project_data.get("dashboard_title"):
+        project_data["dashboard_title"] = dashboard.get("title")
     coverage = data.get("coverage", {})
     collection_data = {
         **data.get("collection", {}),
@@ -201,6 +207,9 @@ def config_from_dict(data: dict[str, Any]) -> FrameworkConfig:
             else {}
         ),
     }
+
+    source_data = _source_config_data(data)
+    institution_registry = _institution_registry_data(data.get("institution_registry", {}))
 
     return FrameworkConfig(
         project=ProjectConfig(**project_data),
@@ -233,10 +242,8 @@ def config_from_dict(data: dict[str, Any]) -> FrameworkConfig:
             output_dir=data.get("export", {}).get("output_dir", "outputs"),
             formats=tuple(data.get("export", {}).get("formats", ("csv", "json"))),
         ),
-        institution_registry=InstitutionRegistryConfig(
-            **data.get("institution_registry", {})
-        ),
-        source=SourceConfig(**data.get("source", {})),
+        institution_registry=InstitutionRegistryConfig(**institution_registry),
+        source=SourceConfig(**source_data),
         validation=ValidationRules(
             required=tuple(validation.get("required", ("title",))),
             require_any=tuple(
@@ -255,6 +262,46 @@ def config_from_dict(data: dict[str, Any]) -> FrameworkConfig:
         machine_learning=data.get("machine_learning", {}),
         publication_types=tuple(data.get("publication_types", ())),
     )
+
+
+def _institution_registry_data(value: Any) -> dict[str, Any]:
+    if isinstance(value, str):
+        return {"path": value}
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("institution_registry must be a path string or mapping.")
+    return value
+
+
+def _source_config_data(data: dict[str, Any]) -> dict[str, Any]:
+    source = data.get("source") or {}
+    if not source and isinstance(data.get("sources"), dict):
+        source = _first_enabled_source(data["sources"])
+    if not isinstance(source, dict):
+        raise ValueError("source must be a mapping.")
+
+    source = dict(source)
+    if source.get("endpoint") and not source.get("base_url"):
+        source["base_url"] = source["endpoint"]
+    if source.get("adapter") and not source.get("type"):
+        source["type"] = source["adapter"]
+    if source.get("format") and not source.get("type"):
+        source["type"] = source["format"]
+    return source
+
+
+def _first_enabled_source(sources: dict[str, Any]) -> dict[str, Any]:
+    for name, source in sources.items():
+        if not isinstance(source, dict):
+            continue
+        if source.get("enabled", True) is False:
+            continue
+        selected = dict(source)
+        selected.setdefault("name", name)
+        selected.setdefault("type", selected.get("adapter") or name)
+        return selected
+    return {}
 
 
 def _load_mapping(path: Path) -> dict[str, Any]:

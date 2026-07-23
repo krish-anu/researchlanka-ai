@@ -37,7 +37,7 @@ def build_adapter_from_config(config: FrameworkConfig) -> SourceAdapter:
     """Create a source adapter from source/input configuration."""
 
     source = _effective_source(config)
-    source_type = source.type or source.format
+    source_type = source.type or source.adapter or source.format
     if not source_type:
         raise ValueError("Configuration requires source.type or input.format.")
 
@@ -87,7 +87,7 @@ def build_adapter_from_config(config: FrameworkConfig) -> SourceAdapter:
         )
     if source_type == "oai_pmh":
         return adapter_class(
-            endpoint=source.base_url or source.path,
+            endpoint=source.base_url or source.endpoint or source.path,
             source_name=source.name or "oai_pmh",
             max_records=source.options.get("max_records"),
         )

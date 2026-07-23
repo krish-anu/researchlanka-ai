@@ -37,6 +37,10 @@ data/external/
 !data/.gitkeep
 !data/sample/
 !data/sample/**
+!configurations/**/*.csv
+!configurations/**/*.json
+!examples/**/*.csv
+!examples/**/*.json
 
 .DS_Store
 Thumbs.db
