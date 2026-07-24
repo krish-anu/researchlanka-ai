@@ -9,15 +9,31 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.pyre/
+.pytype/
+.tox/
+.nox/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+junit.xml
+test-results/
+
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
 
 .env
 .env.local
 *.log
-
-
-.github/
+*.tmp
+*.bak
+*.orig
+*.swp
+*.swo
 
 
 .ipynb_checkpoints/
@@ -26,18 +42,32 @@ data/raw/
 data/processed/
 data/interim/
 data/external/
-*.csv
+data/reports/*.json
+outputs/
 *.xlsx
 *.parquet
 *.jsonl
 *.sqlite
+*.sqlite3
 *.db
-*.json
 
 !data/.gitkeep
 !data/sample/
 !data/sample/**
+!data/config/
+!data/config/**
+!configurations/
+!configurations/**
+!examples/
+!examples/**
 
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
 
+# Track GitHub Actions and work-plan configuration
+!/.github/
+!/.github/**
+
+notebooks/outputs/
