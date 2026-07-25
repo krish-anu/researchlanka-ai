@@ -18,6 +18,8 @@ Local usage from the project root:
 Outputs are written to /kaggle/working by default:
     common_publications_all_records.csv
     common_publications_deduplicated.csv
+    common_publications_merge_log.csv
+    common_publications_run_log.txt
     common_publications_schema.csv
     common_publications_summary.csv
 
@@ -32,6 +34,7 @@ import ast
 import json
 import math
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -810,10 +813,14 @@ def normalize_source_frame(
     raise ValueError(f"Unsupported source dataset: {source_dataset}")
 
 
-def record_merge_key(row: pd.Series, row_number: int) -> str:
+def record_merge_info(row: pd.Series, row_number: int) -> tuple[str, str, str]:
     doi = normalize_doi(row.get("doi"))
     if not is_blank(doi):
-        return f"doi:{doi}"
+        return (
+            f"doi:{doi}",
+            "doi",
+            "Same normalized DOI. DOI URLs, DOI: prefixes, case, spaces, and trailing punctuation were cleaned.",
+        )
 
     title_key = normalize_title_key(row.get("title"))
     year = normalize_year(row.get("publication_year"))
@@ -823,14 +830,36 @@ def record_merge_key(row: pd.Series, row_number: int) -> str:
     author_key = normalize_author_key(author_value)
 
     if not is_blank(title_key) and not is_blank(year):
-        return f"title_year_author:{title_key}|{year}|{author_key}"
+        if author_key:
+            return (
+                f"title_year_author:{title_key}|{year}|{author_key}",
+                "title_year_first_author",
+                "Missing DOI; matched by normalized title, publication year, and first author.",
+            )
+        return (
+            f"title_year:{title_key}|{year}",
+            "title_year",
+            "Missing DOI and first author; matched by normalized title and publication year.",
+        )
 
     source = row.get("source_dataset")
     source_record_id = row.get("source_record_id")
     if not is_blank(source) and not is_blank(source_record_id):
-        return f"source_record:{source}|{source_record_id}"
+        return (
+            f"source_record:{source}|{source_record_id}",
+            "source_record_id",
+            "No DOI/title-year key; kept by source dataset and original source record ID.",
+        )
 
-    return f"row:{row_number}"
+    return (
+        f"row:{row_number}",
+        "row_number",
+        "No DOI, title/year key, or source record ID; kept by input row number.",
+    )
+
+
+def record_merge_key(row: pd.Series, row_number: int) -> str:
+    return record_merge_info(row, row_number)[0]
 
 
 def completeness_score(row: pd.Series) -> int:
@@ -872,30 +901,107 @@ def merge_group(group: pd.DataFrame) -> dict[str, Any]:
     return merged
 
 
-def deduplicate_publications(all_records: pd.DataFrame) -> pd.DataFrame:
+def unique_series_text(values: pd.Series) -> Any:
+    return unique_text(values.dropna().tolist())
+
+
+def first_nonblank(*values: Any) -> Any:
+    for value in values:
+        if not is_blank(value):
+            return value
+    return pd.NA
+
+
+def merge_log_row(
+    merged_row_number: int,
+    merge_key: str,
+    group: pd.DataFrame,
+    merged: dict[str, Any],
+) -> dict[str, Any]:
+    group_size = len(group)
+    merge_method = first_text(group["_merge_method"].iloc[0])
+    merge_reason = first_text(group["_merge_reason"].iloc[0])
+    source_datasets = unique_series_text(group["source_dataset"])
+
+    return {
+        "merged_row_number": merged_row_number,
+        "action": "merged" if group_size > 1 else "kept_single_record",
+        "was_merged": group_size > 1,
+        "merge_method": merge_method,
+        "merge_key": merge_key,
+        "merge_reason": merge_reason,
+        "input_record_count": group_size,
+        "source_datasets": source_datasets,
+        "source_record_ids": unique_series_text(group["source_record_id"]),
+        "openalex_ids": unique_series_text(group["openalex_id"]),
+        "normalized_dois": unique_series_text(group["doi"]),
+        "final_doi": merged.get("doi"),
+        "final_title": merged.get("title"),
+        "final_publication_year": merged.get("publication_year"),
+        "final_authors": first_nonblank(merged.get("author_names"), merged.get("authors")),
+        "final_journal": first_nonblank(merged.get("journal"), merged.get("container_title")),
+        "non_empty_final_fields": completeness_score(pd.Series(merged)),
+        "input_row_numbers": "; ".join(str(index + 1) for index in group.index),
+    }
+
+
+def deduplicate_publications(
+    all_records: pd.DataFrame,
+    *,
+    return_log: bool = False,
+) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
     working = all_records.copy()
-    working["_merge_key"] = [
-        record_merge_key(row, row_number)
+    merge_infos = [
+        record_merge_info(row, row_number)
         for row_number, (_, row) in enumerate(working.iterrows(), start=1)
     ]
+    working["_merge_key"] = [merge_info[0] for merge_info in merge_infos]
+    working["_merge_method"] = [merge_info[1] for merge_info in merge_infos]
+    working["_merge_reason"] = [merge_info[2] for merge_info in merge_infos]
 
-    merged_rows = [
-        merge_group(group)
-        for _, group in working.groupby("_merge_key", sort=False, dropna=False)
-    ]
+    merged_rows: list[dict[str, Any]] = []
+    merge_log_rows: list[dict[str, Any]] = []
 
-    return pd.DataFrame(merged_rows, columns=COMMON_COLUMNS)
+    for merged_row_number, (merge_key, group) in enumerate(
+        working.groupby("_merge_key", sort=False, dropna=False),
+        start=1,
+    ):
+        merged = merge_group(group)
+        merged_rows.append(merged)
+        merge_log_rows.append(
+            merge_log_row(
+                merged_row_number,
+                str(merge_key),
+                group,
+                merged,
+            )
+        )
+
+    deduplicated = pd.DataFrame(merged_rows, columns=COMMON_COLUMNS)
+    merge_log = pd.DataFrame(merge_log_rows)
+
+    if return_log:
+        return deduplicated, merge_log
+
+    return deduplicated
 
 
 def find_input_file(input_root: Path, filename: str) -> Path:
-    search_roots = [input_root]
-    if input_root != Path.cwd():
-        search_roots.append(Path.cwd())
+    direct_input = input_root / filename
+    if direct_input.exists():
+        return direct_input
+
+    if input_root.exists():
+        input_candidates = sorted(
+            input_root.rglob(filename),
+            key=lambda path: (len(path.parts), str(path)),
+        )
+        if input_candidates:
+            return input_candidates[0]
 
     candidates: list[Path] = []
-    for root in search_roots:
-        if root.exists():
-            candidates.extend(root.rglob(filename))
+    if input_root != Path.cwd() and Path.cwd().exists():
+        candidates.extend(Path.cwd().rglob(filename))
 
     if not candidates:
         raise FileNotFoundError(
@@ -971,6 +1077,71 @@ def write_summary(
     return output_path
 
 
+def write_run_log(
+    output_dir: Path,
+    *,
+    input_paths: dict[str, Path],
+    source_frames: dict[str, pd.DataFrame],
+    all_records: pd.DataFrame,
+    deduplicated: pd.DataFrame,
+    merge_log: pd.DataFrame,
+    args: argparse.Namespace,
+    output_paths: dict[str, Path],
+) -> Path:
+    lines = [
+        "ResearchLanka common dataset merge log",
+        f"Created at: {datetime.now().isoformat(timespec='seconds')}",
+        f"Input directory: {args.input_dir}",
+        f"Output directory: {args.output_dir}",
+        f"Sample rows per source: {args.sample_rows or 'all'}",
+        f"Included raw_source_json: {bool(args.include_raw_json)}",
+        "",
+        "Input files:",
+    ]
+
+    for source_dataset, path in input_paths.items():
+        frame = source_frames[source_dataset]
+        rows_with_doi = int(frame["doi"].map(lambda value: not is_blank(value)).sum())
+        lines.append(f"- {source_dataset}: {path}")
+        lines.append(f"  rows normalized: {len(frame):,}")
+        lines.append(f"  rows with normalized DOI: {rows_with_doi:,}")
+
+    lines.extend(
+        [
+            "",
+            "Merge results:",
+            f"- all normalized records: {len(all_records):,}",
+            f"- deduplicated publications: {len(deduplicated):,}",
+            f"- records removed by deduplication: {len(all_records) - len(deduplicated):,}",
+            "",
+            "Merge method counts:",
+        ]
+    )
+
+    method_counts = merge_log["merge_method"].value_counts(dropna=False)
+    for method, count in method_counts.items():
+        lines.append(f"- {method}: {int(count):,} final rows")
+
+    merged_method_counts = merge_log.loc[merge_log["was_merged"], "merge_method"].value_counts(
+        dropna=False
+    )
+    lines.append("")
+    lines.append("Merged-row method counts:")
+    if merged_method_counts.empty:
+        lines.append("- none: 0")
+    else:
+        for method, count in merged_method_counts.items():
+            lines.append(f"- {method}: {int(count):,} merged rows")
+
+    lines.extend(["", "Outputs:"])
+    for name, path in output_paths.items():
+        lines.append(f"- {name}: {path}")
+
+    output_path = output_dir / "common_publications_run_log.txt"
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return output_path
+
+
 def parse_args() -> argparse.Namespace:
     if Path("/kaggle/input").exists():
         default_input_dir = Path("/kaggle/input")
@@ -1031,24 +1202,34 @@ def main() -> None:
     if args.sample_rows:
         print(f"\nSample mode: reading first {args.sample_rows:,} rows from each file.")
 
-    source_frames = {
-        source_dataset: normalize_source_frame(
+    source_frames: dict[str, pd.DataFrame] = {}
+    print("\nNormalizing input files...", flush=True)
+    for source_dataset, path in input_paths.items():
+        print(f"  Normalizing {source_dataset}...", flush=True)
+        source_frames[source_dataset] = normalize_source_frame(
             source_dataset,
             path,
             include_raw_json=args.include_raw_json,
             sample_rows=args.sample_rows,
         )
-        for source_dataset, path in input_paths.items()
-    }
+        print(f"  {source_dataset}: {len(source_frames[source_dataset]):,} rows", flush=True)
 
     all_records = pd.concat(source_frames.values(), ignore_index=True)
-    deduplicated = deduplicate_publications(all_records)
 
     all_records_path = args.output_dir / "common_publications_all_records.csv"
     deduplicated_path = args.output_dir / "common_publications_deduplicated.csv"
+    merge_log_path = args.output_dir / "common_publications_merge_log.csv"
 
+    print(f"\nWriting normalized records -> {all_records_path}", flush=True)
     all_records.to_csv(all_records_path, index=False)
+
+    print("Deduplicating and building merge log...", flush=True)
+    deduplicated, merge_log = deduplicate_publications(all_records, return_log=True)
+
+    print(f"Writing deduplicated records -> {deduplicated_path}", flush=True)
     deduplicated.to_csv(deduplicated_path, index=False)
+    print(f"Writing merge log -> {merge_log_path}", flush=True)
+    merge_log.to_csv(merge_log_path, index=False)
     schema_path = write_schema(args.output_dir)
     summary_path = write_summary(
         args.output_dir,
@@ -1057,10 +1238,29 @@ def main() -> None:
         all_records=all_records,
         deduplicated=deduplicated,
     )
+    output_paths = {
+        "all_records": all_records_path,
+        "deduplicated": deduplicated_path,
+        "merge_log": merge_log_path,
+        "schema": schema_path,
+        "summary": summary_path,
+    }
+    run_log_path = write_run_log(
+        args.output_dir,
+        input_paths=input_paths,
+        source_frames=source_frames,
+        all_records=all_records,
+        deduplicated=deduplicated,
+        merge_log=merge_log,
+        args=args,
+        output_paths=output_paths,
+    )
 
     print("\nDone.")
     print(f"  All normalized records: {len(all_records):,} -> {all_records_path}")
     print(f"  Deduplicated publications: {len(deduplicated):,} -> {deduplicated_path}")
+    print(f"  Merge log: {merge_log_path}")
+    print(f"  Run log: {run_log_path}")
     print(f"  Schema columns: {len(COMMON_COLUMNS):,} -> {schema_path}")
     print(f"  Summary: {summary_path}")
 
