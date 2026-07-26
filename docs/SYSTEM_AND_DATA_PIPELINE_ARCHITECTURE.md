@@ -26,7 +26,6 @@ Raw and Interim Storage
 Preprocessing and Normalization
   |-- src/preprocessing/openalex_normalizer.py
   |-- src/preprocessing/crossref_normalizer.py
-  |-- src/preprocessing/clean_publications.py
   |-- scripts/jsonl_to_csv.py
 
 Comparison and Quality Checks
