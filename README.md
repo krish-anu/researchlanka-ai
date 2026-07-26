@@ -12,6 +12,23 @@ This project collects, cleans, analyzes, and visualizes research publications by
 - Research analytics for productivity, citations, topics, and collaboration.
 - Interactive dashboard for searching and visualizing research trends.
 
+## Data Collected So Far
+
+As of 2026-07-25, **160,613 records**:
+
+| Source | Records | Notes |
+|---|---|---|
+| Institutional repositories | 126,455 | 12 universities plus SLJOL, via OAI-PMH, DSpace REST and HTML meta tags |
+| OpenAlex by institution | 30,221 | Net new for Colombo, Peradeniya and Uva Wellassa after de-duplication |
+| Blocked-repository recovery | 3,937 | Kelaniya and Sabaragamuwa, via Crossref + PubMed affiliation routes |
+
+Outputs land in `data/processed/` as one JSONL file per institution plus
+combined CSVs. Raw and processed data files are gitignored; the registry
+(`data/config/repositories.json`) and the reports structure are versioned.
+
+See the [Data Collection Guide](docs/DATA_COLLECTION.md) for per-institution
+status, which route each server supports, and what is still blocked.
+
 ## Setup
 
 Clone the repository:
@@ -68,6 +85,7 @@ git push origin feature/openalex-collector
 ## Useful Docs
 
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
+- [Publication Metadata Schema](docs/metadata.md) - canonical analysis schema and the implemented collection contract
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
 - [Contributing Guide](CONTRIBUTING.md)
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)

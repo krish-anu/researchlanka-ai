@@ -34,6 +34,7 @@ class InstitutionValidation:
     id: str
     name: str
     declared_status: str
+    raw_route: str = "oai"
     raw_record_count: int = 0
     raw_deleted_count: int = 0
     duplicate_source_ids: int = 0
@@ -99,23 +100,35 @@ def validate_institution(target, harvest_errors: dict[str, str]) -> InstitutionV
 
     raw_path = RAW_DIR / target.id / "oai_dc.jsonl"
     rest_path = RAW_DIR / target.id / "rest_items.jsonl"
+    html_path = RAW_DIR / target.id / "html_meta.jsonl"
+    crossref_path = RAW_DIR / target.id / "crossref_works.jsonl"
     expected_host = urlparse(target.oai_endpoint).netloc if target.oai_endpoint else None
     seen_ids: set[str] = set()
     hosts_seen: set[str] = set()
 
-    # Mirror map_to_common_schema.py's source choice: when both routes were
-    # harvested, only the larger one feeds the mapped output, so only count
-    # that one as "raw" here -- counting both would double-count the same
-    # items and never reconcile with the mapped total.
+    # Mirror map_to_common_schema.py's source choice: when several routes
+    # were harvested, only the largest feeds the mapped output, so only
+    # count that one as "raw" here -- counting all of them would
+    # double-count the same items and never reconcile with the mapped
+    # total. All four routes must be considered, not just OAI and REST,
+    # or the HTML-crawled (jfn_*) and Crossref (sljol) institutions report
+    # zero raw against a full mapped file and get flagged as never harvested.
     def _line_count(path: Path) -> int:
         with path.open(encoding="utf-8") as f:
             return sum(1 for line in f if line.strip())
 
-    oai_line_count = _line_count(raw_path) if raw_path.exists() else 0
-    rest_line_count = _line_count(rest_path) if rest_path.exists() else 0
-    use_rest = rest_line_count > oai_line_count
+    route_counts = {
+        "oai": _line_count(raw_path) if raw_path.exists() else 0,
+        "rest": _line_count(rest_path) if rest_path.exists() else 0,
+        "html": _line_count(html_path) if html_path.exists() else 0,
+        "crossref": _line_count(crossref_path) if crossref_path.exists() else 0,
+    }
+    best_route = max(route_counts, key=lambda route: route_counts[route])
+    if route_counts[best_route] == 0:
+        best_route = "oai"
+    result.raw_route = best_route
 
-    if use_rest:
+    if best_route == "rest":
         with rest_path.open(encoding="utf-8") as rest_file:
             for line in rest_file:
                 if not line.strip():
@@ -128,7 +141,22 @@ def validate_institution(target, harvest_errors: dict[str, str]) -> InstitutionV
                         result.duplicate_source_ids += 1
                     seen_ids.add(record_id)
 
-    if not use_rest and raw_path.exists():
+    if best_route in {"html", "crossref"}:
+        source_path = html_path if best_route == "html" else crossref_path
+        id_field = "handle_path" if best_route == "html" else "DOI"
+        with source_path.open(encoding="utf-8") as source_file:
+            for line in source_file:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                result.raw_record_count += 1
+                record_id = record.get(id_field)
+                if record_id:
+                    if record_id in seen_ids:
+                        result.duplicate_source_ids += 1
+                    seen_ids.add(record_id)
+
+    if best_route == "oai" and raw_path.exists():
         with raw_path.open(encoding="utf-8") as raw_file:
             for line in raw_file:
                 record = json.loads(line)

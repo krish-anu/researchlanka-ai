@@ -113,32 +113,53 @@ class CrossrefCollector:
     ) -> Iterator[dict[str, Any]]:
         """Iterate over Crossref works with cursor pagination."""
 
-        cursor = "*"
+        cursor: str | None = "*"
         records_seen = 0
 
         while cursor:
-            params: dict[str, Any] = {"rows": self.rows, "cursor": cursor}
-            if self.email:
-                params["mailto"] = self.email
-
-            response = self.session.get(
-                f"{CROSSREF_BASE_URL}/prefixes/{self.prefix}/works",
-                params=params,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            message = response.json()["message"]
+            message = self.fetch_works(
+                affiliation_query=affiliation_query,
+                filters=filters,
+                rows=rows,
+                cursor=cursor,
+            ).get("message", {})
 
             items = message.get("items", [])
             if not items:
                 return
 
             for work in items:
+                if self.keep_types and work.get("type") not in self.keep_types:
+                    continue
                 if max_records is not None and records_seen >= max_records:
                     return
                 records_seen += 1
                 yield work
 
+            # Check before paging so a satisfied limit costs no extra request.
+            if max_records is not None and records_seen >= max_records:
+                return
+
             cursor = message.get("next-cursor")
-            if self.delay:
-                time.sleep(self.delay)
+
+    def fetch_work_by_doi(self, doi: str) -> dict[str, Any] | None:
+        """Fetch a single work by DOI, or None if it is unknown/unreachable.
+
+        Used to enrich records whose source gave us a bare DOI. Missing
+        DOIs and network failures are both normal here, so neither raises.
+        """
+
+        try:
+            response = self.session.get(
+                f"{self.base_url}/works/{quote(doi, safe='')}",
+                timeout=self.timeout,
+            )
+        except requests.RequestException:
+            logger.warning("Crossref lookup failed for DOI %s", doi, exc_info=True)
+            return None
+
+        if response.status_code == 404:
+            return None
+
+        response.raise_for_status()
+        return response.json().get("message")

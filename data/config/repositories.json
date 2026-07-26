@@ -38,7 +38,9 @@
       "phase": "phase_2",
       "endpoint_verified_live": true,
       "harvest_route": "rest",
-      "notes": "Endpoint confirmed live 2026-07-19. OAI ListRecords pagination crashes around resumptionToken offset ~3000 (HTTP 500, 'No converter for [class java.util.LinkedHashMap]' -- Spring/DSpace serialization fault, not transient); date-slicing (harvest_large_repository.py) recovered 8,355 of ~8,540 but one window stayed broken. RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 8,447 items (scripts/harvest_dspace_rest.py --id cmb). Old xmlui instance on :8080 referenced in older records is gone (404) -- those are stale links, not missing content."
+      "notes": "Endpoint confirmed live 2026-07-19. OAI ListRecords pagination crashes around resumptionToken offset ~3000 (HTTP 500, 'No converter for [class java.util.LinkedHashMap]' -- Spring/DSpace serialization fault, not transient); date-slicing (harvest_large_repository.py) recovered 8,355 of ~8,540 but one window stayed broken. RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 8,447 items (scripts/harvest_dspace_rest.py --id cmb). Old xmlui instance on :8080 referenced in older records is gone (404) -- those are stale links, not missing content.",
+      "openalex_institution_id": "I90678064",
+      "openalex_institution_name": "University of Colombo"
     },
     {
       "id": "ucsc",
@@ -67,7 +69,9 @@
       "phase": "phase_2",
       "endpoint_verified_live": true,
       "harvest_route": "rest",
-      "notes": "Confirmed live 2026-07-19, but OAI index is empty (noRecordsMatch on all queries/prefixes). RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 7,682 items (scripts/harvest_dspace_rest.py --id pdn). LEGACY GAP: the old instance dlib.pdn.ac.lk (still Google-indexed with real handle pages, OpenDOAR repository 4542) is completely unreachable as of 2026-07-20 -- connect timeout on http/https/www/:8080 -- likely offline or mid-migration into ir.lib.pdn.ac.lk. Peradeniya's historic collection may substantially exceed the new instance's 7,682 items; re-check dlib periodically and harvest it if it comes back."
+      "notes": "Confirmed live 2026-07-19, but OAI index is empty (noRecordsMatch on all queries/prefixes). RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 7,682 items (scripts/harvest_dspace_rest.py --id pdn). LEGACY GAP: the old instance dlib.pdn.ac.lk (still Google-indexed with real handle pages, OpenDOAR repository 4542) is completely unreachable as of 2026-07-20 -- connect timeout on http/https/www/:8080 -- likely offline or mid-migration into ir.lib.pdn.ac.lk. Peradeniya's historic collection may substantially exceed the new instance's 7,682 items; re-check dlib periodically and harvest it if it comes back.",
+      "openalex_institution_id": "I111199411",
+      "openalex_institution_name": "University of Peradeniya"
     },
     {
       "id": "kln",
@@ -81,7 +85,15 @@
       "status": "blocked_for_automated_requests",
       "phase": "phase_2",
       "endpoint_verified_live": false,
-      "notes": "Site is live and indexed publicly (confirmed via web search; http://repository.kln.ac.lk/ serves real content to browsers). But every scripted request we made -- https (SSL handshake fails: TLSV1_UNRECOGNIZED_NAME) and http on /oai/request, /xmlui/oai/request, /jspui/oai/request (all HTTP 403 with a 'NOINDEX, NOFOLLOW' WAF page) -- was blocked. Sitemap fallback also checked 2026-07-19 -- no sitemap reachable either (same block). Re-checked 2026-07-20: still blocked, URL confirmed canonical (OpenDOAR 3821), repository actively maintained (2025-2026 content visible to browsers/Google). Aggregator routes checked 2026-07-20: NOT in CORE (only 2 LK providers there: SEU and OUSL); FAO AGRIS lists University of Kelaniya as a data provider but that is an agriculture-only subset. Kelaniya-affiliated JOURNAL articles will still arrive via the OpenAlex LK-institution harvest (other pipeline); what stays inaccessible is repository-only content (theses, proceedings). Only route: outreach to Kelaniya library/IT for allow-listing. Also hosts Gampaha Wickramarachchi University of Ayurveda as a sub-community (see gwuas entry)."
+      "notes": "Site is live and indexed publicly (confirmed via web search; http://repository.kln.ac.lk/ serves real content to browsers). But every scripted request we made -- https (SSL handshake fails: TLSV1_UNRECOGNIZED_NAME) and http on /oai/request, /xmlui/oai/request, /jspui/oai/request (all HTTP 403 with a 'NOINDEX, NOFOLLOW' WAF page) -- was blocked. Sitemap fallback also checked 2026-07-19 -- no sitemap reachable either (same block). Re-checked 2026-07-20: still blocked, URL confirmed canonical (OpenDOAR 3821), repository actively maintained (2025-2026 content visible to browsers/Google). Aggregator routes checked 2026-07-20: NOT in CORE (only 2 LK providers there: SEU and OUSL); FAO AGRIS lists University of Kelaniya as a data provider but that is an agriculture-only subset. Kelaniya-affiliated JOURNAL articles will still arrive via the OpenAlex LK-institution harvest (other pipeline); what stays inaccessible is repository-only content (theses, proceedings). Only route: outreach to Kelaniya library/IT for allow-listing. Also hosts Gampaha Wickramarachchi University of Ayurveda as a sub-community (see gwuas entry). RECOVERY 2026-07-25: repository itself still 403 (re-checked with a plain identified request -- no header spoofing/proxying/headless browsing attempted, per project policy). Two non-OpenAlex third-party routes now supply Kelaniya output: Crossref query.affiliation=Kelaniya (1,794 works kept, 0 dropped by the local affiliation re-check -- the query is precise for this name) and PubMed Kelaniya[Affiliation] (1,939 records, 23 dropped). Merged on DOI into 3,207 unique records (526 shared), 1977-2026, 98% with a DOI and 74.5% with an abstract -- see scripts/collect_crossref_affiliation.py and scripts/collect_pubmed_affiliation.py. Still missing: repository-only content (theses, internal proceedings) that was never published with a DOI. journals.kln.ac.lk was checked and is an unconfigured Joomla demo site, not a journal platform; lib.kln.ac.lk and www.kln.ac.lk respond but host no metadata endpoint.",
+      "crossref_affiliation_query": "Kelaniya",
+      "crossref_affiliation_match": "Kelaniya",
+      "pubmed_affiliation_query": "Kelaniya[Affiliation]",
+      "pubmed_affiliation_match": "Kelaniya",
+      "recovery_routes": [
+        "crossref_affiliation",
+        "pubmed_affiliation"
+      ]
     },
     {
       "id": "sjp",
@@ -225,7 +237,7 @@
       "status": "confirmed_live",
       "phase": "phase_1",
       "endpoint_verified_live": true,
-      "notes": "Confirmed XMLUI DSpace; exact version not read. Endpoint inferred from software, confirmed live 2026-07-19. Same pagination-depth server bug as cmb (see that entry) -- plain harvest crashed at ~1,992 records. scripts/harvest_large_repository.py's date-slicing workaround collected 14,743 of ~15,290 total records (96%); one narrow window (2024-11-03..2024-11-15) could not be recovered."
+      "notes": "Confirmed XMLUI DSpace; exact version not read. Endpoint inferred from software, confirmed live 2026-07-19. Same pagination-depth server bug as cmb (see that entry) -- plain harvest crashed at ~1,992 records. scripts/harvest_large_repository.py's date-slicing workaround collected 14,743 of ~15,290 total records (96%); one narrow window (2024-11-03..2024-11-15) could not be recovered. 2026-07-25: ir.lib.ruh.ac.lk became UNREACHABLE (0/4 HTTPS Identify attempts, connect timeout on 443/80/8080; one bare TCP connect to 443 succeeded once but no HTTP request completed). DNS resolves to 192.248.48.160 (CNAME dilru.ruh.ac.lk) and www.ruh.ac.lk serves 200, so the outage is specific to the repository host, not the domain. Status deliberately left confirmed_live rather than unreachable: the 14,743 records harvested 2026-07-19/20 are intact on disk and the host may be intermittent -- re-check before concluding it is dead."
     },
     {
       "id": "esn",
@@ -253,7 +265,16 @@
       "status": "unreachable",
       "phase": "phase_1",
       "endpoint_verified_live": false,
-      "notes": "Note the non-standard :8080 port. Confirmed XMLUI DSpace; exact version not read. 2026-07-19: port 8080 is completely unreachable from this environment (connect timeout on the bare host, before even reaching a path) -- could be an outbound firewall on this network blocking non-standard ports rather than the server being down. Retest from a different network before concluding it's dead."
+      "notes": "Note the non-standard :8080 port. Confirmed XMLUI DSpace; exact version not read. 2026-07-19: port 8080 is completely unreachable from this environment (connect timeout on the bare host, before even reaching a path) -- could be an outbound firewall on this network blocking non-standard ports rather than the server being down. Retest from a different network before concluding it's dead. RETESTED 2026-07-25: the \"possibly our network\" theory is DISPROVEN from this network -- repo.lib.sab.ac.lk resolves to 192.248.87.19 but TCP-times-out on 80, 443 AND 8080, while www.sab.ac.lk (192.248.87.24, same /24) answers on 443 from the same machine. An outbound block on non-standard ports would not explain 80/443 also failing, so the repository host is down or firewalled server-side. www.sab.ac.lk still links to http://repo.lib.sab.ac.lk:8080/xmlui/ so the URL stays canonical. RECOVERY 2026-07-25: Crossref affiliation (587 works) + PubMed (219) merged on DOI into 732 unique records, 1979-2026. Filtering note: \"Sabaragamuwa\" is also a PROVINCE, so the bare name matches a Provincial Director of Health Services office and two 1895 colonial medical-officer papers. PubMed uses pubmed_affiliation_regex to exclude them (drops exactly those 4). The same regex is deliberately NOT applied to Crossref: publisher-entered affiliation strings there are mangled (\"University of Sri Lanka,Faculty of Computing Sabaragamuwa,...\"), so it would drop 5 genuine SUSL records to remove 2 bad ones. 2 provincial-office records therefore remain in the Crossref set.",
+      "crossref_affiliation_query": "Sabaragamuwa",
+      "crossref_affiliation_match": "Sabaragamuwa",
+      "pubmed_affiliation_query": "Sabaragamuwa[Affiliation]",
+      "pubmed_affiliation_match": "Sabaragamuwa",
+      "pubmed_affiliation_regex": "sabaragamuwa\\s+univ|univ\\w*\\s+of\\s+sabaragamuwa",
+      "recovery_routes": [
+        "crossref_affiliation",
+        "pubmed_affiliation"
+      ]
     },
     {
       "id": "wyb",
@@ -282,7 +303,9 @@
       "phase": "phase_1",
       "endpoint_verified_live": true,
       "harvest_route": "rest",
-      "notes": "Verified 2026-07-19: OAI endpoint live but effectively unusable -- ListRecords 500s on the second page (resumptionToken=oai_dc////100) and on every date-filtered query, even empty 1990 ranges, so neither plain pagination nor date-slicing works; 100 records was the OAI ceiling. RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 8,897 items (scripts/harvest_dspace_rest.py --id uwu)."
+      "notes": "Verified 2026-07-19: OAI endpoint live but effectively unusable -- ListRecords 500s on the second page (resumptionToken=oai_dc////100) and on every date-filtered query, even empty 1990 ranges, so neither plain pagination nor date-slicing works; 100 records was the OAI ceiling. RESOLVED 2026-07-20 via the public REST discover endpoint -- full harvest collected all 8,897 items (scripts/harvest_dspace_rest.py --id uwu).",
+      "openalex_institution_id": "I52004705",
+      "openalex_institution_name": "Uva Wellassa University"
     },
     {
       "id": "vau",
@@ -323,7 +346,8 @@
       "on_dspace_ac_lk": false,
       "status": "no_own_repository",
       "phase": "not_applicable",
-      "notes": "No own repository; output deposited as a community inside University of Kelaniya's repository.kln.ac.lk (see kln entry), already covered by that OAI feed."
+      "notes": "No own repository; output deposited as a community inside University of Kelaniya's repository.kln.ac.lk (see kln entry), already covered by that OAI feed.",
+      "hosted_by": "kln"
     },
     {
       "id": "bpu",

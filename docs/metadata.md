@@ -1,6 +1,14 @@
 # Publication Metadata Schema
 
-Canonical schema for normalizing research publication metadata from multiple sources (OpenAlex, Crossref, repositories).
+Canonical schema for normalizing research publication metadata from multiple sources (OpenAlex, Crossref, repositories, PubMed).
+
+> **Two schemas, not one.** This document is the *canonical analysis
+> target*: the field set the cleaned publication database should
+> eventually expose. It is a design target, not a description of what is
+> on disk today. The **collection contract** actually produced by
+> `src/collectors/schema_mapping.py` is deliberately closer to its
+> sources and is specified in section 13 below. Field standardization
+> between the two is the cleaning work, not collection work.
 
 ---
 
@@ -169,20 +177,69 @@ Canonical schema for normalizing research publication metadata from multiple sou
 
 ---
 
+## 13. Implemented Collection Schema
+
+Every record written by `scripts/map_to_common_schema.py` carries the
+fields below, null or empty where the source has nothing. Each source has
+its own mapper in `src/collectors/schema_mapping.py`.
+
+### Always present
+
+| Field | Notes |
+|---|---|
+| `source` | `institutional_repository`, `openalex`, `crossref_affiliation`, `pubmed`, `sljol_via_crossref` |
+| `source_institution_id` | Registry `id` (`uom`, `cmb`, `kln`, ...) |
+| `source_record_id` | OAI identifier, REST UUID, handle path, DOI, OpenAlex id or PMID |
+| `source_datestamp` | Source-side last-modified date |
+| `title`, `abstract` | First value where the source is multi-valued |
+| `authors`, `contributors`, `keywords` | Lists |
+| `publication_date`, `publication_year` | Issued date; year extracted best-effort |
+| `publication_type` | As declared by the source (not yet standardized) |
+| `publisher`, `language`, `rights` | As declared |
+| `doi`, `url`, `raw_identifiers` | DOI extracted by regex where not given directly |
+
+### Present where the source supports it
+
+| Field | Sources |
+|---|---|
+| `collection` | DSpace REST with `embed=owningCollection` - the owning department/faculty, the only faculty-level signal DSpace has |
+| `journal`, `citation`, `series`, `volume`, `issue`, `issn`, `isbn` | Qualified DC (REST), Crossref, OpenAlex, PubMed |
+| `funding` | DC sponsorship statements, Crossref funders, OpenAlex awards, PubMed grant agencies |
+| `alternative_title` | `dc.title.alternative` |
+| `pdf_url`, `fulltext_url`, `file_count` | DSpace REST with `--embed-bitstreams`; `pdf_url` also from OpenAlex and PubMed Central |
+| `cited_by_count` | OpenAlex, Crossref (`is-referenced-by-count`) |
+| `is_open_access`, `oa_status`, `topics` | OpenAlex only |
+| `affiliated_institutions` | OpenAlex, Crossref, PubMed affiliation strings |
+| `also_in_pubmed` | Set when a Crossref recovery record was merged with its PubMed twin |
+
+### Source-specific handling worth knowing
+
+- **OpenAlex abstracts** arrive as `abstract_inverted_index` (a
+  `{token: [positions]}` map, for licensing reasons) and are
+  reconstructed to plain text by sorting positions.
+- **Crossref abstracts** arrive as JATS XML fragments and are tag-stripped.
+- **PubMed** merges MeSH terms into `keywords`; they are the richest
+  subject vocabulary available and repository records have no equivalent.
+- **Flat OAI Dublin Core** cannot distinguish `dateIssued` from
+  `dateAccessioned`, so the issued date is a documented heuristic. The
+  REST route needs no such guess because its DC is qualified.
+
 ## Data Flow Summary
 
 ```
-OpenAlex API    Crossref API    Repositories
-      ↓              ↓                ↓
-      └──────────────┴────────────────┘
+OpenAlex API   Crossref API   PubMed   DSpace repositories
+      ↓              ↓           ↓              ↓
+      └──────────────┴───────────┴──────────────┘
                      ↓
-         Raw Record Collection
+         Raw Record Collection (per source, per institution)
                      ↓
-         Source-Specific Normalization
+         Source-Specific Mapping  (schema_mapping.py)
                      ↓
-         Canonical Schema Mapping
+         Collection Schema  (section 13)
                      ↓
-         Deduplication (DOI matching)
+         Deduplication (DOI, then normalized title)
+                     ↓
+         Canonical Schema  (sections 1-12)  <- cleaning work
                      ↓
          Final Publication Record
 ```

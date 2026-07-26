@@ -18,6 +18,33 @@ from dataclasses import dataclass
 from typing import Any, Iterator
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+
+def create_session() -> requests.Session:
+    """Session that retries dropped connections and transient 5xx.
+
+    Several of these hosts (uwu especially) close the connection part-way
+    through a long harvest -- ``RemoteDisconnected`` rather than an HTTP
+    error -- which previously ended the run outright. Matches the retry
+    strategy already used by the OpenAlex and Crossref collectors.
+    """
+
+    retry_strategy = Retry(
+        total=5,
+        connect=5,
+        read=5,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+        respect_retry_after_header=True,
+    )
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 
 @dataclass
@@ -30,16 +57,25 @@ class DspaceRestCollector:
     delay: float = 0.3
     verify_ssl: bool = True
     session: requests.Session | None = None
+    # The discover endpoint returns metadata only. ``owningCollection``
+    # adds the department/faculty that owns each item -- information the
+    # Dublin Core fields never carry -- and ``bundles/bitstreams`` adds
+    # the file listing (ORIGINAL = the PDF, TEXT = DSpace's extracted
+    # full text). Both are opt-out because they enlarge every response.
+    embeds: tuple[str, ...] = ("owningCollection",)
 
     def __post_init__(self) -> None:
         if self.session is None:
-            self.session = requests.Session()
+            self.session = create_session()
         self.api_base_url = self.api_base_url.rstrip("/")
 
     def _fetch_page(self, page: int) -> dict[str, Any]:
+        params: dict[str, Any] = {"dsoType": "item", "page": page, "size": self.page_size}
+        if self.embeds:
+            params["embed"] = ",".join(self.embeds)
         response = self.session.get(
             f"{self.api_base_url}/discover/search/objects",
-            params={"dsoType": "item", "page": page, "size": self.page_size},
+            params=params,
             timeout=self.timeout,
             verify=self.verify_ssl,
         )
@@ -47,12 +83,50 @@ class DspaceRestCollector:
         return response.json()
 
     @staticmethod
-    def _parse_item(indexable_object: dict[str, Any]) -> dict[str, Any]:
+    def _parse_files(embedded: dict[str, Any]) -> list[dict[str, Any]]:
+        """Flatten the embedded bundle/bitstream tree into a file list."""
+
+        bundles = (embedded.get("bundles") or {}).get("_embedded", {}).get("bundles", [])
+        files: list[dict[str, Any]] = []
+        for bundle in bundles:
+            if not isinstance(bundle, dict):
+                continue
+            bundle_name = bundle.get("name")
+            # LICENSE/THUMBNAIL bundles are boilerplate, not research content.
+            if bundle_name in {"LICENSE", "THUMBNAIL"}:
+                continue
+            bitstreams = (
+                (bundle.get("_embedded") or {})
+                .get("bitstreams", {})
+                .get("_embedded", {})
+                .get("bitstreams", [])
+            )
+            for bitstream in bitstreams:
+                if not isinstance(bitstream, dict):
+                    continue
+                content = ((bitstream.get("_links") or {}).get("content") or {}).get("href")
+                files.append(
+                    {
+                        "bundle": bundle_name,
+                        "name": bitstream.get("name"),
+                        "size_bytes": bitstream.get("sizeBytes"),
+                        "url": content,
+                    }
+                )
+        return files
+
+    @classmethod
+    def _parse_item(cls, indexable_object: dict[str, Any]) -> dict[str, Any]:
         metadata = {
             field: [entry.get("value") for entry in entries if entry.get("value")]
             for field, entries in (indexable_object.get("metadata") or {}).items()
         }
-        return {
+        embedded = indexable_object.get("_embedded") or {}
+        owning_collection = embedded.get("owningCollection")
+        if not isinstance(owning_collection, dict):
+            owning_collection = {}
+
+        item = {
             "uuid": indexable_object.get("uuid"),
             "name": indexable_object.get("name"),
             "handle": indexable_object.get("handle"),
@@ -60,6 +134,13 @@ class DspaceRestCollector:
             "withdrawn": indexable_object.get("withdrawn"),
             "metadata": metadata,
         }
+        if owning_collection:
+            item["collection"] = owning_collection.get("name")
+            item["collection_uuid"] = owning_collection.get("uuid")
+            item["collection_handle"] = owning_collection.get("handle")
+        if "bundles" in embedded:
+            item["files"] = cls._parse_files(embedded)
+        return item
 
     def total_items(self) -> int | None:
         payload = self._fetch_page(0)

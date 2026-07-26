@@ -8,33 +8,64 @@ The system focuses on publications connected to Sri Lankan researchers or instit
 
 ## High-Level Components
 
+The platform now has **two collection subsystems** that share a common
+schema but have separate pipelines, storage layouts and quality reports:
+
+- the **national-scale API pipeline** (OpenAlex/Crossref by country), and
+- the **institutional repository subsystem** (per-university harvesting),
+  documented in full in [DATA_COLLECTION.md](DATA_COLLECTION.md).
+
 ```text
-External APIs
-  |-- OpenAlex works API
-  |-- Crossref works API
-  |-- SLJOL pages and article metadata
+External APIs                        Institutional sources
+  |-- OpenAlex works API               |-- DSpace OAI-PMH endpoints
+  |-- Crossref works API               |-- DSpace 7/8 REST discover API
+  |-- SLJOL pages and article metadata |-- DSpace item pages (DC meta tags)
+  |-- PubMed E-utilities               |-- ~35 registered university targets
 
 Collection Layer
-  |-- scripts/kaggle_collect_openalex_sri_lanka.py
-  |-- scripts/collect_crossref.py
+  |-- scripts/kaggle_collect_openalex_sri_lanka.py   (country-scale OpenAlex)
+  |-- scripts/collect_crossref.py                    (country-scale Crossref)
   |-- notebooks/03-sljol.ipynb
+  |-- scripts/validate_repositories.py               (endpoint health)
+  |-- scripts/harvest_oai.py / harvest_all.py        (OAI route)
+  |-- scripts/harvest_large_repository.py            (date-sliced OAI)
+  |-- scripts/harvest_dspace_rest.py                 (REST route)
+  |-- scripts/harvest_html_meta.py                   (HTML meta-tag route)
+  |-- scripts/collect_openalex_institution.py        (per-institution OpenAlex)
+  |-- scripts/collect_crossref_affiliation.py        (blocked-repo recovery)
+  |-- scripts/collect_pubmed_affiliation.py          (blocked-repo recovery)
+
+Collector Classes (src/collectors/)
+  |-- openalex_collector.py    crossref_collector.py
+  |-- oai_pmh_collector.py     dspace_rest_collector.py
+  |-- html_meta_collector.py   pubmed_collector.py
+  |-- sitemap_collector.py     repository_registry.py
+  |-- schema_mapping.py        (all sources -> common schema)
 
 Raw and Interim Storage
-  |-- data/raw/
+  |-- data/raw/<institution_id>/   (per-institution, per-route JSONL)
+  |-- data/raw/openalex/           (country-scale)
   |-- data/interim/
 
 Preprocessing and Normalization
   |-- src/preprocessing/openalex_normalizer.py
   |-- src/preprocessing/crossref_normalizer.py
   |-- src/preprocessing/clean_publications.py
+  |-- scripts/map_to_common_schema.py
   |-- scripts/jsonl_to_csv.py
 
 Comparison and Quality Checks
-  |-- scripts/compare_dois.py
+  |-- scripts/compare_dois.py                    (OpenAlex vs Crossref)
+  |-- scripts/validate_harvested_data.py         (raw vs mapped coverage)
+  |-- scripts/validate_institutions.py           (registry institution integrity)
+  |-- scripts/detect_registry_drift.py           (registry claims vs evidence)
+  |-- scripts/compare_repository_openalex.py     (repository vs OpenAlex overlap)
   |-- tests/
 
 Processed Outputs
-  |-- data/processed/
+  |-- data/processed/repositories/  + repositories_combined.csv
+  |-- data/processed/openalex/      + openalex_combined.csv
+  |-- data/processed/recovery/      + recovery_combined.csv
   |-- notebooks/analyze_openalex_sri_lanka_only.ipynb
 
 Future Application Layer
@@ -62,6 +93,36 @@ The collector:
 - logs cursor-pagination progress and writes a pagination audit JSON file
 
 Crossref collection is used as a secondary source for DOI comparison and metadata coverage checks. SLJOL notebooks support local Sri Lankan journal exploration.
+
+#### Institutional repository collection
+
+The repository subsystem collects per-university output that the
+country-scale APIs largely do not index - theses, internal proceedings
+and locally published work. Each institution is harvested through
+whichever route its server actually supports, recorded in the registry
+at `data/config/repositories.json`:
+
+| Route | When it is used |
+|---|---|
+| OAI-PMH | Default, wherever the OAI index actually returns records |
+| DSpace 7/8 REST | OAI index empty or its pagination crashes (pdn, nsf, busl, cmb, uwu) |
+| HTML meta tags | Legacy DSpace with dead OAI, no REST, no sitemap (jfn_*) |
+| OpenAlex by institution | Complement: the DOI-bearing journal output never deposited locally |
+| Crossref/PubMed by affiliation | Recovery: the repository is blocked or offline (kln, sab) |
+
+Two rules keep the outputs honest and are enforced in
+`scripts/map_to_common_schema.py`:
+
+- **Repository routes compete, never merge.** When an institution has
+  data from several routes, the one that captured the most records wins,
+  so the same item cannot be counted twice.
+- **Cross-source routes are separate populations.** OpenAlex and the
+  recovery routes land in their own processed namespaces and can never
+  displace repository records. Their overlap with the repository is
+  measured, not assumed - see `scripts/compare_repository_openalex.py`.
+
+Full per-institution status, per-script detail and the affiliation-matching
+pitfalls live in [DATA_COLLECTION.md](DATA_COLLECTION.md).
 
 ### 2. Raw Storage
 
@@ -216,14 +277,27 @@ or `/kaggle/working/openalex_outputs/` on Kaggle.
 
 | Area | Current file |
 |---|---|
-| OpenAlex collection | `scripts/kaggle_collect_openalex_sri_lanka.py` |
+| OpenAlex collection (country-scale) | `scripts/kaggle_collect_openalex_sri_lanka.py` |
 | OpenAlex normalization | `src/preprocessing/openalex_normalizer.py` |
 | OpenAlex analysis | `notebooks/analyze_openalex_sri_lanka_only.ipynb` |
-| Crossref collection | `scripts/collect_crossref.py` |
+| Crossref collection (country-scale) | `scripts/collect_crossref.py` |
 | Crossref collector class | `src/collectors/crossref_collector.py` |
 | Crossref normalization | `src/preprocessing/crossref_normalizer.py` |
 | DOI comparison | `scripts/compare_dois.py` |
 | JSONL to CSV conversion | `scripts/jsonl_to_csv.py` |
+| Repository target registry | `data/config/repositories.json`, `src/collectors/repository_registry.py` |
+| Endpoint validation | `scripts/validate_repositories.py` |
+| OAI harvesting | `scripts/harvest_oai.py`, `scripts/harvest_all.py`, `scripts/harvest_large_repository.py` |
+| DSpace REST harvesting | `scripts/harvest_dspace_rest.py`, `src/collectors/dspace_rest_collector.py` |
+| HTML meta-tag harvesting | `scripts/harvest_html_meta.py`, `src/collectors/html_meta_collector.py` |
+| Per-institution OpenAlex | `scripts/collect_openalex_institution.py` |
+| Blocked-repository recovery | `scripts/collect_crossref_affiliation.py`, `scripts/collect_pubmed_affiliation.py`, `src/collectors/pubmed_collector.py` |
+| Common-schema mapping (all sources) | `scripts/map_to_common_schema.py`, `src/collectors/schema_mapping.py` |
+| Repository data quality | `scripts/validate_harvested_data.py` |
+| Institution integrity | `scripts/validate_institutions.py`, `data/config/institutions_reference.json` |
+| Registry drift detection | `scripts/detect_registry_drift.py` |
+| Repository vs OpenAlex overlap | `scripts/compare_repository_openalex.py` |
+| Repository CSV export | `scripts/convert_repositories_jsonl_to_csv.py` |
 | Tests | `tests/` |
 
 ## Execution Order
