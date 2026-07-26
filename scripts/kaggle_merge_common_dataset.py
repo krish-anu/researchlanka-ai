@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import html
 import json
 import math
 import re
@@ -250,7 +251,19 @@ BLANK_STRINGS = {"", "nan", "none", "null", "na", "n/a", "[]", "{}"}
 DOI_RE = re.compile(r"10\.\d{4,9}/[^\s\"'<>;]+", re.IGNORECASE)
 YEAR_RE = re.compile(r"(1[5-9]\d{2}|20\d{2})")
 NON_WORD_RE = re.compile(r"[^a-z0-9]+")
-JATS_TAG_RE = re.compile(r"</?jats:[^>]+>|</?[a-z]+:?[^>]*>")
+TAG_RE = re.compile(r"<[^>]+>")
+INLINE_TEXT_TAG_RE = re.compile(
+    r"<(i|em|b|strong|u|span|jats:[^>\s/]+)(?:\s+[^>]*)?>(.*?)</\1>",
+    re.IGNORECASE | re.DOTALL,
+)
+COMPACT_TEXT_TAG_RE = re.compile(
+    r"<(scp|sub|sup|inf)(?:\s+[^>]*)?>(.*?)</\1>",
+    re.IGNORECASE | re.DOTALL,
+)
+SOURCE_ENTITY_FIXES = {
+    "&apos;": "'",
+    "&squo;": "'",
+}
 
 
 def is_blank(value: Any) -> bool:
@@ -278,6 +291,52 @@ def clean_text(value: Any) -> Any:
 
     text = re.sub(r"\s+", " ", str(value)).strip()
     return text if text else pd.NA
+
+
+def decode_html_entities(text: str) -> str:
+    previous = text
+    for _ in range(3):
+        decoded = html.unescape(previous)
+        for source, replacement in SOURCE_ENTITY_FIXES.items():
+            decoded = decoded.replace(source, replacement)
+        if decoded == previous:
+            break
+        previous = decoded
+    return previous
+
+
+def replace_compact_text_tag(match: re.Match[str]) -> str:
+    tag = match.group(1).casefold()
+    content = match.group(2)
+
+    if tag == "scp":
+        previous = match.string[match.start() - 1] if match.start() else ""
+        if len(content) == 1 and content.isupper() and previous.isalpha():
+            return f" {content}"
+
+    return content
+
+
+def strip_markup(value: Any) -> Any:
+    text = first_text(value)
+    if is_blank(text):
+        return pd.NA
+
+    cleaned = decode_html_entities(str(text))
+
+    for _ in range(3):
+        next_text = COMPACT_TEXT_TAG_RE.sub(replace_compact_text_tag, cleaned)
+        next_text = INLINE_TEXT_TAG_RE.sub(lambda match: f" {match.group(2)} ", next_text)
+        if next_text == cleaned:
+            break
+        cleaned = next_text
+
+    cleaned = TAG_RE.sub(" ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = re.sub(r"\s+([,.;:!?%)\]\}])", r"\1", cleaned)
+    cleaned = re.sub(r"([\(\[\{])\s+", r"\1", cleaned)
+
+    return cleaned or pd.NA
 
 
 def parse_literal(value: Any) -> Any:
@@ -499,18 +558,8 @@ def normalize_year(value: Any) -> Any:
     return int(match.group(1)) if match else pd.NA
 
 
-def strip_jats(value: Any) -> Any:
-    text = first_text(value)
-    if is_blank(text):
-        return pd.NA
-
-    stripped = JATS_TAG_RE.sub(" ", str(text))
-    stripped = re.sub(r"\s+", " ", stripped).strip()
-    return stripped or pd.NA
-
-
 def normalize_title_key(value: Any) -> Any:
-    text = first_text(value)
+    text = strip_markup(value)
     if is_blank(text):
         return pd.NA
 
@@ -597,7 +646,7 @@ def normalize_openalex(
     assign_column(output, "url", df, ["landing_page_url"])
     assign_column(output, "landing_page_url", df, ["landing_page_url"])
     assign_column(output, "pdf_url", df, ["pdf_url"])
-    assign_column(output, "title", df, ["title"], first_text)
+    assign_column(output, "title", df, ["title"], strip_markup)
     assign_column(output, "publication_year", df, ["publication_year"], normalize_year)
     assign_column(output, "publication_date", df, ["publication_date"], normalize_date)
     assign_column(output, "type", df, ["type"])
@@ -650,10 +699,10 @@ def normalize_crossref(
     assign_column(output, "doi", df, ["DOI", "doi"], normalize_doi)
     assign_column(output, "url", df, ["URL", "url"])
     assign_column(output, "landing_page_url", df, ["URL", "url"])
-    assign_column(output, "title", df, ["title"], first_text)
-    assign_column(output, "subtitle", df, ["subtitle"], first_text)
-    assign_column(output, "original_title", df, ["original-title", "original_title"], first_text)
-    assign_column(output, "abstract", df, ["abstract"], strip_jats)
+    assign_column(output, "title", df, ["title"], strip_markup)
+    assign_column(output, "subtitle", df, ["subtitle"], strip_markup)
+    assign_column(output, "original_title", df, ["original-title", "original_title"], strip_markup)
+    assign_column(output, "abstract", df, ["abstract"], strip_markup)
     assign_column(output, "publication_year", df, ["publication_year"], normalize_year)
     assign_column(output, "publication_date", df, ["issued.date-parts", "issued_date"], normalize_date_parts)
     assign_column(output, "created_date", df, ["created.date-parts", "created_date"], normalize_date_parts)
@@ -676,9 +725,9 @@ def normalize_crossref(
     output["editors"] = df.apply(lambda row: crossref_person_name(row, "editor"), axis=1)
     assign_column(output, "publisher", df, ["publisher"])
     assign_column(output, "publisher_location", df, ["publisher-location", "publisher_location"])
-    assign_column(output, "journal", df, ["container-title", "container_title"], first_text)
-    assign_column(output, "container_title", df, ["container-title", "container_title"], first_text)
-    assign_column(output, "source_name", df, ["container-title", "container_title"], first_text)
+    assign_column(output, "journal", df, ["container-title", "container_title"], strip_markup)
+    assign_column(output, "container_title", df, ["container-title", "container_title"], strip_markup)
+    assign_column(output, "source_name", df, ["container-title", "container_title"], strip_markup)
     assign_column(output, "issn", df, ["ISSN", "issn"], unique_text)
     assign_column(output, "issn_l", df, ["ISSN", "issn"], first_text)
     assign_column(output, "volume", df, ["volume"])
@@ -736,8 +785,8 @@ def normalize_repository_like(
     assign_column(output, "doi", df, doi_candidates, normalize_doi)
     assign_column(output, "url", df, ["url", "URL"])
     assign_column(output, "landing_page_url", df, ["url", "URL"])
-    assign_column(output, "title", df, ["title"], first_text)
-    assign_column(output, "abstract", df, ["abstract"], strip_jats)
+    assign_column(output, "title", df, ["title"], strip_markup)
+    assign_column(output, "abstract", df, ["abstract"], strip_markup)
     assign_column(output, "keywords", df, ["keywords"], unique_text)
     assign_column(output, "publication_date", df, ["publication_date"], normalize_date)
     assign_column(output, "publication_year", df, ["publication_year", "publication_date"], normalize_year)
