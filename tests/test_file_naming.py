@@ -1,5 +1,7 @@
 """Tests for project file-naming conventions."""
 
+from pathlib import Path
+
 import pytest
 
 from scripts import collect_crossref
@@ -60,3 +62,15 @@ def test_script_defaults_follow_dataset_naming_convention():
     ]
 
     assert all(is_dataset_filename(path) for path in default_paths)
+
+
+def test_legacy_openalex_raw_path_is_not_reintroduced():
+    project_root = Path(__file__).resolve().parents[1]
+    legacy_path = "data/raw/open-alex/open-alex.csv"
+
+    searched_files = [
+        *project_root.joinpath("scripts").glob("*.py"),
+        *project_root.joinpath("src").rglob("*.py"),
+    ]
+
+    assert all(legacy_path not in path.read_text() for path in searched_files)
