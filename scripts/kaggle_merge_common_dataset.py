@@ -23,8 +23,8 @@ Outputs are written to /kaggle/working by default:
     common_publications_schema.csv
     common_publications_summary.csv
 
-For local runs, the default input directory is data/raw/Datasets and the
-default output directory is data/processed/common.
+For local runs, the default input directory is data/raw/Datasets/Final Datasets
+and the default output directory is data/processed/common.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ import pandas as pd
 
 SCRIPT_PATH = Path(__file__).resolve()
 PROJECT_ROOT = SCRIPT_PATH.parents[1] if SCRIPT_PATH.parent.name == "scripts" else Path.cwd()
-LOCAL_INPUT_DIR = PROJECT_ROOT / "data" / "raw" / "Datasets"
+LOCAL_INPUT_DIR = PROJECT_ROOT / "data" / "raw" / "Datasets" / "Final Datasets"
 LOCAL_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "common"
 
 EXPECTED_FILES = {
