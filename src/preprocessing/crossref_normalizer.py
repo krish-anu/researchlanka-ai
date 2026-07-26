@@ -1,64 +1,56 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 
 
-PUBLICATION_CATEGORIES = {
-    "journal-article": "journal",
-    "proceedings-article": "conference",
-    "book-chapter": "book",
-    "book": "book",
-    "posted-content": "preprint",
-    "report": "report",
-    "dissertation": "thesis",
-    "dataset": "dataset",
-}
+CROSSREF_FIELDS = [
+    "reference-count",
+    "publisher",
+    "issue",
+    "abstract",
+    "DOI",
+    "type",
+    "is-referenced-by-count",
+    "title",
+    "volume",
+    "author",
+    "container-title",
+    "URL",
+    "ISSN",
+    "issued.date-parts",
+    "published.date-parts",
+    "created.date-parts",
+    "license",
+    "page",
+    "reference",
+    "event.name",
+    "event.location",
+    "event.start.date-parts",
+    "event.end.date-parts",
+    "language",
+    "editor",
+    "funder",
+    "article-number",
+    "publisher-location",
+    "event.acronym",
+    "group-title",
+    "subtype",
+    "event.sponsor",
+    "original-title",
+    "subtitle",
+]
 
 
-def normalize_crossref(work: dict[str, Any]) -> dict:
+def get_nested(value: dict[str, Any], dotted_key: str) -> Any:
+    """Read a dotted Crossref path without raising on missing keys."""
+    current: Any = value
+    for key in dotted_key.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
 
-    event = work.get("event", {})
 
-    funders = []
-
-    for f in work.get("funder", []):
-        funders.append(
-            {
-                "name": f.get("name"),
-                "doi": f.get("DOI"),
-                "award": f.get("award"),
-            }
-        )
-
-    licenses = work.get("license", [])
-
-    return {
-        "doi": work.get("DOI"),
-        "publisher": work.get("publisher"),
-        "issn": work.get("ISSN"),
-        "volume": work.get("volume"),
-        "issue": work.get("issue"),
-        "page": work.get("page"),
-        "language": work.get("language"),
-        "publication_category": PUBLICATION_CATEGORIES.get(
-            work.get("type"),
-            "other",
-        ),
-        "reference_count": work.get("reference-count"),
-        "conference_name": event.get("name"),
-        "conference_location": event.get("location"),
-        "conference_acronym": event.get("acronym"),
-        "funders": json.dumps(
-            funders,
-            ensure_ascii=False,
-        ),
-        "license_url": licenses[0]["URL"] if licenses else None,
-        "references_json": json.dumps(
-            work.get(
-                "reference",
-                [],
-            ),
-            ensure_ascii=False,
-        ),
-    }
+def reduce_work(work: dict[str, Any]) -> dict[str, Any]:
+    """Flatten one raw Crossref work to the stable downstream field set."""
+    return {field: get_nested(work, field) for field in CROSSREF_FIELDS}
