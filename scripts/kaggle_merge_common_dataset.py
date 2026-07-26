@@ -411,6 +411,7 @@ def split_multi_value(value: Any) -> list[str]:
 
 
 def normalize_doi(value: Any) -> Any:
+    # Keep this local so the script can run standalone when uploaded to Kaggle.
     if is_blank(value):
         return pd.NA
 
