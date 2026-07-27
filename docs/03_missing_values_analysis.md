@@ -76,7 +76,7 @@ OpenAlex is the merge backbone. Crossref is DOI-complete by construction. Local 
 | ruh | 10,804 | 3.8 | 10,396 | 82.1% |
 | uwu / pdn / busl / nsf / sltc | 11,366 | **0.0** | 11,366 | — |
 
-**Interpretation:** Enrichment priority for no-DOI repos is title-based linkage to OpenAlex/Crossref, not DOI join.
+**Interpretation:** For no-DOI repos, use title-based linkage to OpenAlex/Crossref, not DOI join.
 
 OpenAlex Sri Lankan institutions generally have **≥95% DOI** coverage (e.g. Colombo, Peradeniya, Moratuwa).
 
@@ -109,9 +109,9 @@ On **13,710** OpenAlex ∩ Local DOIs:
 
 ## 6. Missing-value handling rules
 
-1. **Keep OpenAlex** when present for: DOI, title, authors, year, type, topics, OA status, citations, SL institutions.
-2. **Fill from Crossref** when OpenAlex empty: abstract, ORCID, ISSN/volume/issue/page (if OA missing), funding, license URL, event.*, references.
-3. **Fill from Local** when still empty: keywords, abstract; always retain `source_institution_id` as provenance.
+1. Use the configured field-level merge policy for automatic dataset values; log conflicts for review.
+2. Preserve source-specific count fields in the count-audit sidecar where available, and flag OpenAlex-vs-Crossref divergence.
+3. Fill missing fields from any available source; always retain `source_institution_id` as provenance.
 4. **No-DOI Local works:** keep as first-class records; attempt title match; do not drop.
 5. **Do not invent values:** leave null if no source provides the field.
 

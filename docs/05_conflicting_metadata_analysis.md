@@ -73,21 +73,25 @@ Full table: `conflicts_by_publication_type.csv`.
 
 ---
 
-## 5. Conflict resolution policy
+## 5. Conflict handling policy
 
-| Field | Winner | Action |
-|-------|--------|--------|
-| title | OpenAlex | keep OA; log rare conflicts |
-| publication_year | OpenAlex | keep OA; log if \|Δ\| ≥ 2 |
-| canonical_type | OpenAlex | keep OA canonical; store raw both |
-| publisher / journal | OA if present else CR | prefer OA; fill gaps; **do not** hard-flag all string mismatches |
-| issn / volume / issue / page | CR when OA missing | fill from Crossref |
-| citation_count | **keep both** | store OA + CR; flag divergence |
-| reference_count | **keep both** | store both |
-| abstract | Crossref then Local | fill (not a conflict — OA absent) |
-| keywords | Local | fill |
+The automated merge uses an explicit field-level source policy with record
+completeness as a tie-breaker inside each source. The built-in policy can be
+overridden with `scripts/kaggle_merge_common_dataset.py --field-source-policy`.
+Conflicting fields remain auditable in the merge log.
 
-Exported: `conflict_resolution_policy.csv`.
+| Field group | Automated action |
+|-------|--------|
+| DOI/title/year/type | choose by the configured field policy; log conflicts |
+| authors / affiliations / identifiers | retain multi-value evidence and provenance |
+| publisher / journal / ISSN | choose by the configured field policy; treat string mismatches as review signals, not automatic errors |
+| volume / issue / page | choose by the configured field policy and fill gaps |
+| citation_count | keep best available count in the main CSV; move Crossref `is_referenced_by_count` to the count-audit sidecar; flag OpenAlex-vs-Crossref divergence when both are present |
+| reference_count | keep best available count in the main CSV; move OpenAlex `referenced_works_count` to the count-audit sidecar; flag OpenAlex-vs-Crossref divergence when both are present |
+| abstract / keywords | use the configured policy/fallbacks; review important conflicts manually |
+
+Notebook exports such as `conflict_resolution_policy.csv` are analysis guidance,
+and may be translated into the JSON field policy used by the merge script.
 
 ---
 
@@ -103,13 +107,11 @@ Exported: `conflict_resolution_policy.csv`.
 ## 7. Engineering recommendation
 
 ```text
-if both present and field in {title, year, authors, topics, oa_status}:
-    use OpenAlex
-    optionally log conflict
-elif field in {citations, references}:
-    store both + divergence_flag
-elif OpenAlex missing and Crossref/Local present:
-    enrich
-else:
-    null
+load built-in field source policy plus optional JSON overrides
+for each field:
+    order duplicate rows by configured source list, then completeness
+    use the first non-empty value
+    union multi-value/provenance fields
+log fields whose normalized values disagree
+flag citation/reference divergence when both OA and CR counts exist
 ```
