@@ -8,6 +8,7 @@ This report set finalizes four analysis tasks using OpenAlex, Crossref, and Loca
 | Analyze metadata completeness | [04_metadata_completeness_analysis.md](04_metadata_completeness_analysis.md) | 02 | `notebooks/outputs/notebook02/` |
 | Identify conflicting metadata | [05_conflicting_metadata_analysis.md](05_conflicting_metadata_analysis.md) | **04** | `notebooks/outputs/notebook04/` |
 | Field-level data-quality statistics | [06_field_level_data_quality.md](06_field_level_data_quality.md) | 02, 03, **04** | `notebooks/outputs/notebook04/` |
+| Final 26-column dataset decisions | [07_last_26_columns_final_dataset_decisions.md](07_last_26_columns_final_dataset_decisions.md) | merged common dataset | `data/processed/common/` |
 
 ## Notebooks
 
