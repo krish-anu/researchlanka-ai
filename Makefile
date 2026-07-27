@@ -49,7 +49,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report
+.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report
 
 # Show available targets and common overrides.
 help:
@@ -57,6 +57,7 @@ help:
 	@echo ""
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
+	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
 	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
 	@echo "  make openalex-resume         Resume an interrupted OpenAlex collection"
@@ -77,6 +78,10 @@ install:
 # Run all automated tests.
 test:
 	$(PYTHON) -m pytest
+
+# Compare raw and estimated unique publication counts for each source file.
+publication-counts:
+	$(PYTHON) scripts/compare_publication_counts.py
 
 # Run the full OpenAlex API collection pipeline.
 # This writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts, pagination audit, progress, and logs.
