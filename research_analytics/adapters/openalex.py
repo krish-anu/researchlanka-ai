@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from typing import Iterator
 
@@ -10,6 +11,9 @@ from src.preprocessing.openalex_normalizer import work_to_row
 
 from research_analytics.adapters.base import SourceAdapter
 from research_analytics.schema import map_to_standard_schema
+
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAlexAdapter(SourceAdapter):
@@ -46,26 +50,50 @@ class OpenAlexAdapter(SourceAdapter):
         filters = [f"authorships.institutions.country_code:{self.country_code}"]
         filters = build_filters(filters, from_year=self.start_year, to_year=self.end_year)
         yielded = 0
+        page_number = 0
         cursor: str | None = "*"
         seen_cursors: set[str] = set()
+        logger.info(
+            "OpenAlex collection started: country=%s years=%s-%s max_records=%s",
+            self.country_code,
+            self.start_year or "*",
+            self.end_year or "*",
+            self.max_records if self.max_records is not None else "all",
+        )
         while cursor:
             if cursor in seen_cursors:
                 raise RuntimeError(f"OpenAlex pagination cursor repeated: {cursor}")
             seen_cursors.add(cursor)
+            page_number += 1
+            logger.info("OpenAlex fetching page %s", page_number)
             response = self.collector.fetch_works(
                 filters=filters,
                 cursor=cursor,
                 per_page=self.per_page,
             )
-            for work in _as_list(response.get("results")):
+            results = _as_list(response.get("results"))
+            page_yielded = 0
+            for work in results:
                 if not isinstance(work, dict):
                     continue
                 if self.max_records is not None and yielded >= self.max_records:
+                    logger.info("OpenAlex collection reached max_records=%s", self.max_records)
                     return
                 yielded += 1
+                page_yielded += 1
                 yield work
             meta = response.get("meta", {})
+            api_total = meta.get("count") if isinstance(meta, dict) else None
+            logger.info(
+                "OpenAlex page %s complete: fetched=%s yielded=%s total_yielded=%s api_total=%s",
+                page_number,
+                len(results),
+                page_yielded,
+                yielded,
+                api_total if api_total is not None else "unknown",
+            )
             cursor = meta.get("next_cursor") if isinstance(meta, dict) else None
+        logger.info("OpenAlex collection complete: %s records", yielded)
 
     def transform(self, record: dict) -> dict:
         row = work_to_row(record)

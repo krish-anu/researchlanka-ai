@@ -1,0 +1,178 @@
+{
+  "country": {
+    "name": "Singapore",
+    "code": "SG"
+  },
+  "coverage": {
+    "start_year": 2016,
+    "end_year": 2026
+  },
+  "project": {
+    "name": "Singapore National Research Analytics",
+    "dashboard_title": "Singapore National Research Portal"
+  },
+  "institution_registry": {
+    "path": "configurations/singapore/institutions.csv"
+  },
+  "input": {
+    "path": null,
+    "format": "openalex",
+    "source_name": "openalex_singapore"
+  },
+  "source": {
+    "name": "openalex_singapore",
+    "type": "openalex",
+    "options": {
+      "email": "krishnaanu200302@gmail.com",
+      "api_key": null,
+      "max_records": 100000000000
+    }
+  },
+  "collection": {
+    "batch_size": 200,
+    "retry_limit": 3,
+    "request_delay_seconds": 1.0
+  },
+  "pipeline": {
+    "collect": true,
+    "transform": true,
+    "validate": true,
+    "clean": true,
+    "deduplicate": true,
+    "resolve_entities": true,
+    "load_database": false,
+    "run_analytics": true,
+    "export": true,
+    "classify": false,
+    "topic_modeling": false
+  },
+  "column_mapping": {
+    "openalex_id": "publication_id",
+    "doi": "doi",
+    "title": "title",
+    "abstract": "abstract",
+    "publication_year": "publication_year",
+    "publication_date": "publication_date",
+    "type": "publication_type",
+    "language": "language",
+    "source_name": "journal",
+    "publisher": "publisher",
+    "authors": "authors",
+    "institutions": "institutions",
+    "countries": "countries",
+    "concepts": "categories",
+    "topics": "topics",
+    "cited_by_count": "citation_count",
+    "landing_page_url": "source_url"
+  },
+  "transformations": {
+    "publication_year": {
+      "type": "extract_year"
+    },
+    "authors": {
+      "type": "split",
+      "separator": ";"
+    },
+    "institutions": {
+      "type": "split",
+      "separator": ";"
+    },
+    "countries": {
+      "type": "split",
+      "separator": ";"
+    },
+    "doi": {
+      "type": "normalize_doi"
+    }
+  },
+  "validation": {
+    "required": [
+      "title"
+    ],
+    "require_any": [
+      "doi",
+      "authors",
+      "publication_year",
+      "publication_id"
+    ]
+  },
+  "cleaning": {
+    "normalize_doi": true,
+    "normalize_title": true,
+    "normalize_author_names": true,
+    "normalize_institutions": true,
+    "valid_year": {
+      "minimum": 2000,
+      "maximum": 2026
+    },
+    "required_fields": [
+      "title"
+    ],
+    "optional_fields": [
+      "doi",
+      "abstract",
+      "keywords"
+    ]
+  },
+  "deduplication": {
+    "enabled": true,
+    "doi_match": {
+      "enabled": true,
+      "automatic_merge": true
+    },
+    "exact_title_match": {
+      "enabled": true,
+      "require_same_year": true
+    },
+    "fuzzy_title_match": {
+      "enabled": false,
+      "threshold": 90
+    },
+    "author_match": {
+      "minimum_matching_authors": 1
+    },
+    "year_difference": {
+      "maximum": 1
+    },
+    "uncertain_matches": {
+      "send_to_manual_review": true
+    }
+  },
+  "categories": [
+    "Engineering",
+    "Medicine",
+    "Social Sciences",
+    "Natural Sciences",
+    "Computer Science",
+    "Business",
+    "Humanities"
+  ],
+  "publication_types": [
+    "journal-article",
+    "conference-paper",
+    "book-chapter",
+    "thesis",
+    "report",
+    "preprint"
+  ],
+  "analytics": {
+    "citation_analysis": true,
+    "collaboration_analysis": true,
+    "topic_analysis": true,
+    "trend_analysis": true
+  },
+  "dashboard": {
+    "title": "Singapore National Research Portal",
+    "export_formats": [
+      "csv",
+      "json"
+    ]
+  },
+  "export": {
+    "output_dir": "outputs/singapore",
+    "formats": [
+      "csv",
+      "json"
+    ]
+  }
+}

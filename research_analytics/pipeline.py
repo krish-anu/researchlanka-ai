@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,6 +15,9 @@ from research_analytics.exporters import export_pipeline_outputs
 from research_analytics.institutions import NationalInstitutionRegistry, enrich_national_context
 from research_analytics.source_validation import SourceValidationReport, validate_source_sample
 from research_analytics.validation import ValidationReport, validate_records
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -40,24 +44,39 @@ class ResearchPipeline:
         self.institution_registry = NationalInstitutionRegistry.from_config(config)
 
     def connect(self) -> None:
+        logger.info("Checking source connection")
         self.adapter.connect()
+        logger.info("Source connection check complete")
 
     def collect(self) -> list[dict[str, Any]]:
         if not self.config.pipeline.collect:
+            logger.info("Collect stage skipped by configuration")
             return self.result.raw_records
+        logger.info("Collect stage started")
         self.result.raw_records = list(self.adapter.collect())
+        logger.info("Collect stage complete: %s raw records", len(self.result.raw_records))
         return self.result.raw_records
 
     def transform(self) -> list[dict[str, Any]]:
         if not self.config.pipeline.transform:
             self.result.transformed_records = list(self.result.raw_records)
+            logger.info(
+                "Transform stage skipped by configuration: %s records carried forward",
+                len(self.result.transformed_records),
+            )
             return self.result.transformed_records
+        logger.info("Transform stage started: %s raw records", len(self.result.raw_records))
         self.result.transformed_records = [
             self.adapter.transform(record) for record in self.result.raw_records
         ]
+        logger.info(
+            "Transform stage complete: %s transformed records",
+            len(self.result.transformed_records),
+        )
         return self.result.transformed_records
 
     def validate(self) -> ValidationReport:
+        logger.info("Validate stage started")
         records = self.result.transformed_records or self.result.raw_records
         self.result.valid_records = []
         self.result.invalid_records = []
@@ -71,6 +90,11 @@ class ResearchPipeline:
             else:
                 self.result.valid_records.append(record)
         self.result.validation_report = validate_records(records, self.config)
+        logger.info(
+            "Validate stage complete: %s valid, %s invalid",
+            len(self.result.valid_records),
+            len(self.result.invalid_records),
+        )
         return self.result.validation_report
 
     def preview(self, limit: int = 5) -> list[dict[str, Any]]:
@@ -82,13 +106,20 @@ class ResearchPipeline:
     def clean(self) -> list[dict[str, Any]]:
         if not self.config.pipeline.clean:
             self.result.cleaned_records = list(self.result.valid_records)
+            logger.info(
+                "Clean stage skipped by configuration: %s records carried forward",
+                len(self.result.cleaned_records),
+            )
             return self.result.cleaned_records
+        logger.info("Clean stage started: %s valid records", len(self.result.valid_records))
         self.result.cleaned_records = [
             clean_record(record, self.config.cleaning) for record in self.result.valid_records
         ]
+        logger.info("Clean stage complete: %s cleaned records", len(self.result.cleaned_records))
         return self.result.cleaned_records
 
     def resolve_entities(self) -> list[dict[str, Any]]:
+        logger.info("Entity resolution stage started")
         records = self.result.cleaned_records or self.result.valid_records
         self.result.national_records = [
             enrich_national_context(
@@ -98,6 +129,10 @@ class ResearchPipeline:
             )
             for record in records
         ]
+        logger.info(
+            "Entity resolution stage complete: %s records",
+            len(self.result.national_records),
+        )
         return self.result.national_records
 
     def deduplicate(self) -> list[dict[str, Any]]:
@@ -105,9 +140,15 @@ class ResearchPipeline:
             self.result.deduplicated_records = list(
                 self.result.national_records or self.result.cleaned_records
             )
+            logger.info(
+                "Deduplicate stage skipped by configuration: %s records carried forward",
+                len(self.result.deduplicated_records),
+            )
             return self.result.deduplicated_records
+        source_records = self.result.national_records or self.result.cleaned_records
+        logger.info("Deduplicate stage started: %s records", len(source_records))
         candidates = find_duplicate_candidates(
-            self.result.national_records or self.result.cleaned_records,
+            source_records,
             self.config.deduplication,
         )
         self.result.duplicate_candidates = [candidate.to_dict() for candidate in candidates]
@@ -116,26 +157,35 @@ class ResearchPipeline:
             for candidate in candidates
             if candidate.match_type == "doi" and candidate.merge_decision == "auto_merge"
         }
-        source_records = self.result.national_records or self.result.cleaned_records
         self.result.deduplicated_records = [
             record
             for index, record in enumerate(source_records)
             if index not in duplicate_right_indexes
         ]
+        logger.info(
+            "Deduplicate stage complete: %s candidates, %s deduplicated records",
+            len(self.result.duplicate_candidates),
+            len(self.result.deduplicated_records),
+        )
         return self.result.deduplicated_records
 
     def run_analytics(self) -> dict[str, Any]:
         if not self.config.pipeline.run_analytics:
             self.result.analytics_summary = {}
+            logger.info("Analytics stage skipped by configuration")
             return self.result.analytics_summary
+        logger.info("Analytics stage started")
         self.result.analytics_summary = run_field_aware_analytics(
             self.result.deduplicated_records or self.result.cleaned_records
         )
+        logger.info("Analytics stage complete")
         return self.result.analytics_summary
 
     def export(self) -> None:
         if not self.config.pipeline.export:
+            logger.info("Export stage skipped by configuration")
             return
+        logger.info("Export stage started: %s", self.config.export.output_dir)
         export_pipeline_outputs(
             output_dir=self.config.export.output_dir,
             cleaned_records=self.result.cleaned_records,
@@ -150,8 +200,10 @@ class ResearchPipeline:
             ),
             analytics_summary=self.result.analytics_summary,
         )
+        logger.info("Export stage complete: %s", self.config.export.output_dir)
 
     def run_all(self) -> PipelineResult:
+        logger.info("Pipeline run started: %s", self.config.project.name)
         self.collect()
         self.transform()
         if self.config.pipeline.validate:
@@ -163,6 +215,12 @@ class ResearchPipeline:
         self.deduplicate()
         self.run_analytics()
         self.export()
+        logger.info(
+            "Pipeline run complete: %s raw, %s cleaned, %s deduplicated",
+            len(self.result.raw_records),
+            len(self.result.cleaned_records),
+            len(self.result.deduplicated_records),
+        )
         return self.result
 
     def _build_input_adapter(self):

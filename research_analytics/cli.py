@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -47,8 +48,15 @@ def main(argv: list[str] | None = None) -> None:
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("--config", required=True, type=Path)
         command_parser.add_argument("--sample-size", type=int, default=100)
+        command_parser.add_argument(
+            "--log-level",
+            default="INFO",
+            choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+            help="Console log level. Logs are written to stderr.",
+        )
 
     args = parser.parse_args(argv)
+    configure_logging(args.log_level)
     config = load_config(args.config)
     pipeline = ResearchPipeline(config)
 
@@ -115,8 +123,15 @@ def run_stage_cli(argv: list[str] | None = None) -> None:
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--stage", required=True, choices=STAGES)
     parser.add_argument("--sample-size", type=int, default=100)
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+        help="Console log level. Logs are written to stderr.",
+    )
     args = parser.parse_args(argv)
 
+    configure_logging(args.log_level)
     config = load_config(args.config)
     pipeline = ResearchPipeline(config)
     output = run_stage(pipeline, args.stage, sample_size=args.sample_size)
@@ -194,6 +209,15 @@ def run_stage(pipeline: ResearchPipeline, stage: str, *, sample_size: int = 100)
         f"{len(result.raw_records)} raw, "
         f"{len(result.cleaned_records)} cleaned, "
         f"{len(result.deduplicated_records)} deduplicated."
+    )
+
+
+def configure_logging(log_level: str) -> None:
+    """Configure live CLI progress logs."""
+    logging.basicConfig(
+        level=getattr(logging, log_level),
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+        datefmt="%H:%M:%S",
     )
 
 
