@@ -18,6 +18,7 @@ Local usage from the project root:
 Outputs are written to /kaggle/working by default:
     common_publications_all_records.csv
     common_publications_deduplicated.csv
+    common_publications_manual_review_candidates.csv
     common_publications_merge_log.csv
     common_publications_run_log.txt
     common_publications_schema.csv
@@ -35,6 +36,7 @@ import html
 import json
 import math
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -250,7 +252,6 @@ SOURCE_PRIORITY = {
 BLANK_STRINGS = {"", "nan", "none", "null", "na", "n/a", "[]", "{}"}
 DOI_RE = re.compile(r"10\.\d{4,9}/[^\s\"'<>;]+", re.IGNORECASE)
 YEAR_RE = re.compile(r"(1[5-9]\d{2}|20\d{2})")
-NON_WORD_RE = re.compile(r"[^a-z0-9]+")
 TAG_RE = re.compile(r"<[^>]+>")
 INLINE_TEXT_TAG_RE = re.compile(
     r"<(i|em|b|strong|u|span|jats:[^>\s/]+)(?:\s+[^>]*)?>(.*?)</\1>",
@@ -564,7 +565,7 @@ def normalize_title_key(value: Any) -> Any:
     if is_blank(text):
         return pd.NA
 
-    return NON_WORD_RE.sub(" ", str(text).casefold()).strip()
+    return normalize_key_text(str(text))
 
 
 def normalize_author_key(value: Any) -> str:
@@ -572,8 +573,24 @@ def normalize_author_key(value: Any) -> str:
     if not names:
         return ""
 
-    first_author = names[0].casefold()
-    return NON_WORD_RE.sub(" ", first_author).strip()
+    return normalize_key_text(names[0])
+
+
+def normalize_key_text(value: Any) -> str:
+    text = str(value).casefold()
+    output: list[str] = []
+    previous_was_space = True
+
+    for character in text:
+        category_group = unicodedata.category(character)[0]
+        if category_group in {"L", "M", "N"} or unicodedata.category(character) == "Cf":
+            output.append(character)
+            previous_was_space = False
+        elif not previous_was_space:
+            output.append(" ")
+            previous_was_space = True
+
+    return "".join(output).strip()
 
 
 def coalesce_columns(df: pd.DataFrame, candidates: list[str]) -> pd.Series:
@@ -872,44 +889,53 @@ def record_merge_info(row: pd.Series, row_number: int) -> tuple[str, str, str]:
             "Same normalized DOI. DOI URLs, DOI: prefixes, case, spaces, and trailing punctuation were cleaned.",
         )
 
-    title_key = normalize_title_key(row.get("title"))
-    year = normalize_year(row.get("publication_year"))
-    author_value = row.get("author_names")
-    if is_blank(author_value):
-        author_value = row.get("authors")
-    author_key = normalize_author_key(author_value)
-
-    if not is_blank(title_key) and not is_blank(year):
-        if author_key:
-            return (
-                f"title_year_author:{title_key}|{year}|{author_key}",
-                "title_year_first_author",
-                "Missing DOI; matched by normalized title, publication year, and first author.",
-            )
-        return (
-            f"title_year:{title_key}|{year}",
-            "title_year",
-            "Missing DOI and first author; matched by normalized title and publication year.",
-        )
-
     source = row.get("source_dataset")
     source_record_id = row.get("source_record_id")
     if not is_blank(source) and not is_blank(source_record_id):
         return (
             f"source_record:{source}|{source_record_id}",
             "source_record_id",
-            "No DOI/title-year key; kept by source dataset and original source record ID.",
+            "No DOI; kept by source dataset and original source record ID.",
         )
 
     return (
         f"row:{row_number}",
         "row_number",
-        "No DOI, title/year key, or source record ID; kept by input row number.",
+        "No DOI or source record ID; kept by input row number.",
     )
 
 
 def record_merge_key(row: pd.Series, row_number: int) -> str:
     return record_merge_info(row, row_number)[0]
+
+
+def manual_review_info(row: pd.Series) -> tuple[str, str, str] | None:
+    doi = normalize_doi(row.get("doi"))
+    if not is_blank(doi):
+        return None
+
+    title_key = normalize_title_key(row.get("title"))
+    year = normalize_year(row.get("publication_year"))
+    if is_blank(title_key) or is_blank(year):
+        return None
+
+    author_value = row.get("author_names")
+    if is_blank(author_value):
+        author_value = row.get("authors")
+    author_key = normalize_author_key(author_value)
+
+    if author_key:
+        return (
+            f"title_year_author:{title_key}|{year}|{author_key}",
+            "title_year_first_author",
+            "Missing DOI; possible match by normalized title, publication year, and first author. Manual inspection required.",
+        )
+
+    return (
+        f"title_year:{title_key}|{year}",
+        "title_year",
+        "Missing DOI and first author; possible match by normalized title and publication year. Manual inspection required.",
+    )
 
 
 def completeness_score(row: pd.Series) -> int:
@@ -995,6 +1021,91 @@ def merge_log_row(
     }
 
 
+def singleton_merge_log_row(
+    merged_row_number: int,
+    merge_key: str,
+    row: pd.Series,
+) -> dict[str, Any]:
+    merged = {column: row[column] for column in COMMON_COLUMNS}
+
+    return {
+        "merged_row_number": merged_row_number,
+        "action": "kept_single_record",
+        "was_merged": False,
+        "merge_method": row["_merge_method"],
+        "merge_key": merge_key,
+        "merge_reason": row["_merge_reason"],
+        "input_record_count": 1,
+        "source_datasets": row["source_dataset"],
+        "source_record_ids": row["source_record_id"],
+        "openalex_ids": row["openalex_id"],
+        "normalized_dois": row["doi"],
+        "final_doi": row["doi"],
+        "final_title": row["title"],
+        "final_publication_year": row["publication_year"],
+        "final_authors": first_nonblank(row["author_names"], row["authors"]),
+        "final_journal": first_nonblank(row["journal"], row["container_title"]),
+        "non_empty_final_fields": completeness_score(pd.Series(merged)),
+        "input_row_numbers": str(row["_input_row_number"]),
+    }
+
+
+def manual_review_row(
+    candidate_group_number: int,
+    candidate_key: str,
+    group: pd.DataFrame,
+) -> dict[str, Any]:
+    group_size = len(group)
+    review_method = first_text(group["_manual_review_method"].iloc[0])
+    review_reason = first_text(group["_manual_review_reason"].iloc[0])
+
+    return {
+        "candidate_group_number": candidate_group_number,
+        "review_status": "needs_manual_review",
+        "review_method": review_method,
+        "candidate_key": candidate_key,
+        "review_reason": review_reason,
+        "input_record_count": group_size,
+        "source_datasets": unique_series_text(group["source_dataset"]),
+        "source_record_ids": unique_series_text(group["source_record_id"]),
+        "openalex_ids": unique_series_text(group["openalex_id"]),
+        "normalized_dois": unique_series_text(group["doi"]),
+        "titles": unique_series_text(group["title"]),
+        "publication_years": unique_series_text(group["publication_year"]),
+        "authors": unique_series_text(group["author_names"]),
+        "journals": unique_series_text(group["journal"]),
+        "urls": unique_series_text(group["url"]),
+        "input_row_numbers": "; ".join(str(index + 1) for index in group.index),
+    }
+
+
+def build_manual_review_candidates(all_records: pd.DataFrame) -> pd.DataFrame:
+    working = all_records.copy()
+    review_infos = [manual_review_info(row) for _, row in working.iterrows()]
+    working["_manual_review_key"] = [info[0] if info else pd.NA for info in review_infos]
+    working["_manual_review_method"] = [info[1] if info else pd.NA for info in review_infos]
+    working["_manual_review_reason"] = [info[2] if info else pd.NA for info in review_infos]
+
+    candidate_rows: list[dict[str, Any]] = []
+    candidates = working.loc[working["_manual_review_key"].map(lambda value: not is_blank(value))]
+
+    for candidate_group_number, (candidate_key, group) in enumerate(
+        candidates.groupby("_manual_review_key", sort=False, dropna=False),
+        start=1,
+    ):
+        if len(group) < 2:
+            continue
+        candidate_rows.append(
+            manual_review_row(
+                len(candidate_rows) + 1,
+                str(candidate_key),
+                group,
+            )
+        )
+
+    return pd.DataFrame(candidate_rows)
+
+
 def deduplicate_publications(
     all_records: pd.DataFrame,
     *,
@@ -1008,24 +1119,36 @@ def deduplicate_publications(
     working["_merge_key"] = [merge_info[0] for merge_info in merge_infos]
     working["_merge_method"] = [merge_info[1] for merge_info in merge_infos]
     working["_merge_reason"] = [merge_info[2] for merge_info in merge_infos]
+    working["_input_row_number"] = range(1, len(working) + 1)
+    working["_group_size"] = working["_merge_key"].map(
+        working["_merge_key"].value_counts(sort=False, dropna=False)
+    )
 
     merged_rows: list[dict[str, Any]] = []
     merge_log_rows: list[dict[str, Any]] = []
+    duplicate_group_outputs: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
 
-    for merged_row_number, (merge_key, group) in enumerate(
-        working.groupby("_merge_key", sort=False, dropna=False),
-        start=1,
-    ):
+    duplicate_records = working.loc[working["_group_size"] > 1]
+    for merge_key, group in duplicate_records.groupby("_merge_key", sort=False, dropna=False):
         merged = merge_group(group)
-        merged_rows.append(merged)
-        merge_log_rows.append(
-            merge_log_row(
-                merged_row_number,
-                str(merge_key),
-                group,
-                merged,
-            )
+        duplicate_group_outputs[str(merge_key)] = (
+            merged,
+            merge_log_row(0, str(merge_key), group, merged),
         )
+
+    first_group_rows = working.drop_duplicates("_merge_key", keep="first")
+    for merged_row_number, (_, row) in enumerate(first_group_rows.iterrows(), start=1):
+        merge_key = str(row["_merge_key"])
+        if row["_group_size"] > 1:
+            merged, log_row = duplicate_group_outputs[merge_key]
+            log_row = log_row.copy()
+            log_row["merged_row_number"] = merged_row_number
+        else:
+            merged = {column: row[column] for column in COMMON_COLUMNS}
+            log_row = singleton_merge_log_row(merged_row_number, merge_key, row)
+
+        merged_rows.append(merged)
+        merge_log_rows.append(log_row)
 
     deduplicated = pd.DataFrame(merged_rows, columns=COMMON_COLUMNS)
     merge_log = pd.DataFrame(merge_log_rows)
@@ -1083,6 +1206,7 @@ def write_summary(
     source_frames: dict[str, pd.DataFrame],
     all_records: pd.DataFrame,
     deduplicated: pd.DataFrame,
+    manual_review_candidates: pd.DataFrame,
 ) -> Path:
     rows: list[dict[str, Any]] = []
 
@@ -1115,6 +1239,20 @@ def write_summary(
                 "file": "common_publications_deduplicated.csv",
             },
             {
+                "metric": "manual_review_candidate_groups",
+                "value": len(manual_review_candidates),
+                "file": "common_publications_manual_review_candidates.csv",
+            },
+            {
+                "metric": "manual_review_candidate_records",
+                "value": (
+                    int(manual_review_candidates["input_record_count"].sum())
+                    if "input_record_count" in manual_review_candidates
+                    else 0
+                ),
+                "file": "common_publications_manual_review_candidates.csv",
+            },
+            {
                 "metric": "common_schema_columns",
                 "value": len(COMMON_COLUMNS),
                 "file": "common_publications_schema.csv",
@@ -1135,6 +1273,7 @@ def write_run_log(
     all_records: pd.DataFrame,
     deduplicated: pd.DataFrame,
     merge_log: pd.DataFrame,
+    manual_review_candidates: pd.DataFrame,
     args: argparse.Namespace,
     output_paths: dict[str, Path],
 ) -> Path:
@@ -1163,6 +1302,13 @@ def write_run_log(
             f"- all normalized records: {len(all_records):,}",
             f"- deduplicated publications: {len(deduplicated):,}",
             f"- records removed by deduplication: {len(all_records) - len(deduplicated):,}",
+            f"- manual-review candidate groups: {len(manual_review_candidates):,}",
+            (
+                "- manual-review candidate records: "
+                f"{int(manual_review_candidates['input_record_count'].sum()):,}"
+                if "input_record_count" in manual_review_candidates
+                else "- manual-review candidate records: 0"
+            ),
             "",
             "Merge method counts:",
         ]
@@ -1269,6 +1415,7 @@ def main() -> None:
     all_records_path = args.output_dir / "common_publications_all_records.csv"
     deduplicated_path = args.output_dir / "common_publications_deduplicated.csv"
     merge_log_path = args.output_dir / "common_publications_merge_log.csv"
+    manual_review_path = args.output_dir / "common_publications_manual_review_candidates.csv"
 
     print(f"\nWriting normalized records -> {all_records_path}", flush=True)
     all_records.to_csv(all_records_path, index=False)
@@ -1280,6 +1427,11 @@ def main() -> None:
     deduplicated.to_csv(deduplicated_path, index=False)
     print(f"Writing merge log -> {merge_log_path}", flush=True)
     merge_log.to_csv(merge_log_path, index=False)
+
+    print("Building manual-review candidate list...", flush=True)
+    manual_review_candidates = build_manual_review_candidates(all_records)
+    print(f"Writing manual-review candidates -> {manual_review_path}", flush=True)
+    manual_review_candidates.to_csv(manual_review_path, index=False)
     schema_path = write_schema(args.output_dir)
     summary_path = write_summary(
         args.output_dir,
@@ -1287,11 +1439,13 @@ def main() -> None:
         source_frames=source_frames,
         all_records=all_records,
         deduplicated=deduplicated,
+        manual_review_candidates=manual_review_candidates,
     )
     output_paths = {
         "all_records": all_records_path,
         "deduplicated": deduplicated_path,
         "merge_log": merge_log_path,
+        "manual_review_candidates": manual_review_path,
         "schema": schema_path,
         "summary": summary_path,
     }
@@ -1302,6 +1456,7 @@ def main() -> None:
         all_records=all_records,
         deduplicated=deduplicated,
         merge_log=merge_log,
+        manual_review_candidates=manual_review_candidates,
         args=args,
         output_paths=output_paths,
     )
@@ -1309,6 +1464,10 @@ def main() -> None:
     print("\nDone.")
     print(f"  All normalized records: {len(all_records):,} -> {all_records_path}")
     print(f"  Deduplicated publications: {len(deduplicated):,} -> {deduplicated_path}")
+    print(
+        "  Manual-review candidate groups: "
+        f"{len(manual_review_candidates):,} -> {manual_review_path}"
+    )
     print(f"  Merge log: {merge_log_path}")
     print(f"  Run log: {run_log_path}")
     print(f"  Schema columns: {len(COMMON_COLUMNS):,} -> {schema_path}")
