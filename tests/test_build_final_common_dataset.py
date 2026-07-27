@@ -4,6 +4,7 @@ import pandas as pd
 
 from scripts.build_final_common_dataset import (
     build_final_common_dataset,
+    build_count_audit_rows,
     clean_final_dataset,
     normalize_funder_identifier,
     split_reference_payload,
@@ -36,12 +37,12 @@ def test_clean_final_dataset_applies_last_26_column_decisions():
     df = pd.DataFrame(
         {
             "doi": ["10.1000/test"],
-            "source_dataset": ["crossref"],
+            "source_dataset": ["openalex; crossref"],
             "source_record_id": ["10.1000/test"],
             "cited_by_count": ["5"],
-            "is_referenced_by_count": ["5"],
+            "is_referenced_by_count": ["17"],
             "reference_count": ["12"],
-            "referenced_works_count": ["12"],
+            "referenced_works_count": ["15"],
             "references_json": ['{"DOI": "10.1000/ref"}'],
             "concepts": ["Medicine; Medicine; Biology"],
             "topics": ["Topic A; Topic A"],
@@ -66,6 +67,10 @@ def test_clean_final_dataset_applies_last_26_column_decisions():
     assert "citation_count" in cleaned.columns
     assert cleaned.loc[0, "citation_count"] == 5
     assert cleaned.loc[0, "reference_count"] == 12
+    assert cleaned.loc[0, "citation_count_difference_oa_minus_crossref"] == -12
+    assert cleaned.loc[0, "citation_count_divergence_flag"]
+    assert cleaned.loc[0, "reference_count_difference_oa_minus_crossref"] == 3
+    assert cleaned.loc[0, "reference_count_divergence_flag"]
     assert cleaned.loc[0, "concepts"] == "Medicine; Biology"
     assert cleaned.loc[0, "funder_doi"] == "10.13039/100008968"
     assert cleaned.loc[0, "funder_identifier"] == "https://ror.org/057p7e749"
@@ -89,10 +94,37 @@ def test_clean_final_dataset_applies_last_26_column_decisions():
         assert column not in cleaned.columns
 
 
-def test_build_final_common_dataset_writes_reference_sidecar(tmp_path):
+def test_build_count_audit_rows_preserves_source_specific_counts():
+    df = pd.DataFrame(
+        {
+            "doi": ["10.1000/test"],
+            "source_dataset": ["openalex; crossref"],
+            "source_record_id": ["10.1000/test"],
+            "title": ["Test publication"],
+            "cited_by_count": ["5"],
+            "is_referenced_by_count": ["17"],
+            "reference_count": ["12"],
+            "referenced_works_count": ["15"],
+        }
+    )
+
+    rows = build_count_audit_rows(df)
+
+    assert len(rows) == 1
+    assert rows[0]["publication_key"] == "doi:10.1000/test"
+    assert rows[0]["citation_count"] == 5
+    assert rows[0]["is_referenced_by_count"] == 17
+    assert rows[0]["reference_count"] == 12
+    assert rows[0]["referenced_works_count"] == 15
+    assert rows[0]["citation_count_difference_oa_minus_crossref"] == -12
+    assert rows[0]["reference_count_difference_oa_minus_crossref"] == 3
+
+
+def test_build_final_common_dataset_writes_sidecars(tmp_path):
     input_csv = tmp_path / "input.csv"
     output_csv = tmp_path / "final.csv"
     references_csv = tmp_path / "references.csv"
+    count_audit_csv = tmp_path / "count_audit.csv"
     summary_csv = tmp_path / "summary.csv"
 
     pd.DataFrame(
@@ -111,19 +143,27 @@ def test_build_final_common_dataset_writes_reference_sidecar(tmp_path):
         }
     ).to_csv(input_csv, index=False)
 
-    cleaned, reference_rows = build_final_common_dataset(
+    cleaned, reference_rows, count_audit_rows = build_final_common_dataset(
         input_csv,
         output_csv,
         references_csv,
+        count_audit_csv,
         summary_csv,
     )
 
     references = pd.read_csv(references_csv)
+    count_audit = pd.read_csv(count_audit_csv)
 
     assert reference_rows == 1
+    assert count_audit_rows == 1
     assert len(cleaned) == 1
     assert output_csv.exists()
+    assert count_audit_csv.exists()
     assert summary_csv.exists()
+    assert "is_referenced_by_count" not in cleaned.columns
+    assert "referenced_works_count" not in cleaned.columns
     assert references.loc[0, "publication_key"] == "doi:10.1000/test"
     assert references.loc[0, "reference_doi"] == "10.1000/ref"
     assert references.loc[0, "reference_title"] == "Reference"
+    assert count_audit.loc[0, "publication_key"] == "doi:10.1000/test"
+    assert count_audit.loc[0, "is_referenced_by_count"] == 3

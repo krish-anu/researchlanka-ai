@@ -19,4 +19,4 @@ This report set finalizes four analysis tasks using OpenAlex, Crossref, and Loca
 
 ## One-line verdict
 
-OpenAlex is a reliable source of truth for identity and analytics fields; Crossref/Local should **fill missing values** (abstract, ORCID, venue gaps, keywords, funding, events) rather than overwrite OA core fields; treat publisher/journal string disagreements as naming variants; store citation counts from both sources with a divergence flag.
+OpenAlex is a strong analytical backbone, while Crossref and Local sources add important DOI, publisher, and national provenance evidence. The implemented merge uses configurable field-level source policy, conflict logging, count audit sidecars, and citation/reference divergence flags.

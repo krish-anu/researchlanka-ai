@@ -7,15 +7,13 @@
 
 ## Executive Decision
 
-For the final analysis-ready dataset, keep **16 useful fields** from the last 26-column block after cleanup, and remove or move the remaining **10 fields**:
+For the final public dataset, keep or standardize the analytical fields, move source-specific count comparison columns to `publication_count_audit.csv`, and remove or move the remaining bulky or sparse fields:
 
 | Decision | Columns |
 |---|---|
-| Keep as main analytical fields | `oa_status`, `is_oa`, `concepts`, `topics`, `primary_topic`, `primary_field`, `primary_subfield`, `primary_domain`, `funder_name`, `funder_doi`, `funder_award`, `source_set_specs`, `raw_identifiers` |
+| Keep as main analytical fields | `oa_status`, `is_oa`, `citation_count`, `reference_count`, `citation_count_difference_oa_minus_crossref`, `citation_count_divergence_flag`, `reference_count_difference_oa_minus_crossref`, `reference_count_divergence_flag`, `concepts`, `topics`, `primary_topic`, `primary_field`, `primary_subfield`, `primary_domain`, `funder_name`, `funder_doi`, `funder_award`, `source_set_specs`, `raw_identifiers` |
 | Keep but rename/standardize | `cited_by_count` -> `citation_count`; `funder_id` -> normalized `funder_identifier` |
-| Keep one, drop duplicate | Keep `reference_count`; drop `referenced_works_count` |
-| Drop duplicate | Drop `is_referenced_by_count` because it is identical to `cited_by_count` in this merged file |
-| Move to sidecar/audit table | `references_json` |
+| Move to sidecar/audit table | `references_json`; source-specific count columns `is_referenced_by_count`, `referenced_works_count` |
 | Move to optional sidecar or drop from main dataset | `event_name`, `event_acronym`, `event_location`, `event_start_date`, `event_end_date`, `event_sponsor` |
 | Drop from final dataset | `raw_source_json` because it is completely empty in the current output |
 
@@ -26,6 +24,10 @@ oa_status
 is_oa
 citation_count
 reference_count
+citation_count_difference_oa_minus_crossref
+citation_count_divergence_flag
+reference_count_difference_oa_minus_crossref
+reference_count_divergence_flag
 concepts
 topics
 primary_topic
@@ -46,10 +48,10 @@ raw_identifiers
 |---|---:|---:|---|---|
 | `oa_status` | 73,289 | 25.11% | OpenAlex 100.0% | Keep |
 | `is_oa` | 73,289 | 25.11% | OpenAlex 100.0% | Keep |
-| `cited_by_count` | 139,235 | 47.70% | Crossref 100.0%; OpenAlex 100.0% | Rename to `citation_count` or keep as the single citation-count field |
-| `is_referenced_by_count` | 139,235 | 47.70% | Crossref 100.0%; OpenAlex 100.0% | Drop; exact duplicate of `cited_by_count` |
-| `reference_count` | 139,235 | 47.70% | Crossref 100.0%; OpenAlex 100.0% | Keep |
-| `referenced_works_count` | 73,289 | 25.11% | OpenAlex 100.0% | Drop after merging into `reference_count` |
+| `cited_by_count` | 139,235 | 47.70% | Crossref 100.0%; OpenAlex 100.0% in the old merged output | Rename to `citation_count`; select through the configured field policy |
+| `is_referenced_by_count` | 139,235 | 47.70% | Crossref citation count | Move to `publication_count_audit.csv` |
+| `reference_count` | 139,235 | 47.70% | Crossref/OpenAlex-derived reference count | Keep as best available reference count from the normal merge |
+| `referenced_works_count` | 73,289 | 25.11% | OpenAlex 100.0% | Move to `publication_count_audit.csv` |
 | `references_json` | 39,377 | 13.49% | Crossref 59.7% | Move to reference sidecar table |
 | `concepts` | 73,188 | 25.07% | OpenAlex 99.9% | Keep as optional topic enrichment |
 | `topics` | 71,813 | 24.60% | OpenAlex 98.0% | Keep |
@@ -75,29 +77,35 @@ raw_identifiers
 
 ### 1. Citation count
 
-`cited_by_count` and `is_referenced_by_count` are identical in all 139,235 rows where they are present.
+`cited_by_count` and `is_referenced_by_count` were identical in the old merged output because the merge script copied one source's count into the other source-specific column. The final public dataset now keeps the best available `citation_count` and moves source-specific count details to `publication_count_audit.csv`.
 
 Final rule:
 
 ```text
-citation_count = cited_by_count
-drop is_referenced_by_count
+citation_count = merged cited_by_count
+is_referenced_by_count = Crossref is-referenced-by-count
+citation_count_difference_oa_minus_crossref = OpenAlex cited_by_count - Crossref is-referenced-by-count
+citation_count_divergence_flag = abs(citation_count_difference_oa_minus_crossref) >= 10
+main dataset drops is_referenced_by_count after writing the count-audit sidecar
 ```
 
-If the pipeline must preserve the existing schema name, keep `cited_by_count` and still drop `is_referenced_by_count`.
+If only one count source is present, `citation_count` keeps that available value and the OpenAlex-vs-Crossref difference fields stay empty.
 
 ### 2. Reference count
 
-`reference_count` is the unified field. `referenced_works_count` is OpenAlex-only and exactly matches `reference_count` wherever both are populated.
+`reference_count` is the best available reference count from the configured field policy. `referenced_works_count` is retained in `publication_count_audit.csv` for source comparison when available.
 
 Final rule:
 
 ```text
-reference_count = coalesce(reference_count, referenced_works_count)
-drop referenced_works_count
+reference_count = merged reference_count
+referenced_works_count = OpenAlex referenced_works_count
+reference_count_difference_oa_minus_crossref = referenced_works_count - reference_count
+reference_count_divergence_flag = reference_count_difference_oa_minus_crossref != 0
+main dataset drops referenced_works_count after writing the count-audit sidecar
 ```
 
-The current merge script already fills `reference_count` from `referenced_works_count`, so the remaining change is mainly schema simplification.
+Rows with only one source should leave the difference and divergence flag empty.
 
 ### 3. References JSON
 
@@ -239,11 +247,11 @@ Before publishing the final dataset, apply these checks to the last 26-column bl
 
 | Check | Expected result |
 |---|---|
-| Duplicate citation field removed | `is_referenced_by_count` absent |
-| Duplicate reference field removed | `referenced_works_count` absent |
+| Source-specific citation field removed from public table | `is_referenced_by_count` absent from main CSV and present in `publication_count_audit.csv` |
+| Source-specific reference field removed from public table | `referenced_works_count` absent from main CSV and present in `publication_count_audit.csv` |
 | Empty raw JSON removed | `raw_source_json` absent |
-| Citation field has one meaning | `citation_count` or `cited_by_count` only |
-| Reference field has one meaning | `reference_count` only |
+| Citation divergence is auditable | `citation_count_difference_oa_minus_crossref` and `citation_count_divergence_flag` present; source counts in sidecar |
+| Reference divergence is auditable | `reference_count_difference_oa_minus_crossref` and `reference_count_divergence_flag` present; source counts in sidecar |
 | Funding identifiers normalized | no JSON-like wrappers in `funder_identifier` |
 | Multi-value cells deduplicated | repeated IDs/topics/specs removed within each cell |
 | Event fields removed from main dataset | `event_name`, `event_acronym`, `event_location`, `event_start_date`, `event_end_date`, and `event_sponsor` absent |
@@ -252,8 +260,8 @@ Before publishing the final dataset, apply these checks to the last 26-column bl
 ## Recommended Implementation Order
 
 1. Add a final-cleaning step after `common_publications_all_records.csv` or after deduplication.
-2. Create `citation_count` from `cited_by_count`, or keep `cited_by_count` if backward compatibility matters.
-3. Coalesce `reference_count` from `referenced_works_count`.
+2. Create `citation_count` from OpenAlex `cited_by_count`.
+3. Preserve Crossref `is_referenced_by_count` and OpenAlex `referenced_works_count` in `publication_count_audit.csv`.
 4. Normalize `funder_id` into `funder_identifier`.
 5. Deduplicate multi-value text fields: `concepts`, `topics`, `funder_name`, `funder_doi`, `funder_identifier`, `funder_award`, `source_set_specs`, `raw_identifiers`.
 6. Move `references_json` into a sidecar table if reference-level analysis is needed.
@@ -262,4 +270,4 @@ Before publishing the final dataset, apply these checks to the last 26-column bl
 
 ## Final Verdict
 
-The last 26 columns contain useful enrichment and provenance metadata, but the current schema carries two exact duplicate count fields, six sparse event fields, one bulky reference-list field, and one empty raw-audit field. The clean final dataset should keep the OpenAlex open-access/topic fields, selected Crossref funding fields, and local provenance fields, while simplifying counts, dropping event fields from the main table, and moving heavy raw reference JSON out of the main publication dataset.
+The last 26 columns contain useful enrichment and provenance metadata. The clean final dataset should keep the OpenAlex open-access/topic fields, selected Crossref funding fields, best-available count fields with divergence flags, and local provenance fields, while dropping event fields from the main table and moving heavy raw reference JSON plus source-specific count details out of the main publication dataset.
