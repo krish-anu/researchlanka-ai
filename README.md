@@ -120,6 +120,14 @@ Run the OpenAlex pipeline with Crossref DOI enrichment in one command:
 python scripts/kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com
 ```
 
+Compare raw and estimated unique publication counts from each source dataset:
+
+```bash
+make publication-counts
+```
+
+The report is written to `data/processed/common/publication_counts_by_source.csv`.
+
 ## Team
 
 - ANUSAN K. - 230048J
