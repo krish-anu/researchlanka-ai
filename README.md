@@ -71,6 +71,7 @@ git push origin feature/openalex-collector
 ## Useful Docs
 
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
+- [Singapore Pipeline Checklist](docs/SINGAPORE_PIPELINE.md) - Singapore config, OpenAlex run, and multi-source merge path
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
 - [Reusable Framework Guide](documentation/REUSABLE_FRAMEWORK.md) - national framework package, configuration workflow, templates, and example runs
 - [National Framework Guide](documentation/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
