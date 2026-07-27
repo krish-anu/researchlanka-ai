@@ -54,7 +54,7 @@ Provides:
 ## Review Before Overwrite
 
 OpenAlex coverage is already strong for these fields, but conflicts should
-still be reviewed instead of blindly overwritten:
+still be reviewed before any overwrite:
 
 - DOI
 - Title

@@ -170,6 +170,11 @@ store it as a native date value.
 
 Crossref normalization should continue to standardize DOI, title, authors, publication year, source, publisher, and event fields.
 
+The final common-publications dataset keeps canonical `citation_count` and
+`reference_count` fields. Source-specific count fields such as Crossref
+`is_referenced_by_count` and OpenAlex `referenced_works_count` are retained in
+the count-audit sidecar instead of the public CSV.
+
 ### 5. Filtering Rules
 
 The project uses two Sri Lanka filters:

@@ -48,7 +48,7 @@ raw_identifiers
 |---|---:|---:|---|---|
 | `oa_status` | 73,289 | 25.11% | OpenAlex 100.0% | Keep |
 | `is_oa` | 73,289 | 25.11% | OpenAlex 100.0% | Keep |
-| `cited_by_count` | 139,235 | 47.70% | Crossref 100.0%; OpenAlex 100.0% in the old merged output | Rename to `citation_count`; select through the configured field policy |
+| `cited_by_count` | 139,235 | 47.70% | Crossref 100.0%; OpenAlex 100.0% in the previous merged output | Rename to `citation_count`; select through the configured field policy |
 | `is_referenced_by_count` | 139,235 | 47.70% | Crossref citation count | Move to `publication_count_audit.csv` |
 | `reference_count` | 139,235 | 47.70% | Crossref/OpenAlex-derived reference count | Keep as best available reference count from the normal merge |
 | `referenced_works_count` | 73,289 | 25.11% | OpenAlex 100.0% | Move to `publication_count_audit.csv` |
@@ -77,7 +77,7 @@ raw_identifiers
 
 ### 1. Citation count
 
-`cited_by_count` and `is_referenced_by_count` were identical in the old merged output because the merge script copied one source's count into the other source-specific column. The final public dataset now keeps the best available `citation_count` and moves source-specific count details to `publication_count_audit.csv`.
+`cited_by_count` and `is_referenced_by_count` were identical in the previous merged output because the merge script copied one source's count into the other source-specific column. The final public dataset now keeps the best available `citation_count` and moves source-specific count details to `publication_count_audit.csv`.
 
 Final rule:
 
