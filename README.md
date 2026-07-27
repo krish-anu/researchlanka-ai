@@ -39,6 +39,32 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+## PostgreSQL Database
+
+Create a `.env` file from `.env.example` and set your PostgreSQL connection URL:
+
+```env
+DATABASE_URL=postgresql://researchlanka_user:change_me@localhost:5433/researchlanka
+```
+
+Start PostgreSQL with Docker Compose:
+
+```bash
+docker compose up -d db
+```
+
+Check the connection:
+
+```bash
+python scripts/check_database_connection.py
+```
+
+Stop the database:
+
+```bash
+docker compose down
+```
+
 ## Important GitHub Rules
 
 - Do not work directly on `main`.
@@ -93,6 +119,14 @@ Run the OpenAlex pipeline with Crossref DOI enrichment in one command:
 ```bash
 python scripts/kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com
 ```
+
+Compare raw and estimated unique publication counts from each source dataset:
+
+```bash
+make publication-counts
+```
+
+The report is written to `data/processed/common/publication_counts_by_source.csv`.
 
 ## Team
 
