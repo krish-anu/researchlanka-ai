@@ -155,7 +155,7 @@ def test_stage_runner_executes_all_pipeline_steps_from_config():
     config = load_config("configurations/example_country/config.json")
     output = run_stage(ResearchPipeline(config), "all")
 
-    assert output == "Run complete: 4 raw, 4 cleaned, 3 deduplicated."
+    assert output == "Run complete: 7 raw, 7 cleaned, 5 deduplicated."
 
 
 def test_national_institution_registry_resolves_aliases_and_collaboration_type(tmp_path):

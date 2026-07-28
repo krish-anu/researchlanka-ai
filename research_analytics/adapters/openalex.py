@@ -29,13 +29,20 @@ class OpenAlexAdapter(SourceAdapter):
         api_key: str | None = None,
         per_page: int = 200,
         max_records: int | None = None,
+        retry_limit: int = 3,
+        retry_backoff_seconds: float = 2.0,
     ) -> None:
         self.country_code = country_code
         self.start_year = start_year
         self.end_year = end_year
         self.per_page = per_page
         self.max_records = max_records
-        self.collector = OpenAlexCollector(email=email, api_key=api_key)
+        self.collector = OpenAlexCollector(
+            email=email,
+            api_key=api_key,
+            retry_limit=retry_limit,
+            retry_backoff_seconds=retry_backoff_seconds,
+        )
 
     def connect(self) -> None:
         if not self.country_code:

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
 import requests
 
-from src.collectors.http import create_retry_session
+from src.collectors.http import DEFAULT_RETRY_STATUSES, create_retry_session
 from src.preprocessing.openalex_normalizer import (
     CSV_COLUMNS,
     SRI_LANKA_COUNTRY_CODE,
@@ -90,6 +91,8 @@ class OpenAlexCollector:
     email: str | None = None
     api_key: str | None = None
     timeout: int | tuple[int, int] = 60
+    retry_limit: int = 3
+    retry_backoff_seconds: float = 2.0
     base_url: str = OPENALEX_BASE_URL
     session: requests.Session = field(default_factory=create_session)
 
@@ -117,25 +120,57 @@ class OpenAlexCollector:
             per_page,
             filters,
         )
-        try:
-            response = self.session.get(
-                f"{self.base_url}/works",
-                params=params,
-                timeout=self.timeout,
-            )
-        except requests.RequestException:
-            logger.exception("OpenAlex request failed cursor=%s", cursor)
-            raise
+        attempts = max(1, self.retry_limit + 1)
+        for attempt in range(1, attempts + 1):
+            try:
+                response = self.session.get(
+                    f"{self.base_url}/works",
+                    params=params,
+                    timeout=self.timeout,
+                )
+                if response.status_code in DEFAULT_RETRY_STATUSES and attempt < attempts:
+                    self._sleep_before_retry(attempt, attempts, cursor, response.status_code)
+                    continue
 
-        if not response.ok:
-            logger.error(
-                "OpenAlex request returned status=%s cursor=%s body=%s",
-                response.status_code,
-                cursor,
-                response.text[:500],
-            )
-        response.raise_for_status()
-        return response.json()
+                if not response.ok:
+                    logger.error(
+                        "OpenAlex request returned status=%s cursor=%s body=%s",
+                        response.status_code,
+                        cursor,
+                        response.text[:500],
+                    )
+                response.raise_for_status()
+                return response.json()
+            except requests.JSONDecodeError:
+                if attempt >= attempts:
+                    logger.exception("OpenAlex JSON decode failed cursor=%s", cursor)
+                    raise
+                self._sleep_before_retry(attempt, attempts, cursor, "invalid-json")
+            except requests.RequestException:
+                if attempt >= attempts:
+                    logger.exception("OpenAlex request failed cursor=%s", cursor)
+                    raise
+                self._sleep_before_retry(attempt, attempts, cursor, "request-error")
+
+        raise RuntimeError(f"OpenAlex request failed after {attempts} attempts cursor={cursor}")
+
+    def _sleep_before_retry(
+        self,
+        attempt: int,
+        attempts: int,
+        cursor: str,
+        reason: int | str,
+    ) -> None:
+        delay = min(self.retry_backoff_seconds * 2 ** (attempt - 1), 30.0)
+        logger.warning(
+            "OpenAlex request retrying cursor=%s reason=%s attempt=%s/%s delay=%.1fs",
+            cursor,
+            reason,
+            attempt + 1,
+            attempts,
+            delay,
+        )
+        time.sleep(delay)
 
     def iter_sri_lankan_work_pages(
         self,
