@@ -132,6 +132,58 @@ def test_clean_final_dataset_applies_columns_26_50_decisions():
     assert cleaned.loc[0, "publisher"] == "Springer"
 
 
+def test_clean_final_dataset_applies_columns_1_25_decisions():
+    df = pd.DataFrame(
+        {
+            "source_dataset": ["openalex"],
+            "source_institution_id": ["uom"],
+            "source_record_id": ["https://openalex.org/W1"],
+            "source_datestamp": ["2026-02-15T05:19:04Z"],
+            "openalex_id": ["https://openalex.org/W1"],
+            "doi": ["10.1000/test"],
+            "url": ["https://doi.org/10.1000/test"],
+            "landing_page_url": ["https://doi.org/10.1000/test"],
+            "pdf_url": ["https://example.test/paper.pdf"],
+            "title": ["Test publication"],
+            "subtitle": ["A subtitle"],
+            "original_title": ["Test publication"],
+            "abstract": ["An abstract"],
+            "keywords": ["keyword a; keyword b"],
+            "publication_year": ["2024"],
+            "publication_date": ["2024-01-01"],
+            "created_date": ["2023-12-01"],
+            "published_date": ["2024-01-01"],
+            "type": ["article"],
+            "subtype": ["preprint"],
+            "publication_type": ["article"],
+            "authors": ["A. Author"],
+            "author_count": ["1"],
+            "author_names": ["A. Author"],
+            "author_affiliations": ["University of Moratuwa"],
+        }
+    )
+
+    cleaned = clean_final_dataset(df)
+
+    for column in [
+        "landing_page_url",
+        "subtitle",
+        "original_title",
+        "created_date",
+        "published_date",
+        "subtype",
+        "publication_type",
+        "author_names",
+    ]:
+        assert column not in cleaned.columns
+
+    # The surviving fields keep the analysis-ready value from each dropped duplicate group.
+    assert cleaned.loc[0, "url"] == "https://doi.org/10.1000/test"
+    assert cleaned.loc[0, "publication_date"] == "2024-01-01"
+    assert cleaned.loc[0, "type"] == "article"
+    assert cleaned.loc[0, "authors"] == "A. Author"
+
+
 def test_build_count_audit_rows_preserves_source_specific_counts():
     df = pd.DataFrame(
         {
