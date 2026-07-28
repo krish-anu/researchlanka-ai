@@ -3,8 +3,9 @@
 This script applies the decisions documented in
 docs/07_last_26_columns_final_dataset_decisions.md:
 
-* keep one citation-count field
-* keep one reference-count field
+* keep best-available citation/reference counts in the main dataset
+* keep best-available citation/reference counts in the main dataset
+* move source-specific count comparison fields to an audit sidecar
 * normalize funder identifiers
 * deduplicate selected semicolon-separated fields
 * move Crossref reference-list payloads to a sidecar table
@@ -17,6 +18,15 @@ docs/08_columns_26_50_final_dataset_decisions.md:
 * drop page, which is derivable from first_page and last_page
 * drop rights, which holds a single constant value
 * drop editors and publisher_location, which are too sparse to analyze
+
+It also applies the decisions documented in
+docs/09_columns_1_25_final_dataset_decisions.md:
+
+* drop landing_page_url, publication_type, and author_names, which duplicate
+  url, type, and authors exactly
+* drop created_date and published_date from the main dataset because they add
+  no coverage beyond publication_date
+* drop subtitle, original_title, and subtype, which are too sparse to analyze
 """
 
 from __future__ import annotations
@@ -34,12 +44,15 @@ import pandas as pd
 
 
 SCRIPT_PATH = Path(__file__).resolve()
-PROJECT_ROOT = SCRIPT_PATH.parents[1] if SCRIPT_PATH.parent.name == "scripts" else Path.cwd()
+PROJECT_ROOT = next(
+    (parent for parent in SCRIPT_PATH.parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from scripts.kaggle_merge_common_dataset import is_blank, normalize_doi
+    from scripts.processing.kaggle_merge_common_dataset import is_blank, normalize_doi
 except ModuleNotFoundError:  # pragma: no cover - direct script execution fallback
     from kaggle_merge_common_dataset import is_blank, normalize_doi
 
@@ -47,6 +60,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution fallba
 DEFAULT_INPUT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_deduplicated.csv"
 DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
 DEFAULT_REFERENCES_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "publication_references.csv"
+DEFAULT_COUNT_AUDIT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "publication_count_audit.csv"
 DEFAULT_SUMMARY_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_summary.csv"
 
 # Columns 51-76, per docs/07_last_26_columns_final_dataset_decisions.md.
@@ -68,6 +82,15 @@ DROP_FROM_MAIN = [
     "rights",
     "editors",
     "publisher_location",
+    # Columns 1-25, per docs/09_columns_1_25_final_dataset_decisions.md.
+    "landing_page_url",
+    "subtitle",
+    "original_title",
+    "created_date",
+    "published_date",
+    "subtype",
+    "publication_type",
+    "author_names",
 ]
 
 MULTI_VALUE_COLUMNS = [
@@ -206,6 +229,105 @@ def coalesce_numeric_columns(df: pd.DataFrame, target: str, candidates: list[str
     df[target] = result
 
 
+def numeric_difference(left: Any, right: Any) -> Any:
+    left_number = pd.to_numeric(pd.Series([left]), errors="coerce").iloc[0]
+    right_number = pd.to_numeric(pd.Series([right]), errors="coerce").iloc[0]
+
+    if pd.isna(left_number) or pd.isna(right_number):
+        return pd.NA
+
+    return int(left_number) - int(right_number)
+
+
+def add_difference_columns(
+    df: pd.DataFrame,
+    *,
+    target_difference: str,
+    target_flag: str,
+    left: str,
+    right: str,
+    flag_threshold: int = 1,
+) -> None:
+    if left not in df.columns or right not in df.columns:
+        df[target_difference] = pd.NA
+        df[target_flag] = pd.NA
+        return
+
+    df[target_difference] = [
+        numeric_difference(left_value, right_value)
+        for left_value, right_value in zip(df[left], df[right], strict=True)
+    ]
+    df[target_flag] = pd.Series(
+        [
+            abs(value) >= flag_threshold if not is_blank(value) else pd.NA
+            for value in df[target_difference]
+        ],
+        index=df.index,
+        dtype="object",
+    )
+
+
+def has_sources(value: Any, required_sources: set[str]) -> bool:
+    if is_blank(value):
+        return False
+
+    sources = {part.strip().casefold() for part in str(value).split(";")}
+    return required_sources.issubset(sources)
+
+
+def blank_differences_without_sources(
+    df: pd.DataFrame,
+    *,
+    difference_column: str,
+    flag_column: str,
+    required_sources: set[str],
+) -> None:
+    if "source_dataset" not in df.columns:
+        return
+
+    mask = ~df["source_dataset"].map(lambda value: has_sources(value, required_sources))
+    if not mask.any():
+        return
+
+    df[flag_column] = df[flag_column].astype("object")
+    df.loc[mask, [difference_column, flag_column]] = pd.NA
+
+
+def add_count_comparison_columns(df: pd.DataFrame) -> None:
+    coalesce_numeric_columns(df, "citation_count", ["cited_by_count"])
+    for column in ["is_referenced_by_count", "reference_count", "referenced_works_count"]:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+
+    add_difference_columns(
+        df,
+        target_difference="citation_count_difference_oa_minus_crossref",
+        target_flag="citation_count_divergence_flag",
+        left="citation_count",
+        right="is_referenced_by_count",
+        flag_threshold=10,
+    )
+    blank_differences_without_sources(
+        df,
+        difference_column="citation_count_difference_oa_minus_crossref",
+        flag_column="citation_count_divergence_flag",
+        required_sources={"openalex", "crossref"},
+    )
+    add_difference_columns(
+        df,
+        target_difference="reference_count_difference_oa_minus_crossref",
+        target_flag="reference_count_divergence_flag",
+        left="referenced_works_count",
+        right="reference_count",
+    )
+    blank_differences_without_sources(
+        df,
+        difference_column="reference_count_difference_oa_minus_crossref",
+        flag_column="reference_count_divergence_flag",
+        required_sources={"openalex", "crossref"},
+    )
+
+
 def split_reference_payload(value: Any) -> list[str]:
     text = clean_text(value)
     if text is None:
@@ -337,15 +459,74 @@ def write_reference_sidecar(df: pd.DataFrame, output_path: Path) -> int:
     return len(rows)
 
 
+def build_count_audit_rows(df: pd.DataFrame) -> list[dict[str, Any]]:
+    audit = df.copy()
+    add_count_comparison_columns(audit)
+
+    count_columns = [
+        "citation_count",
+        "is_referenced_by_count",
+        "reference_count",
+        "referenced_works_count",
+        "citation_count_difference_oa_minus_crossref",
+        "citation_count_divergence_flag",
+        "reference_count_difference_oa_minus_crossref",
+        "reference_count_divergence_flag",
+    ]
+
+    rows: list[dict[str, Any]] = []
+    needed_columns = ["source_dataset", "source_record_id", "doi", "title"]
+
+    for row_number, row in enumerate(audit.itertuples(index=False), start=1):
+        row_series = pd.Series(dict(zip(audit.columns, row, strict=True)))
+        if all(is_blank(row_series.get(column)) for column in count_columns):
+            continue
+
+        publication_key = build_publication_key(row_series, row_number)
+        audit_row = {
+            "publication_key": publication_key,
+            "publication_row_number": row_number,
+        }
+        for column in needed_columns + count_columns:
+            audit_row[column] = row_series.get(column, pd.NA)
+        rows.append(audit_row)
+
+    return rows
+
+
+def write_count_audit_sidecar(df: pd.DataFrame, output_path: Path) -> int:
+    rows = build_count_audit_rows(df)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    columns = [
+        "publication_key",
+        "publication_row_number",
+        "source_dataset",
+        "source_record_id",
+        "doi",
+        "title",
+        "citation_count",
+        "is_referenced_by_count",
+        "reference_count",
+        "referenced_works_count",
+        "citation_count_difference_oa_minus_crossref",
+        "citation_count_divergence_flag",
+        "reference_count_difference_oa_minus_crossref",
+        "reference_count_divergence_flag",
+    ]
+
+    with output_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return len(rows)
+
+
 def clean_final_dataset(df: pd.DataFrame) -> pd.DataFrame:
     cleaned = df.copy()
 
-    coalesce_numeric_columns(cleaned, "citation_count", ["cited_by_count", "is_referenced_by_count"])
-    coalesce_numeric_columns(
-        cleaned,
-        "reference_count",
-        ["reference_count", "referenced_works_count"],
-    )
+    add_count_comparison_columns(cleaned)
 
     if "funder_id" in cleaned.columns:
         cleaned["funder_identifier"] = cleaned["funder_id"].map(normalize_funder_identifier)
@@ -392,21 +573,25 @@ def write_summary(
     input_csv: Path,
     output_csv: Path,
     references_csv: Path,
+    count_audit_csv: Path,
     input_rows: int,
     input_columns: int,
     output_rows: int,
     output_columns: int,
     reference_rows: int,
+    count_audit_rows: int,
 ) -> None:
     rows = [
         {"metric": "input_csv", "value": str(input_csv)},
         {"metric": "output_csv", "value": str(output_csv)},
         {"metric": "references_csv", "value": str(references_csv)},
+        {"metric": "count_audit_csv", "value": str(count_audit_csv)},
         {"metric": "input_rows", "value": input_rows},
         {"metric": "input_columns", "value": input_columns},
         {"metric": "output_rows", "value": output_rows},
         {"metric": "output_columns", "value": output_columns},
         {"metric": "reference_sidecar_rows", "value": reference_rows},
+        {"metric": "count_audit_sidecar_rows", "value": count_audit_rows},
         {"metric": "dropped_main_columns", "value": "; ".join(DROP_FROM_MAIN)},
         {"metric": "renamed_columns", "value": "cited_by_count -> citation_count; funder_id -> funder_identifier"},
     ]
@@ -417,10 +602,12 @@ def build_final_common_dataset(
     input_csv: Path,
     output_csv: Path,
     references_csv: Path,
+    count_audit_csv: Path,
     summary_csv: Path,
-) -> tuple[pd.DataFrame, int]:
+) -> tuple[pd.DataFrame, int, int]:
     df = pd.read_csv(input_csv, dtype="object", low_memory=False)
     reference_rows = write_reference_sidecar(df, references_csv)
+    count_audit_rows = write_count_audit_sidecar(df, count_audit_csv)
     cleaned = clean_final_dataset(df)
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -430,14 +617,16 @@ def build_final_common_dataset(
         input_csv=input_csv,
         output_csv=output_csv,
         references_csv=references_csv,
+        count_audit_csv=count_audit_csv,
         input_rows=len(df),
         input_columns=len(df.columns),
         output_rows=len(cleaned),
         output_columns=len(cleaned.columns),
         reference_rows=reference_rows,
+        count_audit_rows=count_audit_rows,
     )
 
-    return cleaned, reference_rows
+    return cleaned, reference_rows, count_audit_rows
 
 
 def parse_args() -> argparse.Namespace:
@@ -447,16 +636,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input-csv", type=Path, default=DEFAULT_INPUT_CSV)
     parser.add_argument("--output-csv", type=Path, default=DEFAULT_OUTPUT_CSV)
     parser.add_argument("--references-csv", type=Path, default=DEFAULT_REFERENCES_CSV)
+    parser.add_argument("--count-audit-csv", type=Path, default=DEFAULT_COUNT_AUDIT_CSV)
     parser.add_argument("--summary-csv", type=Path, default=DEFAULT_SUMMARY_CSV)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    cleaned, reference_rows = build_final_common_dataset(
+    cleaned, reference_rows, count_audit_rows = build_final_common_dataset(
         args.input_csv,
         args.output_csv,
         args.references_csv,
+        args.count_audit_csv,
         args.summary_csv,
     )
 
@@ -465,6 +656,7 @@ def main() -> None:
     print(f"  Final columns: {len(cleaned.columns):,}")
     print(f"  Final dataset: {args.output_csv}")
     print(f"  Reference sidecar rows: {reference_rows:,} -> {args.references_csv}")
+    print(f"  Count audit sidecar rows: {count_audit_rows:,} -> {args.count_audit_csv}")
     print(f"  Summary: {args.summary_csv}")
 
 

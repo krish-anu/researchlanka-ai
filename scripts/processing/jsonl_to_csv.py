@@ -9,7 +9,10 @@ from pathlib import Path
 
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.utils.file_naming import dataset_filename

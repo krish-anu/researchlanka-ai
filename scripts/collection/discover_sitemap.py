@@ -2,8 +2,8 @@
 unavailable or blocked.
 
 Examples:
-    python scripts/discover_sitemap.py --id kln --max-urls 20
-    python scripts/discover_sitemap.py --url https://dl.ucsc.cmb.ac.lk/jspui --max-urls 20
+    python scripts/collection/discover_sitemap.py --id kln --max-urls 20
+    python scripts/collection/discover_sitemap.py --url https://dl.ucsc.cmb.ac.lk/jspui --max-urls 20
 """
 
 from __future__ import annotations
@@ -13,7 +13,10 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.repository_registry import load_registry

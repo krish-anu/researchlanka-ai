@@ -15,11 +15,14 @@ import pandas as pd
 
 
 SCRIPT_PATH = Path(__file__).resolve()
-PROJECT_ROOT = SCRIPT_PATH.parents[1] if SCRIPT_PATH.parent.name == "scripts" else Path.cwd()
+PROJECT_ROOT = next(
+    (parent for parent in SCRIPT_PATH.parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.kaggle_merge_common_dataset import (
+from scripts.processing.kaggle_merge_common_dataset import (
     EXPECTED_FILES,
     is_blank,
     normalize_crossref,
