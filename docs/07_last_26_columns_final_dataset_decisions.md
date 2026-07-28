@@ -5,6 +5,18 @@
 **Columns reviewed:** columns 51-76, from `oa_status` through `raw_source_json`  
 **Purpose:** decide which of the final 26 merged-dataset columns should be kept, merged, modified, deduplicated, moved to an audit/sidecar table, or dropped for a cleaner final dataset.
 
+> **Status:** implemented in `scripts/build_final_common_dataset.py`.
+>
+> The coverage figures in this document were measured on an earlier build of
+> `common_publications_all_records.csv` (291,890 rows). The current build has 277,068
+> all-records rows and 170,365 deduplicated rows, so absolute counts here no longer match;
+> the relative decisions still hold. Re-measure with
+> `python scripts/profile_common_dataset.py` before quoting any number from this document.
+>
+> Columns 26-50 are covered by
+> [08_columns_26_50_final_dataset_decisions.md](08_columns_26_50_final_dataset_decisions.md),
+> which also carries the full 76 -> 60 column accounting for the final dataset.
+
 ## Executive Decision
 
 For the final analysis-ready dataset, keep **16 useful fields** from the last 26-column block after cleanup, and remove or move the remaining **10 fields**:
