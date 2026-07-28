@@ -1,7 +1,0 @@
-column_mapping:
-  paper_name: title
-  researcher: authors
-  university: institutions
-  published_year: publication_year
-  record_id: source_record_id
-  url: source_url

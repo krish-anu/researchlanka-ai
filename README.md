@@ -1,11 +1,9 @@
 # National Research Analytics Framework
 
-A reusable, configurable framework for national-level research analytics.
+A Sri Lanka national-level research analytics framework.
 
 The framework collects, integrates, cleans, analyses, and exports scholarly
-publication data for an entire country. Sri Lanka is the first implementation
-and evaluation case; another country can reuse the same pipeline by changing
-configuration, institution registries, mappings, and source settings.
+publication data for Sri Lanka.
 
 ## Main Outputs
 
@@ -97,9 +95,7 @@ git push origin feature/openalex-collector
 ## Useful Docs
 
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
-- [Singapore Pipeline Checklist](docs/SINGAPORE_PIPELINE.md) - Singapore config, OpenAlex run, and multi-source merge path
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
-- [Reusable Framework Guide](documentation/REUSABLE_FRAMEWORK.md) - national framework package, configuration workflow, templates, and example runs
 - [National Framework Guide](documentation/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
 - [Migration to Framework Pipeline](documentation/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
 - [Contributing Guide](CONTRIBUTING.md)
@@ -107,51 +103,42 @@ git push origin feature/openalex-collector
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
 - [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
 
-## National Framework Mode
+## Sri Lanka National Framework Mode
 
-The reusable national framework code lives in `research_analytics/`.
-Country-specific settings, source choices, institution registries, year ranges,
-categories, field mappings, dashboard labels, and aliases live in
-`configurations/`.
+The Sri Lanka national framework code lives in `research_analytics/`.
+Sri Lanka source choices, institution registries, year ranges, categories,
+field mappings, dashboard labels, and aliases live in `configurations/sri_lanka/`.
 
-Run the example project:
-
-```bash
-python -m research_analytics.cli run-all --config configurations/example_country/config.json
-```
-
-Run the Sri Lankan implementation with the same framework code:
+Run the Sri Lanka implementation:
 
 ```bash
 python -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
 ```
 
-The practical deployment wrapper supports the stage workflow used when bringing
-a new country online:
+The practical deployment wrapper supports stage workflow:
 
 ```bash
-python run_pipeline.py --config configurations/example_country/config.json --stage all
-python run_pipeline.py --config configurations/example_country/config.json --stage deduplicate
+python run_pipeline.py --config configurations/sri_lanka/config.json --stage all
+python run_pipeline.py --config configurations/sri_lanka/config.json --stage deduplicate
 ```
 
 The Makefile uses the framework pipeline as the national workflow:
 
 ```bash
 make framework-sri-lanka
-make framework-example
 ```
 
 After installing the package, the CLI command is:
 
 ```bash
-research-framework run-all --config configurations/example_country/config.json
+research-framework run-all --config configurations/sri_lanka/config.json
 ```
 
-To onboard a new source before full import:
+To validate the Sri Lanka source mapping before full import:
 
 ```bash
-research-framework source-validate --config configurations/example_country/config.json
-research-framework preview --config configurations/example_country/config.json --sample-size 5
+research-framework source-validate --config configurations/sri_lanka/config.json
+research-framework preview --config configurations/sri_lanka/config.json --sample-size 5
 ```
 
 ## Collector Structure
@@ -169,7 +156,7 @@ same shape:
   of duplicating request or pagination logic.
 
 Legacy Sri Lanka-specific collection scripts remain available while the project
-is being migrated into the reusable framework. For example, the older OpenAlex
+is being migrated into the Sri Lanka framework. For example, the older OpenAlex
 collector can still run with:
 
 ```bash

@@ -23,7 +23,7 @@ class LocalFileAdapter(SourceAdapter):
         path: str | Path,
         *,
         column_mapping: dict[str, str] | None = None,
-        source_name: str = "user_dataset",
+        source_name: str = "sri_lanka_dataset",
         required_fields: tuple[str, ...] = ("title",),
         require_any_fields: tuple[str, ...] = ("doi", "authors", "publication_year", "source_record_id"),
         transformations: dict[str, dict[str, Any]] | None = None,

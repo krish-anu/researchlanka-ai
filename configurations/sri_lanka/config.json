@@ -39,7 +39,10 @@
   },
   "sources": {
     "openalex": {
-      "enabled": true
+      "enabled": true,
+      "options": {
+        "strict_country_only": true
+      }
     },
     "crossref": {
       "enabled": true
