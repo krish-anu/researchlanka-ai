@@ -5,7 +5,10 @@ import sys
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.utils.file_naming import dataset_filename
@@ -116,6 +119,6 @@ if __name__ == "__main__":
     main()
 
 
-# python scripts/collect_crossref.py enrich-dois \
+# python scripts/collection/collect_crossref.py enrich-dois \
 # --doi-file data/processed/doi_comparison/doi_comparison_openalex_only_dois.txt \
 # --email your_email@example.com

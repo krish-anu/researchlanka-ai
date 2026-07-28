@@ -11,11 +11,11 @@ Default role model:
 - Local repositories / SLJOL: national coverage, local-only records, and provenance.
 - ResearchLanka output tables: final operational canonical dataset for the app.
 
-The built-in field policy lives in `scripts/kaggle_merge_common_dataset.py` and
+The built-in field policy lives in `scripts/processing/kaggle_merge_common_dataset.py` and
 can be overridden with:
 
 ```bash
-python scripts/kaggle_merge_common_dataset.py --field-source-policy policy.json
+python scripts/processing/kaggle_merge_common_dataset.py --field-source-policy policy.json
 ```
 
 Example override:

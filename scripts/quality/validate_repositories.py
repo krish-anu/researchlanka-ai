@@ -7,9 +7,9 @@ inventory: confirm every inferred endpoint with a live ?verb=Identify /
 respect robots.txt / rate limits while doing so.
 
 Examples:
-    python scripts/validate_repositories.py
-    python scripts/validate_repositories.py --phase phase_1
-    python scripts/validate_repositories.py --ids uom,nsf,sljol --raw
+    python scripts/quality/validate_repositories.py
+    python scripts/quality/validate_repositories.py --phase phase_1
+    python scripts/quality/validate_repositories.py --ids uom,nsf,sljol --raw
 """
 
 from __future__ import annotations
@@ -35,7 +35,10 @@ import urllib3
 # report via ssl_verify_failed.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.repository_registry import (

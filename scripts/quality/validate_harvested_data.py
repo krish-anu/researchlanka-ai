@@ -4,7 +4,7 @@ checks, and a cross-check against what the registry claims vs. what was
 actually collected.
 
 Examples:
-    python scripts/validate_harvested_data.py
+    python scripts/quality/validate_harvested_data.py
 """
 
 from __future__ import annotations
@@ -16,7 +16,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.repository_registry import harvestable_targets, load_registry

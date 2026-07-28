@@ -5,8 +5,8 @@ discover endpoint serves real content (pdn, nsf, busl -- see registry
 notes).
 
 Examples:
-    python scripts/harvest_dspace_rest.py --id pdn
-    python scripts/harvest_dspace_rest.py --id nsf --max-records 200
+    python scripts/collection/harvest_dspace_rest.py --id pdn
+    python scripts/collection/harvest_dspace_rest.py --id nsf --max-records 200
 """
 
 from __future__ import annotations
@@ -16,7 +16,10 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests

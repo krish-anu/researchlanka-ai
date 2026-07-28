@@ -2,9 +2,9 @@
 Inspect or collect works from Crossref.
 
 Examples:
-    python scripts/collect_crossref.py inspect --query lanka --limit 3
+    python scripts/collection/collect_crossref.py inspect --query lanka --limit 3
 
-    python scripts/collect_crossref.py collect-lk \
+    python scripts/collection/collect_crossref.py collect-lk \
         --query lanka \
         --query ceylon \
         --max-records 1000
@@ -19,7 +19,10 @@ import sys
 import time
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.crossref_collector import CrossrefCollector

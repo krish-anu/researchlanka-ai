@@ -4,8 +4,8 @@ Last-resort route for repositories with a dead OAI index, no REST API,
 and no sitemap (currently the two Jaffna instances -- see registry).
 
 Examples:
-    python scripts/harvest_html_meta.py --id jfn_research --max-records 20
-    python scripts/harvest_html_meta.py --id jfn_research
+    python scripts/collection/harvest_html_meta.py --id jfn_research --max-records 20
+    python scripts/collection/harvest_html_meta.py --id jfn_research
 """
 
 from __future__ import annotations
@@ -15,7 +15,10 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.html_meta_collector import HtmlMetaCollector
