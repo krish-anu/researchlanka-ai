@@ -25,6 +25,7 @@
     "options": {
       "email": "krishnaanu200302@gmail.com",
       "api_key": null,
+      "strict_country_only": true,
       "max_records": 100000000000
     }
   },

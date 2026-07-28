@@ -100,6 +100,7 @@ def build_adapter_from_config(config: FrameworkConfig) -> SourceAdapter:
             api_key=source.options.get("api_key"),
             per_page=config.collection.batch_size,
             max_records=source.options.get("max_records"),
+            strict_country_only=source.options.get("strict_country_only", False),
             retry_limit=config.collection.retry_limit,
             retry_backoff_seconds=config.collection.request_delay_seconds,
             **common_kwargs,
