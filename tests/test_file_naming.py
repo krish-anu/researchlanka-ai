@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from scripts.collection import collect_crossref
-from scripts.quality import compare_dois
-from scripts.collection import kaggle_collect_openalex_sri_lanka
+from src.pipeline import collect_crossref
+from src.quality import compare_dois
+from src.pipeline import kaggle_collect_openalex_sri_lanka
 from src.utils.file_naming import dataset_filename, is_dataset_filename, slug_segment
 
 

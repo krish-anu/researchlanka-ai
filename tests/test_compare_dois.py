@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from scripts.quality.compare_dois import load_dois
+from src.quality.compare_dois import load_dois
 
 
 def test_load_dois_valid_csv(tmp_path):
