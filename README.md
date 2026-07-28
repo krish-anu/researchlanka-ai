@@ -39,6 +39,32 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+## PostgreSQL Database
+
+Create a `.env` file from `.env.example` and set your PostgreSQL connection URL:
+
+```env
+DATABASE_URL=postgresql://researchlanka_user:change_me@localhost:5433/researchlanka
+```
+
+Start PostgreSQL with Docker Compose:
+
+```bash
+docker compose up -d db
+```
+
+Check the connection:
+
+```bash
+python scripts/check_database_connection.py
+```
+
+Stop the database:
+
+```bash
+docker compose down
+```
+
 ## Important GitHub Rules
 
 - Do not work directly on `main`.
