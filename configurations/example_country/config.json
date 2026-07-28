@@ -4,49 +4,57 @@
     "code": "EX"
   },
   "coverage": {
-    "start_year": 2010,
+    "start_year": 2015,
     "end_year": 2026
   },
   "project": {
     "name": "Example Country Research Analytics",
-    "dashboard_title": "Example Country Research Portal"
-  },
-  "institution_registry": {
-    "path": "configurations/example_country/institutions.csv"
+    "country_name": "Example Country",
+    "country_code": "EX",
+    "dashboard_title": "Example Country Research Overview"
   },
   "input": {
     "path": "examples/sample_publications.csv",
     "format": "csv",
-    "source_name": "example_country_sample"
+    "source_name": "example_country_dataset"
   },
   "source": {
-    "name": "example_country_sample",
+    "name": "example_country_dataset",
     "type": "csv",
     "path": "examples/sample_publications.csv",
     "delimiter": ",",
-    "encoding": "utf-8"
+    "encoding": "utf-8",
+    "adapter_version": "1.0",
+    "mapping_version": "1.0"
+  },
+  "collection": {
+    "start_year": 2015,
+    "end_year": 2026,
+    "batch_size": 100,
+    "retry_limit": 3,
+    "request_delay_seconds": 1
+  },
+  "institution_registry": {
+    "path": "configurations/example_country/institutions.csv"
   },
   "pipeline": {
     "collect": true,
     "transform": true,
     "validate": true,
     "clean": true,
+    "enrich": false,
     "deduplicate": true,
-    "resolve_entities": true,
+    "resolve_entities": false,
     "load_database": false,
     "run_analytics": true,
-    "export": true,
-    "classify": false,
-    "topic_modeling": false
+    "export": true
   },
   "column_mapping": {
-    "record_id": "source_record_id",
     "paper_name": "title",
     "researcher": "authors",
     "university": "institutions",
     "published_year": "publication_year",
-    "doi": "doi",
-    "citation_count": "citation_count",
+    "record_id": "source_record_id",
     "countries": "countries"
   },
   "transformations": {
@@ -54,6 +62,10 @@
       "type": "extract_year"
     },
     "authors": {
+      "type": "split",
+      "separator": ";"
+    },
+    "keywords": {
       "type": "split",
       "separator": ";"
     },
@@ -66,15 +78,8 @@
     }
   },
   "validation": {
-    "required": [
-      "title"
-    ],
-    "require_any": [
-      "doi",
-      "authors",
-      "publication_year",
-      "source_record_id"
-    ]
+    "required": ["title"],
+    "require_any": ["doi", "authors", "publication_year", "source_record_id"]
   },
   "cleaning": {
     "normalize_doi": true,
@@ -82,12 +87,11 @@
     "normalize_author_names": true,
     "normalize_institutions": true,
     "valid_year": {
-      "minimum": 2010,
+      "minimum": 1950,
       "maximum": 2026
     },
-    "required_fields": [
-      "title"
-    ]
+    "required_fields": ["title"],
+    "optional_fields": ["doi", "abstract", "keywords"]
   },
   "deduplication": {
     "enabled": true,
@@ -98,24 +102,12 @@
     "exact_title_match": {
       "enabled": true,
       "require_same_year": true
-    },
-    "fuzzy_title_match": {
-      "enabled": false,
-      "threshold": 90
-    },
-    "author_match": {
-      "minimum_matching_authors": 1
-    },
-    "year_difference": {
-      "maximum": 1
-    },
-    "uncertain_matches": {
-      "send_to_manual_review": true
     }
   },
   "categories": [
     "Engineering",
     "Medicine",
+    "Education",
     "Social Sciences"
   ],
   "publication_types": [
@@ -129,20 +121,11 @@
     "citation_analysis": true,
     "collaboration_analysis": true,
     "topic_analysis": true,
-    "trend_analysis": true
-  },
-  "dashboard": {
-    "title": "Example Country Research Portal",
-    "export_formats": [
-      "csv",
-      "json"
-    ]
+    "trend_analysis": true,
+    "semantic_search": false
   },
   "export": {
     "output_dir": "outputs/example_country",
-    "formats": [
-      "csv",
-      "json"
-    ]
+    "formats": ["csv", "json"]
   }
 }

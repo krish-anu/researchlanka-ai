@@ -8,55 +8,80 @@
     "end_year": 2026
   },
   "project": {
-    "name": "ResearchLanka National Research Analytics",
-    "dashboard_title": "Sri Lanka National Research Portal"
-  },
-  "institution_registry": {
-    "path": "configurations/sri_lanka/institutions.csv"
+    "name": "Sri Lankan Research Analytics",
+    "country_name": "Sri Lanka",
+    "country_code": "LK",
+    "dashboard_title": "Sri Lankan Research Overview"
   },
   "input": {
     "path": "data/processed/repositories_combined.csv",
     "format": "csv",
-    "source_name": "sri_lanka_repositories"
+    "source_name": "sri_lanka_repository_dataset"
   },
   "source": {
-    "name": "sri_lanka_repositories",
+    "name": "sri_lanka_repository_dataset",
     "type": "csv",
     "path": "data/processed/repositories_combined.csv",
     "delimiter": ",",
-    "encoding": "utf-8"
+    "encoding": "utf-8",
+    "adapter_version": "1.0",
+    "mapping_version": "1.0"
   },
   "collection": {
+    "start_year": 2010,
+    "end_year": 2026,
     "batch_size": 200,
     "retry_limit": 3,
-    "request_delay_seconds": 1.0
+    "request_delay_seconds": 1
+  },
+  "institution_registry": {
+    "path": "configurations/sri_lanka/institutions.csv"
+  },
+  "sources": {
+    "openalex": {
+      "enabled": true
+    },
+    "crossref": {
+      "enabled": true
+    },
+    "national_journal_portal": {
+      "enabled": true,
+      "name": "SLJOL"
+    },
+    "university_repositories": {
+      "enabled": true
+    }
   },
   "pipeline": {
     "collect": true,
     "transform": true,
     "validate": true,
     "clean": true,
+    "enrich": false,
     "deduplicate": true,
-    "resolve_entities": true,
+    "resolve_entities": false,
     "load_database": false,
     "run_analytics": true,
     "export": true,
     "classify": false,
-    "topic_modeling": false
+    "topic_modeling": false,
+    "semantic_search": false,
+    "forecasting": false
   },
   "column_mapping": {
+    "source_institution_id": "institutions",
     "source_record_id": "source_record_id",
-    "doi": "doi",
     "title": "title",
-    "abstract": "abstract",
-    "publication_year": "publication_year",
-    "publication_date": "publication_date",
-    "publication_type": "publication_type",
-    "language": "language",
-    "journal": "journal",
-    "publisher": "publisher",
     "authors": "authors",
+    "abstract": "abstract",
     "keywords": "keywords",
+    "publication_date": "publication_date",
+    "publication_year": "publication_year",
+    "publication_type": "publication_type",
+    "publisher": "publisher",
+    "journal": "journal",
+    "language": "language",
+    "doi": "doi",
     "url": "source_url"
   },
   "transformations": {
@@ -76,15 +101,8 @@
     }
   },
   "validation": {
-    "required": [
-      "title"
-    ],
-    "require_any": [
-      "doi",
-      "authors",
-      "publication_year",
-      "source_record_id"
-    ]
+    "required": ["title"],
+    "require_any": ["doi", "authors", "publication_year", "source_record_id"]
   },
   "cleaning": {
     "normalize_doi": true,
@@ -92,17 +110,11 @@
     "normalize_author_names": true,
     "normalize_institutions": true,
     "valid_year": {
-      "minimum": 2000,
+      "minimum": 1950,
       "maximum": 2026
     },
-    "required_fields": [
-      "title"
-    ],
-    "optional_fields": [
-      "doi",
-      "abstract",
-      "keywords"
-    ]
+    "required_fields": ["title"],
+    "optional_fields": ["doi", "abstract", "keywords"]
   },
   "deduplication": {
     "enabled": true,
@@ -129,11 +141,13 @@
     }
   },
   "categories": [
+    "Computer Science",
     "Engineering",
     "Medicine",
+    "Agriculture",
     "Social Sciences",
-    "Natural Sciences",
-    "Humanities"
+    "Business",
+    "Natural Sciences"
   ],
   "publication_types": [
     "journal-article",
@@ -146,20 +160,11 @@
     "citation_analysis": true,
     "collaboration_analysis": true,
     "topic_analysis": true,
-    "trend_analysis": true
-  },
-  "dashboard": {
-    "title": "Sri Lanka National Research Portal",
-    "export_formats": [
-      "csv",
-      "json"
-    ]
+    "trend_analysis": true,
+    "semantic_search": true
   },
   "export": {
     "output_dir": "outputs/sri_lanka",
-    "formats": [
-      "csv",
-      "json"
-    ]
+    "formats": ["csv", "json"]
   }
 }

@@ -53,7 +53,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test framework framework-validate framework-preview framework-sri-lanka framework-example openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report
+.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report
 
 # Show available targets and common overrides.
 help:
@@ -61,12 +61,8 @@ help:
 	@echo ""
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
-	@echo "  make framework               Run the reusable national framework pipeline, default NATIONAL_CONFIG=$(NATIONAL_CONFIG)"
-	@echo "  make framework-validate      Validate/preview source mapping before full framework import"
-	@echo "  make framework-preview       Show transformed sample records from the framework pipeline"
-	@echo "  make framework-sri-lanka     Run Sri Lanka as the first national framework implementation"
-	@echo "  make framework-example       Run the second-country reusability demonstration"
-	@echo "  make openalex                Legacy Sri Lanka-specific OpenAlex collection script"
+	@echo "  make publication-counts      Compare publication counts across source datasets"
+	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
 	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
 	@echo "  make openalex-resume         Resume an interrupted OpenAlex collection"
 	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
@@ -88,25 +84,9 @@ install:
 test:
 	$(PYTHON) -m pytest
 
-# Run the reusable national research analytics framework.
-framework:
-	$(PYTHON) -m research_analytics.cli run-all --config $(NATIONAL_CONFIG)
-
-# Validate the selected national source before full import.
-framework-validate:
-	$(PYTHON) -m research_analytics.cli source-validate --config $(NATIONAL_CONFIG) --sample-size $(NATIONAL_SAMPLE_SIZE)
-
-# Preview transformed records from the selected national framework config.
-framework-preview:
-	$(PYTHON) -m research_analytics.cli preview --config $(NATIONAL_CONFIG) --sample-size $(NATIONAL_SAMPLE_SIZE)
-
-# Run Sri Lanka through the reusable framework pipeline.
-framework-sri-lanka:
-	$(PYTHON) -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
-
-# Run the second-country proof with the same framework code.
-framework-example:
-	$(PYTHON) -m research_analytics.cli run-all --config configurations/example_country/config.json
+# Compare raw and estimated unique publication counts for each source file.
+publication-counts:
+	$(PYTHON) scripts/compare_publication_counts.py
 
 # Run the full OpenAlex API collection pipeline.
 # Legacy path: this writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts,

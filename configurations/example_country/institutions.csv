@@ -1,11 +1,14 @@
-institution_id,preferred_name,alternative_name,country_code,ror_id,parent_institution_id
-EX001,Example National University,Example National University,EX,,
-EX001,Example National University,ENU,EX,,
-EX002,Example Institute of Technology,Example Institute of Technology,EX,,
-EX002,Example Institute of Technology,EIT,EX,,
-EX003,Example Medical Research Institute,Example Medical Research Institute,EX,,
-EX003,Example Medical Research Institute,EMRI,EX,,
-EX004,Example Open University,Example Open University,EX,,
-EX004,Example Open University,EOU,EX,,
-EX005,National Policy Research Centre,National Policy Research Centre,EX,,
-EX005,National Policy Research Centre,NPRC,EX,,
+institution_id,preferred_name,alternative_name,country_code,ror_id,parent_institution_id,institution_type
+EX001,Example National University,Example National University,EX,,,university
+EX001,Example National University,ENU,EX,,,university
+EX001,Example National University,Example University,EX,,,university
+EX001,Example National University,Example Univ.,EX,,,university
+EX002,Example Institute of Technology,Example Institute of Technology,EX,,,university
+EX002,Example Institute of Technology,EIT,EX,,,university
+EX003,Example Medical Research Institute,Example Medical Research Institute,EX,,,research_institute
+EX003,Example Medical Research Institute,EMRI,EX,,,research_institute
+EX004,Example Open University,Example Open University,EX,,,university
+EX004,Example Open University,EOU,EX,,,university
+EX005,National Policy Research Centre,National Policy Research Centre,EX,,,policy_center
+EX005,National Policy Research Centre,NPRC,EX,,,policy_center
+EX006,Other University,OU,EX,,,university
