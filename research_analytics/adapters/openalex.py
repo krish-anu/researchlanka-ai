@@ -7,6 +7,7 @@ from typing import Any
 from typing import Iterator
 
 from src.collectors.openalex_collector import OpenAlexCollector, build_filters
+from src.preprocessing.openalex_normalizer import detected_country_codes
 from src.preprocessing.openalex_normalizer import work_to_row
 
 from research_analytics.adapters.base import SourceAdapter
@@ -38,6 +39,7 @@ class OpenAlexAdapter(SourceAdapter):
         api_key: str | None = None,
         per_page: int = 200,
         max_records: int | None = None,
+        strict_country_only: bool = False,
         retry_limit: int = 3,
         retry_backoff_seconds: float = 2.0,
         column_mapping: dict[str, str] | None = None,
@@ -58,6 +60,7 @@ class OpenAlexAdapter(SourceAdapter):
         self.end_year = end_year
         self.per_page = per_page
         self.max_records = max_records
+        self.strict_country_only = strict_country_only
         self.column_mapping = {
             **DEFAULT_OPENALEX_COLUMN_MAPPING,
             **(column_mapping or {}),
@@ -92,11 +95,12 @@ class OpenAlexAdapter(SourceAdapter):
         cursor: str | None = "*"
         seen_cursors: set[str] = set()
         logger.info(
-            "OpenAlex collection started: country=%s years=%s-%s max_records=%s",
+            "OpenAlex collection started: country=%s years=%s-%s max_records=%s strict_country_only=%s",
             self.country_code,
             self.start_year or "*",
             self.end_year or "*",
             self.max_records if self.max_records is not None else "all",
+            self.strict_country_only,
         )
         while cursor:
             if cursor in seen_cursors:
@@ -111,8 +115,12 @@ class OpenAlexAdapter(SourceAdapter):
             )
             results = _as_list(response.get("results"))
             page_yielded = 0
+            page_skipped = 0
             for work in results:
                 if not isinstance(work, dict):
+                    continue
+                if not self._matches_country_scope(work):
+                    page_skipped += 1
                     continue
                 if self.max_records is not None and yielded >= self.max_records:
                     logger.info("OpenAlex collection reached max_records=%s", self.max_records)
@@ -123,15 +131,23 @@ class OpenAlexAdapter(SourceAdapter):
             meta = response.get("meta", {})
             api_total = meta.get("count") if isinstance(meta, dict) else None
             logger.info(
-                "OpenAlex page %s complete: fetched=%s yielded=%s total_yielded=%s api_total=%s",
+                "OpenAlex page %s complete: fetched=%s yielded=%s skipped=%s total_yielded=%s api_total=%s",
                 page_number,
                 len(results),
                 page_yielded,
+                page_skipped,
                 yielded,
                 api_total if api_total is not None else "unknown",
             )
             cursor = meta.get("next_cursor") if isinstance(meta, dict) else None
         logger.info("OpenAlex collection complete: %s records", yielded)
+
+    def _matches_country_scope(self, work: dict[str, Any]) -> bool:
+        if not self.strict_country_only:
+            return True
+        if not self.country_code:
+            return False
+        return detected_country_codes(work) == {self.country_code.upper()}
 
     def transform(self, record: dict) -> dict:
         row = work_to_row(record)

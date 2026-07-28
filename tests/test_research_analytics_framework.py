@@ -422,3 +422,58 @@ def test_openalex_adapter_honors_configured_category_mapping():
         "research": [1],
     }
     assert transformed["_provenance"]["raw_record_format"] == "openalex_api_work"
+
+
+def test_openalex_adapter_can_restrict_collection_to_configured_country_only():
+    class FakeCollector:
+        def fetch_works(self, **kwargs):
+            return {
+                "results": [
+                    {
+                        "id": "https://openalex.org/W-SG",
+                        "title": "Singapore only",
+                        "authorships": [
+                            {
+                                "countries": ["SG"],
+                                "institutions": [
+                                    {
+                                        "display_name": "National University of Singapore",
+                                        "country_code": "SG",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    {
+                        "id": "https://openalex.org/W-MIXED",
+                        "title": "Singapore collaboration",
+                        "authorships": [
+                            {
+                                "countries": ["SG", "US"],
+                                "institutions": [
+                                    {
+                                        "display_name": "National University of Singapore",
+                                        "country_code": "SG",
+                                    },
+                                    {
+                                        "display_name": "Example US University",
+                                        "country_code": "US",
+                                    },
+                                ],
+                            }
+                        ],
+                    },
+                ],
+                "meta": {"next_cursor": None, "count": 2},
+            }
+
+    strict_adapter = OpenAlexAdapter(country_code="SG", strict_country_only=True)
+    strict_adapter.collector = FakeCollector()
+    broad_adapter = OpenAlexAdapter(country_code="SG", strict_country_only=False)
+    broad_adapter.collector = FakeCollector()
+
+    assert [record["id"] for record in strict_adapter.collect()] == ["https://openalex.org/W-SG"]
+    assert [record["id"] for record in broad_adapter.collect()] == [
+        "https://openalex.org/W-SG",
+        "https://openalex.org/W-MIXED",
+    ]
