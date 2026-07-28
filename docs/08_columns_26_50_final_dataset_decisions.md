@@ -8,7 +8,7 @@
 Reproduce every figure below with:
 
 ```bash
-python scripts/profile_common_dataset.py --report-dir data/reports/profile
+python scripts/column_analysis/analyze_second_25_columns.py --report-dir data/reports/column_analysis
 ```
 
 ## Executive Decision
