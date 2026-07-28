@@ -29,7 +29,7 @@ PROJECT_ROOT = next(
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.processing.kaggle_merge_common_dataset import COMMON_COLUMNS  # noqa: E402
+from src.pipeline.kaggle_merge_common_dataset import COMMON_COLUMNS  # noqa: E402
 
 
 DEFAULT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_deduplicated.csv"

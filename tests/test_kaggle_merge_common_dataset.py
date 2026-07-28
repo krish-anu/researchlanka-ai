@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from scripts.processing.kaggle_merge_common_dataset import (
+from src.pipeline.kaggle_merge_common_dataset import (
     COMMON_COLUMNS,
     build_manual_review_candidates,
     deduplicate_publications,
