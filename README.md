@@ -68,6 +68,7 @@ git push origin feature/openalex-collector
 ## Useful Docs
 
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
+- [Metadata Quality Report Index](docs/00_metadata_quality_report_index.md) - missing values, completeness, conflicts, and final column decisions
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
 - [Contributing Guide](CONTRIBUTING.md)
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
@@ -93,6 +94,29 @@ Run the OpenAlex pipeline with Crossref DOI enrichment in one command:
 ```bash
 python scripts/kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com
 ```
+
+## Common Dataset Pipeline
+
+Merge the four source CSVs into one deduplicated dataset, then build the cleaned final
+dataset and its reference sidecar:
+
+```bash
+python scripts/kaggle_merge_common_dataset.py
+python scripts/build_final_common_dataset.py
+```
+
+Outputs land in `data/processed/common/`. Column keep/drop decisions are documented in
+[docs/07](docs/07_last_26_columns_final_dataset_decisions.md) and
+[docs/08](docs/08_columns_26_50_final_dataset_decisions.md).
+
+Profile any of the resulting CSVs - coverage, distinct values, per-source completeness,
+value counts, and automatic duplicate-column detection:
+
+```bash
+python scripts/profile_common_dataset.py --report-dir data/reports/profile
+```
+
+The profiler reads in chunks, so it works on the full multi-hundred-megabyte outputs.
 
 ## Team
 
