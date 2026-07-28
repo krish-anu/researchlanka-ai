@@ -77,12 +77,12 @@ institution - most dead ends are already documented with dates.**
 All scripts run from the project root with no extra dependencies beyond
 `requirements.txt` (only `requests` is used for collection).
 
-### 1. `scripts/validate_repositories.py` - check endpoints before harvesting
+### 1. `scripts/quality/validate_repositories.py` - check endpoints before harvesting
 
 ```bash
-python scripts/validate_repositories.py                  # all harvestable targets
-python scripts/validate_repositories.py --phase phase_1
-python scripts/validate_repositories.py --ids kln,sjp    # force-check specific ids
+python scripts/quality/validate_repositories.py                  # all harvestable targets
+python scripts/quality/validate_repositories.py --phase phase_1
+python scripts/quality/validate_repositories.py --ids kln,sjp    # force-check specific ids
 ```
 
 For each target: OAI `Identify` + `ListMetadataFormats`, plus a
@@ -95,32 +95,32 @@ plain-`http` and `www.` variants, and retries once without TLS
 verification (flagged, never silent) to tell bad-cert hosts from dead
 hosts. Writes `data/reports/repository_validation_<timestamp>.json`.
 
-### 2. `scripts/harvest_oai.py` - harvest one repository via OAI-PMH
+### 2. `scripts/collection/harvest_oai.py` - harvest one repository via OAI-PMH
 
 ```bash
-python scripts/harvest_oai.py --list             # show harvestable ids
-python scripts/harvest_oai.py --id uom
-python scripts/harvest_oai.py --id nsf --max-records 20   # test run
+python scripts/collection/harvest_oai.py --list             # show harvestable ids
+python scripts/collection/harvest_oai.py --id uom
+python scripts/collection/harvest_oai.py --id nsf --max-records 20   # test run
 ```
 
 Streams `ListRecords` with resumption-token pagination into
 `data/raw/<id>/oai_dc.jsonl`. Keeps partial results if the server dies
 mid-harvest. Honours the registry's `ssl_verify_failed` flag per host.
 
-### 3. `scripts/harvest_all.py` - bulk OAI harvest of every live target
+### 3. `scripts/collection/harvest_all.py` - bulk OAI harvest of every live target
 
 ```bash
-python scripts/harvest_all.py --max-records-per-target 0   # 0 = no cap
+python scripts/collection/harvest_all.py --max-records-per-target 0   # 0 = no cap
 ```
 
 Runs the OAI harvest for every harvestable registry target, continuing
 past per-institution failures, and writes a summary to
 `data/reports/harvest_summary_<timestamp>.json`.
 
-### 4. `scripts/harvest_large_repository.py` - date-sliced OAI workaround
+### 4. `scripts/collection/harvest_large_repository.py` - date-sliced OAI workaround
 
 ```bash
-python scripts/harvest_large_repository.py --id ruh --start-year 1990
+python scripts/collection/harvest_large_repository.py --id ruh --start-year 1990
 ```
 
 Several DSpace hosts (cmb, ruh, seu, uwu) crash with HTTP 500 partway
@@ -132,10 +132,10 @@ first**: it rescued ruh (96%) and cmb (98%), made seu *worse* (use plain
 `harvest_oai.py` there), and cannot help uwu (every date-filtered query
 crashes). cmb and uwu are now better served by the REST route anyway.
 
-### 5. `scripts/harvest_dspace_rest.py` - DSpace 7/8 REST route
+### 5. `scripts/collection/harvest_dspace_rest.py` - DSpace 7/8 REST route
 
 ```bash
-python scripts/harvest_dspace_rest.py --id nsf
+python scripts/collection/harvest_dspace_rest.py --id nsf
 ```
 
 Pages through the public discover endpoint
@@ -145,10 +145,10 @@ Pages through the public discover endpoint
 nsf, busl** (empty OAI index) and **cmb, uwu** (OAI pagination bugs) -
 all five harvested to 100% this way.
 
-### 6. `scripts/harvest_html_meta.py` - HTML meta-tag crawl (last resort)
+### 6. `scripts/collection/harvest_html_meta.py` - HTML meta-tag crawl (last resort)
 
 ```bash
-python scripts/harvest_html_meta.py --id jfn_research
+python scripts/collection/harvest_html_meta.py --id jfn_research
 ```
 
 For legacy DSpace with dead OAI, no REST, and no sitemap (the two Jaffna
@@ -159,20 +159,20 @@ poses no restriction (both Jaffna hosts return 404 for robots.txt, i.e.
 no restrictions declared). Deliberately slow (0.5s delay); expect hours
 for a full run.
 
-### 7. `scripts/discover_sitemap.py` - sitemap-based URL discovery
+### 7. `scripts/collection/discover_sitemap.py` - sitemap-based URL discovery
 
 ```bash
-python scripts/discover_sitemap.py --id uom --max-urls 100
+python scripts/collection/discover_sitemap.py --id uom --max-urls 100
 ```
 
 Discovers item URLs from `sitemap_index.xml`/`sitemap.xml`. Currently a
 diagnostic tool (no metadata extraction); kept for future use.
 
-### 8. `scripts/map_to_common_schema.py` - unify into the common schema
+### 8. `scripts/processing/map_to_common_schema.py` - unify into the common schema
 
 ```bash
-python scripts/map_to_common_schema.py --all
-python scripts/map_to_common_schema.py --id uom
+python scripts/processing/map_to_common_schema.py --all
+python scripts/processing/map_to_common_schema.py --id uom
 ```
 
 Maps each institution's raw records into the common publication schema
@@ -181,10 +181,10 @@ that captured the most records wins**; routes are never merged, so the
 same item can't appear twice. Prints which route was used per
 institution.
 
-### 9. `scripts/convert_repositories_jsonl_to_csv.py` - Excel-friendly export
+### 9. `scripts/processing/convert_repositories_jsonl_to_csv.py` - Excel-friendly export
 
 ```bash
-python scripts/convert_repositories_jsonl_to_csv.py
+python scripts/processing/convert_repositories_jsonl_to_csv.py
 ```
 
 Flattens every processed file into
@@ -192,10 +192,10 @@ Flattens every processed file into
 `; `). Close the CSV in Excel before re-running - Windows locks open
 files.
 
-### 10. `scripts/validate_harvested_data.py` - coverage & quality report
+### 10. `scripts/quality/validate_harvested_data.py` - coverage & quality report
 
 ```bash
-python scripts/validate_harvested_data.py
+python scripts/quality/validate_harvested_data.py
 ```
 
 Per institution: raw vs mapped record counts, duplicate source IDs,
@@ -277,17 +277,17 @@ are needed for topic modelling, request official SLJOL access from NSF.
 
 ```bash
 # 1. (optional) re-check endpoint health
-python scripts/validate_repositories.py
+python scripts/quality/validate_repositories.py
 
 # 2. harvest per route (see registry harvest_route field)
-python scripts/harvest_all.py --max-records-per-target 0        # OAI targets
-python scripts/harvest_dspace_rest.py --id pdn                  # + nsf, busl, cmb, uwu
-python scripts/harvest_html_meta.py --id jfn_research           # + jfn_medicine (slow)
+python scripts/collection/harvest_all.py --max-records-per-target 0        # OAI targets
+python scripts/collection/harvest_dspace_rest.py --id pdn                  # + nsf, busl, cmb, uwu
+python scripts/collection/harvest_html_meta.py --id jfn_research           # + jfn_medicine (slow)
 
 # 3. map, validate, export
-python scripts/map_to_common_schema.py --all
-python scripts/validate_harvested_data.py
-python scripts/convert_repositories_jsonl_to_csv.py
+python scripts/processing/map_to_common_schema.py --all
+python scripts/quality/validate_harvested_data.py
+python scripts/processing/convert_repositories_jsonl_to_csv.py
 ```
 
 Do not run two harvesters for the same institution concurrently - they

@@ -5,7 +5,7 @@
 **Columns reviewed:** columns 1-25, from `source_dataset` through `author_affiliations`  
 **Purpose:** decide which first-block columns should be kept, merged, harmonized, moved out of the main dataset, or dropped.
 
-> **Status:** implemented in `scripts/build_final_common_dataset.py`.
+> **Status:** implemented in `scripts/processing/build_final_common_dataset.py`.
 
 This completes the same style of column review already documented for columns 26-50 and 51-76.
 

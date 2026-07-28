@@ -7,8 +7,8 @@ whole run. Writes one JSONL file per institution plus a combined summary
 report.
 
 Examples:
-    python scripts/harvest_all.py --max-records-per-target 500
-    python scripts/harvest_all.py --phase phase_1 --max-records-per-target 200
+    python scripts/collection/harvest_all.py --max-records-per-target 500
+    python scripts/collection/harvest_all.py --phase phase_1 --max-records-per-target 200
 """
 
 from __future__ import annotations
@@ -21,7 +21,10 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests

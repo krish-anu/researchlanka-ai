@@ -5,13 +5,13 @@
 **Columns reviewed:** columns 51-76, from `oa_status` through `raw_source_json`  
 **Purpose:** decide which of the final 26 merged-dataset columns should be kept, merged, modified, deduplicated, moved to an audit/sidecar table, or dropped for a cleaner final dataset.
 
-> **Status:** implemented in `scripts/build_final_common_dataset.py`.
+> **Status:** implemented in `scripts/processing/build_final_common_dataset.py`.
 >
 > The coverage figures in this document were measured on an earlier build of
 > `common_publications_all_records.csv` (291,890 rows). The current build has 277,068
 > all-records rows and 170,365 deduplicated rows, so absolute counts here no longer match;
 > the relative decisions still hold. Re-measure with
-> `python scripts/column_analysis/analyze_final_26_columns.py` before quoting any
+> `python scripts/analysis/columns/analyze_final_26_columns.py` before quoting any
 > number from this document.
 >
 > Columns 26-50 are covered by

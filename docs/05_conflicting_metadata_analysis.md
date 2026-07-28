@@ -77,7 +77,7 @@ Full table: `conflicts_by_publication_type.csv`.
 
 The automated merge uses an explicit field-level source policy with record
 completeness as a tie-breaker inside each source. The built-in policy can be
-overridden with `scripts/kaggle_merge_common_dataset.py --field-source-policy`.
+overridden with `scripts/processing/kaggle_merge_common_dataset.py --field-source-policy`.
 Conflicting fields remain auditable in the merge log.
 
 | Field group | Automated action |

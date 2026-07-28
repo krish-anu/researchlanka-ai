@@ -1,8 +1,8 @@
 """Analyze columns 26-50 of the 76-column common publications dataset.
 
 Usage from the project root:
-    python scripts/column_analysis/analyze_second_25_columns.py
-    python scripts/column_analysis/analyze_second_25_columns.py --report-dir data/reports/column_analysis
+    python scripts/analysis/columns/analyze_second_25_columns.py
+    python scripts/analysis/columns/analyze_second_25_columns.py --report-dir data/reports/column_analysis
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from __future__ import annotations
 try:
     from analyze_first_25_columns import COMMON_COLUMNS, ColumnBlock, parse_args, run_analysis
 except ModuleNotFoundError:  # pragma: no cover - package import fallback
-    from scripts.column_analysis.analyze_first_25_columns import (
+    from scripts.analysis.columns.analyze_first_25_columns import (
         COMMON_COLUMNS,
         ColumnBlock,
         parse_args,

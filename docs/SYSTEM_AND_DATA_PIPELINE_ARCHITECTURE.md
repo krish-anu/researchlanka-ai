@@ -15,8 +15,8 @@ External APIs
   |-- SLJOL pages and article metadata
 
 Collection Layer
-  |-- scripts/kaggle_collect_openalex_sri_lanka.py
-  |-- scripts/collect_crossref.py
+  |-- scripts/collection/kaggle_collect_openalex_sri_lanka.py
+  |-- scripts/collection/collect_crossref.py
   |-- notebooks/03-sljol.ipynb
 
 Raw and Interim Storage
@@ -26,10 +26,10 @@ Raw and Interim Storage
 Preprocessing and Normalization
   |-- src/preprocessing/openalex_normalizer.py
   |-- src/preprocessing/crossref_normalizer.py
-  |-- scripts/jsonl_to_csv.py
+  |-- scripts/processing/jsonl_to_csv.py
 
 Comparison and Quality Checks
-  |-- scripts/compare_dois.py
+  |-- scripts/quality/compare_dois.py
   |-- tests/
 
 Processed Outputs
@@ -49,7 +49,7 @@ Future Application Layer
 OpenAlex collection is the primary source for Sri Lankan-affiliated works because OpenAlex exposes structured institution country codes. The current collector is:
 
 ```bash
-python scripts/kaggle_collect_openalex_sri_lanka.py --max-records 1000
+python scripts/collection/kaggle_collect_openalex_sri_lanka.py --max-records 1000
 ```
 
 The collector:
@@ -220,14 +220,14 @@ or `/kaggle/working/openalex_outputs/` on Kaggle.
 
 | Area | Current file |
 |---|---|
-| OpenAlex collection | `scripts/kaggle_collect_openalex_sri_lanka.py` |
+| OpenAlex collection | `scripts/collection/kaggle_collect_openalex_sri_lanka.py` |
 | OpenAlex normalization | `src/preprocessing/openalex_normalizer.py` |
 | OpenAlex analysis | `notebooks/analyze_openalex_sri_lanka_only.ipynb` |
-| Crossref collection | `scripts/collect_crossref.py` |
+| Crossref collection | `scripts/collection/collect_crossref.py` |
 | Crossref collector class | `src/collectors/crossref_collector.py` |
 | Crossref normalization | `src/preprocessing/crossref_normalizer.py` |
-| DOI comparison | `scripts/compare_dois.py` |
-| JSONL to CSV conversion | `scripts/jsonl_to_csv.py` |
+| DOI comparison | `scripts/quality/compare_dois.py` |
+| JSONL to CSV conversion | `scripts/processing/jsonl_to_csv.py` |
 | Tests | `tests/` |
 
 ## Execution Order
@@ -235,7 +235,7 @@ or `/kaggle/working/openalex_outputs/` on Kaggle.
 For a small validation run:
 
 ```bash
-python scripts/kaggle_collect_openalex_sri_lanka.py --max-records 1000
+python scripts/collection/kaggle_collect_openalex_sri_lanka.py --max-records 1000
 pytest -q
 ```
 

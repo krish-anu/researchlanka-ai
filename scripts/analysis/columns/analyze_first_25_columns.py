@@ -5,8 +5,8 @@ second-25 and final-26 wrappers, keeping the folder to the three requested
 analysis files.
 
 Usage from the project root:
-    python scripts/column_analysis/analyze_first_25_columns.py
-    python scripts/column_analysis/analyze_first_25_columns.py --report-dir data/reports/column_analysis
+    python scripts/analysis/columns/analyze_first_25_columns.py
+    python scripts/analysis/columns/analyze_first_25_columns.py --report-dir data/reports/column_analysis
 """
 
 from __future__ import annotations
@@ -22,11 +22,14 @@ import pandas as pd
 
 
 SCRIPT_PATH = Path(__file__).resolve()
-PROJECT_ROOT = SCRIPT_PATH.parents[2]
+PROJECT_ROOT = next(
+    (parent for parent in SCRIPT_PATH.parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.kaggle_merge_common_dataset import COMMON_COLUMNS  # noqa: E402
+from scripts.processing.kaggle_merge_common_dataset import COMMON_COLUMNS  # noqa: E402
 
 
 DEFAULT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_deduplicated.csv"

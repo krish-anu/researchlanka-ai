@@ -13,7 +13,7 @@ Kaggle usage:
        !python kaggle_merge_common_dataset.py
 
 Local usage from the project root:
-    python scripts/kaggle_merge_common_dataset.py
+    python scripts/processing/kaggle_merge_common_dataset.py
 
 Outputs are written to /kaggle/working by default:
     common_publications_all_records.csv
@@ -45,7 +45,10 @@ import pandas as pd
 
 
 SCRIPT_PATH = Path(__file__).resolve()
-PROJECT_ROOT = SCRIPT_PATH.parents[1] if SCRIPT_PATH.parent.name == "scripts" else Path.cwd()
+PROJECT_ROOT = next(
+    (parent for parent in SCRIPT_PATH.parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 LOCAL_INPUT_DIR = PROJECT_ROOT / "data" / "raw" / "Datasets" / "Final Datasets"
 LOCAL_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "common"
 
