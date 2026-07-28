@@ -10,6 +10,14 @@ docs/07_last_26_columns_final_dataset_decisions.md:
 * deduplicate selected semicolon-separated fields
 * move Crossref reference-list payloads to a sidecar table
 * drop sparse event fields and raw audit JSON from the main dataset
+
+It also applies the decisions documented in
+docs/08_columns_26_50_final_dataset_decisions.md:
+
+* drop container_title and source_name, which duplicate journal exactly
+* drop page, which is derivable from first_page and last_page
+* drop rights, which holds a single constant value
+* drop editors and publisher_location, which are too sparse to analyze
 """
 
 from __future__ import annotations
@@ -43,6 +51,7 @@ DEFAULT_REFERENCES_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "publi
 DEFAULT_COUNT_AUDIT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "publication_count_audit.csv"
 DEFAULT_SUMMARY_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_summary.csv"
 
+# Columns 51-76, per docs/07_last_26_columns_final_dataset_decisions.md.
 DROP_FROM_MAIN = [
     "is_referenced_by_count",
     "referenced_works_count",
@@ -54,6 +63,13 @@ DROP_FROM_MAIN = [
     "event_end_date",
     "event_sponsor",
     "raw_source_json",
+    # Columns 26-50, per docs/08_columns_26_50_final_dataset_decisions.md.
+    "container_title",
+    "source_name",
+    "page",
+    "rights",
+    "editors",
+    "publisher_location",
 ]
 
 MULTI_VALUE_COLUMNS = [
