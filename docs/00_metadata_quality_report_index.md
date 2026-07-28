@@ -10,6 +10,7 @@ This report set finalizes four analysis tasks using OpenAlex, Crossref, and Loca
 | Field-level data-quality statistics | [06_field_level_data_quality.md](06_field_level_data_quality.md) | 02, 03, **04** | `notebooks/outputs/notebook04/` |
 | Final 26-column dataset decisions | [07_last_26_columns_final_dataset_decisions.md](07_last_26_columns_final_dataset_decisions.md) | merged common dataset | `data/processed/common/` |
 | Column 26-50 dataset decisions | [08_columns_26_50_final_dataset_decisions.md](08_columns_26_50_final_dataset_decisions.md) | `scripts/profile_common_dataset.py` | `data/reports/profile/` |
+| Column 1-25 dataset decisions | [09_columns_1_25_final_dataset_decisions.md](09_columns_1_25_final_dataset_decisions.md) | current 76-column deduplicated dataset | `data/processed/common/` |
 
 ## Notebooks
 

@@ -15,7 +15,11 @@
 >
 > Columns 26-50 are covered by
 > [08_columns_26_50_final_dataset_decisions.md](08_columns_26_50_final_dataset_decisions.md),
-> which also carries the full 76 -> 60 column accounting for the final dataset.
+> while columns 1-25 are covered by
+> [09_columns_1_25_final_dataset_decisions.md](09_columns_1_25_final_dataset_decisions.md).
+> Together, the current implemented decisions reduce the original 76-column schema to
+> 52 surviving source columns, plus 4 generated count comparison columns in the main
+> dataset, for 56 final columns.
 
 ## Executive Decision
 

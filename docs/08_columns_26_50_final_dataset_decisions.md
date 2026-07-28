@@ -332,10 +332,11 @@ Measured effect on the real dataset:
 
 Row count is unchanged - no records are lost, only columns.
 
-Columns 1-25 have not yet been given a formal decision document. Confirmed exact duplicates
-in that block are `landing_page_url` (= `url`), `publication_type` (= `type`), and
-`author_names` (= `authors`); `created_date` and `published_date` add zero rows beyond
-`publication_date`. Acting on those would give a projected width of **52**.
+Columns 1-25 are now formally reviewed in
+[09_columns_1_25_final_dataset_decisions.md](09_columns_1_25_final_dataset_decisions.md),
+and the additional first-block drops are implemented in `scripts/build_final_common_dataset.py`.
+The current clean main dataset target is **56** columns: 52 surviving original-schema
+columns plus 4 generated count comparison columns.
 
 ## Implementation
 

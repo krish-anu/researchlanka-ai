@@ -18,6 +18,15 @@ docs/08_columns_26_50_final_dataset_decisions.md:
 * drop page, which is derivable from first_page and last_page
 * drop rights, which holds a single constant value
 * drop editors and publisher_location, which are too sparse to analyze
+
+It also applies the decisions documented in
+docs/09_columns_1_25_final_dataset_decisions.md:
+
+* drop landing_page_url, publication_type, and author_names, which duplicate
+  url, type, and authors exactly
+* drop created_date and published_date from the main dataset because they add
+  no coverage beyond publication_date
+* drop subtitle, original_title, and subtype, which are too sparse to analyze
 """
 
 from __future__ import annotations
@@ -70,6 +79,15 @@ DROP_FROM_MAIN = [
     "rights",
     "editors",
     "publisher_location",
+    # Columns 1-25, per docs/09_columns_1_25_final_dataset_decisions.md.
+    "landing_page_url",
+    "subtitle",
+    "original_title",
+    "created_date",
+    "published_date",
+    "subtype",
+    "publication_type",
+    "author_names",
 ]
 
 MULTI_VALUE_COLUMNS = [
