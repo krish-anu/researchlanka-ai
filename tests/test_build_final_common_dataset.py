@@ -89,6 +89,44 @@ def test_clean_final_dataset_applies_last_26_column_decisions():
         assert column not in cleaned.columns
 
 
+def test_clean_final_dataset_applies_columns_26_50_decisions():
+    df = pd.DataFrame(
+        {
+            "doi": ["10.1000/test"],
+            "source_dataset": ["openalex"],
+            "source_record_id": ["10.1000/test"],
+            "journal": ["Ceylon Medical Journal"],
+            "container_title": ["Ceylon Medical Journal"],
+            "source_name": ["Ceylon Medical Journal"],
+            "page": ["1-6"],
+            "first_page": ["1"],
+            "last_page": ["6"],
+            "rights": ["This content is protected by copyright."],
+            "editors": ["An Editor"],
+            "publisher_location": ["Cham"],
+            "publisher": ["Springer"],
+        }
+    )
+
+    cleaned = clean_final_dataset(df)
+
+    for column in [
+        "container_title",
+        "source_name",
+        "page",
+        "rights",
+        "editors",
+        "publisher_location",
+    ]:
+        assert column not in cleaned.columns
+
+    # The surviving fields must keep the information the dropped ones carried.
+    assert cleaned.loc[0, "journal"] == "Ceylon Medical Journal"
+    assert cleaned.loc[0, "first_page"] == "1"
+    assert cleaned.loc[0, "last_page"] == "6"
+    assert cleaned.loc[0, "publisher"] == "Springer"
+
+
 def test_build_final_common_dataset_writes_reference_sidecar(tmp_path):
     input_csv = tmp_path / "input.csv"
     output_csv = tmp_path / "final.csv"
