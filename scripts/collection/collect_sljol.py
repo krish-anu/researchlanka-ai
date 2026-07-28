@@ -6,8 +6,8 @@ the sanctioned route to the same bibliographic metadata. See
 docs/DATA_COLLECTION.md and the registry notes for background.
 
 Examples:
-    python scripts/collect_sljol.py --email you@example.com --max-records 50
-    python scripts/collect_sljol.py --email you@example.com
+    python scripts/collection/collect_sljol.py --email you@example.com --max-records 50
+    python scripts/collection/collect_sljol.py --email you@example.com
 """
 
 from __future__ import annotations
@@ -17,7 +17,10 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests

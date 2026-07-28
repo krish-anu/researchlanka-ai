@@ -8,7 +8,7 @@
 Reproduce every figure below with:
 
 ```bash
-python scripts/profile_common_dataset.py --report-dir data/reports/profile
+python scripts/analysis/columns/analyze_second_25_columns.py --report-dir data/reports/column_analysis
 ```
 
 ## Executive Decision
@@ -306,7 +306,7 @@ Roughly 40% of journal articles lack volume/page data. This is a hard ceiling on
 
 ## Resulting Schema Width
 
-These decisions are **implemented**. `scripts/build_final_common_dataset.py` now produces a
+These decisions are **implemented**. `scripts/processing/build_final_common_dataset.py` now produces a
 60-column dataset. Full accounting of the 16 columns removed between the merged schema and
 the final dataset:
 
@@ -332,15 +332,16 @@ Measured effect on the real dataset:
 
 Row count is unchanged - no records are lost, only columns.
 
-Columns 1-25 have not yet been given a formal decision document. Confirmed exact duplicates
-in that block are `landing_page_url` (= `url`), `publication_type` (= `type`), and
-`author_names` (= `authors`); `created_date` and `published_date` add zero rows beyond
-`publication_date`. Acting on those would give a projected width of **52**.
+Columns 1-25 are now formally reviewed in
+[09_columns_1_25_final_dataset_decisions.md](09_columns_1_25_final_dataset_decisions.md),
+and the additional first-block drops are implemented in `scripts/processing/build_final_common_dataset.py`.
+The current clean main dataset target is **56** columns: 52 surviving original-schema
+columns plus 4 generated count comparison columns.
 
 ## Implementation
 
 The six drops are in the `DROP_FROM_MAIN` list in
-[scripts/build_final_common_dataset.py](../scripts/build_final_common_dataset.py), grouped
+[scripts/processing/build_final_common_dataset.py](../scripts/processing/build_final_common_dataset.py), grouped
 under a comment naming this document so each entry traces to its decision:
 
 ```python

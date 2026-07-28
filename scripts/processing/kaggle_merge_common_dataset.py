@@ -13,7 +13,7 @@ Kaggle usage:
        !python kaggle_merge_common_dataset.py
 
 Local usage from the project root:
-    python scripts/kaggle_merge_common_dataset.py
+    python scripts/processing/kaggle_merge_common_dataset.py
 
 Outputs are written to /kaggle/working by default:
     common_publications_all_records.csv
@@ -45,7 +45,10 @@ import pandas as pd
 
 
 SCRIPT_PATH = Path(__file__).resolve()
-PROJECT_ROOT = SCRIPT_PATH.parents[1] if SCRIPT_PATH.parent.name == "scripts" else Path.cwd()
+PROJECT_ROOT = next(
+    (parent for parent in SCRIPT_PATH.parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 LOCAL_INPUT_DIR = PROJECT_ROOT / "data" / "raw" / "Datasets" / "Final Datasets"
 LOCAL_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "common"
 
@@ -188,9 +191,9 @@ COLUMN_DESCRIPTIONS = {
     "license_url": "License URL.",
     "oa_status": "Open access status.",
     "is_oa": "Whether the work is open access.",
-    "cited_by_count": "Citation count, preferring source-specific citation fields.",
-    "is_referenced_by_count": "Crossref citation count.",
-    "reference_count": "Number of references cited by the publication.",
+    "cited_by_count": "Best available citation count selected by merge ordering.",
+    "is_referenced_by_count": "Crossref citation count; kept separately from OpenAlex cited_by_count.",
+    "reference_count": "Best available reference count selected by merge ordering.",
     "referenced_works_count": "OpenAlex referenced works count.",
     "references_json": "Structured reference list from Crossref.",
     "concepts": "OpenAlex concepts.",
@@ -242,11 +245,59 @@ MULTI_VALUE_COLUMNS = {
     "raw_identifiers",
 }
 
-SOURCE_PRIORITY = {
-    "openalex": 0,
-    "crossref": 1,
-    "sljol": 2,
-    "repositories_combined": 3,
+PROVENANCE_COLUMNS = {
+    "source_dataset",
+    "source_institution_id",
+    "source_record_id",
+    "source_datestamp",
+    "source_set_specs",
+    "raw_identifiers",
+}
+
+DEFAULT_FIELD_SOURCE_POLICY = {
+    "doi": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "openalex_id": ["openalex"],
+    "title": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "publication_year": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "publication_date": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "published_date": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "type": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "subtype": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "publication_type": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "abstract": ["crossref", "repositories_combined", "sljol", "openalex"],
+    "publisher": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "publisher_location": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "journal": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "container_title": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "source_name": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "source_type": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "issn_l": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "volume": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "issue": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "page": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "first_page": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "last_page": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "article_number": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "language": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "rights": ["repositories_combined", "sljol", "crossref", "openalex"],
+    "license": ["crossref", "openalex", "repositories_combined", "sljol"],
+    "license_url": ["crossref", "openalex", "repositories_combined", "sljol"],
+    "oa_status": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "is_oa": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "cited_by_count": ["openalex", "crossref"],
+    "is_referenced_by_count": ["crossref"],
+    "reference_count": ["crossref", "openalex"],
+    "referenced_works_count": ["openalex"],
+    "references_json": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "primary_topic": ["openalex"],
+    "primary_field": ["openalex"],
+    "primary_subfield": ["openalex"],
+    "primary_domain": ["openalex"],
+    "event_name": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "event_acronym": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "event_location": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "event_start_date": ["crossref", "openalex", "sljol", "repositories_combined"],
+    "event_end_date": ["crossref", "openalex", "sljol", "repositories_combined"],
 }
 
 BLANK_STRINGS = {"", "nan", "none", "null", "na", "n/a", "[]", "{}"}
@@ -593,6 +644,37 @@ def normalize_key_text(value: Any) -> str:
     return "".join(output).strip()
 
 
+def normalize_field_source_policy(value: Any) -> dict[str, list[str]]:
+    if not isinstance(value, dict):
+        raise ValueError("Field source policy must be a JSON object mapping field names to source lists.")
+
+    policy: dict[str, list[str]] = {}
+    for column, sources in value.items():
+        if column not in COMMON_COLUMNS:
+            raise ValueError(f"Unknown field in source policy: {column}")
+        if not isinstance(sources, list) or not all(isinstance(source, str) for source in sources):
+            raise ValueError(f"Source policy for {column} must be a list of source dataset names.")
+
+        cleaned_sources = [source.strip() for source in sources if source.strip()]
+        if not cleaned_sources:
+            raise ValueError(f"Source policy for {column} must include at least one source.")
+        policy[column] = cleaned_sources
+
+    return policy
+
+
+def load_field_source_policy(path: Path | None) -> dict[str, list[str]]:
+    policy = {column: list(sources) for column, sources in DEFAULT_FIELD_SOURCE_POLICY.items()}
+    if path is None:
+        return policy
+
+    with path.open(encoding="utf-8") as handle:
+        overrides = normalize_field_source_policy(json.load(handle))
+
+    policy.update(overrides)
+    return policy
+
+
 def coalesce_columns(df: pd.DataFrame, candidates: list[str]) -> pd.Series:
     result = pd.Series(pd.NA, index=df.index, dtype="object")
 
@@ -670,7 +752,6 @@ def normalize_openalex(
     assign_column(output, "type", df, ["type"])
     assign_column(output, "publication_type", df, ["type"])
     assign_column(output, "cited_by_count", df, ["cited_by_count"], normalize_int)
-    assign_column(output, "is_referenced_by_count", df, ["cited_by_count"], normalize_int)
     assign_column(output, "author_count", df, ["author_count"], normalize_int)
     assign_column(output, "authors", df, ["authors"], unique_text)
     assign_column(output, "author_names", df, ["authors"], unique_text)
@@ -837,9 +918,6 @@ def finalize_common_frame(df: pd.DataFrame) -> pd.DataFrame:
     fill_from(df, "journal", ["container_title", "source_name"])
     fill_from(df, "container_title", ["journal", "source_name"])
     fill_from(df, "source_name", ["journal", "container_title"])
-    fill_from(df, "cited_by_count", ["is_referenced_by_count"])
-    fill_from(df, "reference_count", ["referenced_works_count"])
-
     missing_year = df["publication_year"].map(is_blank)
     if missing_year.any():
         df.loc[missing_year, "publication_year"] = df.loc[missing_year, "publication_date"].map(
@@ -939,23 +1017,61 @@ def manual_review_info(row: pd.Series) -> tuple[str, str, str] | None:
 
 
 def completeness_score(row: pd.Series) -> int:
-    ignored = {"source_dataset", "source_record_id", "source_datestamp", "raw_source_json"}
+    ignored = {
+        "source_dataset",
+        "source_record_id",
+        "source_datestamp",
+        "raw_source_json",
+    }
     return sum(not is_blank(row[column]) for column in COMMON_COLUMNS if column not in ignored)
 
 
-def merge_group(group: pd.DataFrame) -> dict[str, Any]:
+def ordered_group(
+    group: pd.DataFrame,
+    *,
+    column: str | None = None,
+    field_source_policy: dict[str, list[str]] | None = None,
+) -> pd.DataFrame:
     ordered = group.copy()
-    ordered["_source_priority"] = ordered["source_dataset"].map(SOURCE_PRIORITY).fillna(99)
     ordered["_completeness"] = ordered.apply(completeness_score, axis=1)
-    ordered = ordered.sort_values(
-        ["_completeness", "_source_priority"],
-        ascending=[False, True],
+    sort_columns = ["_completeness"]
+    ascending = [False]
+
+    if column is not None and field_source_policy is not None and column in field_source_policy:
+        source_order = {
+            source: index
+            for index, source in enumerate(field_source_policy[column])
+        }
+        ordered["_field_source_priority"] = (
+            ordered["source_dataset"].map(source_order).fillna(len(source_order) + 99)
+        )
+        sort_columns.insert(0, "_field_source_priority")
+        ascending.insert(0, True)
+
+    return ordered.sort_values(
+        sort_columns,
+        ascending=ascending,
         kind="stable",
     )
+
+
+def merge_group(
+    group: pd.DataFrame,
+    *,
+    field_source_policy: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    if field_source_policy is None:
+        field_source_policy = DEFAULT_FIELD_SOURCE_POLICY
 
     merged: dict[str, Any] = {}
 
     for column in COMMON_COLUMNS:
+        ordered = ordered_group(
+            group,
+            column=column,
+            field_source_policy=field_source_policy,
+        )
+
         if column in MULTI_VALUE_COLUMNS:
             seen: set[str] = set()
             values: list[str] = []
@@ -988,6 +1104,78 @@ def first_nonblank(*values: Any) -> Any:
     return pd.NA
 
 
+def comparable_value(column: str, value: Any) -> Any:
+    if is_blank(value):
+        return pd.NA
+
+    if column == "doi":
+        return normalize_doi(value)
+    if column == "title":
+        return normalize_title_key(value)
+    if column == "publication_year":
+        return normalize_year(value)
+    if column in {
+        "cited_by_count",
+        "is_referenced_by_count",
+        "reference_count",
+        "referenced_works_count",
+        "author_count",
+    }:
+        return normalize_int(value)
+    if column in {"is_oa"}:
+        return normalize_bool(value)
+    if column in MULTI_VALUE_COLUMNS:
+        values = sorted({normalize_key_text(item) for item in split_multi_value(value)})
+        return ";".join(values) if values else pd.NA
+
+    return normalize_key_text(clean_text(value))
+
+
+def conflict_fields(group: pd.DataFrame) -> Any:
+    skipped = PROVENANCE_COLUMNS | {"raw_source_json"}
+    fields: list[str] = []
+
+    for column in COMMON_COLUMNS:
+        if column in skipped:
+            continue
+
+        values = {
+            comparable
+            for value in group[column]
+            if not is_blank(comparable := comparable_value(column, value))
+        }
+        if len(values) > 1:
+            fields.append(column)
+
+    return "; ".join(fields) if fields else pd.NA
+
+
+def numeric_difference(left: Any, right: Any) -> Any:
+    left_number = normalize_int(left)
+    right_number = normalize_int(right)
+
+    if is_blank(left_number) or is_blank(right_number):
+        return pd.NA
+
+    return int(left_number) - int(right_number)
+
+
+def first_source_value(group: pd.DataFrame, column: str, source_dataset: str) -> Any:
+    source_rows = group.loc[group["source_dataset"] == source_dataset]
+    if source_rows.empty:
+        return pd.NA
+
+    ordered = source_rows.copy()
+    ordered["_completeness"] = ordered.apply(completeness_score, axis=1)
+    ordered = ordered.sort_values("_completeness", ascending=False, kind="stable")
+
+    for value in ordered[column]:
+        if not is_blank(value):
+            return value
+
+    return pd.NA
+
+
 def merge_log_row(
     merged_row_number: int,
     merge_key: str,
@@ -998,6 +1186,14 @@ def merge_log_row(
     merge_method = first_text(group["_merge_method"].iloc[0])
     merge_reason = first_text(group["_merge_reason"].iloc[0])
     source_datasets = unique_series_text(group["source_dataset"])
+    citation_difference = numeric_difference(
+        first_source_value(group, "cited_by_count", "openalex"),
+        first_source_value(group, "is_referenced_by_count", "crossref"),
+    )
+    reference_difference = numeric_difference(
+        first_source_value(group, "referenced_works_count", "openalex"),
+        first_source_value(group, "reference_count", "crossref"),
+    )
 
     return {
         "merged_row_number": merged_row_number,
@@ -1017,6 +1213,15 @@ def merge_log_row(
         "final_authors": first_nonblank(merged.get("author_names"), merged.get("authors")),
         "final_journal": first_nonblank(merged.get("journal"), merged.get("container_title")),
         "non_empty_final_fields": completeness_score(pd.Series(merged)),
+        "conflict_fields": conflict_fields(group),
+        "citation_count_difference_oa_minus_crossref": citation_difference,
+        "citation_count_divergence_flag": (
+            abs(citation_difference) >= 10 if not is_blank(citation_difference) else pd.NA
+        ),
+        "reference_count_difference_oa_minus_crossref": reference_difference,
+        "reference_count_divergence_flag": (
+            reference_difference != 0 if not is_blank(reference_difference) else pd.NA
+        ),
         "input_row_numbers": "; ".join(str(index + 1) for index in group.index),
     }
 
@@ -1046,6 +1251,11 @@ def singleton_merge_log_row(
         "final_authors": first_nonblank(row["author_names"], row["authors"]),
         "final_journal": first_nonblank(row["journal"], row["container_title"]),
         "non_empty_final_fields": completeness_score(pd.Series(merged)),
+        "conflict_fields": pd.NA,
+        "citation_count_difference_oa_minus_crossref": pd.NA,
+        "citation_count_divergence_flag": pd.NA,
+        "reference_count_difference_oa_minus_crossref": pd.NA,
+        "reference_count_divergence_flag": pd.NA,
         "input_row_numbers": str(row["_input_row_number"]),
     }
 
@@ -1110,6 +1320,7 @@ def deduplicate_publications(
     all_records: pd.DataFrame,
     *,
     return_log: bool = False,
+    field_source_policy: dict[str, list[str]] | None = None,
 ) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
     working = all_records.copy()
     merge_infos = [
@@ -1130,7 +1341,7 @@ def deduplicate_publications(
 
     duplicate_records = working.loc[working["_group_size"] > 1]
     for merge_key, group in duplicate_records.groupby("_merge_key", sort=False, dropna=False):
-        merged = merge_group(group)
+        merged = merge_group(group, field_source_policy=field_source_policy)
         duplicate_group_outputs[str(merge_key)] = (
             merged,
             merge_log_row(0, str(merge_key), group, merged),
@@ -1284,6 +1495,7 @@ def write_run_log(
         f"Output directory: {args.output_dir}",
         f"Sample rows per source: {args.sample_rows or 'all'}",
         f"Included raw_source_json: {bool(args.include_raw_json)}",
+        f"Field source policy: {args.field_source_policy or 'built-in default'}",
         "",
         "Input files:",
     ]
@@ -1379,6 +1591,15 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Read only the first N rows from each input file for a quick local test.",
     )
+    parser.add_argument(
+        "--field-source-policy",
+        type=Path,
+        default=None,
+        help=(
+            "Optional JSON object mapping common-schema fields to source-dataset "
+            "ordered source lists. Unspecified fields use the built-in policy."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1399,6 +1620,7 @@ def main() -> None:
         print(f"\nSample mode: reading first {args.sample_rows:,} rows from each file.")
 
     source_frames: dict[str, pd.DataFrame] = {}
+    field_source_policy = load_field_source_policy(args.field_source_policy)
     print("\nNormalizing input files...", flush=True)
     for source_dataset, path in input_paths.items():
         print(f"  Normalizing {source_dataset}...", flush=True)
@@ -1421,7 +1643,11 @@ def main() -> None:
     all_records.to_csv(all_records_path, index=False)
 
     print("Deduplicating and building merge log...", flush=True)
-    deduplicated, merge_log = deduplicate_publications(all_records, return_log=True)
+    deduplicated, merge_log = deduplicate_publications(
+        all_records,
+        return_log=True,
+        field_source_policy=field_source_policy,
+    )
 
     print(f"Writing deduplicated records -> {deduplicated_path}", flush=True)
     deduplicated.to_csv(deduplicated_path, index=False)

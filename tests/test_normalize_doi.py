@@ -1,6 +1,6 @@
 """Tests for DOI normalization and comparison."""
 
-from scripts.compare_dois import normalize_doi
+from scripts.quality.compare_dois import normalize_doi
 
 
 def test_normalize_doi_url_with_dx():

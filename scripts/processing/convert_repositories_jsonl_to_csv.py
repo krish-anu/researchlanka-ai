@@ -5,8 +5,8 @@ By default combines every institution's JSONL file into one CSV. Pass a
 single file as --input to convert just one institution.
 
 Examples:
-    python scripts/convert_repositories_jsonl_to_csv.py
-    python scripts/convert_repositories_jsonl_to_csv.py --input data/processed/repositories/uom.jsonl --output data/processed/uom.csv
+    python scripts/processing/convert_repositories_jsonl_to_csv.py
+    python scripts/processing/convert_repositories_jsonl_to_csv.py --input data/processed/repositories/uom.jsonl --output data/processed/uom.csv
 """
 
 from __future__ import annotations
@@ -17,7 +17,10 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 DEFAULT_INPUT_DIR = PROJECT_ROOT / "data" / "processed" / "repositories"
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "repositories_combined.csv"
 

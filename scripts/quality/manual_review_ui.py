@@ -8,7 +8,7 @@ It writes:
     data/processed/common/manual_review_decisions.csv
 
 Run:
-    python scripts/manual_review_ui.py
+    python scripts/quality/manual_review_ui.py
 
 Then open:
     http://127.0.0.1:8765
@@ -31,7 +31,10 @@ from urllib.parse import parse_qs, urlparse
 import pandas as pd
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data" / "processed" / "common"
 DEFAULT_CANDIDATES_CSV = DEFAULT_DATA_DIR / "common_publications_manual_review_candidates.csv"
 DEFAULT_ALL_RECORDS_CSV = DEFAULT_DATA_DIR / "common_publications_all_records.csv"

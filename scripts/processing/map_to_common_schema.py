@@ -2,8 +2,8 @@
 project's common publication-metadata schema.
 
 Examples:
-    python scripts/map_to_common_schema.py --id uom
-    python scripts/map_to_common_schema.py --all
+    python scripts/processing/map_to_common_schema.py --id uom
+    python scripts/processing/map_to_common_schema.py --all
 """
 
 from __future__ import annotations
@@ -13,7 +13,10 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.schema_mapping import (

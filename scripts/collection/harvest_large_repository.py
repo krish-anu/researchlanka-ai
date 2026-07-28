@@ -11,8 +11,8 @@ pagination from page 1. If a given date range still hits the bug
 retry each half recursively until it succeeds or hits a 1-day minimum.
 
 Examples:
-    python scripts/harvest_large_repository.py --id cmb
-    python scripts/harvest_large_repository.py --id ruh --start-year 2015
+    python scripts/collection/harvest_large_repository.py --id cmb
+    python scripts/collection/harvest_large_repository.py --id ruh --start-year 2015
 """
 
 from __future__ import annotations
@@ -23,7 +23,10 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests

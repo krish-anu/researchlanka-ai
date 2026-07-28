@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from scripts.kaggle_merge_common_dataset import (
+from scripts.processing.kaggle_merge_common_dataset import (
     COMMON_COLUMNS,
     build_manual_review_candidates,
     deduplicate_publications,
@@ -122,3 +122,142 @@ def test_deduplicate_still_auto_merges_normalized_doi_matches():
     assert len(deduplicated) == 1
     assert merge_log.loc[0, "was_merged"]
     assert merge_log.loc[0, "merge_method"] == "doi"
+
+
+def test_deduplicate_uses_default_field_source_policy_and_logs_conflicts():
+    records = pd.DataFrame(
+        [
+            common_row(
+                source_dataset="crossref",
+                source_record_id="10.1000/policy",
+                doi="10.1000/policy",
+                title="Crossref title",
+                publication_year="2022",
+                authors="Crossref Author",
+                author_names="Crossref Author",
+                abstract="Crossref abstract",
+                issn="1234-5678",
+                is_referenced_by_count="20",
+                reference_count="30",
+                funder_name="Crossref Funder",
+            ),
+            common_row(
+                source_dataset="openalex",
+                source_record_id="https://openalex.org/W-policy",
+                openalex_id="https://openalex.org/W-policy",
+                doi="https://doi.org/10.1000/policy",
+                title="OpenAlex title",
+                publication_year="2024",
+                authors="OpenAlex Author",
+                author_names="OpenAlex Author",
+                journal="OpenAlex Journal",
+                cited_by_count="5",
+                referenced_works_count="10",
+            ),
+            common_row(
+                source_dataset="repositories_combined",
+                source_record_id="repo-policy",
+                doi="10.1000/policy",
+                title="Repository title",
+                publication_year="2023",
+                abstract="Repository abstract",
+                keywords="Repository Keyword",
+                author_names=pd.NA,
+            ),
+        ],
+        columns=COMMON_COLUMNS,
+    )
+
+    deduplicated, merge_log = deduplicate_publications(records, return_log=True)
+    merged = deduplicated.loc[0]
+
+    assert len(deduplicated) == 1
+    assert merged["title"] == "Crossref title"
+    assert merged["publication_year"] == "2022"
+    assert merged["authors"] == "Crossref Author; OpenAlex Author"
+    assert merged["author_names"] == "Crossref Author; OpenAlex Author"
+    assert merged["journal"] == "OpenAlex Journal"
+    assert merged["abstract"] == "Crossref abstract"
+    assert merged["issn"] == "1234-5678"
+    assert merged["keywords"] == "Repository Keyword"
+    assert merged["cited_by_count"] == "5"
+    assert merged["is_referenced_by_count"] == "20"
+    assert merged["referenced_works_count"] == "10"
+    assert merged["reference_count"] == "30"
+    assert merged["funder_name"] == "Crossref Funder"
+    assert merged["source_dataset"] == "crossref; openalex; repositories_combined"
+    assert "title" in merge_log.loc[0, "conflict_fields"]
+    assert merge_log.loc[0, "citation_count_difference_oa_minus_crossref"] == -15
+    assert merge_log.loc[0, "citation_count_divergence_flag"]
+    assert merge_log.loc[0, "reference_count_difference_oa_minus_crossref"] == -20
+    assert merge_log.loc[0, "reference_count_divergence_flag"]
+
+
+def test_deduplicate_field_policy_falls_back_to_available_values():
+    records = pd.DataFrame(
+        [
+            common_row(
+                source_dataset="openalex",
+                source_record_id="https://openalex.org/W-missing-count",
+                openalex_id="https://openalex.org/W-missing-count",
+                doi="https://doi.org/10.1000/missing-count",
+                title="OpenAlex title",
+                journal="OpenAlex Journal",
+                concepts="Concept A",
+                topics="Topic A",
+                cited_by_count=pd.NA,
+                referenced_works_count=pd.NA,
+            ),
+            common_row(
+                source_dataset="crossref",
+                source_record_id="10.1000/missing-count",
+                doi="10.1000/missing-count",
+                title="Crossref title",
+                cited_by_count="42",
+                is_referenced_by_count="42",
+                reference_count="12",
+            ),
+        ],
+        columns=COMMON_COLUMNS,
+    )
+
+    deduplicated, merge_log = deduplicate_publications(records, return_log=True)
+    merged = deduplicated.loc[0]
+
+    assert merged["title"] == "Crossref title"
+    assert merged["journal"] == "OpenAlex Journal"
+    assert merged["cited_by_count"] == "42"
+    assert merged["is_referenced_by_count"] == "42"
+    assert merged["reference_count"] == "12"
+    assert pd.isna(merge_log.loc[0, "citation_count_difference_oa_minus_crossref"])
+    assert pd.isna(merge_log.loc[0, "reference_count_difference_oa_minus_crossref"])
+
+
+def test_deduplicate_allows_field_source_policy_override():
+    records = pd.DataFrame(
+        [
+            common_row(
+                source_dataset="crossref",
+                source_record_id="10.1000/override",
+                doi="10.1000/override",
+                title="Crossref title",
+                abstract="Crossref abstract",
+            ),
+            common_row(
+                source_dataset="openalex",
+                source_record_id="https://openalex.org/W-override",
+                doi="https://doi.org/10.1000/override",
+                title="OpenAlex title",
+            ),
+        ],
+        columns=COMMON_COLUMNS,
+    )
+
+    deduplicated, _ = deduplicate_publications(
+        records,
+        return_log=True,
+        field_source_policy={"title": ["openalex", "crossref"]},
+    )
+
+    assert deduplicated.loc[0, "title"] == "OpenAlex title"
+    assert deduplicated.loc[0, "abstract"] == "Crossref abstract"

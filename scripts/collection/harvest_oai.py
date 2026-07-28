@@ -1,10 +1,10 @@
 """Harvest publication records from a Sri Lankan repository via OAI-PMH.
 
 Examples:
-    python scripts/harvest_oai.py --list
-    python scripts/harvest_oai.py --id nsf --max-records 20
-    python scripts/harvest_oai.py --id uom --set col_123456789_1
-    python scripts/harvest_oai.py --endpoint https://dl.nsf.gov.lk/server/oai/request --output data/raw/nsf/oai_dc.jsonl
+    python scripts/collection/harvest_oai.py --list
+    python scripts/collection/harvest_oai.py --id nsf --max-records 20
+    python scripts/collection/harvest_oai.py --id uom --set col_123456789_1
+    python scripts/collection/harvest_oai.py --endpoint https://dl.nsf.gov.lk/server/oai/request --output data/raw/nsf/oai_dc.jsonl
 """
 
 from __future__ import annotations
@@ -14,7 +14,10 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = next(
+    (parent for parent in Path(__file__).resolve().parents if (parent / "src").is_dir()),
+    Path.cwd(),
+)
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
