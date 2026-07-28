@@ -102,6 +102,7 @@ def build_adapter_from_config(config: FrameworkConfig) -> SourceAdapter:
             max_records=source.options.get("max_records"),
             retry_limit=config.collection.retry_limit,
             retry_backoff_seconds=config.collection.request_delay_seconds,
+            **common_kwargs,
         )
     if source_type == "crossref":
         return adapter_class(

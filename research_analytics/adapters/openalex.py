@@ -11,9 +11,18 @@ from src.preprocessing.openalex_normalizer import work_to_row
 
 from research_analytics.adapters.base import SourceAdapter
 from research_analytics.schema import map_to_standard_schema
+from research_analytics.transformations import apply_transformations
 
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_OPENALEX_COLUMN_MAPPING = {
+    "openalex_id": "publication_id",
+    "type": "publication_type",
+    "cited_by_count": "citation_count",
+    "landing_page_url": "source_url",
+}
 
 
 class OpenAlexAdapter(SourceAdapter):
@@ -31,12 +40,34 @@ class OpenAlexAdapter(SourceAdapter):
         max_records: int | None = None,
         retry_limit: int = 3,
         retry_backoff_seconds: float = 2.0,
+        column_mapping: dict[str, str] | None = None,
+        transformations: dict[str, dict[str, Any]] | None = None,
+        source_name: str = "openalex",
+        required_fields: tuple[str, ...] = ("title",),
+        require_any_fields: tuple[str, ...] = (
+            "doi",
+            "authors",
+            "publication_year",
+            "source_record_id",
+        ),
+        adapter_version: str = "1.0",
+        mapping_version: str = "1.0",
     ) -> None:
         self.country_code = country_code
         self.start_year = start_year
         self.end_year = end_year
         self.per_page = per_page
         self.max_records = max_records
+        self.column_mapping = {
+            **DEFAULT_OPENALEX_COLUMN_MAPPING,
+            **(column_mapping or {}),
+        }
+        self.transformations = transformations or {}
+        self.source_name = source_name
+        self.required_fields = required_fields
+        self.require_any_fields = require_any_fields
+        self.adapter_version = adapter_version
+        self.mapping_version = mapping_version
         self.collector = OpenAlexCollector(
             email=email,
             api_key=api_key,
@@ -104,20 +135,44 @@ class OpenAlexAdapter(SourceAdapter):
 
     def transform(self, record: dict) -> dict:
         row = work_to_row(record)
-        return map_to_standard_schema(
+        mapped = map_to_standard_schema(
             row,
-            {
-                "openalex_id": "publication_id",
-                "type": "publication_type",
-                "cited_by_count": "citation_count",
-                "landing_page_url": "source_url",
-            },
-            source_name="openalex",
+            self.column_mapping,
+            source_name=self.source_name,
+            adapter_version=self.adapter_version,
+            mapping_version=self.mapping_version,
         )
+        transformed = apply_transformations(mapped, self.transformations)
+        transformed["raw_record"] = record
+        provenance = dict(transformed.get("_provenance") or {})
+        provenance["raw_record_format"] = "openalex_api_work"
+        transformed["_provenance"] = provenance
+        return transformed
 
     def validate(self, record: dict) -> list[str]:
-        return [] if record.get("title") else ["Missing required field: title"]
+        errors = []
+        for field in self.required_fields:
+            if _is_blank(record.get(field)):
+                errors.append(f"Missing required field: {field}")
+        if self.require_any_fields and not any(
+            not _is_blank(record.get(field)) for field in self.require_any_fields
+        ):
+            errors.append(
+                "At least one identifying field is required: "
+                + ", ".join(self.require_any_fields)
+            )
+        return errors
 
 
 def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
+
+
+def _is_blank(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, list):
+        return not value
+    return False

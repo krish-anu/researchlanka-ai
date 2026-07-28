@@ -4,6 +4,7 @@ import json
 from research_analytics import ResearchPipeline, load_config, map_to_standard_schema
 from research_analytics.adapters import SOURCE_REGISTRY
 from research_analytics.adapters.api import APIAdapter
+from research_analytics.adapters.openalex import OpenAlexAdapter
 from research_analytics.adapters.registry import get_source_adapter
 from research_analytics.analytics import run_field_aware_analytics
 from research_analytics.cli import run_stage
@@ -355,3 +356,69 @@ def test_generic_api_adapter_collects_paginated_records_and_transforms(monkeypat
     assert transformed["publication_year"] == 2025
     assert transformed["source_specific_metadata"] == {"faculty": "Engineering"}
     assert adapter.validate(transformed) == []
+
+
+def test_openalex_adapter_honors_configured_category_mapping():
+    adapter = OpenAlexAdapter(
+        country_code="SG",
+        column_mapping={
+            "openalex_id": "publication_id",
+            "source_name": "journal",
+            "concepts": "categories",
+            "topics": "topics",
+            "cited_by_count": "citation_count",
+        },
+        source_name="openalex_singapore",
+    )
+
+    transformed = adapter.transform(
+        {
+            "id": "https://openalex.org/W1",
+            "doi": "https://doi.org/10.123/example",
+            "title": "Singapore category paper",
+            "publication_year": 2026,
+            "type": "article",
+            "cited_by_count": 7,
+            "primary_location": {
+                "landing_page_url": "https://doi.org/10.123/example",
+                "source": {
+                    "display_name": "Example Journal",
+                    "host_organization_name": "Example Publisher",
+                },
+            },
+            "concepts": [
+                {"display_name": "Computer science"},
+                {"display_name": "Artificial intelligence"},
+            ],
+            "topics": [{"display_name": "Machine Learning"}],
+            "abstract_inverted_index": {"Singapore": [0], "research": [1]},
+            "awards": [{"id": "https://openalex.org/G1", "funder_display_name": "Grantor"}],
+            "authorships": [
+                {
+                    "author": {"display_name": "A. Author"},
+                    "countries": ["SG"],
+                    "institutions": [
+                        {
+                            "display_name": "National University of Singapore",
+                            "country_code": "SG",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert transformed["source_name"] == "openalex_singapore"
+    assert transformed["journal"] == "Example Journal"
+    assert transformed["categories"] == "Computer science; Artificial intelligence"
+    assert transformed["topics"] == "Machine Learning"
+    assert transformed["citation_count"] == 7
+    assert transformed["raw_record"]["id"] == "https://openalex.org/W1"
+    assert transformed["raw_record"]["awards"] == [
+        {"id": "https://openalex.org/G1", "funder_display_name": "Grantor"}
+    ]
+    assert transformed["raw_record"]["abstract_inverted_index"] == {
+        "Singapore": [0],
+        "research": [1],
+    }
+    assert transformed["_provenance"]["raw_record_format"] == "openalex_api_work"
