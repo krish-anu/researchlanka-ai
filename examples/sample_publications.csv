@@ -1,8 +1,0 @@
-record_id,paper_name,researcher,university,published_year,doi,keywords,citation_count,countries
-EX-001,Reusable national research analytics,Asha Example; Ben Example,Example National University,2024,https://doi.org/10.1234/example.1,"research analytics; open data",12,EX
-EX-002,Reusable national research analytics,A. Example; B. Example,ENU,2024,10.1234/example.1,"research analytics; open data",12,EX
-EX-003,Open data dashboards for policy,Cara Example,National Policy Research Centre,2023,,"dashboards; policy",5,EX
-EX-004,Cross-border clinical collaboration,Devi Example; Noor Partner,Example Medical Research Institute,2022,10.1234/example.4,"clinical research; collaboration",9,EX;MY
-EX-005,Machine learning for crop prediction,Asha Example,Example University,2021,https://doi.org/10.1000/example1,"machine learning; agriculture",12,EX
-EX-006,Machine learning for crop prediction,A. Example,EU,2021,10.1000/example1,"machine learning; agriculture",12,EX
-EX-007,Digital health adoption in universities,Ravi Sample,Example Univ.,2023,,"health; education",5,EX;US

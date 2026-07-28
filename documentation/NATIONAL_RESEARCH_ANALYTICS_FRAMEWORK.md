@@ -2,28 +2,25 @@
 
 ## Project Objective
 
-To design and implement a reusable, configurable framework that integrates
-heterogeneous scholarly publication data and produces national-level research
-analytics, with Sri Lanka used as the primary implementation and evaluation
-context.
+To design and implement a Sri Lanka national-level framework that integrates
+heterogeneous scholarly publication data and produces national research
+analytics.
 
 ## Target Scope
 
-This is not mainly a framework for arbitrary datasets. It is a framework for
-country-level scholarly publication integration and analytics. A ministry,
-research council, university consortium, or national research office should be
-able to reuse the same processing code by changing:
+This is a Sri Lanka national scholarly publication integration and analytics
+framework. Its configuration captures:
 
-- Country name and country code.
+- Sri Lanka country name and country code.
 - Year coverage.
-- National institution registry.
+- Sri Lanka institution registry.
 - Institution aliases and identifiers.
 - Data-source endpoints.
 - Publication types and categories.
 - Column mappings.
 - Deduplication thresholds.
 - Enabled analytics.
-- Dashboard title and labels.
+- Sri Lanka dashboard title and labels.
 - Export directory and formats.
 
 ## Architecture
@@ -65,11 +62,11 @@ Supported collaboration labels:
 
 ## Current Implementation
 
-- `research_analytics/config.py`: country, coverage, source, institution registry, analytics, and export configuration.
+- `research_analytics/config.py`: Sri Lanka coverage, source, institution registry, analytics, and export configuration.
 - `research_analytics/institutions.py`: national institution registry and alias resolution.
 - `research_analytics/schema.py`: common national publication metadata schema.
 - `research_analytics/adapters/`: OpenAlex, Crossref, OAI-PMH, REST API, CSV, JSON, Excel, and XML source adapters.
-- `research_analytics/pipeline.py`: reusable national processing pipeline.
+- `research_analytics/pipeline.py`: Sri Lanka national processing pipeline.
 - `research_analytics/analytics.py`: productivity, citation, data-quality, institution, keyword, and collaboration summaries.
 - `research_analytics/exporters.py`: standard national CSV/JSON exports.
 
@@ -90,27 +87,16 @@ source_records.json
 processing_errors.json
 ```
 
-## Reusability Proof
+## Main Sri Lanka Run
 
-Main demonstration:
+Run the Sri Lanka national pipeline:
 
 ```bash
 python -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
 ```
 
-Second-country proof:
-
-```bash
-python -m research_analytics.cli run-all --config configurations/example_country/config.json
-```
-
-The same collectors, schema, cleaning, deduplication, institution resolution,
-analytics, and export logic run for both. Only configuration and registry files
-change.
-
 ## Success Criterion
 
 The framework shall generate publication, impact, trend, topic, and
-collaboration analytics for Sri Lanka and shall demonstrate reusability on a
-second national dataset without modifying the core processing and analytics
-modules.
+collaboration analytics for Sri Lanka from the configured national data
+sources.

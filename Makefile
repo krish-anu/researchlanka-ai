@@ -74,7 +74,7 @@ help:
 	@echo "  OPENALEX_EMAIL=you@example.com"
 	@echo "  OPENALEX_EXTRA_ARGS='--strict-lk-only'"
 	@echo "  OPENALEX_DIR=data/processed/openalex"
-	@echo "  NATIONAL_CONFIG=configurations/example_country/config.json"
+	@echo "  NATIONAL_CONFIG=configurations/sri_lanka/config.json"
 
 # Install project dependencies into the configured virtual environment.
 install:

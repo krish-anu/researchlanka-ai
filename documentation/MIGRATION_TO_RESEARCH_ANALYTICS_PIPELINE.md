@@ -29,23 +29,6 @@ and writes national framework outputs to:
 outputs/sri_lanka/
 ```
 
-## Reusability Demonstration
-
-Use this command for the second-country proof:
-
-```bash
-make framework-example
-```
-
-Equivalent direct command:
-
-```bash
-python -m research_analytics.cli run-all --config configurations/example_country/config.json
-```
-
-The same framework code runs for Sri Lanka and the example country. Only
-configuration files, institution registries, and mappings change.
-
 ## Legacy Scripts
 
 The older scripts in `scripts/` remain available for collection, validation,

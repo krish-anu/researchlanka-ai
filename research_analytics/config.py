@@ -1,4 +1,4 @@
-"""Configuration loading for reusable framework runs."""
+"""Configuration loading for Sri Lanka national framework runs."""
 
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ class ValidationRules:
 class InputConfig:
     path: str | None = None
     format: str | None = None
-    source_name: str = "user_dataset"
+    source_name: str = "sri_lanka_dataset"
 
 
 @dataclass(frozen=True)

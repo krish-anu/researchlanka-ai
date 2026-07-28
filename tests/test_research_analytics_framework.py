@@ -58,8 +58,8 @@ def test_pipeline_runs_from_configuration_and_exports_reports(tmp_path):
         {
             "project": {
                 "name": "Second Dataset",
-                "country_name": "Example Country",
-                "country_code": "EX",
+                "country_name": "Sri Lanka",
+                "country_code": "LK",
             },
             "input": {
                 "path": str(dataset),
@@ -106,57 +106,83 @@ def test_pipeline_runs_from_configuration_and_exports_reports(tmp_path):
     assert len(rows) == 2
 
 
-def test_project_country_is_supplied_by_config_not_pipeline_code(tmp_path):
-    first = load_config("configurations/sri_lanka/config.json")
-    second = load_config("configurations/example_country/config.json")
+def test_sri_lanka_project_country_is_supplied_by_config_not_pipeline_code(tmp_path):
+    config = load_config("configurations/sri_lanka/config.json")
 
-    assert first.project.country_code == "LK"
-    assert second.project.country_code == "EX"
-    assert first.institution_registry.path == "configurations/sri_lanka/institutions.csv"
-    assert second.institution_registry.path == "configurations/example_country/institutions.csv"
-    assert first.input.path == "data/processed/repositories_combined.csv"
-    assert second.input.path == "examples/sample_publications.csv"
+    assert config.project.country_code == "LK"
+    assert config.project.country_name == "Sri Lanka"
+    assert config.institution_registry.path == "configurations/sri_lanka/institutions.csv"
+    assert config.input.path == "data/processed/repositories_combined.csv"
+    assert config.sources["openalex"]["options"]["strict_country_only"] is True
 
 
-def test_country_config_shape_can_select_first_enabled_source():
+def test_sri_lanka_source_config_shape_can_select_first_enabled_source():
     config = config_from_dict(
         {
-            "country": {"name": "Malaysia", "code": "MY"},
+            "country": {"name": "Sri Lanka", "code": "LK"},
             "coverage": {"start_year": 2020, "end_year": 2026},
-            "institution_registry": "configurations/example_country/institutions.csv",
+            "institution_registry": "configurations/sri_lanka/institutions.csv",
             "sources": {
                 "openalex": {
                     "enabled": True,
                     "endpoint": "https://api.openalex.org/works",
-                    "filter": "institutions.country_code:MY",
-                    "options": {"max_records": 10},
+                    "filter": "institutions.country_code:LK",
+                    "options": {"max_records": 10, "strict_country_only": True},
                 },
                 "local_repository": {
                     "enabled": False,
                     "adapter": "oai_pmh",
-                    "endpoint": "https://repo.example/oai",
+                    "endpoint": "https://repo.example.invalid/oai",
                 },
             },
-            "dashboard": {"title": "Malaysia Research Portal"},
+            "dashboard": {"title": "Sri Lankan Research Portal"},
         }
     )
 
-    assert config.project.country_name == "Malaysia"
-    assert config.project.country_code == "MY"
-    assert config.project.dashboard_title == "Malaysia Research Portal"
+    assert config.project.country_name == "Sri Lanka"
+    assert config.project.country_code == "LK"
+    assert config.project.dashboard_title == "Sri Lankan Research Portal"
     assert config.collection.start_year == 2020
     assert config.source.name == "openalex"
     assert config.source.type == "openalex"
     assert config.source.base_url == "https://api.openalex.org/works"
-    assert config.source.filter == "institutions.country_code:MY"
-    assert config.institution_registry.path == "configurations/example_country/institutions.csv"
+    assert config.source.filter == "institutions.country_code:LK"
+    assert config.source.options["strict_country_only"] is True
+    assert config.institution_registry.path == "configurations/sri_lanka/institutions.csv"
 
 
-def test_stage_runner_executes_all_pipeline_steps_from_config():
-    config = load_config("configurations/example_country/config.json")
+def test_stage_runner_executes_all_pipeline_steps_from_sri_lanka_shaped_config(tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text(
+        "\n".join(
+            [
+                "record_id,title,authors,institutions,publication_year,doi",
+                "1,Same title,A. Author,University of Colombo,2022,https://doi.org/10.1/ABC",
+                "2,Same title,A Author,UOC,2022,10.1/abc",
+                "3,Another title,B. Author,University of Peradeniya,2023,",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config = config_from_dict(
+        {
+            "country": {"name": "Sri Lanka", "code": "LK"},
+            "source": {"name": "sri_lanka_test_dataset", "type": "csv", "path": str(dataset)},
+            "column_mapping": {
+                "record_id": "source_record_id",
+                "title": "title",
+                "authors": "authors",
+                "institutions": "institutions",
+                "publication_year": "publication_year",
+                "doi": "doi",
+            },
+            "export": {"output_dir": str(tmp_path / "outputs")},
+        }
+    )
     output = run_stage(ResearchPipeline(config), "all")
 
-    assert output == "Run complete: 7 raw, 7 cleaned, 5 deduplicated."
+    assert output == "Run complete: 3 raw, 3 cleaned, 2 deduplicated."
 
 
 def test_national_institution_registry_resolves_aliases_and_collaboration_type(tmp_path):
@@ -165,26 +191,26 @@ def test_national_institution_registry_resolves_aliases_and_collaboration_type(t
         "\n".join(
             [
                 "institution_id,preferred_name,alternative_name,country_code,ror_id,parent_institution_id",
-                "MY001,University of Example,UOE,MY,,",
-                "MY002,National Research Institute,NRI,MY,,",
+                "LK001,University of Colombo,UOC,LK,,",
+                "LK002,National Research Institute,NRI,LK,,",
             ]
         )
         + "\n",
         encoding="utf-8",
     )
-    registry = NationalInstitutionRegistry.from_csv(registry_path, country_code="MY")
+    registry = NationalInstitutionRegistry.from_csv(registry_path, country_code="LK")
 
     record = {
         "title": "National collaboration",
-        "institutions": ["UOE", "NRI", "Foreign University"],
-        "countries": ["MY", "US"],
+        "institutions": ["UOC", "NRI", "Foreign University"],
+        "countries": ["LK", "US"],
     }
-    enriched = enrich_national_context(record, registry, national_country_code="MY")
+    enriched = enrich_national_context(record, registry, national_country_code="LK")
 
     assert enriched["national_association"] is True
-    assert enriched["national_institution_ids"] == ["MY001", "MY002"]
+    assert enriched["national_institution_ids"] == ["LK001", "LK002"]
     assert enriched["national_institutions"] == [
-        "University of Example",
+        "University of Colombo",
         "National Research Institute",
     ]
     assert enriched["unresolved_institutions"] == ["Foreign University"]
@@ -205,12 +231,14 @@ def test_field_aware_analytics_skips_missing_metadata():
 
 
 def test_cli_config_can_be_serialized_as_json(tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text("title\nSri Lanka paper\n", encoding="utf-8")
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
             {
                 "project": {"name": "Serializable"},
-                "input": {"path": "examples/sample_publications.csv", "format": "csv"},
+                "input": {"path": str(dataset), "format": "csv"},
             }
         ),
         encoding="utf-8",
@@ -360,7 +388,7 @@ def test_generic_api_adapter_collects_paginated_records_and_transforms(monkeypat
 
 def test_openalex_adapter_honors_configured_category_mapping():
     adapter = OpenAlexAdapter(
-        country_code="SG",
+        country_code="LK",
         column_mapping={
             "openalex_id": "publication_id",
             "source_name": "journal",
@@ -368,14 +396,14 @@ def test_openalex_adapter_honors_configured_category_mapping():
             "topics": "topics",
             "cited_by_count": "citation_count",
         },
-        source_name="openalex_singapore",
+        source_name="openalex_sri_lanka",
     )
 
     transformed = adapter.transform(
         {
             "id": "https://openalex.org/W1",
             "doi": "https://doi.org/10.123/example",
-            "title": "Singapore category paper",
+            "title": "Sri Lanka category paper",
             "publication_year": 2026,
             "type": "article",
             "cited_by_count": 7,
@@ -391,16 +419,16 @@ def test_openalex_adapter_honors_configured_category_mapping():
                 {"display_name": "Artificial intelligence"},
             ],
             "topics": [{"display_name": "Machine Learning"}],
-            "abstract_inverted_index": {"Singapore": [0], "research": [1]},
+            "abstract_inverted_index": {"Sri": [0], "Lanka": [1], "research": [2]},
             "awards": [{"id": "https://openalex.org/G1", "funder_display_name": "Grantor"}],
             "authorships": [
                 {
                     "author": {"display_name": "A. Author"},
-                    "countries": ["SG"],
+                    "countries": ["LK"],
                     "institutions": [
                         {
-                            "display_name": "National University of Singapore",
-                            "country_code": "SG",
+                            "display_name": "University of Colombo",
+                            "country_code": "LK",
                         }
                     ],
                 }
@@ -408,7 +436,7 @@ def test_openalex_adapter_honors_configured_category_mapping():
         }
     )
 
-    assert transformed["source_name"] == "openalex_singapore"
+    assert transformed["source_name"] == "openalex_sri_lanka"
     assert transformed["journal"] == "Example Journal"
     assert transformed["categories"] == "Computer science; Artificial intelligence"
     assert transformed["topics"] == "Machine Learning"
@@ -418,8 +446,9 @@ def test_openalex_adapter_honors_configured_category_mapping():
         {"id": "https://openalex.org/G1", "funder_display_name": "Grantor"}
     ]
     assert transformed["raw_record"]["abstract_inverted_index"] == {
-        "Singapore": [0],
-        "research": [1],
+        "Sri": [0],
+        "Lanka": [1],
+        "research": [2],
     }
     assert transformed["_provenance"]["raw_record_format"] == "openalex_api_work"
 
@@ -430,15 +459,15 @@ def test_openalex_adapter_can_restrict_collection_to_configured_country_only():
             return {
                 "results": [
                     {
-                        "id": "https://openalex.org/W-SG",
-                        "title": "Singapore only",
+                        "id": "https://openalex.org/W-LK",
+                        "title": "Sri Lanka only",
                         "authorships": [
                             {
-                                "countries": ["SG"],
+                                "countries": ["LK"],
                                 "institutions": [
                                     {
-                                        "display_name": "National University of Singapore",
-                                        "country_code": "SG",
+                                        "display_name": "University of Colombo",
+                                        "country_code": "LK",
                                     }
                                 ],
                             }
@@ -446,14 +475,14 @@ def test_openalex_adapter_can_restrict_collection_to_configured_country_only():
                     },
                     {
                         "id": "https://openalex.org/W-MIXED",
-                        "title": "Singapore collaboration",
+                        "title": "Sri Lanka collaboration",
                         "authorships": [
                             {
-                                "countries": ["SG", "US"],
+                                "countries": ["LK", "US"],
                                 "institutions": [
                                     {
-                                        "display_name": "National University of Singapore",
-                                        "country_code": "SG",
+                                        "display_name": "University of Colombo",
+                                        "country_code": "LK",
                                     },
                                     {
                                         "display_name": "Example US University",
@@ -467,13 +496,13 @@ def test_openalex_adapter_can_restrict_collection_to_configured_country_only():
                 "meta": {"next_cursor": None, "count": 2},
             }
 
-    strict_adapter = OpenAlexAdapter(country_code="SG", strict_country_only=True)
+    strict_adapter = OpenAlexAdapter(country_code="LK", strict_country_only=True)
     strict_adapter.collector = FakeCollector()
-    broad_adapter = OpenAlexAdapter(country_code="SG", strict_country_only=False)
+    broad_adapter = OpenAlexAdapter(country_code="LK", strict_country_only=False)
     broad_adapter.collector = FakeCollector()
 
-    assert [record["id"] for record in strict_adapter.collect()] == ["https://openalex.org/W-SG"]
+    assert [record["id"] for record in strict_adapter.collect()] == ["https://openalex.org/W-LK"]
     assert [record["id"] for record in broad_adapter.collect()] == [
-        "https://openalex.org/W-SG",
+        "https://openalex.org/W-LK",
         "https://openalex.org/W-MIXED",
     ]
