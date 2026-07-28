@@ -34,10 +34,11 @@ def convert_to_csv(jsonl_path: Path, csv_path: Path, chunksize: int = 10000) -> 
     if not jsonl_path.exists():
         raise FileNotFoundError(f"Input file not found: {jsonl_path}")
 
+    
     csv_path.unlink(missing_ok=True)
 
-    total = 0
     first_chunk = True
+    total=0
 
     try:
         for chunk in pd.read_json(jsonl_path, lines=True, chunksize=chunksize):
