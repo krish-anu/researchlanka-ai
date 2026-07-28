@@ -11,7 +11,8 @@
 > `common_publications_all_records.csv` (291,890 rows). The current build has 277,068
 > all-records rows and 170,365 deduplicated rows, so absolute counts here no longer match;
 > the relative decisions still hold. Re-measure with
-> `python scripts/profile_common_dataset.py` before quoting any number from this document.
+> `python scripts/column_analysis/analyze_final_26_columns.py` before quoting any
+> number from this document.
 >
 > Columns 26-50 are covered by
 > [08_columns_26_50_final_dataset_decisions.md](08_columns_26_50_final_dataset_decisions.md),

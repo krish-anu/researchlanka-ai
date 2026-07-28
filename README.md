@@ -135,14 +135,16 @@ Outputs land in `data/processed/common/`. Column keep/drop decisions are documen
 [docs/07](docs/07_last_26_columns_final_dataset_decisions.md) and
 [docs/08](docs/08_columns_26_50_final_dataset_decisions.md).
 
-Profile any of the resulting CSVs - coverage, distinct values, per-source completeness,
-value counts, and automatic duplicate-column detection:
+Profile the 76-column deduplicated dataset by column block - coverage, per-source
+completeness, decisions, and duplicate/redundancy checks:
 
 ```bash
-python scripts/profile_common_dataset.py --report-dir data/reports/profile
+python scripts/column_analysis/analyze_first_25_columns.py --report-dir data/reports/column_analysis
+python scripts/column_analysis/analyze_second_25_columns.py --report-dir data/reports/column_analysis
+python scripts/column_analysis/analyze_final_26_columns.py --report-dir data/reports/column_analysis
 ```
 
-The profiler reads in chunks, so it works on the full multi-hundred-megabyte outputs.
+The analyzers read in chunks, so they work on the full multi-hundred-megabyte outputs.
 
 ## Team
 
