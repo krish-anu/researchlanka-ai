@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from scripts.processing.build_final_common_dataset import (
+from src.pipeline.build_final_common_dataset import (
     build_final_common_dataset,
     build_count_audit_rows,
     clean_final_dataset,

@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.collection import kaggle_collect_openalex_sri_lanka as openalex_script
+from src.pipeline import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
 
 
