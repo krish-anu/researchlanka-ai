@@ -129,11 +129,13 @@ dataset and its reference sidecar:
 ```bash
 python scripts/processing/kaggle_merge_common_dataset.py
 python scripts/processing/build_final_common_dataset.py
+python scripts/processing/build_columns_filtered_dataset.py
 ```
 
 Outputs land in `data/processed/common/`. Column keep/drop decisions are documented in
-[docs/07](docs/07_last_26_columns_final_dataset_decisions.md) and
-[docs/08](docs/08_columns_26_50_final_dataset_decisions.md).
+[docs/07](docs/07_last_26_columns_final_dataset_decisions.md),
+[docs/08](docs/08_columns_26_50_final_dataset_decisions.md), and
+[docs/09](docs/09_columns_1_25_final_dataset_decisions.md).
 
 Profile the 76-column deduplicated dataset by column block - coverage, per-source
 completeness, decisions, and duplicate/redundancy checks:
