@@ -2,6 +2,10 @@
 
 Canonical schema for normalizing research publication metadata from multiple sources (OpenAlex, Crossref, repositories).
 
+The merge uses a configurable field-level source policy. The schema describes
+where evidence can come from; it does not mean every listed source has equal
+authority for every field.
+
 ---
 
 ## 1. Core Identification
@@ -48,7 +52,8 @@ Canonical schema for normalizing research publication metadata from multiple sou
 | `last_page`          | `last_page`      | `last_page`          | Article last page                      |
 | `article_number`     | -                | `article-number`     | Article number (for online journals)   |
 
-**Primary Sources:** Mostly OpenAlex and Crossref
+**Source signal:** OpenAlex and Crossref both provide useful venue evidence;
+the merge policy chooses the final scalar value and logs conflicts.
 
 ---
 
@@ -75,7 +80,8 @@ Canonical schema for normalizing research publication metadata from multiple sou
 | `sri_lankan_authors`      | -              | -              | Authors with LK affiliation  |
 | `sri_lankan_institutions` | -              | -              | Institutions from Sri Lanka  |
 
-**Primary Source:** Mostly OpenAlex and repository metadata
+**Source signal:** OpenAlex provides structured affiliation/country evidence;
+local repositories provide national provenance and local affiliation text.
 
 ---
 
@@ -87,7 +93,9 @@ Canonical schema for normalizing research publication metadata from multiple sou
 | `reference_count` | `referenced_works_count` | `reference-count`        | Number of references           |
 | `fwci`            | `fwci`                   | -                        | Field-Weighted Citation Impact |
 
-**Note:** OpenAlex updates citation counts regularly; Crossref may have historical data.
+**Note:** OpenAlex and Crossref citation/reference counts can describe different
+coverage. The public final dataset keeps best-available counts, while
+source-specific count values are written to `publication_count_audit.csv`.
 
 ---
 
@@ -100,7 +108,7 @@ Canonical schema for normalizing research publication metadata from multiple sou
 | `landing_page_url` | `landing_page_url` | `URL`          | Publisher landing page                  |
 | `pdf_url`          | -                  | -              | Direct PDF URL (if available)           |
 
-**Primary Source:** Mostly OpenAlex
+**Source signal:** OpenAlex is the main structured open-access source.
 
 ---
 
@@ -116,7 +124,8 @@ Canonical schema for normalizing research publication metadata from multiple sou
 | `concepts`         | Associated concepts/tags      | OpenAlex ML extraction     |
 | `sdgs`             | Sustainable Development Goals | Future ML enrichment       |
 
-**Primary Source:** OpenAlex AI/ML enrichment
+**Source signal:** OpenAlex supplies analytical topics/concepts; local keywords
+should be treated as separate repository/author evidence.
 
 ---
 
@@ -128,7 +137,8 @@ Canonical schema for normalizing research publication metadata from multiple sou
 
 **Structure:** `{name, doi, country}`
 
-**Primary Source:** OpenAlex + Crossref
+**Source signal:** Crossref and OpenAlex can both contribute funding evidence;
+the merge policy and conflict logs determine final values.
 
 ---
 
@@ -143,7 +153,8 @@ Canonical schema for normalizing research publication metadata from multiple sou
 | `event_end_date`   | -              | `event.end.date-parts`   | Event end date           |
 | `event_sponsor`    | -              | `event.sponsor`          | Sponsoring organizations |
 
-**Primary Source:** Mostly Crossref
+**Source signal:** Mostly Crossref; OpenAlex/local values may be supporting
+evidence when available.
 
 ---
 
@@ -184,7 +195,9 @@ OpenAlex API    Crossref API    Repositories
                      ↓
          Deduplication (DOI matching)
                      ↓
-         Final Publication Record
+         Field-Policy Merge + Conflict Log
+                     ↓
+         Final Publication Record + Audit Sidecars
 ```
 
 ---
@@ -193,6 +206,8 @@ OpenAlex API    Crossref API    Repositories
 
 - **DOI Normalization:** All DOIs normalized to lowercase, prefixes removed
 - **Date Handling:** Store as `[YYYY, MM, DD]` arrays for consistency
-- **Deduplication:** Primary key is normalized DOI; fallback to title + author matching
+- **Deduplication:** Auto-merge by normalized DOI or source record ID; title/year/author candidates require manual review
+- **Field policy:** Configurable source order for scalar fields, with completeness tie-breaking
+- **Audit sidecars:** Reference payloads and source-specific count values are kept outside the public final CSV
 - **Missing Fields:** Use `null` for unavailable data (not empty strings)
 - **Validation:** Required fields: `doi` or (`title` + `author_count`)

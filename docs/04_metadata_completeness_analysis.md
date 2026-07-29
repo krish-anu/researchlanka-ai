@@ -11,7 +11,7 @@
 - Map each **canonical field** to the real source columns (OpenAlex / Crossref / Local).
 - A record is complete for a field if **any** mapped column is non-empty (after treating `nan` / `[]` / `{}` as missing).
 - Score bands: Excellent ≥95%, Good ≥70%, Weak ≥30%, Poor &lt;30%.
-- OpenAlex is treated as **source of truth**; highest completeness alone does not override that policy.
+- OpenAlex has strong coverage for many identity and analytics fields, but the implemented merge uses a configurable field-level source policy with conflict logging.
 
 Column map (examples):
 
@@ -28,20 +28,20 @@ Column map (examples):
 
 ## 2. Completeness matrix (selected fields)
 
-| Field | OpenAlex % | Crossref % | Local % | Preferred primary | Action |
+| Field | OpenAlex % | Crossref % | Local % | Strong source signal | Suggested action |
 |-------|-----------:|-----------:|--------:|-------------------|--------|
-| title | 99.88 | 99.87 | 99.99 | OpenAlex | keep_openalex |
-| authors | 100 | 99.22 | 98.21 | OpenAlex | keep_openalex |
-| publication_year | 100 | 99.75 | 100 | OpenAlex | keep_openalex |
-| publication_type | 100 | 100 | 99.19 | OpenAlex | keep_openalex |
-| doi | 97.42 | 100 | 41.78 | OpenAlex | keep_openalex |
-| citation_count | 100 | 100 | 0 | OpenAlex | keep_openalex |
-| topics / research_field | ~98 / high | 0 | 0 | OpenAlex | keep_openalex |
-| open_access_status | 100 | 0 | 0 | OpenAlex | keep_openalex |
-| journal | 83.51 | 94.31 | 29.65 | OpenAlex | keep; fill CR gaps |
-| publisher | 57.73 | 99.99 | 88.41 | OpenAlex | consider CR fill |
-| issn | 71.05 | 76.44 | 0 | Crossref | enrich when OA missing |
-| volume / issue / page | 52–76 | 56–86 | 0 | Crossref | enrich when OA missing |
+| title | 99.88 | 99.87 | 99.99 | OpenAlex / Local | log conflicts |
+| authors | 100 | 99.22 | 98.21 | OpenAlex | log conflicts |
+| publication_year | 100 | 99.75 | 100 | OpenAlex / Local | log conflicts |
+| publication_type | 100 | 100 | 99.19 | OpenAlex / Crossref | log conflicts |
+| doi | 97.42 | 100 | 41.78 | Crossref / OpenAlex | normalize and log conflicts |
+| citation_count | 100 | 100 | 0 | OpenAlex / Crossref | keep comparison fields |
+| topics / research_field | ~98 / high | 0 | 0 | OpenAlex | keep when present |
+| open_access_status | 100 | 0 | 0 | OpenAlex | keep when present |
+| journal | 83.51 | 94.31 | 29.65 | OpenAlex / Crossref | log string conflicts |
+| publisher | 57.73 | 99.99 | 88.41 | Crossref / Local | log string conflicts |
+| issn | 71.05 | 76.44 | 0 | Crossref / OpenAlex | fill gaps |
+| volume / issue / page | 52–76 | 56–86 | 0 | Crossref / OpenAlex | fill gaps |
 | license | 47.60 | 61.07 | 0.66 | Crossref | enrich when OA missing |
 | abstract | 0 | 44.39 | 70.91 | Crossref then Local | enrich |
 | author_orcid | 0 | 32.84 | 0 | Crossref | enrich |
@@ -84,9 +84,9 @@ Outputs: `completeness_by_institution.csv`.
 
 ## 5. Source-level average completeness
 
-Average across canonical fields is **not** a ranking of source quality for the pipeline. OpenAlex is preferred for identity and analytics fields even when Crossref averages higher on venue/rights fields.
+Average across canonical fields is **not** a ranking of source quality for the pipeline. OpenAlex is strong for identity and analytics fields, while Crossref is strong for venue/rights fields.
 
-Use field-level recommendations, not a single source winner.
+Use field-level diagnostics for review and QA; the implemented merge does not hard-code a single field-level winner.
 
 ---
 

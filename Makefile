@@ -86,31 +86,31 @@ test:
 
 # Compare raw and estimated unique publication counts for each source file.
 publication-counts:
-	$(PYTHON) scripts/compare_publication_counts.py
+	$(PYTHON) scripts/quality/compare_publication_counts.py
 
 # Run the full OpenAlex API collection pipeline.
 # Legacy path: this writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts,
 # pagination audit, progress, and logs. Prefer make framework for national analytics.
 openalex:
-	$(PYTHON) scripts/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS)
+	$(PYTHON) scripts/collection/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS)
 
 # Run a smaller API collection for validation before a full collection.
 openalex-sample:
-	$(PYTHON) scripts/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS) --max-records $(OPENALEX_SAMPLE_RECORDS)
+	$(PYTHON) scripts/collection/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS) --max-records $(OPENALEX_SAMPLE_RECORDS)
 
 # Continue an interrupted collection using the progress JSON file.
 openalex-resume:
-	$(PYTHON) scripts/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS) --resume
+	$(PYTHON) scripts/collection/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS) --resume
 
 # Rebuild cleaned outputs from an existing raw JSONL file.
 # This does not call the OpenAlex API.
 openalex-rebuild:
-	$(PYTHON) -c "from pathlib import Path; from scripts.kaggle_collect_openalex_sri_lanka import rebuild_csv_from_jsonl, write_doi_conflict_report, write_parquet_from_jsonl, collect_quality_report, print_collection_report; jsonl=Path('$(OPENALEX_JSONL)'); rebuild_csv_from_jsonl(jsonl, Path('$(OPENALEX_CSV)')); write_parquet_from_jsonl(jsonl, Path('$(OPENALEX_PARQUET)')); write_doi_conflict_report(jsonl, Path('$(OPENALEX_DOI_CONFLICTS)')); print_collection_report(collect_quality_report(jsonl, records_skipped=0))"
+	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import rebuild_csv_from_jsonl, write_doi_conflict_report, write_parquet_from_jsonl, collect_quality_report, print_collection_report; jsonl=Path('$(OPENALEX_JSONL)'); rebuild_csv_from_jsonl(jsonl, Path('$(OPENALEX_CSV)')); write_parquet_from_jsonl(jsonl, Path('$(OPENALEX_PARQUET)')); write_doi_conflict_report(jsonl, Path('$(OPENALEX_DOI_CONFLICTS)')); print_collection_report(collect_quality_report(jsonl, records_skipped=0))"
 
 # Rebuild only the DOI conflict CSV from existing raw JSONL.
 openalex-doi-conflicts:
-	$(PYTHON) -c "from pathlib import Path; from scripts.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report; count=write_doi_conflict_report(Path('$(OPENALEX_JSONL)'), Path('$(OPENALEX_DOI_CONFLICTS)')); print(f'DOI conflicts: {count:,}')"
+	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report; count=write_doi_conflict_report(Path('$(OPENALEX_JSONL)'), Path('$(OPENALEX_DOI_CONFLICTS)')); print(f'DOI conflicts: {count:,}')"
 
 # Print a quality summary from existing raw JSONL.
 openalex-report:
-	$(PYTHON) -c "from pathlib import Path; from scripts.kaggle_collect_openalex_sri_lanka import collect_quality_report, print_collection_report; print_collection_report(collect_quality_report(Path('$(OPENALEX_JSONL)'), records_skipped=0))"
+	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import collect_quality_report, print_collection_report; print_collection_report(collect_quality_report(Path('$(OPENALEX_JSONL)'), records_skipped=0))"

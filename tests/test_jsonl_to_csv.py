@@ -5,7 +5,7 @@ import json
 import pytest
 import pandas as pd
 
-from scripts.jsonl_to_csv import convert_to_csv
+from src.processing.jsonl_to_csv import convert_to_csv
 
 
 def test_convert_to_csv_basic(tmp_path):

@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from scripts.compare_publication_counts import (
+from src.quality.compare_publication_counts import (
     compare_publication_counts,
     default_input_paths,
     estimate_unique_publications,
