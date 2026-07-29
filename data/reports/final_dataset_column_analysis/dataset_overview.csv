@@ -1,7 +1,7 @@
 metric,value
-dataset_path,data/processed/common/common_publications_final_2016_2026_language_normalized.csv
+dataset_path,data/processed/common/common_publications_final_2016_2026_analysis_ready.csv
 rows,129512
-columns,56
-memory_mb,589.41
+columns,71
+memory_mb,875.27
 duplicate_doi_values,47058
 duplicate_title_year_values,7014
