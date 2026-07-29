@@ -150,6 +150,12 @@ python scripts/analysis/columns/analyze_final_26_columns.py --report-dir data/re
 
 The analyzers read in chunks, so they work on the full multi-hundred-megabyte outputs.
 
+For Kaggle analysis of every column in the current final dataset, use:
+
+```bash
+notebooks/05_kaggle_final_dataset_all_columns_analysis.py
+```
+
 ## Team
 
 - ANUSAN K. - 230048J
