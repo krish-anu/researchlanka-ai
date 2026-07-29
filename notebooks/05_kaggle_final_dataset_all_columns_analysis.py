@@ -51,6 +51,7 @@ sns.set_theme(style="whitegrid")
 
 # %%
 CANDIDATE_FILENAMES = [
+    "common_publications_final_2016_2026_analysis_ready.csv",
     "common_publications_final_2016_2026_multivalue_normalized.csv",
     "common_publications_final_2016_2026_language_normalized.csv",
     "common_publications_final_2016_2026.csv",
