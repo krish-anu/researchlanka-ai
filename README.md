@@ -131,6 +131,7 @@ python scripts/processing/kaggle_merge_common_dataset.py
 python scripts/processing/build_final_common_dataset.py
 python scripts/processing/build_columns_filtered_dataset.py
 python scripts/processing/build_year_filtered_dataset.py
+python scripts/processing/build_language_normalized_dataset.py
 ```
 
 Outputs land in `data/processed/common/`. Column keep/drop decisions are documented in
