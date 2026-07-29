@@ -1,0 +1,31 @@
+type,rows,pct
+article,47182,36.43
+Article,21635,16.71
+conference-paper,11611,8.97
+journal-article,8847,6.83
+Other,8363,6.46
+preprint,4893,3.78
+book-chapter,3061,2.36
+Conference-Full-text,2342,1.81
+Conference-Abstract,2074,1.6
+Thesis-Full-text,1870,1.44
+report,1554,1.2
+Conference paper,1523,1.18
+Past Question Paper,1298,1.0
+Exam Paper,1245,0.96
+Thesis,1207,0.93
+conference-abstract,1118,0.86
+review,964,0.74
+Research abstract,948,0.73
+Thesis-Abstract,830,0.64
+dataset,792,0.61
+other,527,0.41
+unknown,492,0.38
+Journal full text,390,0.3
+Software,389,0.3
+Article-Abstract,356,0.27
+Article-Full-text,305,0.24
+Book,288,0.22
+Presentation,282,0.22
+Conference-Extended-Abstract,274,0.21
+peer-review,231,0.18

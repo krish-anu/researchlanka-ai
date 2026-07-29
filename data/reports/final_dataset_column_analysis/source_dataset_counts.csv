@@ -1,0 +1,15 @@
+source_dataset,rows,pct
+openalex; crossref,51984,40.14
+repositories_combined,47378,36.58
+openalex; crossref; sljol; repositories_combined,9083,7.01
+sljol; repositories_combined,8811,6.8
+openalex,7343,5.67
+openalex; crossref; repositories_combined,4688,3.62
+openalex; crossref; repositories_combined; sljol,113,0.09
+crossref,51,0.04
+crossref; openalex,22,0.02
+openalex; sljol; repositories_combined,14,0.01
+repositories_combined; sljol,11,0.01
+openalex; repositories_combined,9,0.01
+crossref; repositories_combined,4,0.0
+crossref; openalex; repositories_combined,1,0.0
