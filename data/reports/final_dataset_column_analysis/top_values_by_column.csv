@@ -193,26 +193,26 @@ abstract,17,-,4,0.003
 abstract,18,No Abstract Available,4,0.003
 abstract,19,Not abstract available,4,0.003
 abstract,20,Abstract,4,0.003
-keywords,1,Article,573,0.442
-keywords,2,Conference paper,273,0.211
-keywords,3,Food Science; Food Technology,125,0.097
-keywords,4,Export Agriculture Degree Programme (EAG),113,0.087
-keywords,5,"Hospitality, Tourism and Events Management degree programme (HTE)",106,0.082
-keywords,6,"Hospitality, tourism And Events Management Degree Programme",101,0.078
-keywords,7,Entrepreneurship And Management Degree Programme,99,0.076
-keywords,8,Management; Entrepreneurship; Human Resource Management,87,0.067
-keywords,9,Book,81,0.063
-keywords,10,Tea Technology and Value Addition Degree Programme ( TEA),70,0.054
-keywords,11,Palm and Latex Technology and Value Addition Degree Programme ( PLT),58,0.045
-keywords,12,Computer Science; Information Science; Computing and Information Science,57,0.044
-keywords,13,Animal Sciences; Agriculture; Animal Production; Animal Production Technology,55,0.042
-keywords,14,Material Sciences; Mineral Sciences,55,0.042
-keywords,15,Aquatic Resources Technology Degree Programme ( AQT),53,0.041
-keywords,16,Environmental Science; Environmental Engineering; Geochemistry; Ecology; Green Technology,52,0.04
-keywords,17,Environmental Science; Environmental Engineering; Geochemistry; Ecology,49,0.038
-keywords,18,Tourism Management; Hospitality Management; Human Resource Development,46,0.036
-keywords,19,Research abstract,41,0.032
-keywords,20,Biochemistry,38,0.029
+keywords,1,article,573,0.442
+keywords,2,conference paper,273,0.211
+keywords,3,food science; food technology,125,0.097
+keywords,4,export agriculture degree programme (eag),113,0.087
+keywords,5,"hospitality, tourism and events management degree programme (hte)",106,0.082
+keywords,6,"hospitality, tourism and events management degree programme",101,0.078
+keywords,7,entrepreneurship and management degree programme,99,0.076
+keywords,8,management; entrepreneurship; human resource management,87,0.067
+keywords,9,book,81,0.063
+keywords,10,tea technology and value addition degree programme ( tea),70,0.054
+keywords,11,palm and latex technology and value addition degree programme ( plt),58,0.045
+keywords,12,computer science; information science; computing and information science,57,0.044
+keywords,13,animal sciences; agriculture; animal production; animal production technology,55,0.042
+keywords,14,material sciences; mineral sciences,55,0.042
+keywords,15,aquatic resources technology degree programme ( aqt),53,0.041
+keywords,16,environmental science; environmental engineering; geochemistry; ecology; green technology,52,0.04
+keywords,17,environmental science; environmental engineering; geochemistry; ecology,49,0.038
+keywords,18,tourism management; hospitality management; human resource development,46,0.036
+keywords,19,research abstract,41,0.032
+keywords,20,biochemistry,38,0.029
 publication_year,1,2025,15576,12.027
 publication_year,2,2021,14352,11.082
 publication_year,3,2024,13441,10.378
@@ -658,32 +658,33 @@ license,6,cc-by-nd,729,0.563
 license,7,other-oa,490,0.378
 license,8,public-domain,244,0.188
 license,9,publisher-specific-oa,3,0.002
-license_url,1,https://creativecommons.org/licenses/by/4.0/,4504,3.478
+license_url,1,https://creativecommons.org/licenses/by/4.0/,6922,5.345
 license_url,2,https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-037,4232,3.268
-license_url,3,https://creativecommons.org/licenses/by/4.0,3358,2.593
-license_url,4,http://creativecommons.org/licenses/by/4.0/,2418,1.867
+license_url,3,https://creativecommons.org/licenses/by/4.0,3946,3.047
+license_url,4,http://onlinelibrary.wiley.com/termsAndConditions,1453,1.122
 license_url,5,https://www.springernature.com/gp/researchers/text-and-data-mining; https://www.springernature.com/gp/researchers/text-and-data-mining,1432,1.106
 license_url,6,https://www.springernature.com/gp/researchers/text-and-data-mining,1368,1.056
 license_url,7,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license; https://doi.org/10.15223/policy-017; https://doi.org/10.15223/policy-037; https://doi.org/10.15223/policy-012; https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-004,1342,1.036
 license_url,8,https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-037; https://ieeexplore.ieee.org/Xplorehelp/downloads/license-information/IEEE.html,1276,0.985
 license_url,9,http://www.springer.com/tdm,1222,0.944
-license_url,10,http://onlinelibrary.wiley.com/termsAndConditions#vor,1111,0.858
-license_url,11,https://creativecommons.org/licenses/by/4.0; https://creativecommons.org/licenses/by/4.0,1088,0.84
-license_url,12,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license,878,0.678
-license_url,13,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license; http://creativecommons.org/licenses/by-nc-nd/4.0/,814,0.629
-license_url,14,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license; http://creativecommons.org/licenses/by/4.0/,772,0.596
-license_url,15,https://www.elsevier.com/tdm/userlicense/1.0/,620,0.479
-license_url,16,http://creativecommons.org/licenses/by/4.0,588,0.454
-license_url,17,https://www.springer.com/tdm,579,0.447
-license_url,18,https://creativecommons.org/licenses/by-nc-nd/4.0,565,0.436
-license_url,19,https://doi.org/10.15223/policy-004; https://doi.org/10.15223/policy-012; https://doi.org/10.15223/policy-017; https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-037; https://www.elsevier.com/legal/tdmrep-license; https://www.elsevier.com/tdm/userlicense/1.0/,555,0.429
-license_url,20,https://www.elsevier.com/legal/tdmrep-license; https://www.elsevier.com/tdm/userlicense/1.0/,532,0.411
-oa_status,1,closed,23995,18.527
-oa_status,2,diamond,17185,13.269
-oa_status,3,gold,11804,9.114
-oa_status,4,green,11391,8.795
-oa_status,5,hybrid,5798,4.477
-oa_status,6,bronze,3084,2.381
+license_url,10,https://creativecommons.org/licenses/by/4.0; https://creativecommons.org/licenses/by/4.0,1088,0.84
+license_url,11,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license,878,0.678
+license_url,12,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license; http://creativecommons.org/licenses/by-nc-nd/4.0/,814,0.629
+license_url,13,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license; http://creativecommons.org/licenses/by/4.0/,772,0.596
+license_url,14,https://creativecommons.org/licenses/by-nc-nd/4.0,718,0.554
+license_url,15,https://creativecommons.org/licenses/by-nc-nd/4.0/,690,0.533
+license_url,16,https://creativecommons.org/licenses/by-nc/4.0/,680,0.525
+license_url,17,https://www.elsevier.com/tdm/userlicense/1.0/,620,0.479
+license_url,18,https://www.springer.com/tdm,579,0.447
+license_url,19,https://creativecommons.org/licenses/by-nc/4.0,570,0.44
+license_url,20,https://doi.org/10.15223/policy-004; https://doi.org/10.15223/policy-012; https://doi.org/10.15223/policy-017; https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-037; https://www.elsevier.com/legal/tdmrep-license; https://www.elsevier.com/tdm/userlicense/1.0/,555,0.429
+oa_status,1,unknown,56255,43.436
+oa_status,2,closed,23995,18.527
+oa_status,3,diamond,17185,13.269
+oa_status,4,gold,11804,9.114
+oa_status,5,green,11391,8.795
+oa_status,6,hybrid,5798,4.477
+oa_status,7,bronze,3084,2.381
 is_oa,1,True,49262,38.037
 is_oa,2,False,23995,18.527
 citation_count,1,0,32341,24.971
@@ -970,3 +971,105 @@ reference_count_difference_oa_minus_crossref,15,-41,1,0.001
 reference_count_difference_oa_minus_crossref,16,-40,1,0.001
 reference_count_divergence_flag,1,False,65869,50.859
 reference_count_divergence_flag,2,True,22,0.017
+title_search_text,1,editorial,132,0.102
+title_search_text,2,list of contributors,53,0.041
+title_search_text,3,cover page,51,0.039
+title_search_text,4,contributors,49,0.038
+title_search_text,5,editorial note,38,0.029
+title_search_text,6,contents,38,0.029
+title_search_text,7,ahsbch 1231 - basic community health,28,0.022
+title_search_text,8,introduction,27,0.021
+title_search_text,9,ahsbs 1211 - basic statistics,22,0.017
+title_search_text,10,sri lanka,16,0.012
+title_search_text,11,preliminaries,16,0.012
+title_search_text,12,ahsbph 1253- basic physiology ii,14,0.011
+title_search_text,13,from the editor…,14,0.011
+title_search_text,14,preliminary pages,13,0.01
+title_search_text,15,ahsbb 1146 - basic biochemistry,13,0.01
+title_search_text,16,from the editor,11,0.008
+title_search_text,17,selected abstracts,11,0.008
+title_search_text,18,index,10,0.008
+title_search_text,19,reviewer response for version 1,10,0.008
+title_search_text,20,ahsbph 1253 - basic physiology ii,10,0.008
+abstract_search_text,1,no abstract available,1624,1.254
+abstract_search_text,2,this is the abstract,389,0.3
+abstract_search_text,3,no abstract available.,120,0.093
+abstract_search_text,4,1. exact pro 2. abans,89,0.069
+abstract_search_text,5,no abstract,18,0.014
+abstract_search_text,6,5th icahets – 2024,12,0.009
+abstract_search_text,7,abstract not available,9,0.007
+abstract_search_text,8,please find the attached document for the content of the abstract.,9,0.007
+abstract_search_text,9,poster,9,0.007
+abstract_search_text,10,date of conference: 5-7 dec. 2019 date added to ieee xplore: 29 may 2020,8,0.006
+abstract_search_text,11,"the present study was carried out to analyze the economic loss of sri lankan fishers due to the poaching activities by indian trawlers. fishery resources are major livelihoods in south indian and north sri lankan people who have been fished in harmony since ancient time but the situation has gone upside down since early 90s. because fish stocks on the indian side were fast depleting due to over-exploitation, the number of indian fishing vessels entering into sri lankan waters for fishing also rapidly increased. a survey was carried out at karainagar, point pedro and mathagal region from september 2015 to february 2016 in order to assess the economic loss of sri lankan fishers from indicated areas. primary data related to yield lost, income lost and nautical lost were collected from 100 families by providing a pre-tested questionnaire and secondary data related to the economic lost were collected from co-operative societies of the respective regions. collected data were subjected to descriptive statistical analysis and one-way analysis of variance. the highest yield lost was recorded in point pedro followed by mathagal, which were being 435.20 ± 125.8 kg/month and 428.10 ± 120.0 kg/month respectively. mathagal area faced significantly (p < 0.05) high amount of income lost (slr/month 85, 571.00 ± 35,119.00) than the other area. the nautical lost in karainagar, point pedro and mathagal area were 8, 6 and 5 nautical miles respectively. fishers living in mathagal and point pedro area faced significantly (p < 0.05) high amount of economic lost by indian trawlers than the karainagar area. from the present study it can be concluded that the intrusion of indian trawlers into the sri lankan territorial waters should be restricted in order to reduce the economic loss of the sri lankan fishers.",6,0.005
+abstract_search_text,12,an amendment to this paper has been published and can be accessed via the original article.,5,0.004
+abstract_search_text,13,abstract,5,0.004
+abstract_search_text,14,"this conference provides a forum for bringing academics, industry professionals, and students together to share their findings with the logistics and transport community.",5,0.004
+abstract_search_text,15,"background cardiovascular diseases (cvd) are the commonest indirect medical cause of maternal deaths worldwide, both in high-income and low and middle-income countries. to minimize the effects of cvd in pregnancy, proper risk assessment and appropriate referral is required. in sri lanka, cardiovascular disease complicating pregnancy is a significant cause of maternal mortality, second only to postpartum hemorrhage. screening for cvd in pregnancy in sri lanka is limited to a routine clinical assessment. evidence-based guidelines are yet to be developed, and this deficit may have resulted in a substantial underestimation of the cvd burden. this study aims to determine the burden of cvd in early pregnancy and develop a risk prediction model to be used in field pregnancy clinics in sri lanka to reduce cvd effects in pregnancy. methods a prospective cohort study was carried out in the anuradhapura district, sri lanka. following registration to the antenatal care, pregnant women fulfilling the eligibility criteria were invited to attend a special clinic at their relevant medical officer of health (moh) area. risk assessment was done through history and a clinical examination, and suspected/probable cases were referred for an echocardiogram by a consultant cardiologist. all the recruited participants in the first trimester were prospectively followed up and screened again between 24–28 weeks of the period of amenorrhoea (poa). antenatal ward admissions with cvd complicating pregnancy will be extracted, and a telephone interview will be carried out between 6–12 weeks after the expected delivery date to cover postpartum morbidities. discussion this proposed study will be the largest of its kind carried out in the local setting. the study's findings will be beneficial for policymakers to develop guidelines to reduce maternal cardiovascular disease morbidities and mortalities in sri lanka.",4,0.003
+abstract_search_text,16,-,4,0.003
+abstract_search_text,17,not abstract available,4,0.003
+abstract_search_text,18,no abstract avaialble,4,0.003
+abstract_search_text,19,"in this study, p25-titanium dioxide (tio2) was doped with ruthenium (ru) by systematically varying the ru content at 0.15, 0.30, 0.45 and 0.6 mol%. the synthesized ru-doped tio2 nanomaterials have been characterized by x-ray diffraction (xrd), raman spectroscopy, energy-dispersive x-ray (edx) analysis, uv-visible (uv–vis) spectroscopy, and electrochemical impedance (eis) spectroscopy. the xrd patterns of undoped and ru-doped tio2 nanomaterials confirm the presence of mixed anatase and rutile phases of tio2 while edx spectrum confirms the presence of ti, o and ru. further, uv-visible absorption spectra of doped tio2 nanomaterial reveal a slight red shift on ru-doping. the short circuit current density (jsc) of the cells fabricated using the ru-doped tio2 photoanode was found to be dependent on the amount of ru present in tio2. optimized cells with 0.3 mol% ru-doped tio2 electrodes showed efficiency which is 20% more than the efficiency of the control cell (η = 5.8%) under stimulated illumination (100 mwcm−2, 1 sun) with am 1.5 filter. the increase in jsc resulted from the reduced rate of recombination upon doping of ru and this was confirmed by eis analysis.",4,0.003
+abstract_search_text,20,"sympy is an open source computer algebra system written in pure python. it is built with a focus on extensibility and ease of use, through both interactive and programmatic applications. these characteristics have led sympy to become the standard symbolic library for the scientific python ecosystem. this paper presents the architecture of sympy, a description of its features, and a discussion of select domain specific submodules. the supplementary materials provide additional examples and further outline details of the architecture and features of sympy.",4,0.003
+abstract_missing_flag,1,False,70437,54.386
+abstract_missing_flag,2,True,59075,45.614
+keywords_search_text,1,article,573,0.442
+keywords_search_text,2,conference paper,273,0.211
+keywords_search_text,3,food science; food technology,125,0.097
+keywords_search_text,4,export agriculture degree programme (eag),113,0.087
+keywords_search_text,5,"hospitality, tourism and events management degree programme (hte)",106,0.082
+keywords_search_text,6,"hospitality, tourism and events management degree programme",101,0.078
+keywords_search_text,7,entrepreneurship and management degree programme,99,0.076
+keywords_search_text,8,management; entrepreneurship; human resource management,87,0.067
+keywords_search_text,9,book,81,0.063
+keywords_search_text,10,tea technology and value addition degree programme ( tea),70,0.054
+keywords_search_text,11,palm and latex technology and value addition degree programme ( plt),58,0.045
+keywords_search_text,12,computer science; information science; computing and information science,57,0.044
+keywords_search_text,13,animal sciences; agriculture; animal production; animal production technology,55,0.042
+keywords_search_text,14,material sciences; mineral sciences,55,0.042
+keywords_search_text,15,aquatic resources technology degree programme ( aqt),53,0.041
+keywords_search_text,16,environmental science; environmental engineering; geochemistry; ecology; green technology,52,0.04
+keywords_search_text,17,environmental science; environmental engineering; geochemistry; ecology,49,0.038
+keywords_search_text,18,tourism management; hospitality management; human resource development,46,0.036
+keywords_search_text,19,research abstract,41,0.032
+keywords_search_text,20,biochemistry,38,0.029
+funder_name_missing_flag,1,True,118800,91.729
+funder_name_missing_flag,2,False,10712,8.271
+funder_doi_missing_flag,1,True,121038,93.457
+funder_doi_missing_flag,2,False,8474,6.543
+funder_identifier_missing_flag,1,True,121002,93.429
+funder_identifier_missing_flag,2,False,8510,6.571
+funder_award_missing_flag,1,True,122184,94.342
+funder_award_missing_flag,2,False,7328,5.658
+license_missing_flag,1,True,94641,73.075
+license_missing_flag,2,False,34871,26.925
+license_url_missing_flag,1,True,89237,68.902
+license_url_missing_flag,2,False,40275,31.098
+pdf_url_missing_flag,1,True,98903,76.366
+pdf_url_missing_flag,2,False,30609,23.634
+author_orcids_missing_flag,1,True,107853,83.276
+author_orcids_missing_flag,2,False,21659,16.724
+article_number_missing_flag,1,True,119362,92.163
+article_number_missing_flag,2,False,10150,7.837
+authors_clean,1,Uva Wellassa University,1244,0.961
+authors_clean,2,Bhiksu University Of Sri Lanka,706,0.545
+authors_clean,3,University of Jaffna,703,0.543
+authors_clean,4,H&ss,667,0.515
+authors_clean,5,Lunchanawat Nimmahnratanakul,540,0.417
+authors_clean,6,Eie,413,0.319
+authors_clean,7,Department of Pharmacy,375,0.29
+authors_clean,8,Mgt,356,0.275
+authors_clean,9,Department of Nursing,349,0.269
+authors_clean,10,Mme,304,0.235
+authors_clean,11,Cee,280,0.216
+authors_clean,12,Fgs,245,0.189
+authors_clean,13,Fmst,207,0.16
+authors_clean,14,Department of Information and Communication Technology,177,0.137
+authors_clean,15,Department of Engineering Technology,155,0.12
+authors_clean,16,Department of Computer Science,147,0.114
+authors_clean,17,Is,144,0.111
+authors_clean,18,Faculty of Management and Finance,144,0.111
+authors_clean,19,Pharmacy Department of,141,0.109
+authors_clean,20,Department of MLS,119,0.092
+author_disambiguation_available_flag,1,False,107853,83.276
+author_disambiguation_available_flag,2,True,21659,16.724

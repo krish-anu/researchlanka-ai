@@ -1,7 +1,7 @@
 column,present_rows,rows_with_multiple_values,multi_value_present_pct,mean_items_per_present_row,max_items_in_one_row
 source_dataset,129512,74740,57.71,1.76,4
-authors,128427,97595,75.99,5.66,2493
-keywords,49123,44765,91.13,4.25,42
+authors,128427,97506,75.92,5.64,2493
+keywords,49123,44763,91.12,4.24,42
 author_affiliations,73264,47856,65.32,4.01,495
 author_orcids,21659,10983,50.71,2.82,284
 sri_lankan_authors,73256,44063,60.15,2.55,46

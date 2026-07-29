@@ -5,15 +5,15 @@ position,column,role,present_rows,missing_rows,coverage_pct,missing_pct,distinct
 4,source_datestamp,date,70112,59400,54.14,45.86,60188,789,1.13,20,249,2026-02-15T05:19:04Z | 2026-02-15T05:13:38Z | 2026-02-15T05:22:08Z
 5,openalex_id,identifier,73257,56255,56.56,43.44,73257,0,0.0,30,32,https://openalex.org/W4238110074 | https://openalex.org/W2921121004 | https://openalex.org/W4200471318
 6,doi,identifier,82453,47059,63.66,36.34,82453,0,0.0,9,160,10.1002/9781118663219.wbegss081 | 10.1002/9781118663219.wbegss631 | 10.1002/9781119009924.eopr0063
-7,url,identifier,129174,338,99.74,0.26,128653,4,0.0,11,362,https://doi.org/10.1002/9781118663219.wbegss081 | https://doi.org/10.1002/9781118663219.wbegss631 | https://doi.org/10.1002/9781119009924.eopr0063
+7,url,identifier,129174,338,99.74,0.26,128652,4,0.0,11,362,https://doi.org/10.1002/9781118663219.wbegss081 | https://doi.org/10.1002/9781118663219.wbegss631 | https://doi.org/10.1002/9781119009924.eopr0063
 8,pdf_url,identifier,30609,98903,23.63,76.37,30608,1,0.0,28,1054,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119811749.ch16 | https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119857839.ch8 | https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867333.ch14
 9,title,text,129424,88,99.93,0.07,119416,1479,1.14,1,4776,Cohabitation and Ekageikama in the Kandyan Kingdom (Sri Lanka) | Islam and Gender | Buddhism
 10,abstract,text,70437,59075,54.39,45.61,66657,10965,15.57,1,26749,Cohabitation refers to a living arrangement where an unmarried couple lives t... | Gender and sexuality in the Muslim world is decided both on interpretations o... | In this study Buddhism is presented from a point of view of the Buddha's own ...
-11,keywords,text,49123,80389,37.93,62.07,42910,44765,91.13,2,1455,HemoSmart; Non-Invasive Device; Mobile App; Anemia Detection | Smart parking; machine learning; internet of things; convolutional neural net... | Empirical Study; Paddy Harvest; Rice Demand; Prediction; Optimal Distribution...
+11,keywords,text,49123,80389,37.93,62.07,42507,44763,91.12,2,1455,hemosmart; non-invasive device; mobile app; anemia detection | smart parking; machine learning; internet of things; convolutional neural net... | empirical study; paddy harvest; rice demand; prediction; optimal distribution...
 12,publication_year,numeric,129512,0,100.0,0.0,11,0,0.0,4,4,2016 | 2021 | 2017
 13,publication_date,date,129512,0,100.0,0.0,3935,0,0.0,4,10,2016-04-21 | 2021-11-16 | 2017-07-21
 14,type,category,129020,492,99.62,0.38,95,0,0.0,4,40,reference-entry | other | article
-15,authors,multi_value,128427,1085,99.16,0.84,105186,97595,75.99,1,46257,Kalinga Tudor Silva | Farzana Haniffa | Asanga Tilakaratne
+15,authors,multi_value,128427,1085,99.16,0.84,105124,97506,75.92,1,46257,Kalinga Tudor Silva | Farzana Haniffa | Asanga Tilakaratne
 16,author_count,numeric,73257,56255,56.56,43.44,96,0,0.0,1,3,1 | 3 | 5
 17,author_affiliations,metadata,73264,56248,56.57,43.43,34295,47856,65.32,14,36603,University of Peradeniya | University of Colombo | National Institute of Fundamental Studies
 18,author_orcids,metadata,21659,107853,16.72,83.28,16565,10983,50.71,37,11074,https://orcid.org/0000-0002-7517-0894 | https://orcid.org/0000-0002-2506-2748 | https://orcid.org/0009-0003-2921-5451
@@ -34,8 +34,8 @@ position,column,role,present_rows,missing_rows,coverage_pct,missing_pct,distinct
 33,article_number,metadata,10150,119362,7.84,92.16,7626,0,0.0,1,30,bbb.70178 | e7234 | e72478
 34,language,category,129512,0,100.0,0.0,50,0,0.0,2,7,en | lt | bg
 35,license,category,34871,94641,26.92,73.08,9,0,0.0,5,21,other-oa | cc-by-nc-sa | cc-by-nc
-36,license_url,metadata,40275,89237,31.1,68.9,388,17418,43.25,27,331,http://doi.wiley.com/10.1002/tdm_license_1.1 | http://creativecommons.org/licenses/by-nc/4.0/; http://doi.wiley.com/10.1002/... | http://creativecommons.org/licenses/by-nc-nd/4.0/
-37,oa_status,category,73257,56255,56.56,43.44,6,0,0.0,4,7,closed | gold | hybrid
+36,license_url,metadata,40275,89237,31.1,68.9,350,17063,42.37,27,331,https://doi.wiley.com/10.1002/tdm_license_1.1 | https://creativecommons.org/licenses/by-nc/4.0/; http://doi.wiley.com/10.1002... | https://creativecommons.org/licenses/by-nc-nd/4.0/
+37,oa_status,category,129512,0,100.0,0.0,7,0,0.0,4,7,closed | gold | hybrid
 38,is_oa,category,73257,56255,56.56,43.44,2,0,0.0,4,5,False | True
 39,citation_count,numeric,73312,56200,56.61,43.39,418,0,0.0,1,5,0 | 2 | 6
 40,reference_count,numeric,73312,56200,56.61,43.39,386,0,0.0,1,4,4 | 13 | 6
@@ -55,3 +55,18 @@ position,column,role,present_rows,missing_rows,coverage_pct,missing_pct,distinct
 54,citation_count_divergence_flag,metadata,65891,63621,50.88,49.12,1,0,0.0,5,5,False
 55,reference_count_difference_oa_minus_crossref,numeric,65891,63621,50.88,49.12,16,0,0.0,1,3,0 | -2 | -14
 56,reference_count_divergence_flag,metadata,65891,63621,50.88,49.12,2,0,0.0,4,5,False | True
+57,title_search_text,metadata,129424,88,99.93,0.07,116949,1479,1.14,1,4776,cohabitation and ekageikama in the kandyan kingdom (sri lanka) | islam and gender | buddhism
+58,abstract_search_text,metadata,70437,59075,54.39,45.61,66623,10965,15.57,1,26749,cohabitation refers to a living arrangement where an unmarried couple lives t... | gender and sexuality in the muslim world is decided both on interpretations o... | in this study buddhism is presented from a point of view of the buddha's own ...
+59,abstract_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,False | True
+60,keywords_search_text,metadata,49123,80389,37.93,62.07,42507,44763,91.12,2,1455,hemosmart; non-invasive device; mobile app; anemia detection | smart parking; machine learning; internet of things; convolutional neural net... | empirical study; paddy harvest; rice demand; prediction; optimal distribution...
+61,funder_name_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,True | False
+62,funder_doi_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,True | False
+63,funder_identifier_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,True | False
+64,funder_award_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,True | False
+65,license_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,True | False
+66,license_url_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,False | True
+67,pdf_url_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,True | False
+68,author_orcids_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,True | False
+69,article_number_missing_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,True | False
+70,authors_clean,metadata,128427,1085,99.16,0.84,104408,97440,75.87,1,46257,Kalinga Tudor Silva | Farzana Haniffa | Asanga Tilakaratne
+71,author_disambiguation_available_flag,metadata,129512,0,100.0,0.0,2,0,0.0,4,5,False | True
