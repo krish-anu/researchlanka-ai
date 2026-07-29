@@ -1,0 +1,7 @@
+column,numeric_rows,non_numeric_or_missing_rows,min,median,mean,max
+publication_year,129512,0,2016.0,2021.0,2021.2457455679782,2026.0
+author_count,73257,56255,1.0,3.0,4.936292777482016,100.0
+citation_count,73312,56200,0.0,1.0,8.82929124836316,11215.0
+reference_count,73312,56200,0.0,13.0,24.7470946093409,3106.0
+citation_count_difference_oa_minus_crossref,65891,63621,0.0,0.0,0.0,0.0
+reference_count_difference_oa_minus_crossref,65891,63621,-41.0,0.0,-0.006374163391054924,0.0

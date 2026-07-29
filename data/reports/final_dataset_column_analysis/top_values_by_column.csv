@@ -1,0 +1,1075 @@
+column,rank,value,rows,pct_of_dataset
+source_dataset,1,openalex; crossref,51984,40.138
+source_dataset,2,repositories_combined,47378,36.582
+source_dataset,3,openalex; crossref; sljol; repositories_combined,9083,7.013
+source_dataset,4,sljol; repositories_combined,8811,6.803
+source_dataset,5,openalex,7343,5.67
+source_dataset,6,openalex; crossref; repositories_combined,4688,3.62
+source_dataset,7,openalex; crossref; repositories_combined; sljol,113,0.087
+source_dataset,8,crossref,51,0.039
+source_dataset,9,crossref; openalex,22,0.017
+source_dataset,10,openalex; sljol; repositories_combined,14,0.011
+source_dataset,11,repositories_combined; sljol,11,0.008
+source_dataset,12,openalex; repositories_combined,9,0.007
+source_dataset,13,crossref; repositories_combined,4,0.003
+source_dataset,14,crossref; openalex; repositories_combined,1,0.001
+source_institution_id,1,sljol,17617,13.603
+source_institution_id,2,ruh,10630,8.208
+source_institution_id,3,uom,10230,7.899
+source_institution_id,4,jfn_research,7453,5.755
+source_institution_id,5,seu,4004,3.092
+source_institution_id,6,uwu,3812,2.943
+source_institution_id,7,pdn,3296,2.545
+source_institution_id,8,sliit,3122,2.411
+source_institution_id,9,cmb,2656,2.051
+source_institution_id,10,jfn_medicine,2527,1.951
+source_institution_id,11,busl,2423,1.871
+source_institution_id,12,nsf,1368,1.056
+source_institution_id,13,sltc,475,0.367
+source_institution_id,14,sljol; ruh,93,0.072
+source_institution_id,15,ruh; sljol,60,0.046
+source_institution_id,16,sljol; jfn_medicine,57,0.044
+source_institution_id,17,sljol; cmb,55,0.042
+source_institution_id,18,sljol; jfn_research,51,0.039
+source_institution_id,19,cmb; sljol,50,0.039
+source_institution_id,20,uom; sliit,38,0.029
+source_record_id,1,https://openalex.org/W4238110074; 10.1002/9781118663219.wbegss081,1,0.001
+source_record_id,2,https://openalex.org/W2921121004; 10.1002/9781118663219.wbegss631,1,0.001
+source_record_id,3,https://openalex.org/W4200471318; 10.1002/9781119009924.eopr0063,1,0.001
+source_record_id,4,https://openalex.org/W2737305979; 10.1002/9781119246329.ch17,1,0.001
+source_record_id,5,https://openalex.org/W2974675620; 10.1002/9781119501800.ch4,1,0.001
+source_record_id,6,https://openalex.org/W3035530209; 10.1002/9781119585640.ch16,1,0.001
+source_record_id,7,https://openalex.org/W3166304279; 10.1002/9781119607045.ch24,1,0.001
+source_record_id,8,https://openalex.org/W3136795594; 10.1002/9781119670186.ch19,1,0.001
+source_record_id,9,https://openalex.org/W3137112139; 10.1002/9781119670186.ch23,1,0.001
+source_record_id,10,https://openalex.org/W3176852916; 10.1002/9781119670391.ch27,1,0.001
+source_record_id,11,https://openalex.org/W3165708168; 10.1002/9781119678595.ch24,1,0.001
+source_record_id,12,https://openalex.org/W3164076550; 10.1002/9781119678595.ch26,1,0.001
+source_record_id,13,https://openalex.org/W3032180582; 10.1002/9781119682042.ch1,1,0.001
+source_record_id,14,https://openalex.org/W3158450736; 10.1002/9781119711308.ch3; oai:rda.sliit.lk:123456789/1812,1,0.001
+source_record_id,15,https://openalex.org/W3159469037; 10.1002/9781119711308.ch5; oai:rda.sliit.lk:123456789/1811,1,0.001
+source_record_id,16,https://openalex.org/W3194684953; 10.1002/9781119745884.ch15,1,0.001
+source_record_id,17,https://openalex.org/W4226024140; 10.1002/9781119763499.ch2; oai:rda.sliit.lk:123456789/2815,1,0.001
+source_record_id,18,https://openalex.org/W3123618442; 10.1002/9781119786122.ch2,1,0.001
+source_record_id,19,https://openalex.org/W3216391473; 10.1002/9781119793403.ch9,1,0.001
+source_record_id,20,https://openalex.org/W4365504439; 10.1002/9781119811749.ch16,1,0.001
+source_datestamp,1,2021-06-01T05:16:03Z,75,0.058
+source_datestamp,2,2021-06-01T05:16:04Z,64,0.049
+source_datestamp,3,2021-06-01T05:16:05Z,57,0.044
+source_datestamp,4,2021-06-01T05:16:07Z,56,0.043
+source_datestamp,5,2021-06-01T05:16:06Z,50,0.039
+source_datestamp,6,2021-06-01T05:16:08Z,48,0.037
+source_datestamp,7,2021-06-01T05:16:02Z,44,0.034
+source_datestamp,8,2025-07-13T16:47:57Z,44,0.034
+source_datestamp,9,2021-06-01T05:15:59Z,42,0.032
+source_datestamp,10,2021-06-01T05:16:09Z,38,0.029
+source_datestamp,11,2025-07-13T16:47:56Z,38,0.029
+source_datestamp,12,2021-06-01T05:16:10Z,36,0.028
+source_datestamp,13,2021-06-01T05:16:17Z,34,0.026
+source_datestamp,14,2021-06-01T05:16:18Z,34,0.026
+source_datestamp,15,2021-06-01T05:16:23Z,30,0.023
+source_datestamp,16,2021-06-01T05:16:19Z,30,0.023
+source_datestamp,17,2021-06-01T05:16:21Z,30,0.023
+source_datestamp,18,2021-06-01T05:16:24Z,29,0.022
+source_datestamp,19,2021-06-01T05:16:22Z,29,0.022
+source_datestamp,20,2021-06-01T05:16:20Z,29,0.022
+openalex_id,1,https://openalex.org/W4238110074,1,0.001
+openalex_id,2,https://openalex.org/W2921121004,1,0.001
+openalex_id,3,https://openalex.org/W4200471318,1,0.001
+openalex_id,4,https://openalex.org/W2737305979,1,0.001
+openalex_id,5,https://openalex.org/W2974675620,1,0.001
+openalex_id,6,https://openalex.org/W3035530209,1,0.001
+openalex_id,7,https://openalex.org/W3166304279,1,0.001
+openalex_id,8,https://openalex.org/W3136795594,1,0.001
+openalex_id,9,https://openalex.org/W3137112139,1,0.001
+openalex_id,10,https://openalex.org/W3176852916,1,0.001
+openalex_id,11,https://openalex.org/W3165708168,1,0.001
+openalex_id,12,https://openalex.org/W3164076550,1,0.001
+openalex_id,13,https://openalex.org/W3032180582,1,0.001
+openalex_id,14,https://openalex.org/W3158450736,1,0.001
+openalex_id,15,https://openalex.org/W3159469037,1,0.001
+openalex_id,16,https://openalex.org/W3194684953,1,0.001
+openalex_id,17,https://openalex.org/W4226024140,1,0.001
+openalex_id,18,https://openalex.org/W3123618442,1,0.001
+openalex_id,19,https://openalex.org/W3216391473,1,0.001
+openalex_id,20,https://openalex.org/W4365504439,1,0.001
+doi,1,10.1002/9781118663219.wbegss081,1,0.001
+doi,2,10.1002/9781118663219.wbegss631,1,0.001
+doi,3,10.1002/9781119009924.eopr0063,1,0.001
+doi,4,10.1002/9781119246329.ch17,1,0.001
+doi,5,10.1002/9781119501800.ch4,1,0.001
+doi,6,10.1002/9781119585640.ch16,1,0.001
+doi,7,10.1002/9781119607045.ch24,1,0.001
+doi,8,10.1002/9781119670186.ch19,1,0.001
+doi,9,10.1002/9781119670186.ch23,1,0.001
+doi,10,10.1002/9781119670391.ch27,1,0.001
+doi,11,10.1002/9781119678595.ch24,1,0.001
+doi,12,10.1002/9781119678595.ch26,1,0.001
+doi,13,10.1002/9781119682042.ch1,1,0.001
+doi,14,10.1002/9781119711308.ch3,1,0.001
+doi,15,10.1002/9781119711308.ch5,1,0.001
+doi,16,10.1002/9781119745884.ch15,1,0.001
+doi,17,10.1002/9781119763499.ch2,1,0.001
+doi,18,10.1002/9781119786122.ch2,1,0.001
+doi,19,10.1002/9781119793403.ch9,1,0.001
+doi,20,10.1002/9781119811749.ch16,1,0.001
+url,1,https://ciobwcs.com/downloads/WCS2016-Proceedings.pdf,58,0.045
+url,2,https://ciobwcs.com/downloads/WCS2017-Proceedings.pdf,54,0.042
+url,3,http://dl.lib.uom.lk/handle/123/20862,43,0.033
+url,4,https://uom.lk/sites/default/files/civil/files/TRF%202019_0.pdf,39,0.03
+url,5,https://slstl.lk/r4tli-2016/,38,0.029
+url,6,https://uom.lk/sites/default/files/civil/files/TRF%202018_0.pdf,34,0.026
+url,7,https://slstl.lk/r4tli-2017/,31,0.024
+url,8,https://ieeexplore.ieee.org/xpl/conhome/8528200/proceeding,30,0.023
+url,9,https://uom.lk/sites/default/files/civil/files/TRF%202020_0.pdf,27,0.021
+url,10,https://uom.lk/sites/default/files/civil/files/TRFAbstract%202016_0.pdf,26,0.02
+url,11,https://ieeexplore.ieee.org/xpl/conhome/9580924/proceeding,25,0.019
+url,12,https://uom.lk/sites/default/files/ere/files/ISERME%202021%20Proceedings_2.pdf,24,0.019
+url,13,https://slstl.lk/r4tli-2020/,22,0.017
+url,14,https://uom.lk/sites/default/files/civil/files/TRF%202017_0.pdf,21,0.016
+url,15,https://ieeexplore.ieee.org/xpl/conhome/7818135/proceeding,17,0.013
+url,16,https://slstl.lk/r4tli-2021/,17,0.013
+url,17,https://doi.org/10.3390/,6,0.005
+url,18,https://doi.org/10.31705/,6,0.005
+url,19,http://dl.lib.uom.lk/handle/123/19696,4,0.003
+url,20,http://dl.lib.uom.lk,3,0.002
+pdf_url,1,https://dergipark.org.tr/tr/pub/dfbd/issue/73122/989448,2,0.002
+pdf_url,2,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119811749.ch16,1,0.001
+pdf_url,3,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119857839.ch8,1,0.001
+pdf_url,4,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867333.ch14,1,0.001
+pdf_url,5,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867333.ch20,1,0.001
+pdf_url,6,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867333.ch24,1,0.001
+pdf_url,7,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867333.ch3,1,0.001
+pdf_url,8,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867333.ch6,1,0.001
+pdf_url,9,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867333.ch9,1,0.001
+pdf_url,10,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867371.ch16,1,0.001
+pdf_url,11,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867371.ch2,1,0.001
+pdf_url,12,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119867371.ch8,1,0.001
+pdf_url,13,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119879534.ch20,1,0.001
+pdf_url,14,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119879534.ch24,1,0.001
+pdf_url,15,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119879534.ch6,1,0.001
+pdf_url,16,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781119879534.ch9,1,0.001
+pdf_url,17,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781394234769.ch36,1,0.001
+pdf_url,18,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781394237029.ch1,1,0.001
+pdf_url,19,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781394237029.ch13,1,0.001
+pdf_url,20,https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/9781394237029.ch14,1,0.001
+title,1,Editorial,132,0.102
+title,2,Contributors,48,0.037
+title,3,List of contributors,45,0.035
+title,4,Cover page,44,0.034
+title,5,Contents,38,0.029
+title,6,Editorial Note,37,0.029
+title,7,AHSBCH 1231 - Basic community health,28,0.022
+title,8,Introduction,27,0.021
+title,9,AHSBS 1211 - Basic statistics,22,0.017
+title,10,Sri Lanka,16,0.012
+title,11,Preliminaries,16,0.012
+title,12,AHSBPH 1253- Basic Physiology II,14,0.011
+title,13,From the Editor…,14,0.011
+title,14,AHSBB 1146 - Basic biochemistry,12,0.009
+title,15,Index,10,0.008
+title,16,Reviewer response for version 1,10,0.008
+title,17,From the Editor,10,0.008
+title,18,AHSBPH 1253 - Basic Physiology II,10,0.008
+title,19,2022 August,10,0.008
+title,20,Conclusion,9,0.007
+abstract,1,No abstract available,1609,1.242
+abstract,2,This is the Abstract,389,0.3
+abstract,3,No abstract available.,104,0.08
+abstract,4,1. Exact Pro 2. Abans,89,0.069
+abstract,5,No Abstract available.,16,0.012
+abstract,6,No abstract,15,0.012
+abstract,7,5th ICAHETS – 2024,12,0.009
+abstract,8,No Abstract available,11,0.008
+abstract,9,Abstract not available,9,0.007
+abstract,10,Poster,9,0.007
+abstract,11,Date of Conference: 5-7 Dec. 2019 Date Added to IEEE Xplore: 29 May 2020,8,0.006
+abstract,12,"The present study was carried out to analyze the economic loss of Sri Lankan fishers due to the poaching activities by Indian trawlers. Fishery resources are major livelihoods in South Indian and North Sri Lankan people who have been fished in harmony since ancient time but the situation has gone upside down since early 90s. Because fish stocks on the Indian side were fast depleting due to over-exploitation, the number of Indian fishing vessels entering into Sri Lankan waters for fishing also rapidly increased. A survey was carried out at Karainagar, Point Pedro and Mathagal region from September 2015 to February 2016 in order to assess the economic loss of Sri Lankan fishers from indicated areas. Primary data related to yield lost, income lost and nautical lost were collected from 100 families by providing a pre-tested questionnaire and secondary data related to the economic lost were collected from co-operative societies of the respective regions. Collected data were subjected to descriptive statistical analysis and one-way analysis of variance. The highest yield lost was recorded in Point Pedro followed by Mathagal, which were being 435.20 ± 125.8 kg/month and 428.10 ± 120.0 kg/month respectively. Mathagal area faced significantly (P < 0.05) high amount of income lost (SLR/month 85, 571.00 ± 35,119.00) than the other area. The nautical lost in Karainagar, Point Pedro and Mathagal area were 8, 6 and 5 Nautical Miles respectively. Fishers living in Mathagal and Point Pedro area faced significantly (P < 0.05) high amount of economic lost by Indian trawlers than the Karainagar area. From the present study it can be concluded that the intrusion of Indian trawlers into the Sri Lankan territorial waters should be restricted in order to reduce the economic loss of the Sri Lankan fishers.",6,0.005
+abstract,13,An amendment to this paper has been published and can be accessed via the original article.,5,0.004
+abstract,14,Please find the attached document for the Content of the Abstract.,5,0.004
+abstract,15,"This conference provides a forum for bringing academics, industry professionals, and students together to share their findings with the Logistics and Transport community.",5,0.004
+abstract,16,"Background Cardiovascular diseases (CVD) are the commonest indirect medical cause of maternal deaths worldwide, both in high-income and low and middle-income countries. To minimize the effects of CVD in pregnancy, proper risk assessment and appropriate referral is required. In Sri Lanka, cardiovascular disease complicating pregnancy is a significant cause of maternal mortality, second only to postpartum hemorrhage. Screening for CVD in pregnancy in Sri Lanka is limited to a routine clinical assessment. Evidence-based guidelines are yet to be developed, and this deficit may have resulted in a substantial underestimation of the CVD burden. This study aims to determine the burden of CVD in early pregnancy and develop a risk prediction model to be used in field pregnancy clinics in Sri Lanka to reduce CVD effects in pregnancy. Methods A prospective cohort study was carried out in the Anuradhapura district, Sri Lanka. Following registration to the antenatal care, pregnant women fulfilling the eligibility criteria were invited to attend a special clinic at their relevant Medical Officer of Health (MOH) area. Risk assessment was done through history and a clinical examination, and suspected/probable cases were referred for an echocardiogram by a consultant cardiologist. All the recruited participants in the first trimester were prospectively followed up and screened again between 24–28 weeks of the period of amenorrhoea (POA). Antenatal ward admissions with CVD complicating pregnancy will be extracted, and a telephone interview will be carried out between 6–12 weeks after the expected delivery date to cover postpartum morbidities. Discussion This proposed study will be the largest of its kind carried out in the local setting. The study's findings will be beneficial for policymakers to develop guidelines to reduce maternal cardiovascular disease morbidities and mortalities in Sri Lanka.",4,0.003
+abstract,17,-,4,0.003
+abstract,18,No Abstract Available,4,0.003
+abstract,19,Not abstract available,4,0.003
+abstract,20,Abstract,4,0.003
+keywords,1,article,573,0.442
+keywords,2,conference paper,273,0.211
+keywords,3,food science; food technology,125,0.097
+keywords,4,export agriculture degree programme (eag),113,0.087
+keywords,5,"hospitality, tourism and events management degree programme (hte)",106,0.082
+keywords,6,"hospitality, tourism and events management degree programme",101,0.078
+keywords,7,entrepreneurship and management degree programme,99,0.076
+keywords,8,management; entrepreneurship; human resource management,87,0.067
+keywords,9,book,81,0.063
+keywords,10,tea technology and value addition degree programme ( tea),70,0.054
+keywords,11,palm and latex technology and value addition degree programme ( plt),58,0.045
+keywords,12,computer science; information science; computing and information science,57,0.044
+keywords,13,animal sciences; agriculture; animal production; animal production technology,55,0.042
+keywords,14,material sciences; mineral sciences,55,0.042
+keywords,15,aquatic resources technology degree programme ( aqt),53,0.041
+keywords,16,environmental science; environmental engineering; geochemistry; ecology; green technology,52,0.04
+keywords,17,environmental science; environmental engineering; geochemistry; ecology,49,0.038
+keywords,18,tourism management; hospitality management; human resource development,46,0.036
+keywords,19,research abstract,41,0.032
+keywords,20,biochemistry,38,0.029
+publication_year,1,2025,15576,12.027
+publication_year,2,2021,14352,11.082
+publication_year,3,2024,13441,10.378
+publication_year,4,2022,12948,9.998
+publication_year,5,2023,12861,9.93
+publication_year,6,2020,11610,8.964
+publication_year,7,2019,11488,8.87
+publication_year,8,2018,10280,7.937
+publication_year,9,2017,9776,7.548
+publication_year,10,2016,9084,7.014
+publication_year,11,2026,8096,6.251
+publication_date,1,2019,2710,2.092
+publication_date,2,2020,2525,1.95
+publication_date,3,2017,2466,1.904
+publication_date,4,2021,2446,1.889
+publication_date,5,2018,2433,1.879
+publication_date,6,2016,2340,1.807
+publication_date,7,2024,2251,1.738
+publication_date,8,2025-01-01,1975,1.525
+publication_date,9,2025,1950,1.506
+publication_date,10,2022,1780,1.374
+publication_date,11,2023,1509,1.165
+publication_date,12,2021-01-01,1345,1.039
+publication_date,13,2023-01-01,1322,1.021
+publication_date,14,2024-01-01,1301,1.005
+publication_date,15,2026-01-01,1118,0.863
+publication_date,16,2022-01-01,1081,0.835
+publication_date,17,2020-01-01,1051,0.812
+publication_date,18,2019-01-01,741,0.572
+publication_date,19,2018-01-01,736,0.568
+publication_date,20,2016-01-01,668,0.516
+type,1,article,47182,36.431
+type,2,Article,21635,16.705
+type,3,conference-paper,11611,8.965
+type,4,journal-article,8847,6.831
+type,5,Other,8363,6.457
+type,6,preprint,4893,3.778
+type,7,book-chapter,3061,2.363
+type,8,Conference-Full-text,2342,1.808
+type,9,Conference-Abstract,2074,1.601
+type,10,Thesis-Full-text,1870,1.444
+type,11,report,1554,1.2
+type,12,Conference paper,1523,1.176
+type,13,Past Question Paper,1298,1.002
+type,14,Exam Paper,1245,0.961
+type,15,Thesis,1207,0.932
+type,16,conference-abstract,1118,0.863
+type,17,review,964,0.744
+type,18,Research abstract,948,0.732
+type,19,Thesis-Abstract,830,0.641
+type,20,dataset,792,0.612
+authors,1,Uva Wellassa University,1244,0.961
+authors,2,Bhiksu University Of Sri Lanka,706,0.545
+authors,3,University of Jaffna,703,0.543
+authors,4,H&SS,667,0.515
+authors,5,EIE,413,0.319
+authors,6,LUNCHANAWAT NIMMAHNRATANAKUL,397,0.307
+authors,7,Department of Pharmacy,375,0.29
+authors,8,MGT,356,0.275
+authors,9,Department of Nursing,349,0.269
+authors,10,MME,304,0.235
+authors,11,CEE,280,0.216
+authors,12,FGS,245,0.189
+authors,13,FMST,207,0.16
+authors,14,Department of Information and Communication Technology,177,0.137
+authors,15,Department of Engineering Technology,155,0.12
+authors,16,Department of Computer Science,147,0.114
+authors,17,IS,144,0.111
+authors,18,Faculty of Management and Finance,144,0.111
+authors,19,"NIMMAHNRATANAKUL, LUNCHANAWAT",143,0.11
+authors,20,"Department of, Pharmacy",141,0.109
+author_count,1,2,14062,10.858
+author_count,2,3,12838,9.913
+author_count,3,1,10722,8.279
+author_count,4,4,9592,7.406
+author_count,5,5,7514,5.802
+author_count,6,6,5915,4.567
+author_count,7,7,3264,2.52
+author_count,8,8,2172,1.677
+author_count,9,9,1487,1.148
+author_count,10,10,1093,0.844
+author_count,11,11,780,0.602
+author_count,12,12,610,0.471
+author_count,13,13,430,0.332
+author_count,14,14,309,0.239
+author_count,15,15,293,0.226
+author_count,16,16,197,0.152
+author_count,17,17,159,0.123
+author_count,18,100,158,0.122
+author_count,19,18,113,0.087
+author_count,20,19,112,0.086
+author_affiliations,1,University of Sri Jayewardenepura,2844,2.196
+author_affiliations,2,University of Peradeniya,2833,2.187
+author_affiliations,3,University of Colombo,2619,2.022
+author_affiliations,4,University of Moratuwa,2607,2.013
+author_affiliations,5,University of Kelaniya,1832,1.415
+author_affiliations,6,Sri Lanka Institute of Information Technology,1425,1.1
+author_affiliations,7,University of Ruhuna,1126,0.869
+author_affiliations,8,University of Jaffna,1092,0.843
+author_affiliations,9,Department of Archaeology,1058,0.817
+author_affiliations,10,Sabaragamuwa University of Sri Lanka,799,0.617
+author_affiliations,11,University of the Visual & Performing Arts,626,0.483
+author_affiliations,12,National Hospital of Sri Lanka,614,0.474
+author_affiliations,13,Rajarata University of Sri Lanka,601,0.464
+author_affiliations,14,Open University of Sri Lanka,576,0.445
+author_affiliations,15,Wayamba University of Sri Lanka,547,0.422
+author_affiliations,16,General Sir John Kotelawala Defence University,505,0.39
+author_affiliations,17,South Eastern University of Sri Lanka,474,0.366
+author_affiliations,18,Uva Wellassa University,384,0.296
+author_affiliations,19,Institute of Archaeology; Department of Archaeology,267,0.206
+author_affiliations,20,Oxford Archaeology; Department of Archaeology,225,0.174
+author_orcids,1,https://orcid.org/0000-0003-2923-4065,41,0.032
+author_orcids,2,https://orcid.org/0000-0001-9201-0449,37,0.029
+author_orcids,3,https://orcid.org/0000-0001-8570-0580,36,0.028
+author_orcids,4,https://orcid.org/0000-0002-0398-5197,29,0.022
+author_orcids,5,https://orcid.org/0000-0002-7213-5858,27,0.021
+author_orcids,6,https://orcid.org/0000-0002-1394-4532,27,0.021
+author_orcids,7,https://orcid.org/0000-0002-7341-9078,27,0.021
+author_orcids,8,https://orcid.org/0000-0001-7871-2401,23,0.018
+author_orcids,9,https://orcid.org/0000-0003-0438-9837,22,0.017
+author_orcids,10,https://orcid.org/0000-0002-1873-768X,21,0.016
+author_orcids,11,https://orcid.org/0000-0002-5495-2029,21,0.016
+author_orcids,12,https://orcid.org/0000-0002-5253-2717,21,0.016
+author_orcids,13,https://orcid.org/0000-0002-1873-8228,19,0.015
+author_orcids,14,https://orcid.org/0000-0003-3072-5240,18,0.014
+author_orcids,15,https://orcid.org/0000-0002-5592-1742,18,0.014
+author_orcids,16,https://orcid.org/0000-0002-7679-4164,17,0.013
+author_orcids,17,https://orcid.org/0000-0002-9239-1648,17,0.013
+author_orcids,18,https://orcid.org/0000-0002-1522-9276,17,0.013
+author_orcids,19,https://orcid.org/0000-0003-3346-4410,16,0.012
+author_orcids,20,https://orcid.org/0000-0002-2018-0606,16,0.012
+sri_lankan_authors,1,LUNCHANAWAT NIMMAHNRATANAKUL,397,0.307
+sri_lankan_authors,2,"NIMMAHNRATANAKUL, LUNCHANAWAT",143,0.11
+sri_lankan_authors,3,Candauda Arachchige Saliya,110,0.085
+sri_lankan_authors,4,Meththika Vithanage,110,0.085
+sri_lankan_authors,5,Ranil Fernando,101,0.078
+sri_lankan_authors,6,Rishmi Ayodhya Sri Wijebandara,98,0.076
+sri_lankan_authors,7,Himal A. Suraweera,69,0.053
+sri_lankan_authors,8,Julian Thamboo,67,0.052
+sri_lankan_authors,9,Janaka Ekanayake,66,0.051
+sri_lankan_authors,10,Miyuru Chandradasa,59,0.046
+sri_lankan_authors,11,Aditi Mukherji,54,0.042
+sri_lankan_authors,12,Chaminda Chandrasekara,49,0.038
+sri_lankan_authors,13,CHAMPIKA BANDARA; ANUSHA GAYAN ATTHANAGODA,47,0.036
+sri_lankan_authors,14,Daniel Fernando,45,0.035
+sri_lankan_authors,15,Nalin N. Wijayawardene,42,0.032
+sri_lankan_authors,16,Narayanage Jayantha Dewasiri,41,0.032
+sri_lankan_authors,17,Dushantha Nalin K. Jayakody,41,0.032
+sri_lankan_authors,18,Disna Ratnasekera,39,0.03
+sri_lankan_authors,19,R. P. C. R. Rajapakse,38,0.029
+sri_lankan_authors,20,Suresh P. Benjamin,38,0.029
+contributors,1,"Gunaruwan, TL",217,0.168
+contributors,2,"Pasindu, HR",161,0.124
+contributors,3,"Rathnayake, M; Adhikariwatte, V; Hemachandra, K",141,0.109
+contributors,4,"Samarawickrama, S",138,0.107
+contributors,5,"Abeysooriya, R; Adikariwattage, V; Hemachandra, K",135,0.104
+contributors,6,"Adhikariwatte, W; Rathnayake, M; Hemachandra, K",126,0.097
+contributors,7,"Chathuranga, D",101,0.078
+contributors,8,"Waidyasekara, KGAS; Jayasena, HS; Wimalaratne, PLI; Tennakoon, GA",99,0.076
+contributors,9,"Perera, HLK",86,0.066
+contributors,10,"Weeraddana, C; Edussooriya, CUS; Abeysooriya, RP",85,0.066
+contributors,11,"Sandanayake, YG; Gunatilake, S; Waidyasekara, KGAS",85,0.066
+contributors,12,"Sandanayake, YG; Waidyasekara, KGAS; Ranadewa, KATO; Chandanie, H",85,0.066
+contributors,13,"Jayasekara, AGBP; Bandara, HMND; Amarasinghe, YWR",73,0.056
+contributors,14,"Wijesundara, J; Dayaratne, R",70,0.054
+contributors,15,"Pasindu, HR; Bandara, S; Mampearachchi, WK; Fwa, TF",64,0.049
+contributors,16,"Gunawardena, S",58,0.045
+contributors,17,"Sivahar, V",56,0.043
+contributors,18,Perera I,54,0.042
+contributors,19,"Mallikarachchi, C; Hettiarachchi, P; Herath, S; Fernando, L",53,0.041
+contributors,20,"Sandanayake, YG; Waidyasekara, KGAS; Gunatilake, S",52,0.04
+institutions,1,University of Moratuwa,3984,3.076
+institutions,2,University of Peradeniya,3321,2.564
+institutions,3,University of Sri Jayewardenepura,3284,2.536
+institutions,4,University of Colombo,3175,2.452
+institutions,5,Sri Lanka Institute of Information Technology,2519,1.945
+institutions,6,University of Kelaniya,2401,1.854
+institutions,7,University of Ruhuna,1288,0.995
+institutions,8,University of Jaffna,1248,0.964
+institutions,9,Department of Archaeology,1152,0.889
+institutions,10,Sabaragamuwa University of Sri Lanka,1030,0.795
+institutions,11,Open University of Sri Lanka,774,0.598
+institutions,12,National Hospital of Sri Lanka,697,0.538
+institutions,13,Rajarata University of Sri Lanka,691,0.534
+institutions,14,University of the Visual & Performing Arts,651,0.503
+institutions,15,General Sir John Kotelawala Defence University,646,0.499
+institutions,16,Wayamba University of Sri Lanka,621,0.479
+institutions,17,South Eastern University of Sri Lanka,545,0.421
+institutions,18,Uva Wellassa University,424,0.327
+institutions,19,Informatics Institute of Technology,287,0.222
+institutions,20,Institute of Archaeology; Department of Archaeology,278,0.215
+sri_lankan_institutions,1,University of Peradeniya,6113,4.72
+sri_lankan_institutions,2,University of Moratuwa,6078,4.693
+sri_lankan_institutions,3,University of Colombo,5324,4.111
+sri_lankan_institutions,4,University of Sri Jayewardenepura,4868,3.759
+sri_lankan_institutions,5,Department of Archaeology,3690,2.849
+sri_lankan_institutions,6,University of Kelaniya,3531,2.726
+sri_lankan_institutions,7,Sri Lanka Institute of Information Technology,3188,2.462
+sri_lankan_institutions,8,University of Ruhuna,2505,1.934
+sri_lankan_institutions,9,National Research Council,2235,1.726
+sri_lankan_institutions,10,University of Jaffna,1958,1.512
+sri_lankan_institutions,11,Sabaragamuwa University of Sri Lanka,1570,1.212
+sri_lankan_institutions,12,Rajarata University of Sri Lanka,1257,0.971
+sri_lankan_institutions,13,International Water Management Institute,1104,0.852
+sri_lankan_institutions,14,Wayamba University of Sri Lanka,1096,0.846
+sri_lankan_institutions,15,Open University of Sri Lanka,1037,0.801
+sri_lankan_institutions,16,South Eastern University of Sri Lanka,1006,0.777
+sri_lankan_institutions,17,National Hospital of Sri Lanka,972,0.751
+sri_lankan_institutions,18,General Sir John Kotelawala Defence University,933,0.72
+sri_lankan_institutions,19,Institute for Research and Development,842,0.65
+sri_lankan_institutions,20,Uva Wellassa University,807,0.623
+countries,1,LK,41648,32.158
+countries,2,AU; LK,2684,2.072
+countries,3,LK; US,2570,1.984
+countries,4,GB; LK,2514,1.941
+countries,5,CN; LK,1309,1.011
+countries,6,JP; LK,1233,0.952
+countries,7,IN; LK,1098,0.848
+countries,8,LK; MY,601,0.464
+countries,9,ES; LK,574,0.443
+countries,10,CA; LK,466,0.36
+countries,11,ID; LK,436,0.337
+countries,12,LK; NZ,395,0.305
+countries,13,KR; LK,336,0.259
+countries,14,DE; LK,298,0.23
+countries,15,GB; LK; US,254,0.196
+countries,16,AU; GB; LK,233,0.18
+countries,17,LK; PK,220,0.17
+countries,18,LK; RO,209,0.161
+countries,19,LK; SE,207,0.16
+countries,20,AU; LK; US,192,0.148
+publisher,1,Sri Lanka Journals Online,9002,6.951
+publisher,2,IEEE,7388,5.704
+publisher,3,Elsevier BV,6918,5.342
+publisher,4,Sri Lanka Journals Online (JOL),6462,4.989
+publisher,5,University of Jaffna,3289,2.54
+publisher,6,Springer Science+Business Media,2618,2.021
+publisher,7,Uva Wellassa University of Sri Lanka,2606,2.012
+publisher,8,Wiley,2482,1.916
+publisher,9,European Organization for Nuclear Research,2262,1.747
+publisher,10,RELX Group (Netherlands),2257,1.743
+publisher,11,BioMed Central,1668,1.288
+publisher,12,Multidisciplinary Digital Publishing Institute,1614,1.246
+publisher,13,Taylor & Francis,1433,1.106
+publisher,14,University of Sri Jayewardenepura,1366,1.055
+publisher,15,"Bhiksu University Of Sri Lanka, Anuradhapura.",1339,1.034
+publisher,16,Springer Nature,1243,0.96
+publisher,17,"University of Peradeniya, Sri Lanka",1177,0.909
+publisher,18,"Faculty of Science, University of Ruhuna, Matara, Sri Lanka",1112,0.859
+publisher,19,Springer Science and Business Media LLC,1018,0.786
+publisher,20,University of Colombo,1015,0.784
+journal,1,Zenodo (CERN European Organization for Nuclear Research),2262,1.747
+journal,2,SSRN Electronic Journal,2257,1.743
+journal,3,Archaeology Data Service,1265,0.977
+journal,4,Research Square,1259,0.972
+journal,5,Sri Lanka Journal of Child Health,1045,0.807
+journal,6,Ceylon Journal of Science,687,0.53
+journal,7,Journal of the National Science Foundation of Sri Lanka,552,0.426
+journal,8,Sri Lankan Journal of Infectious Diseases,468,0.361
+journal,9,Figshare,456,0.352
+journal,10,"Proceedings of the Annual Research Symposium 2025, University of Colombo, Sri Lanka",429,0.331
+journal,11,Ceylon Medical Journal,413,0.319
+journal,12,Journal of the College of Community Physicians of Sri Lanka,408,0.315
+journal,13,Journal of Agricultural Sciences – Sri Lanka,394,0.304
+journal,14,Elsevier eBooks,392,0.303
+journal,15,Tropical Agricultural Research,387,0.299
+journal,16,Sri Lankan Journal of Anaesthesiology,385,0.297
+journal,17,Lecture notes in civil engineering,361,0.279
+journal,18,PLoS ONE,352,0.272
+journal,19,Sri Lanka Journal of Medicine,330,0.255
+journal,20,South-East Asian Journal of Medical Education,317,0.245
+source_type,1,repository,59490,45.934
+source_type,2,journal,56553,43.666
+source_type,3,book series,2047,1.581
+source_type,4,conference,932,0.72
+source_type,5,ebook platform,816,0.63
+issn,1,1556-5068,2255,1.741
+issn,2,2513-230X; 2513-2814,410,0.317
+issn,3,2366-2557; 2366-2565,352,0.272
+issn,4,1932-6203,352,0.272
+issn,5,1391-5452; 2386-110X,325,0.251
+issn,6,0009-0875; 2386-1274,319,0.246
+issn,7,2045-2322,310,0.239
+issn,8,0379-8240; 2279-2201; 1391-491X,276,0.213
+issn,9,1800-1122; 2550-3219,274,0.212
+issn,10,2168-8184,271,0.209
+issn,11,2235-9397; 2235-9427,266,0.205
+issn,12,2012-8169; 2448-9654,263,0.203
+issn,13,1391-4588; 2362-0161,246,0.19
+issn,14,1391-3174; 2579-1451,207,0.16
+issn,15,1391-1937; 2651-0367,198,0.153
+issn,16,2235-9761,197,0.152
+issn,17,2362-0315; 2362-0323,183,0.141
+issn,18,1391-7536; 2279-1655,183,0.141
+issn,19,2071-1050,174,0.134
+issn,20,0379-3877; 2651-0200,172,0.133
+issn_l,1,1556-5068,2257,1.743
+issn_l,2,2513-230X,410,0.317
+issn_l,3,2366-2557,361,0.279
+issn_l,4,1932-6203,352,0.272
+issn_l,5,1391-5452,325,0.251
+issn_l,6,1016-1422,323,0.249
+issn_l,7,0009-0875,320,0.247
+issn_l,8,2045-2322,310,0.239
+issn_l,9,0379-8240,276,0.213
+issn_l,10,1800-1122,274,0.212
+issn_l,11,2168-8184,271,0.209
+issn_l,12,2235-9397,266,0.205
+issn_l,13,2012-8169,263,0.203
+issn_l,14,1391-4588,247,0.191
+issn_l,15,1391-3174,207,0.16
+issn_l,16,1391-1937,204,0.158
+issn_l,17,2235-9761,197,0.152
+issn_l,18,1021-2604,196,0.151
+issn_l,19,2362-0315,183,0.141
+issn_l,20,1391-7536,183,0.141
+volume,1,10,1599,1.235
+volume,2,11,1526,1.178
+volume,3,3,1508,1.164
+volume,4,7,1465,1.131
+volume,5,9,1458,1.126
+volume,6,13,1426,1.101
+volume,7,12,1423,1.099
+volume,8,5,1380,1.066
+volume,9,6,1356,1.047
+volume,10,8,1324,1.022
+volume,11,2,1298,1.002
+volume,12,4,1289,0.995
+volume,13,1,1116,0.862
+volume,14,14,1088,0.84
+volume,15,17,1048,0.809
+volume,16,15,1023,0.79
+volume,17,16,1002,0.774
+volume,18,18,852,0.658
+volume,19,24,690,0.533
+volume,20,23,682,0.527
+issue,1,1,11641,8.988
+issue,2,2,7606,5.873
+issue,3,3,3823,2.952
+issue,4,4,3273,2.527
+issue,5,5,1460,1.127
+issue,6,6,1410,1.089
+issue,7,7,791,0.611
+issue,8,8,724,0.559
+issue,9,10,695,0.537
+issue,10,11,675,0.521
+issue,11,12,671,0.518
+issue,12,9,639,0.493
+issue,13,0,523,0.404
+issue,14,01,420,0.324
+issue,15,02,322,0.249
+issue,16,1-2,190,0.147
+issue,17,S1,136,0.105
+issue,18,03,133,0.103
+issue,19,13,111,0.086
+issue,20,Supplement_1,92,0.071
+first_page,1,1,6159,4.756
+first_page,2,3,252,0.195
+first_page,3,21,247,0.191
+first_page,4,17,245,0.189
+first_page,5,23,244,0.188
+first_page,6,11,241,0.186
+first_page,7,25,240,0.185
+first_page,8,37,238,0.184
+first_page,9,19,233,0.18
+first_page,10,13,231,0.178
+first_page,11,31,229,0.177
+first_page,12,27,221,0.171
+first_page,13,33,221,0.171
+first_page,14,43,216,0.167
+first_page,15,29,212,0.164
+first_page,16,55,209,0.161
+first_page,17,15,206,0.159
+first_page,18,39,205,0.158
+first_page,19,41,202,0.156
+first_page,20,49,201,0.155
+last_page,1,6,2292,1.77
+last_page,2,5,611,0.472
+last_page,3,1,523,0.404
+last_page,4,7,492,0.38
+last_page,5,8,398,0.307
+last_page,6,10,336,0.259
+last_page,7,11,303,0.234
+last_page,8,9,303,0.234
+last_page,9,4,290,0.224
+last_page,10,12,288,0.222
+last_page,11,17,283,0.219
+last_page,12,15,251,0.194
+last_page,13,18,250,0.193
+last_page,14,20,244,0.188
+last_page,15,21,241,0.186
+last_page,16,13,234,0.181
+last_page,17,26,231,0.178
+last_page,18,27,218,0.168
+last_page,19,14,218,0.168
+last_page,20,16,218,0.168
+article_number,1,1,29,0.022
+article_number,2,2,26,0.02
+article_number,3,6,24,0.019
+article_number,4,3,24,0.019
+article_number,5,11,24,0.019
+article_number,6,14,22,0.017
+article_number,7,22,22,0.017
+article_number,8,9,22,0.017
+article_number,9,10,21,0.016
+article_number,10,4,19,0.015
+article_number,11,37,19,0.015
+article_number,12,8,19,0.015
+article_number,13,50,19,0.015
+article_number,14,13,19,0.015
+article_number,15,18,19,0.015
+article_number,16,17,19,0.015
+article_number,17,26,18,0.014
+article_number,18,5,18,0.014
+article_number,19,24,18,0.014
+article_number,20,20,18,0.014
+language,1,en,105848,81.728
+language,2,unknown,17835,13.771
+language,3,other,4088,3.156
+language,4,si,951,0.734
+language,5,fr,128,0.099
+language,6,id,116,0.09
+language,7,es,88,0.068
+language,8,ar,73,0.056
+language,9,pt,60,0.046
+language,10,de,48,0.037
+language,11,tr,30,0.023
+language,12,ta,29,0.022
+language,13,ng,22,0.017
+language,14,fa,16,0.012
+language,15,it,14,0.011
+language,16,ang,13,0.01
+language,17,nl,12,0.009
+language,18,lv,12,0.009
+language,19,ru,12,0.009
+language,20,sn,10,0.008
+license,1,cc-by,25488,19.68
+license,2,cc-by-nc-nd,3574,2.76
+license,3,cc-by-nc,2374,1.833
+license,4,cc-by-sa,1045,0.807
+license,5,cc-by-nc-sa,924,0.713
+license,6,cc-by-nd,729,0.563
+license,7,other-oa,490,0.378
+license,8,public-domain,244,0.188
+license,9,publisher-specific-oa,3,0.002
+license_url,1,https://creativecommons.org/licenses/by/4.0/,6922,5.345
+license_url,2,https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-037,4232,3.268
+license_url,3,https://creativecommons.org/licenses/by/4.0,3946,3.047
+license_url,4,http://onlinelibrary.wiley.com/termsAndConditions,1453,1.122
+license_url,5,https://www.springernature.com/gp/researchers/text-and-data-mining; https://www.springernature.com/gp/researchers/text-and-data-mining,1432,1.106
+license_url,6,https://www.springernature.com/gp/researchers/text-and-data-mining,1368,1.056
+license_url,7,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license; https://doi.org/10.15223/policy-017; https://doi.org/10.15223/policy-037; https://doi.org/10.15223/policy-012; https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-004,1342,1.036
+license_url,8,https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-037; https://ieeexplore.ieee.org/Xplorehelp/downloads/license-information/IEEE.html,1276,0.985
+license_url,9,http://www.springer.com/tdm,1222,0.944
+license_url,10,https://creativecommons.org/licenses/by/4.0; https://creativecommons.org/licenses/by/4.0,1088,0.84
+license_url,11,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license,878,0.678
+license_url,12,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license; http://creativecommons.org/licenses/by-nc-nd/4.0/,814,0.629
+license_url,13,https://www.elsevier.com/tdm/userlicense/1.0/; https://www.elsevier.com/legal/tdmrep-license; http://creativecommons.org/licenses/by/4.0/,772,0.596
+license_url,14,https://creativecommons.org/licenses/by-nc-nd/4.0,718,0.554
+license_url,15,https://creativecommons.org/licenses/by-nc-nd/4.0/,690,0.533
+license_url,16,https://creativecommons.org/licenses/by-nc/4.0/,680,0.525
+license_url,17,https://www.elsevier.com/tdm/userlicense/1.0/,620,0.479
+license_url,18,https://www.springer.com/tdm,579,0.447
+license_url,19,https://creativecommons.org/licenses/by-nc/4.0,570,0.44
+license_url,20,https://doi.org/10.15223/policy-004; https://doi.org/10.15223/policy-012; https://doi.org/10.15223/policy-017; https://doi.org/10.15223/policy-029; https://doi.org/10.15223/policy-037; https://www.elsevier.com/legal/tdmrep-license; https://www.elsevier.com/tdm/userlicense/1.0/,555,0.429
+oa_status,1,unknown,56255,43.436
+oa_status,2,closed,23995,18.527
+oa_status,3,diamond,17185,13.269
+oa_status,4,gold,11804,9.114
+oa_status,5,green,11391,8.795
+oa_status,6,hybrid,5798,4.477
+oa_status,7,bronze,3084,2.381
+is_oa,1,True,49262,38.037
+is_oa,2,False,23995,18.527
+citation_count,1,0,32341,24.971
+citation_count,2,1,9195,7.1
+citation_count,3,2,5274,4.072
+citation_count,4,3,3648,2.817
+citation_count,5,4,2734,2.111
+citation_count,6,5,2165,1.672
+citation_count,7,6,1728,1.334
+citation_count,8,7,1370,1.058
+citation_count,9,8,1186,0.916
+citation_count,10,9,1000,0.772
+citation_count,11,10,859,0.663
+citation_count,12,11,814,0.629
+citation_count,13,12,682,0.527
+citation_count,14,13,601,0.464
+citation_count,15,14,590,0.456
+citation_count,16,15,487,0.376
+citation_count,17,16,464,0.358
+citation_count,18,17,448,0.346
+citation_count,19,18,424,0.327
+citation_count,20,19,393,0.303
+reference_count,1,0,23840,18.408
+reference_count,2,13,1193,0.921
+reference_count,3,11,1152,0.889
+reference_count,4,12,1148,0.886
+reference_count,5,10,1136,0.877
+reference_count,6,15,1127,0.87
+reference_count,7,14,1119,0.864
+reference_count,8,9,1119,0.864
+reference_count,9,17,1104,0.852
+reference_count,10,16,1083,0.836
+reference_count,11,8,1074,0.829
+reference_count,12,18,1060,0.818
+reference_count,13,6,1017,0.785
+reference_count,14,7,976,0.754
+reference_count,15,19,958,0.74
+reference_count,16,22,933,0.72
+reference_count,17,21,922,0.712
+reference_count,18,5,912,0.704
+reference_count,19,20,906,0.7
+reference_count,20,23,872,0.673
+concepts,1,Computer science,272,0.21
+concepts,2,History,45,0.035
+concepts,3,Medicine,44,0.034
+concepts,4,Political science,39,0.03
+concepts,5,Geography,33,0.025
+concepts,6,Psychology,32,0.025
+concepts,7,Environmental science,30,0.023
+concepts,8,Business,30,0.023
+concepts,9,Process (computing; Identification (biology; Computer science; Product (mathematics; Work (physics; Context (archaeology; Set (abstract data type; Term (time; Natural (archaeology; Selection (genetic algorithm,23,0.018
+concepts,10,Art,18,0.014
+concepts,11,Physics,18,0.014
+concepts,12,Philosophy,16,0.012
+concepts,13,Biology; Genetics; Context (archaeology; Meiosis; Recombination; Chromosome; Homologous recombination; Evolutionary biology; Genetic recombination; Genome; Chromosome segregation; Selection (genetic algorithm,16,0.012
+concepts,14,Traditional medicine; Medicine,14,0.011
+concepts,15,Computer science; History,13,0.01
+concepts,16,Humanities; Art,12,0.009
+concepts,17,Computer science; Human–computer interaction,12,0.009
+concepts,18,Sri lanka; Geography; Environmental planning; Tanzania,11,0.008
+concepts,19,Sri lanka; Business; Economics; Socioeconomics; Tanzania,11,0.008
+concepts,20,Business; Marketing,11,0.008
+topics,1,COVID-19 Pandemic Impacts,193,0.149
+topics,2,Mosquito-borne diseases and control; Viral Infections and Vectors; Malaria Research and Control,72,0.056
+topics,3,Entrepreneurship Studies and Influences,68,0.053
+topics,4,Child Nutrition and Water Access,64,0.049
+topics,5,Water Quality and Pollution Assessment,58,0.045
+topics,6,Smart Agriculture and AI,57,0.044
+topics,7,Asian Geopolitics and Ethnography,57,0.044
+topics,8,Coconut Research and Applications,55,0.042
+topics,9,Mosquito-borne diseases and control,54,0.042
+topics,10,Technology Adoption and User Behaviour,51,0.039
+topics,11,Research on Leishmaniasis Studies,50,0.039
+topics,12,Agricultural Economics and Practices,50,0.039
+topics,13,Environmental Sustainability in Business,47,0.036
+topics,14,Online and Blended Learning,46,0.036
+topics,15,Microplastics and Plastic Pollution; Recycling and Waste Management Techniques,45,0.035
+topics,16,Mosquito-borne diseases and control; Malaria Research and Control; Viral Infections and Vectors,45,0.035
+topics,17,Leptospirosis research and findings; Viral Infections and Vectors,44,0.034
+topics,18,Diverse Scientific and Economic Studies; Legal case studies and regulations; Human auditory perception and evaluation,44,0.034
+topics,19,Leptospirosis research and findings,41,0.032
+topics,20,Emotional Intelligence and Performance,40,0.031
+primary_topic,1,Mosquito-borne diseases and control,720,0.556
+primary_topic,2,Archaeology and ancient environmental studies,499,0.385
+primary_topic,3,Historical and Cultural Archaeology Studies,457,0.353
+primary_topic,4,COVID-19 Pandemic Impacts,382,0.295
+primary_topic,5,Microplastics and Plastic Pollution,298,0.23
+primary_topic,6,Smart Agriculture and AI,294,0.227
+primary_topic,7,Asian Geopolitics and Ethnography,286,0.221
+primary_topic,8,Plant Pathogens and Fungal Diseases,280,0.216
+primary_topic,9,Digital Marketing and Social Media,261,0.202
+primary_topic,10,Technology Adoption and User Behaviour,261,0.202
+primary_topic,11,Flood Risk Assessment and Management,247,0.191
+primary_topic,12,Environmental Sustainability in Business,243,0.188
+primary_topic,13,Child Nutrition and Water Access,232,0.179
+primary_topic,14,Venomous Animal Envenomation and Studies,228,0.176
+primary_topic,15,Construction Project Management and Performance,225,0.174
+primary_topic,16,Coconut Research and Applications,221,0.171
+primary_topic,17,Diverse Aspects of Tourism Research,219,0.169
+primary_topic,18,"Agriculture, Water, and Health",215,0.166
+primary_topic,19,Entrepreneurship Studies and Influences,214,0.165
+primary_topic,20,Adsorption and biosorption for pollutant removal,213,0.164
+primary_field,1,Medicine,14491,11.189
+primary_field,2,Engineering,7212,5.569
+primary_field,3,Social Sciences,6992,5.399
+primary_field,4,Environmental Science,6701,5.174
+primary_field,5,Agricultural and Biological Sciences,5862,4.526
+primary_field,6,Computer Science,5192,4.009
+primary_field,7,"Business, Management and Accounting",4086,3.155
+primary_field,8,"Biochemistry, Genetics and Molecular Biology",3428,2.647
+primary_field,9,Psychology,2213,1.709
+primary_field,10,"Economics, Econometrics and Finance",2166,1.672
+primary_field,11,Arts and Humanities,2114,1.632
+primary_field,12,Health Professions,1769,1.366
+primary_field,13,Earth and Planetary Sciences,1610,1.243
+primary_field,14,Materials Science,1517,1.171
+primary_field,15,Decision Sciences,1092,0.843
+primary_field,16,Immunology and Microbiology,890,0.687
+primary_field,17,Chemistry,718,0.554
+primary_field,18,Nursing,641,0.495
+primary_field,19,Neuroscience,638,0.493
+primary_field,20,Energy,609,0.47
+primary_subfield,1,Plant Science,2451,1.892
+primary_subfield,2,"Public Health, Environmental and Occupational Health",2256,1.742
+primary_subfield,3,Sociology and Political Science,2196,1.696
+primary_subfield,4,Artificial Intelligence,1670,1.289
+primary_subfield,5,Economics and Econometrics,1615,1.247
+primary_subfield,6,Electrical and Electronic Engineering,1474,1.138
+primary_subfield,7,Molecular Biology,1395,1.077
+primary_subfield,8,Surgery,1235,0.954
+primary_subfield,9,Genetics,1216,0.939
+primary_subfield,10,Water Science and Technology,1187,0.917
+primary_subfield,11,Information Systems,1164,0.899
+primary_subfield,12,Global and Planetary Change,1130,0.873
+primary_subfield,13,Epidemiology,1082,0.835
+primary_subfield,14,Education,1066,0.823
+primary_subfield,15,Ecology,1023,0.79
+primary_subfield,16,Strategy and Management,1006,0.777
+primary_subfield,17,Biomedical Engineering,930,0.718
+primary_subfield,18,Archeology,916,0.707
+primary_subfield,19,Building and Construction,907,0.7
+primary_subfield,20,Civil and Structural Engineering,896,0.692
+primary_domain,1,Physical Sciences,24631,19.018
+primary_domain,2,Social Sciences,18663,14.41
+primary_domain,3,Health Sciences,17384,13.423
+primary_domain,4,Life Sciences,11105,8.574
+funder_name,1,University of Sri Jayewardenepura,310,0.239
+funder_name,2,National Research Council Sri Lanka,291,0.225
+funder_name,3,University of Moratuwa,266,0.205
+funder_name,4,National Science Foundation,146,0.113
+funder_name,5,University of Peradeniya,117,0.09
+funder_name,6,National Natural Science Foundation of China,112,0.086
+funder_name,7,University of Colombo,111,0.086
+funder_name,8,National Science Foundation of Sri Lanka,90,0.069
+funder_name,9,Japan Society for the Promotion of Science,81,0.063
+funder_name,10,World Bank Group,80,0.062
+funder_name,11,National Health and Medical Research Council,66,0.051
+funder_name,12,Australian Research Council,58,0.045
+funder_name,13,University of Kelaniya,53,0.041
+funder_name,14,Asian Development Bank,47,0.036
+funder_name,15,National Research Council of Sri Lanka,45,0.035
+funder_name,16,University Grants Commission - Sri Lanka,36,0.028
+funder_name,17,Bill and Melinda Gates Foundation,33,0.025
+funder_name,18,University of Ruhuna,32,0.025
+funder_name,19,National Research Foundation of Korea,32,0.025
+funder_name,20,World Bank,31,0.024
+funder_doi,1,10.13039/100008968,416,0.321
+funder_doi,2,10.13039/501100008816,352,0.272
+funder_doi,3,10.13039/501100009689,293,0.226
+funder_doi,4,10.13039/501100001809,186,0.144
+funder_doi,5,10.13039/501100009826,140,0.108
+funder_doi,6,10.13039/501100008982,137,0.106
+funder_doi,7,10.13039/501100008907,131,0.101
+funder_doi,8,10.13039/100004421,117,0.09
+funder_doi,9,10.13039/100000001,108,0.083
+funder_doi,10,10.13039/501100001691,92,0.071
+funder_doi,11,10.13039/501100000925,82,0.063
+funder_doi,12,10.13039/501100000923,79,0.061
+funder_doi,13,10.13039/501100011614,58,0.045
+funder_doi,14,10.13039/501100000272,58,0.045
+funder_doi,15,10.13039/100004425,48,0.037
+funder_doi,16,10.13039/501100003725,48,0.037
+funder_doi,17,10.13039/100000865,47,0.036
+funder_doi,18,10.13039/501100000038,41,0.032
+funder_doi,19,10.13039/501100011612,40,0.031
+funder_doi,20,10.13039/501100011615,37,0.029
+funder_identifier,1,10.13039/100008968,415,0.32
+funder_identifier,2,10.13039/501100008816,351,0.271
+funder_identifier,3,10.13039/501100009689,292,0.225
+funder_identifier,4,10.13039/501100001809,186,0.144
+funder_identifier,5,10.13039/501100009826,140,0.108
+funder_identifier,6,10.13039/501100008982,137,0.106
+funder_identifier,7,10.13039/501100008907,129,0.1
+funder_identifier,8,10.13039/100004421,117,0.09
+funder_identifier,9,10.13039/100000001,108,0.083
+funder_identifier,10,10.13039/501100001691,92,0.071
+funder_identifier,11,10.13039/501100000925,82,0.063
+funder_identifier,12,10.13039/501100000923,79,0.061
+funder_identifier,13,10.13039/501100011614,58,0.045
+funder_identifier,14,10.13039/501100000272,58,0.045
+funder_identifier,15,10.13039/100004425,48,0.037
+funder_identifier,16,10.13039/501100003725,48,0.037
+funder_identifier,17,10.13039/100000865,47,0.036
+funder_identifier,18,10.13039/501100000038,41,0.032
+funder_identifier,19,10.13039/501100011612,40,0.031
+funder_identifier,20,10.13039/501100011615,37,0.029
+funder_award,1,CRG-R2-SB-1,16,0.012
+funder_award,2,Not applicable,14,0.011
+funder_award,3,U01AI136033,13,0.01
+funder_award,4,U19AI115658,12,0.009
+funder_award,5,32260004,12,0.009
+funder_award,6,TO 14-05,11,0.008
+funder_award,7,19-045,11,0.008
+funder_award,8,NIHR200135,11,0.008
+funder_award,9,DOR STEM HEMS [6026-LK/8743-LK,10,0.008
+funder_award,10,6026-LK/8743-LK,10,0.008
+funder_award,11,F/100/152/AK,9,0.007
+funder_award,12,5U01AI151788-02,9,0.007
+funder_award,13,RG/2014/HS/03,8,0.006
+funder_award,14,MR/N006178/1,8,0.006
+funder_award,15,16-123,7,0.005
+funder_award,16,AHEAD/RA3/DOR/WUSL/FST,7,0.005
+funder_award,17,10.13039/501100011033,7,0.005
+funder_award,18,15-023,7,0.005
+funder_award,19,-,7,0.005
+funder_award,20,318927,7,0.005
+source_set_specs,1,com_123456789_1244; com_123456789_5; col_123456789_1678,650,0.502
+source_set_specs,2,com_123_8855; com_123_2099; com_123_2098; col_123_8856,580,0.448
+source_set_specs,3,com_123_2105; com_123_2098; col_123_19622,548,0.423
+source_set_specs,4,com_iruor_358; com_iruor_350; col_iruor_376,436,0.337
+source_set_specs,5,com_123_2105; com_123_2098; col_123_2106,419,0.324
+source_set_specs,6,com_123456789_4362; com_123456789_4361; com_123456789_283; col_123456789_4387,389,0.3
+source_set_specs,7,com_123_8847; com_123_2099; com_123_2098; col_123_10024,296,0.229
+source_set_specs,8,com_123456789_4202; com_123456789_4195; com_123456789_4194; col_123456789_593,283,0.219
+source_set_specs,9,com_iruor_358; com_iruor_350; col_iruor_378,277,0.214
+source_set_specs,10,com_123456789_4202; com_123456789_4195; com_123456789_4194; col_123456789_1253,256,0.198
+source_set_specs,11,com_123_47; com_123_1; col_123_50,250,0.193
+source_set_specs,12,com_123_8848; com_123_2098; col_123_8849,221,0.171
+source_set_specs,13,com_123456789_4207; com_123456789_4195; com_123456789_4194; col_123456789_607,183,0.141
+source_set_specs,14,com_123456789_4203; com_123456789_4195; com_123456789_4194; col_123456789_598,170,0.131
+source_set_specs,15,com_123_83; com_123_1; col_123_85,166,0.128
+source_set_specs,16,com_iruor_1441; com_iruor_12; com_iruor_8; col_iruor_17047,160,0.124
+source_set_specs,17,com_iruor_353; com_iruor_350; col_iruor_367,157,0.121
+source_set_specs,18,com_123_47; com_123_1; col_123_49,157,0.121
+source_set_specs,19,com_123_14670; com_123_8847; com_123_2099; com_123_2098; col_123_24391,150,0.116
+source_set_specs,20,com_123_14670; com_123_8847; com_123_2099; com_123_2098; col_123_14700,147,0.114
+raw_identifiers,1,https://rda.sliit.lk/handle/123456789/1812; 10.1002/9781119711308.ch3,1,0.001
+raw_identifiers,2,978-1-119-71108-7; https://rda.sliit.lk/handle/123456789/1811; 10.1002/9781119711308.ch5,1,0.001
+raw_identifiers,3,978-1-119-76047-4; https://rda.sliit.lk/handle/123456789/2815; 10.1002/9781119763499.ch2,1,0.001
+raw_identifiers,4,10.1007/978-3-030-01177-2_70; 978-3-030-01177-2; https://rda.sliit.lk/handle/123456789/2094,1,0.001
+raw_identifiers,5,10.1007/978-3-030-01177-2_77; 978-3-030-01177-2; https://rda.sliit.lk/handle/123456789/2081,1,0.001
+raw_identifiers,6,10.1007/978-3-030-03216-6_8; 978-3-030-03216-6; https://rda.sliit.lk/handle/123456789/2055,1,0.001
+raw_identifiers,7,10.1007/978-3-030-40274-7_22; 978-3-030-40274-7; https://rda.sliit.lk/handle/123456789/2313,1,0.001
+raw_identifiers,8,10.1007/978-3-030-48679-2_11; 978-3-030-48679-2; https://rda.sliit.lk/handle/123456789/2461,1,0.001
+raw_identifiers,9,10.1007/978-3-030-50676-6_5; 978-3-030-50675-9; https://rda.sliit.lk/handle/123456789/2911,1,0.001
+raw_identifiers,10,10.1007/978-3-030-52243-8_32; 978-3-030-52243-8; https://rda.sliit.lk/handle/123456789/2092,1,0.001
+raw_identifiers,11,10.1007/978-3-030-54426-3_8; 978-3-030-54425-6; 978-3-030-54426-3; http://ir.lib.ruh.ac.lk/xmlui/handle/iruor/8259,1,0.001
+raw_identifiers,12,10.1007/978-3-030-63092-8_20; 978-3-030-63092-8; https://rda.sliit.lk/handle/123456789/1998,1,0.001
+raw_identifiers,13,978-3-030-63092-8; https://rda.sliit.lk/handle/123456789/1997; 10.1007/978-3-030-63092-8_26,1,0.001
+raw_identifiers,14,10.1007/978-3-030-66296-7_7; 978-3-030-66296-7; https://rda.sliit.lk/handle/123456789/2060,1,0.001
+raw_identifiers,15,10.1007/978-3-030-80129-8_70; 978-3-030-80129-8; https://rda.sliit.lk/handle/123456789/2924,1,0.001
+raw_identifiers,16,"*****; http://dl.lib.uom.lk/handle/123/20264; Engineering; 2021; Road and Airfield Pavement Technology; pp. 3-20; Proceedings of 12th International Conference on Road and Airfield Pavement Technology, 2021; 188102d@uom.lk; 10.1007/978-3-030-87379-0_1",1,0.001
+raw_identifiers,17,"*****; http://dl.lib.uom.lk/handle/123/20229; Engineering; 2021; Road and Airfield Pavement Technology; pp. 315-329; Proceedings of 12th International Conference on Road and Airfield Pavement Technology, 2021; 10.1007/978-3-030-87379-0_23",1,0.001
+raw_identifiers,18,"*****; http://dl.lib.uom.lk/handle/123/20218; Engineering; 2021; Road and Airfield Pavement Technology; pp. 431-442; Proceedings of 12th International Conference on Road and Airfield Pavement Technology, 2021; 10.1007/978-3-030-87379-0_32",1,0.001
+raw_identifiers,19,"*****; http://dl.lib.uom.lk/handle/123/20212; Engineering; 2021; Road and Airfield Pavement Technology; pp. 495-505; Proceedings of 12th International Conference on Road and Airfield Pavement Technology, 2021; 10.1007/978-3-030-87379-0_37",1,0.001
+raw_identifiers,20,"*****; http://dl.lib.uom.lk/handle/123/20251; Engineering; 2021; Road and Airfield Pavement Technology; pp. 57-70; Proceedings of 12th International Conference on Road and Airfield Pavement Technology, 2021; wasanthak@uom.lk; 10.1007/978-3-030-87379-0_4",1,0.001
+citation_count_difference_oa_minus_crossref,1,0,65891,50.876
+citation_count_divergence_flag,1,False,65891,50.876
+reference_count_difference_oa_minus_crossref,1,0,65869,50.859
+reference_count_difference_oa_minus_crossref,2,-14,3,0.002
+reference_count_difference_oa_minus_crossref,3,-2,2,0.002
+reference_count_difference_oa_minus_crossref,4,-16,2,0.002
+reference_count_difference_oa_minus_crossref,5,-13,2,0.002
+reference_count_difference_oa_minus_crossref,6,-17,2,0.002
+reference_count_difference_oa_minus_crossref,7,-21,2,0.002
+reference_count_difference_oa_minus_crossref,8,-19,1,0.001
+reference_count_difference_oa_minus_crossref,9,-15,1,0.001
+reference_count_difference_oa_minus_crossref,10,-26,1,0.001
+reference_count_difference_oa_minus_crossref,11,-22,1,0.001
+reference_count_difference_oa_minus_crossref,12,-28,1,0.001
+reference_count_difference_oa_minus_crossref,13,-20,1,0.001
+reference_count_difference_oa_minus_crossref,14,-29,1,0.001
+reference_count_difference_oa_minus_crossref,15,-41,1,0.001
+reference_count_difference_oa_minus_crossref,16,-40,1,0.001
+reference_count_divergence_flag,1,False,65869,50.859
+reference_count_divergence_flag,2,True,22,0.017
+title_search_text,1,editorial,132,0.102
+title_search_text,2,list of contributors,53,0.041
+title_search_text,3,cover page,51,0.039
+title_search_text,4,contributors,49,0.038
+title_search_text,5,editorial note,38,0.029
+title_search_text,6,contents,38,0.029
+title_search_text,7,ahsbch 1231 - basic community health,28,0.022
+title_search_text,8,introduction,27,0.021
+title_search_text,9,ahsbs 1211 - basic statistics,22,0.017
+title_search_text,10,sri lanka,16,0.012
+title_search_text,11,preliminaries,16,0.012
+title_search_text,12,ahsbph 1253- basic physiology ii,14,0.011
+title_search_text,13,from the editor…,14,0.011
+title_search_text,14,preliminary pages,13,0.01
+title_search_text,15,ahsbb 1146 - basic biochemistry,13,0.01
+title_search_text,16,from the editor,11,0.008
+title_search_text,17,selected abstracts,11,0.008
+title_search_text,18,index,10,0.008
+title_search_text,19,reviewer response for version 1,10,0.008
+title_search_text,20,ahsbph 1253 - basic physiology ii,10,0.008
+abstract_search_text,1,no abstract available,1624,1.254
+abstract_search_text,2,this is the abstract,389,0.3
+abstract_search_text,3,no abstract available.,120,0.093
+abstract_search_text,4,1. exact pro 2. abans,89,0.069
+abstract_search_text,5,no abstract,18,0.014
+abstract_search_text,6,5th icahets – 2024,12,0.009
+abstract_search_text,7,abstract not available,9,0.007
+abstract_search_text,8,please find the attached document for the content of the abstract.,9,0.007
+abstract_search_text,9,poster,9,0.007
+abstract_search_text,10,date of conference: 5-7 dec. 2019 date added to ieee xplore: 29 may 2020,8,0.006
+abstract_search_text,11,"the present study was carried out to analyze the economic loss of sri lankan fishers due to the poaching activities by indian trawlers. fishery resources are major livelihoods in south indian and north sri lankan people who have been fished in harmony since ancient time but the situation has gone upside down since early 90s. because fish stocks on the indian side were fast depleting due to over-exploitation, the number of indian fishing vessels entering into sri lankan waters for fishing also rapidly increased. a survey was carried out at karainagar, point pedro and mathagal region from september 2015 to february 2016 in order to assess the economic loss of sri lankan fishers from indicated areas. primary data related to yield lost, income lost and nautical lost were collected from 100 families by providing a pre-tested questionnaire and secondary data related to the economic lost were collected from co-operative societies of the respective regions. collected data were subjected to descriptive statistical analysis and one-way analysis of variance. the highest yield lost was recorded in point pedro followed by mathagal, which were being 435.20 ± 125.8 kg/month and 428.10 ± 120.0 kg/month respectively. mathagal area faced significantly (p < 0.05) high amount of income lost (slr/month 85, 571.00 ± 35,119.00) than the other area. the nautical lost in karainagar, point pedro and mathagal area were 8, 6 and 5 nautical miles respectively. fishers living in mathagal and point pedro area faced significantly (p < 0.05) high amount of economic lost by indian trawlers than the karainagar area. from the present study it can be concluded that the intrusion of indian trawlers into the sri lankan territorial waters should be restricted in order to reduce the economic loss of the sri lankan fishers.",6,0.005
+abstract_search_text,12,an amendment to this paper has been published and can be accessed via the original article.,5,0.004
+abstract_search_text,13,abstract,5,0.004
+abstract_search_text,14,"this conference provides a forum for bringing academics, industry professionals, and students together to share their findings with the logistics and transport community.",5,0.004
+abstract_search_text,15,"background cardiovascular diseases (cvd) are the commonest indirect medical cause of maternal deaths worldwide, both in high-income and low and middle-income countries. to minimize the effects of cvd in pregnancy, proper risk assessment and appropriate referral is required. in sri lanka, cardiovascular disease complicating pregnancy is a significant cause of maternal mortality, second only to postpartum hemorrhage. screening for cvd in pregnancy in sri lanka is limited to a routine clinical assessment. evidence-based guidelines are yet to be developed, and this deficit may have resulted in a substantial underestimation of the cvd burden. this study aims to determine the burden of cvd in early pregnancy and develop a risk prediction model to be used in field pregnancy clinics in sri lanka to reduce cvd effects in pregnancy. methods a prospective cohort study was carried out in the anuradhapura district, sri lanka. following registration to the antenatal care, pregnant women fulfilling the eligibility criteria were invited to attend a special clinic at their relevant medical officer of health (moh) area. risk assessment was done through history and a clinical examination, and suspected/probable cases were referred for an echocardiogram by a consultant cardiologist. all the recruited participants in the first trimester were prospectively followed up and screened again between 24–28 weeks of the period of amenorrhoea (poa). antenatal ward admissions with cvd complicating pregnancy will be extracted, and a telephone interview will be carried out between 6–12 weeks after the expected delivery date to cover postpartum morbidities. discussion this proposed study will be the largest of its kind carried out in the local setting. the study's findings will be beneficial for policymakers to develop guidelines to reduce maternal cardiovascular disease morbidities and mortalities in sri lanka.",4,0.003
+abstract_search_text,16,-,4,0.003
+abstract_search_text,17,not abstract available,4,0.003
+abstract_search_text,18,no abstract avaialble,4,0.003
+abstract_search_text,19,"in this study, p25-titanium dioxide (tio2) was doped with ruthenium (ru) by systematically varying the ru content at 0.15, 0.30, 0.45 and 0.6 mol%. the synthesized ru-doped tio2 nanomaterials have been characterized by x-ray diffraction (xrd), raman spectroscopy, energy-dispersive x-ray (edx) analysis, uv-visible (uv–vis) spectroscopy, and electrochemical impedance (eis) spectroscopy. the xrd patterns of undoped and ru-doped tio2 nanomaterials confirm the presence of mixed anatase and rutile phases of tio2 while edx spectrum confirms the presence of ti, o and ru. further, uv-visible absorption spectra of doped tio2 nanomaterial reveal a slight red shift on ru-doping. the short circuit current density (jsc) of the cells fabricated using the ru-doped tio2 photoanode was found to be dependent on the amount of ru present in tio2. optimized cells with 0.3 mol% ru-doped tio2 electrodes showed efficiency which is 20% more than the efficiency of the control cell (η = 5.8%) under stimulated illumination (100 mwcm−2, 1 sun) with am 1.5 filter. the increase in jsc resulted from the reduced rate of recombination upon doping of ru and this was confirmed by eis analysis.",4,0.003
+abstract_search_text,20,"sympy is an open source computer algebra system written in pure python. it is built with a focus on extensibility and ease of use, through both interactive and programmatic applications. these characteristics have led sympy to become the standard symbolic library for the scientific python ecosystem. this paper presents the architecture of sympy, a description of its features, and a discussion of select domain specific submodules. the supplementary materials provide additional examples and further outline details of the architecture and features of sympy.",4,0.003
+abstract_missing_flag,1,False,70437,54.386
+abstract_missing_flag,2,True,59075,45.614
+keywords_search_text,1,article,573,0.442
+keywords_search_text,2,conference paper,273,0.211
+keywords_search_text,3,food science; food technology,125,0.097
+keywords_search_text,4,export agriculture degree programme (eag),113,0.087
+keywords_search_text,5,"hospitality, tourism and events management degree programme (hte)",106,0.082
+keywords_search_text,6,"hospitality, tourism and events management degree programme",101,0.078
+keywords_search_text,7,entrepreneurship and management degree programme,99,0.076
+keywords_search_text,8,management; entrepreneurship; human resource management,87,0.067
+keywords_search_text,9,book,81,0.063
+keywords_search_text,10,tea technology and value addition degree programme ( tea),70,0.054
+keywords_search_text,11,palm and latex technology and value addition degree programme ( plt),58,0.045
+keywords_search_text,12,computer science; information science; computing and information science,57,0.044
+keywords_search_text,13,animal sciences; agriculture; animal production; animal production technology,55,0.042
+keywords_search_text,14,material sciences; mineral sciences,55,0.042
+keywords_search_text,15,aquatic resources technology degree programme ( aqt),53,0.041
+keywords_search_text,16,environmental science; environmental engineering; geochemistry; ecology; green technology,52,0.04
+keywords_search_text,17,environmental science; environmental engineering; geochemistry; ecology,49,0.038
+keywords_search_text,18,tourism management; hospitality management; human resource development,46,0.036
+keywords_search_text,19,research abstract,41,0.032
+keywords_search_text,20,biochemistry,38,0.029
+funder_name_missing_flag,1,True,118800,91.729
+funder_name_missing_flag,2,False,10712,8.271
+funder_doi_missing_flag,1,True,121038,93.457
+funder_doi_missing_flag,2,False,8474,6.543
+funder_identifier_missing_flag,1,True,121002,93.429
+funder_identifier_missing_flag,2,False,8510,6.571
+funder_award_missing_flag,1,True,122184,94.342
+funder_award_missing_flag,2,False,7328,5.658
+license_missing_flag,1,True,94641,73.075
+license_missing_flag,2,False,34871,26.925
+license_url_missing_flag,1,True,89237,68.902
+license_url_missing_flag,2,False,40275,31.098
+pdf_url_missing_flag,1,True,98903,76.366
+pdf_url_missing_flag,2,False,30609,23.634
+author_orcids_missing_flag,1,True,107853,83.276
+author_orcids_missing_flag,2,False,21659,16.724
+article_number_missing_flag,1,True,119362,92.163
+article_number_missing_flag,2,False,10150,7.837
+authors_clean,1,Uva Wellassa University,1244,0.961
+authors_clean,2,Bhiksu University Of Sri Lanka,706,0.545
+authors_clean,3,University of Jaffna,703,0.543
+authors_clean,4,H&ss,667,0.515
+authors_clean,5,Lunchanawat Nimmahnratanakul,540,0.417
+authors_clean,6,Eie,413,0.319
+authors_clean,7,Department of Pharmacy,375,0.29
+authors_clean,8,Mgt,356,0.275
+authors_clean,9,Department of Nursing,349,0.269
+authors_clean,10,Mme,304,0.235
+authors_clean,11,Cee,280,0.216
+authors_clean,12,Fgs,245,0.189
+authors_clean,13,Fmst,207,0.16
+authors_clean,14,Department of Information and Communication Technology,177,0.137
+authors_clean,15,Department of Engineering Technology,155,0.12
+authors_clean,16,Department of Computer Science,147,0.114
+authors_clean,17,Is,144,0.111
+authors_clean,18,Faculty of Management and Finance,144,0.111
+authors_clean,19,Pharmacy Department of,141,0.109
+authors_clean,20,Department of MLS,119,0.092
+author_disambiguation_available_flag,1,False,107853,83.276
+author_disambiguation_available_flag,2,True,21659,16.724

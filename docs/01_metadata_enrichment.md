@@ -1,8 +1,10 @@
 # Metadata Enrichment Strategy
 
-## Primary Source
+## Primary Collection Source
 
-OpenAlex is the source of truth.
+OpenAlex is the primary collection backbone because it has strong affiliation,
+topic, open-access, and citation metadata. It is not treated as an automatic
+winner for every conflicting field in the implemented merge.
 
 Provides:
 
@@ -49,9 +51,10 @@ Provides:
 - Reference Count
 - Reference List
 
-## Excluded Fields
+## Review Before Overwrite
 
-Not enriched because OpenAlex already provides better versions:
+OpenAlex coverage is already strong for these fields, but conflicts should
+still be reviewed before any overwrite:
 
 - DOI
 - Title

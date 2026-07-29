@@ -26,9 +26,10 @@ Normalize Crossref metadata.
 
 Merge with OpenAlex.
 
-OpenAlex remains source of truth.
+The merge uses a configurable field-level source policy with completeness as a tie-breaker inside each source.
 
-Crossref only fills missing fields.
+Crossref contributes both gap-filling fields and source-specific count/reference
+fields used in the count-audit sidecar and divergence flags.
 
 ## Final Output
 
