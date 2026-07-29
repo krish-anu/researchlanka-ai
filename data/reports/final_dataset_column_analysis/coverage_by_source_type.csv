@@ -55,6 +55,21 @@ book series,citation_count_difference_oa_minus_crossref,2047,2037,99.51
 book series,citation_count_divergence_flag,2047,2037,99.51
 book series,reference_count_difference_oa_minus_crossref,2047,2037,99.51
 book series,reference_count_divergence_flag,2047,2037,99.51
+book series,title_search_text,2047,2047,100.0
+book series,abstract_search_text,2047,369,18.03
+book series,abstract_missing_flag,2047,2047,100.0
+book series,keywords_search_text,2047,71,3.47
+book series,funder_name_missing_flag,2047,2047,100.0
+book series,funder_doi_missing_flag,2047,2047,100.0
+book series,funder_identifier_missing_flag,2047,2047,100.0
+book series,funder_award_missing_flag,2047,2047,100.0
+book series,license_missing_flag,2047,2047,100.0
+book series,license_url_missing_flag,2047,2047,100.0
+book series,pdf_url_missing_flag,2047,2047,100.0
+book series,author_orcids_missing_flag,2047,2047,100.0
+book series,article_number_missing_flag,2047,2047,100.0
+book series,authors_clean,2047,2047,100.0
+book series,author_disambiguation_available_flag,2047,2047,100.0
 conference,source_dataset,932,932,100.0
 conference,source_institution_id,932,296,31.76
 conference,source_record_id,932,932,100.0
@@ -111,6 +126,21 @@ conference,citation_count_difference_oa_minus_crossref,932,829,88.95
 conference,citation_count_divergence_flag,932,829,88.95
 conference,reference_count_difference_oa_minus_crossref,932,829,88.95
 conference,reference_count_divergence_flag,932,829,88.95
+conference,title_search_text,932,932,100.0
+conference,abstract_search_text,932,419,44.96
+conference,abstract_missing_flag,932,932,100.0
+conference,keywords_search_text,932,295,31.65
+conference,funder_name_missing_flag,932,932,100.0
+conference,funder_doi_missing_flag,932,932,100.0
+conference,funder_identifier_missing_flag,932,932,100.0
+conference,funder_award_missing_flag,932,932,100.0
+conference,license_missing_flag,932,932,100.0
+conference,license_url_missing_flag,932,932,100.0
+conference,pdf_url_missing_flag,932,932,100.0
+conference,author_orcids_missing_flag,932,932,100.0
+conference,article_number_missing_flag,932,932,100.0
+conference,authors_clean,932,932,100.0
+conference,author_disambiguation_available_flag,932,932,100.0
 ebook platform,source_dataset,816,816,100.0
 ebook platform,source_institution_id,816,7,0.86
 ebook platform,source_record_id,816,816,100.0
@@ -167,6 +197,21 @@ ebook platform,citation_count_difference_oa_minus_crossref,816,809,99.14
 ebook platform,citation_count_divergence_flag,816,809,99.14
 ebook platform,reference_count_difference_oa_minus_crossref,816,809,99.14
 ebook platform,reference_count_divergence_flag,816,809,99.14
+ebook platform,title_search_text,816,816,100.0
+ebook platform,abstract_search_text,816,132,16.18
+ebook platform,abstract_missing_flag,816,816,100.0
+ebook platform,keywords_search_text,816,7,0.86
+ebook platform,funder_name_missing_flag,816,816,100.0
+ebook platform,funder_doi_missing_flag,816,816,100.0
+ebook platform,funder_identifier_missing_flag,816,816,100.0
+ebook platform,funder_award_missing_flag,816,816,100.0
+ebook platform,license_missing_flag,816,816,100.0
+ebook platform,license_url_missing_flag,816,816,100.0
+ebook platform,pdf_url_missing_flag,816,816,100.0
+ebook platform,author_orcids_missing_flag,816,816,100.0
+ebook platform,article_number_missing_flag,816,816,100.0
+ebook platform,authors_clean,816,816,100.0
+ebook platform,author_disambiguation_available_flag,816,816,100.0
 journal,source_dataset,56553,56553,100.0
 journal,source_institution_id,56553,19866,35.13
 journal,source_record_id,56553,56553,100.0
@@ -203,7 +248,7 @@ journal,article_number,56553,10120,17.89
 journal,language,56553,56553,100.0
 journal,license,56553,28353,50.14
 journal,license_url,56553,28475,50.35
-journal,oa_status,56553,47742,84.42
+journal,oa_status,56553,56553,100.0
 journal,is_oa,56553,47742,84.42
 journal,citation_count,56553,47742,84.42
 journal,reference_count,56553,47742,84.42
@@ -223,6 +268,21 @@ journal,citation_count_difference_oa_minus_crossref,56553,47197,83.46
 journal,citation_count_divergence_flag,56553,47197,83.46
 journal,reference_count_difference_oa_minus_crossref,56553,47197,83.46
 journal,reference_count_divergence_flag,56553,47197,83.46
+journal,title_search_text,56553,56543,99.98
+journal,abstract_search_text,56553,32183,56.91
+journal,abstract_missing_flag,56553,56553,100.0
+journal,keywords_search_text,56553,2093,3.7
+journal,funder_name_missing_flag,56553,56553,100.0
+journal,funder_doi_missing_flag,56553,56553,100.0
+journal,funder_identifier_missing_flag,56553,56553,100.0
+journal,funder_award_missing_flag,56553,56553,100.0
+journal,license_missing_flag,56553,56553,100.0
+journal,license_url_missing_flag,56553,56553,100.0
+journal,pdf_url_missing_flag,56553,56553,100.0
+journal,author_orcids_missing_flag,56553,56553,100.0
+journal,article_number_missing_flag,56553,56553,100.0
+journal,authors_clean,56553,56550,99.99
+journal,author_disambiguation_available_flag,56553,56553,100.0
 repository,source_dataset,59490,59490,100.0
 repository,source_institution_id,59490,49871,83.83
 repository,source_record_id,59490,59490,100.0
@@ -259,7 +319,7 @@ repository,article_number,59490,1,0.0
 repository,language,59490,59490,100.0
 repository,license,59490,5046,8.48
 repository,license_url,59490,2834,4.76
-repository,oa_status,59490,12097,20.33
+repository,oa_status,59490,59490,100.0
 repository,is_oa,59490,12097,20.33
 repository,citation_count,59490,12101,20.34
 repository,reference_count,59490,12101,20.34
@@ -279,6 +339,21 @@ repository,citation_count_difference_oa_minus_crossref,59490,6258,10.52
 repository,citation_count_divergence_flag,59490,6258,10.52
 repository,reference_count_difference_oa_minus_crossref,59490,6258,10.52
 repository,reference_count_divergence_flag,59490,6258,10.52
+repository,title_search_text,59490,59485,99.99
+repository,abstract_search_text,59490,36241,60.92
+repository,abstract_missing_flag,59490,59490,100.0
+repository,keywords_search_text,59490,46657,78.43
+repository,funder_name_missing_flag,59490,59490,100.0
+repository,funder_doi_missing_flag,59490,59490,100.0
+repository,funder_identifier_missing_flag,59490,59490,100.0
+repository,funder_award_missing_flag,59490,59490,100.0
+repository,license_missing_flag,59490,59490,100.0
+repository,license_url_missing_flag,59490,59490,100.0
+repository,pdf_url_missing_flag,59490,59490,100.0
+repository,author_orcids_missing_flag,59490,59490,100.0
+repository,article_number_missing_flag,59490,59490,100.0
+repository,authors_clean,59490,58408,98.18
+repository,author_disambiguation_available_flag,59490,59490,100.0
 unknown,source_dataset,9674,9674,100.0
 unknown,source_institution_id,9674,0,0.0
 unknown,source_record_id,9674,9674,100.0
@@ -315,7 +390,7 @@ unknown,article_number,9674,18,0.19
 unknown,language,9674,9674,100.0
 unknown,license,9674,1142,11.8
 unknown,license_url,9674,6013,62.16
-unknown,oa_status,9674,9623,99.47
+unknown,oa_status,9674,9674,100.0
 unknown,is_oa,9674,9623,99.47
 unknown,citation_count,9674,9674,100.0
 unknown,reference_count,9674,9674,100.0
@@ -335,3 +410,18 @@ unknown,citation_count_difference_oa_minus_crossref,9674,8761,90.56
 unknown,citation_count_divergence_flag,9674,8761,90.56
 unknown,reference_count_difference_oa_minus_crossref,9674,8761,90.56
 unknown,reference_count_divergence_flag,9674,8761,90.56
+unknown,title_search_text,9674,9601,99.25
+unknown,abstract_search_text,9674,1093,11.3
+unknown,abstract_missing_flag,9674,9674,100.0
+unknown,keywords_search_text,9674,0,0.0
+unknown,funder_name_missing_flag,9674,9674,100.0
+unknown,funder_doi_missing_flag,9674,9674,100.0
+unknown,funder_identifier_missing_flag,9674,9674,100.0
+unknown,funder_award_missing_flag,9674,9674,100.0
+unknown,license_missing_flag,9674,9674,100.0
+unknown,license_url_missing_flag,9674,9674,100.0
+unknown,pdf_url_missing_flag,9674,9674,100.0
+unknown,author_orcids_missing_flag,9674,9674,100.0
+unknown,article_number_missing_flag,9674,9674,100.0
+unknown,authors_clean,9674,9674,100.0
+unknown,author_disambiguation_available_flag,9674,9674,100.0
