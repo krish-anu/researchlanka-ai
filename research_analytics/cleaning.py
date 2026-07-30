@@ -9,6 +9,7 @@ from typing import Any
 from research_analytics.config import CleaningConfig
 
 DOI_PREFIX_RE = re.compile(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", re.IGNORECASE)
+DOI_VALUE_RE = re.compile(r"^10\.\d{4,9}/[^\s\"'<>]+$", re.IGNORECASE)
 TITLE_SPACE_RE = re.compile(r"\s+")
 
 
@@ -49,11 +50,20 @@ def normalize_doi(value: Any) -> str | None:
         return None
     if isinstance(value, float) and math.isnan(value):
         return None
-    doi = str(value).strip()
-    if not doi:
+    doi = str(value).strip().lower()
+    if not doi or doi == "nan":
         return None
     doi = DOI_PREFIX_RE.sub("", doi).strip()
-    return doi.lower() or None
+    doi = doi.replace(" ", "")
+    doi = doi.rstrip(".,;:)]}")
+    return doi or None
+
+
+def is_valid_doi(value: Any) -> bool:
+    """Return True when a value normalizes to a syntactically valid DOI."""
+
+    doi = normalize_doi(value)
+    return bool(doi and DOI_VALUE_RE.fullmatch(doi))
 
 
 def normalize_text(value: Any) -> str | None:

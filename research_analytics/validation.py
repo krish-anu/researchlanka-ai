@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from research_analytics.cleaning import normalize_doi, normalize_title_key
+from research_analytics.cleaning import is_valid_doi, normalize_doi, normalize_title_key
 from research_analytics.config import FrameworkConfig
 
 
@@ -40,14 +40,14 @@ def validate_records(records: list[dict[str, Any]], config: FrameworkConfig) -> 
     missing_value_percentages = {
         field: _missing_percentage(records, field) for field in detected_columns
     }
-    invalid_doi_count = sum(
-        1 for record in records if record.get("doi") and normalize_doi(record.get("doi")) is None
-    )
+    invalid_doi_count = sum(1 for record in records if _has_invalid_doi(record.get("doi")))
     invalid_year_count = sum(
         1 for record in records if _has_invalid_year(record.get("publication_year"), config)
     )
     duplicate_doi_count = _duplicate_count(
-        normalize_doi(record.get("doi")) for record in records if record.get("doi")
+        normalize_doi(record.get("doi"))
+        for record in records
+        if record.get("doi") and is_valid_doi(record.get("doi"))
     )
     duplicate_title_count = _duplicate_count(
         normalize_title_key(record.get("title")) for record in records if record.get("title")
@@ -84,6 +84,15 @@ def validate_records(records: list[dict[str, Any]], config: FrameworkConfig) -> 
     )
 
 
+def record_validation_errors(record: dict[str, Any]) -> list[str]:
+    """Return record-level validation errors shared by all source adapters."""
+
+    errors = []
+    if _has_invalid_doi(record.get("doi")):
+        errors.append("Invalid DOI value: doi")
+    return errors
+
+
 def _missing_percentage(records: list[dict[str, Any]], field: str) -> float:
     if not records:
         return 0.0
@@ -94,6 +103,10 @@ def _missing_percentage(records: list[dict[str, Any]], field: str) -> float:
 def _duplicate_count(values) -> int:
     counter = Counter(value for value in values if value)
     return sum(count - 1 for count in counter.values() if count > 1)
+
+
+def _has_invalid_doi(value: Any) -> bool:
+    return not _is_blank(value) and not is_valid_doi(value)
 
 
 def _has_invalid_year(value: Any, config: FrameworkConfig) -> bool:

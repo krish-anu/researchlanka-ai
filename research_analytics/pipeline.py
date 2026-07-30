@@ -14,7 +14,11 @@ from research_analytics.deduplication import find_duplicate_candidates
 from research_analytics.exporters import export_pipeline_outputs
 from research_analytics.institutions import NationalInstitutionRegistry, enrich_national_context
 from research_analytics.source_validation import SourceValidationReport, validate_source_sample
-from research_analytics.validation import ValidationReport, validate_records
+from research_analytics.validation import (
+    ValidationReport,
+    record_validation_errors,
+    validate_records,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -82,7 +86,7 @@ class ResearchPipeline:
         self.result.valid_records = []
         self.result.invalid_records = []
         for record in records:
-            errors = self.adapter.validate(record)
+            errors = self.adapter.validate(record) + record_validation_errors(record)
             if errors:
                 invalid_record = dict(record)
                 invalid_record["_validation_errors"] = errors

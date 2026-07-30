@@ -45,8 +45,8 @@ def test_pipeline_runs_from_configuration_and_exports_reports(tmp_path):
         "\n".join(
             [
                 "record_id,paper_name,researcher,university,published_year,doi,citation_count",
-                "1,Same title,A. Author,Example University,2022,https://doi.org/10.1/ABC,4",
-                "2,Same title,A Author,EU,2022,10.1/abc,4",
+                "1,Same title,A. Author,Example University,2022,https://doi.org/10.1000/ABC,4",
+                "2,Same title,A Author,EU,2022,10.1000/abc,4",
                 "3,Another title,B. Author,Other University,2023,,1",
             ]
         )
@@ -106,13 +106,50 @@ def test_pipeline_runs_from_configuration_and_exports_reports(tmp_path):
     assert len(rows) == 2
 
 
+def test_pipeline_rejects_invalid_doi_values(tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text(
+        "\n".join(
+            [
+                "record_id,title,authors,publication_year,doi",
+                "1,Valid DOI paper,A. Author,2024,10.1234/good",
+                "2,Invalid DOI paper,B. Author,2024,not-a-doi",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config = config_from_dict(
+        {
+            "source": {"name": "doi_validation_test", "type": "csv", "path": str(dataset)},
+            "column_mapping": {
+                "record_id": "source_record_id",
+                "title": "title",
+                "authors": "authors",
+                "publication_year": "publication_year",
+                "doi": "doi",
+            },
+            "pipeline": {"export": False},
+        }
+    )
+
+    result = ResearchPipeline(config).run_all()
+
+    assert result.validation_report is not None
+    assert result.validation_report.invalid_doi_count == 1
+    assert len(result.valid_records) == 1
+    assert len(result.invalid_records) == 1
+    assert result.invalid_records[0]["_validation_errors"] == ["Invalid DOI value: doi"]
+    assert len(result.cleaned_records) == 1
+
+
 def test_pipeline_loads_database_when_enabled(tmp_path, monkeypatch):
     dataset = tmp_path / "publications.csv"
     dataset.write_text(
         "\n".join(
             [
                 "record_id,title,authors,institutions,publication_year,doi",
-                "1,Database paper,A. Author,Example University,2024,10.1/db",
+                "1,Database paper,A. Author,Example University,2024,10.1000/db",
             ]
         )
         + "\n",
@@ -201,8 +238,8 @@ def test_stage_runner_executes_all_pipeline_steps_from_sri_lanka_shaped_config(t
         "\n".join(
             [
                 "record_id,title,authors,institutions,publication_year,doi",
-                "1,Same title,A. Author,University of Colombo,2022,https://doi.org/10.1/ABC",
-                "2,Same title,A Author,UOC,2022,10.1/abc",
+                "1,Same title,A. Author,University of Colombo,2022,https://doi.org/10.1000/ABC",
+                "2,Same title,A Author,UOC,2022,10.1000/abc",
                 "3,Another title,B. Author,University of Peradeniya,2023,",
             ]
         )

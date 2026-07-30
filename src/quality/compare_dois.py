@@ -12,7 +12,7 @@ PROJECT_ROOT = next(
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.utils.file_naming import dataset_filename
-from src.utils.doi import normalize_doi
+from src.utils.doi import is_valid_doi, normalize_doi
 
 OPENALEX_PATH = PROJECT_ROOT / "data" / "raw" / "openalex" / dataset_filename(
     "openalex",
@@ -59,6 +59,7 @@ def load_dois(path: Path, column: str) -> pd.DataFrame:
 
     df["doi_clean"] = df[column].apply(normalize_doi)
     df = df.dropna(subset=["doi_clean"])
+    df = df[df["doi_clean"].apply(is_valid_doi)]
 
     return df
 

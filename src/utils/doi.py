@@ -6,6 +6,8 @@ import math
 import re
 from typing import Any
 
+DOI_VALUE_RE = re.compile(r"^10\.\d{4,9}/[^\s\"'<>]+$", re.IGNORECASE)
+
 
 def normalize_doi(doi: Any) -> str | None:
     """Normalize DOI strings for stable matching and flat exports."""
@@ -29,3 +31,9 @@ def normalize_doi(doi: Any) -> str | None:
     normalized = normalized.rstrip(".,;:)]}")
 
     return normalized.strip() or None
+
+
+def is_valid_doi(doi: Any) -> bool:
+    """Return whether a value is a syntactically valid normalized DOI."""
+    normalized = normalize_doi(doi)
+    return bool(normalized and DOI_VALUE_RE.fullmatch(normalized))

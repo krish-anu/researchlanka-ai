@@ -9,6 +9,7 @@ from typing import Any
 from research_analytics.adapters.base import SourceAdapter
 from research_analytics.config import FrameworkConfig
 from research_analytics.schema import STANDARD_PUBLICATION_FIELDS
+from research_analytics.validation import record_validation_errors
 
 
 @dataclass
@@ -21,6 +22,7 @@ class SourceValidationReport:
     missing_title: int
     missing_year: int
     missing_doi: int
+    invalid_doi: int
     unmapped_columns: list[str]
     preview: list[dict[str, Any]]
     errors: list[str] = field(default_factory=list)
@@ -72,6 +74,7 @@ def validate_source_sample(
             missing_title=0,
             missing_year=0,
             missing_doi=0,
+            invalid_doi=0,
             unmapped_columns=[],
             preview=[],
             errors=errors,
@@ -91,7 +94,7 @@ def validate_source_sample(
         try:
             record = adapter.transform(raw_record)
             transformed.append(record)
-            record_errors.append(adapter.validate(record))
+            record_errors.append(adapter.validate(record) + record_validation_errors(record))
         except Exception as exc:
             transformed.append({})
             record_errors.append([f"Transformation failed: {exc}"])
@@ -114,6 +117,7 @@ def validate_source_sample(
         missing_title=sum(1 for record in transformed if _is_blank(record.get("title"))),
         missing_year=sum(1 for record in transformed if _is_blank(record.get("publication_year"))),
         missing_doi=sum(1 for record in transformed if _is_blank(record.get("doi"))),
+        invalid_doi=sum(1 for record in transformed if record_validation_errors(record)),
         unmapped_columns=unmapped_columns,
         preview=transformed[:5],
         errors=errors,
