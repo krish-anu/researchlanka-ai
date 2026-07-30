@@ -1,16 +1,17 @@
-# AI Research Analytics Platform
+# National Research Analytics Framework
 
-AI-Powered Research Portfolio and Analytics Platform for Sri Lanka.
+A Sri Lanka national-level research analytics framework.
 
-This project collects, cleans, analyzes, and visualizes research publications by Sri Lankan researchers and institutions.
+The framework collects, integrates, cleans, analyses, and exports scholarly
+publication data for Sri Lanka.
 
 ## Main Outputs
 
-- Consolidated Sri Lankan research publication dataset.
-- Cleaned and standardized publication database.
+- Consolidated national research publication dataset.
+- Cleaned and standardized national research database.
 - AI/ML-based publication classification.
-- Research analytics for productivity, citations, topics, and collaboration.
-- Interactive dashboard for searching and visualizing research trends.
+- Research analytics for productivity, citations, topics, trends, and collaboration.
+- Standard national exports for publications, authors, institutions, links, data quality, and analytics.
 
 ## Setup
 
@@ -59,6 +60,40 @@ Check the connection:
 python scripts/database/check_database_connection.py
 ```
 
+Apply and verify the PostgreSQL schema:
+
+```bash
+python scripts/database/apply_database_migrations.py
+python scripts/database/verify_database_schema.py
+```
+
+The production load writes deduplicated records into `final_publications`, whose
+columns follow the latest finalized dataset schema from `FINAL_MAIN_COLUMNS`.
+The Sri Lanka config enables `"load_database": true`, so `run-all` applies the
+database load after deduplication:
+
+```bash
+python -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
+```
+
+To run only the database load stage:
+
+```bash
+python -m research_analytics.cli load_database --config configurations/sri_lanka/config.json
+```
+
+To load a prepared records file directly into PostgreSQL:
+
+```bash
+python scripts/database/load_records.py data/processed/common/final_common_dataset.csv
+python scripts/database/load_records.py data/processed/common/final_common_dataset.jsonl --batch-size 500
+python scripts/database/load_records.py data/processed/common/final_common_dataset.csv --limit 25
+```
+
+The direct loader accepts CSV, JSON arrays, JSON objects with a `records` list,
+and JSON Lines files. It applies pending migrations before the first batch unless
+you pass `--no-ensure-schema`.
+
 Stop the database:
 
 ```bash
@@ -96,10 +131,50 @@ git push origin feature/openalex-collector
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
 - [Metadata Quality Report Index](docs/00_metadata_quality_report_index.md) - missing values, completeness, conflicts, and final column decisions
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
+- [National Framework Guide](documentation/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
+- [Migration to Framework Pipeline](documentation/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
 - [Contributing Guide](CONTRIBUTING.md)
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
 - [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
+
+## Sri Lanka National Framework Mode
+
+The Sri Lanka national framework code lives in `research_analytics/`.
+Sri Lanka source choices, institution registries, year ranges, categories,
+field mappings, dashboard labels, and aliases live in `configurations/sri_lanka/`.
+
+Run the Sri Lanka implementation:
+
+```bash
+python -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
+```
+
+The practical deployment wrapper supports stage workflow:
+
+```bash
+python run_pipeline.py --config configurations/sri_lanka/config.json --stage all
+python run_pipeline.py --config configurations/sri_lanka/config.json --stage deduplicate
+```
+
+The Makefile uses the framework pipeline as the national workflow:
+
+```bash
+make framework-sri-lanka
+```
+
+After installing the package, the CLI command is:
+
+```bash
+research-framework run-all --config configurations/sri_lanka/config.json
+```
+
+To validate the Sri Lanka source mapping before full import:
+
+```bash
+research-framework source-validate --config configurations/sri_lanka/config.json
+research-framework preview --config configurations/sri_lanka/config.json --sample-size 5
+```
 
 ## Collector Structure
 
@@ -115,7 +190,9 @@ same shape:
 - CLI entrypoints live in `scripts/` and should call collector classes instead
   of duplicating request or pagination logic.
 
-Run the OpenAlex pipeline with Crossref DOI enrichment in one command:
+Legacy Sri Lanka-specific collection scripts remain available while the project
+is being migrated into the Sri Lanka framework. For example, the older OpenAlex
+collector can still run with:
 
 ```bash
 python scripts/collection/kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com

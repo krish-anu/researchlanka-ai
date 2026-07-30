@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.database import get_connection
+from src.database.final_schema import FINAL_PUBLICATION_COLUMNS, FINAL_PUBLICATION_TABLE
 
 EXPECTED_TABLES = [
     "countries",
@@ -39,6 +40,9 @@ EXPECTED_TABLES = [
     "publication_locations",
     "pipeline_runs",
     "data_quality_issues",
+    "final_publications",
+    "final_publication_references",
+    "final_publication_count_audit",
 ]
 
 
@@ -69,7 +73,31 @@ def main() -> None:
         if missing:
             raise SystemExit(f"Missing tables: {', '.join(missing)}")
 
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = %s
+                ORDER BY ordinal_position
+                """,
+                (FINAL_PUBLICATION_TABLE,),
+            )
+            final_columns = [row[0] for row in cursor.fetchall()]
+
+        expected_final_columns = ["publication_key", *FINAL_PUBLICATION_COLUMNS]
+        missing_final_columns = [
+            column for column in expected_final_columns if column not in final_columns
+        ]
+        if missing_final_columns:
+            raise SystemExit(
+                "Missing final_publications columns: "
+                + ", ".join(missing_final_columns)
+            )
+
         print(f"Schema OK: {len(EXPECTED_TABLES)} expected tables exist.")
+        print(f"Final publication columns found: {len(FINAL_PUBLICATION_COLUMNS)}")
         print(f"Foreign keys found: {foreign_key_count}")
     finally:
         connection.close()

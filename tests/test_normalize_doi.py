@@ -1,6 +1,7 @@
 """Tests for DOI normalization and comparison."""
 
 from src.quality.compare_dois import normalize_doi
+from src.utils.doi import is_valid_doi
 
 
 def test_normalize_doi_url_with_dx():
@@ -76,3 +77,15 @@ def test_normalize_doi_plain_doi():
     doi = "10.1234/example.test"
     result = normalize_doi(doi)
     assert result == "10.1234/example.test"
+
+
+def test_is_valid_doi_accepts_normalized_doi():
+    """Test DOI syntax validation accepts standard DOI values."""
+    assert is_valid_doi("https://doi.org/10.1234/example.test")
+
+
+def test_is_valid_doi_rejects_malformed_values():
+    """Test DOI syntax validation rejects non-DOI strings."""
+    assert not is_valid_doi("not-a-doi")
+    assert not is_valid_doi("10.1/too-short")
+    assert not is_valid_doi("https://example.org/10.1234/not-a-doi-url")

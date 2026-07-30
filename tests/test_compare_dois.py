@@ -49,6 +49,22 @@ def test_load_dois_filters_empty(tmp_path):
     assert all(df["doi_clean"].notna())
 
 
+def test_load_dois_filters_invalid_values(tmp_path):
+    """Test that malformed DOI values are filtered out."""
+    csv_file = tmp_path / "test.csv"
+    csv_file.write_text(
+        "doi,title\n"
+        "10.1234/test,Paper 1\n"
+        "not-a-doi,Paper 2\n"
+        "10.1/too-short,Paper 3\n"
+    )
+
+    df = load_dois(csv_file, "doi")
+
+    assert len(df) == 1
+    assert df["doi_clean"].iloc[0] == "10.1234/test"
+
+
 def test_load_dois_file_not_found():
     """Test error when CSV file doesn't exist."""
     with pytest.raises(FileNotFoundError):
