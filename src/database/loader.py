@@ -119,9 +119,19 @@ def build_final_publication_row(record: dict[str, Any], row_number: int) -> dict
 
 
 def first_available_value(record: dict[str, Any], column: str) -> Any:
+    lookup_order = (column, *COLUMN_ALIASES.get(column, ()))
     for source_column in (column, *COLUMN_ALIASES.get(column, ())):
         if source_column in record and not is_blank(record.get(source_column)):
             return record[source_column]
+
+    for nested_key in ("source_specific_metadata", "raw_record"):
+        nested = record.get(nested_key)
+        if not isinstance(nested, dict):
+            continue
+        for source_column in lookup_order:
+            if source_column in nested and not is_blank(nested.get(source_column)):
+                return nested[source_column]
+
     return None
 
 
