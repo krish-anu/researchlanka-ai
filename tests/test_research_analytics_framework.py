@@ -8,6 +8,7 @@ from research_analytics.adapters.openalex import OpenAlexAdapter
 from research_analytics.adapters.registry import get_source_adapter
 from research_analytics.analytics import run_field_aware_analytics
 from research_analytics.cli import run_stage
+from research_analytics.cleaning import normalize_title, normalize_title_key
 from research_analytics.config import config_from_dict
 from research_analytics.institutions import NationalInstitutionRegistry, enrich_national_context
 from research_analytics.schema import STANDARD_PUBLICATION_FIELDS
@@ -141,6 +142,62 @@ def test_pipeline_rejects_invalid_doi_values(tmp_path):
     assert len(result.invalid_records) == 1
     assert result.invalid_records[0]["_validation_errors"] == ["Invalid DOI value: doi"]
     assert len(result.cleaned_records) == 1
+
+
+def test_title_normalization_cleans_markup_entities_and_spacing():
+    title = (
+        "  Fired-Siltstone Based Geopolymers for CO&lt;inf&gt;2&lt;/inf&gt; "
+        "Sequestration Wells &amp;amp; Storage  "
+    )
+
+    assert (
+        normalize_title(title)
+        == "Fired-Siltstone Based Geopolymers for CO2 Sequestration Wells & Storage"
+    )
+    assert (
+        normalize_title_key(title)
+        == "fired siltstone based geopolymers for co2 sequestration wells storage"
+    )
+
+
+def test_title_key_preserves_unicode_words():
+    theory = "තොරතුරු තාක්ෂණය පිළිබඳ පදනම් පාඨමාලාව (සිද්ධාන්ත) - FNDI 22020"
+    practical = "තොරතුරු තාක්ෂණය පිළිබඳ පදනම් පාඨමාලාව (ප්‍රායෝගික) - FNDI 22020"
+
+    assert normalize_title_key(theory) != normalize_title_key(practical)
+    assert "සිද්ධාන්ත" in normalize_title_key(theory)
+    assert "ප්‍රායෝගික" in normalize_title_key(practical)
+
+
+def test_pipeline_writes_normalized_publication_title(tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text(
+        "\n".join(
+            [
+                "record_id,title,authors,publication_year",
+                "1,<scp>I</scp>slam and Gender,A. Author,2024",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config = config_from_dict(
+        {
+            "source": {"name": "title_normalization_test", "type": "csv", "path": str(dataset)},
+            "column_mapping": {
+                "record_id": "source_record_id",
+                "title": "title",
+                "authors": "authors",
+                "publication_year": "publication_year",
+            },
+            "pipeline": {"export": False},
+        }
+    )
+
+    result = ResearchPipeline(config).run_all()
+
+    assert result.cleaned_records[0]["title"] == "Islam and Gender"
+    assert result.cleaned_records[0]["normalized_title"] == "islam and gender"
 
 
 def test_pipeline_loads_database_when_enabled(tmp_path, monkeypatch):
