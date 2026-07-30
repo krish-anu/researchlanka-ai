@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-from research_analytics.cleaning import normalize_doi
-
-YEAR_RE = re.compile(r"(1[5-9]\d{2}|20\d{2})")
-
+from research_analytics.cleaning import (
+    normalize_doi,
+    normalize_publication_date,
+    normalize_publication_year,
+)
 
 def apply_transformations(
     record: dict[str, Any],
@@ -31,10 +31,7 @@ def transform_value(value: Any, rule: dict[str, Any]) -> Any:
     rule_type = rule.get("type")
 
     if rule_type == "extract_year":
-        if value is None:
-            return None
-        match = YEAR_RE.search(str(value))
-        return int(match.group(1)) if match else None
+        return normalize_publication_year(value)
 
     if rule_type == "split":
         if value is None or isinstance(value, list):
@@ -44,6 +41,12 @@ def transform_value(value: Any, rule: dict[str, Any]) -> Any:
 
     if rule_type == "normalize_doi":
         return normalize_doi(value)
+
+    if rule_type in {"normalize_date", "normalize_publication_date"}:
+        return normalize_publication_date(value)
+
+    if rule_type in {"normalize_year", "normalize_publication_year"}:
+        return normalize_publication_year(value)
 
     if rule_type == "strip":
         return str(value).strip() if value is not None else None

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import ast
+from datetime import date, datetime
 import html
+import json
 import math
 import re
 import unicodedata
@@ -19,6 +22,7 @@ INLINE_TEXT_TAG_RE = re.compile(
 TAG_RE = re.compile(r"<[^>]+>")
 TITLE_SPACE_RE = re.compile(r"\s+")
 UNICODE_WORD_JOINERS = {"\u200c", "\u200d"}
+YEAR_RE = re.compile(r"(1[5-9]\d{2}|20\d{2})")
 TITLE_ENTITY_FIXES = {
     "&squo;": "'",
     "&lsquo;": "'",
@@ -41,6 +45,17 @@ def clean_record(record: dict[str, Any], config: CleaningConfig) -> dict[str, An
         cleaned["title"] = title
         cleaned["normalized_title"] = normalize_title_key(title)
         rules_applied.append("normalize_title")
+
+    if config.normalize_publication_dates:
+        publication_date = normalize_publication_date(cleaned.get("publication_date"))
+        publication_year = normalize_publication_year(
+            cleaned.get("publication_year") or publication_date
+        )
+        if publication_date is None and publication_year is not None:
+            publication_date = str(publication_year)
+        cleaned["publication_date"] = publication_date
+        cleaned["publication_year"] = publication_year
+        rules_applied.append("normalize_publication_dates")
 
     if config.normalize_author_names:
         cleaned["authors"] = normalize_list_like(cleaned.get("authors"))
@@ -158,6 +173,144 @@ def normalize_title_key(value: Any) -> str | None:
     return "".join(output).strip() or None
 
 
+def normalize_publication_date(value: Any) -> str | None:
+    """Normalize publication dates to YYYY, YYYY-MM, or YYYY-MM-DD."""
+
+    if _is_blank(value):
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+
+    parsed = parse_literal(value)
+    if isinstance(parsed, dict) and "date-parts" in parsed:
+        return normalize_date_parts(parsed["date-parts"])
+    if isinstance(parsed, list):
+        return normalize_date_parts(parsed)
+
+    text = normalize_text(parsed)
+    if not text:
+        return None
+    if text[0] in "[{":
+        reparsed = parse_literal(text)
+        if reparsed is not text:
+            return normalize_publication_date(reparsed)
+
+    if re.fullmatch(r"\d{4}", text):
+        return text
+
+    year_month = re.fullmatch(r"(\d{4})[-/](\d{1,2})", text)
+    if year_month:
+        year = int(year_month.group(1))
+        month = int(year_month.group(2))
+        return f"{year:04d}-{month:02d}" if 1 <= month <= 12 else f"{year:04d}"
+
+    year_month_day = re.match(r"^(\d{4})[-/](\d{1,2})[-/](\d{1,2})", text)
+    if year_month_day:
+        return format_date_parts(
+            [
+                int(year_month_day.group(1)),
+                int(year_month_day.group(2)),
+                int(year_month_day.group(3)),
+            ]
+        )
+
+    slash_date = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", text)
+    if slash_date:
+        first = int(slash_date.group(1))
+        second = int(slash_date.group(2))
+        year = int(slash_date.group(3))
+        day, month = (first, second) if first > 12 else (second, first)
+        return format_date_parts([year, month, day])
+
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        return None
+
+
+def normalize_publication_year(value: Any) -> int | None:
+    """Normalize a publication year or date-like value to an integer year."""
+
+    if _is_blank(value) or isinstance(value, bool):
+        return None
+    if isinstance(value, datetime):
+        return value.year
+    if isinstance(value, date):
+        return value.year
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if not math.isnan(value) and value.is_integer() else None
+
+    parsed = parse_literal(value)
+    if isinstance(parsed, dict) and "date-parts" in parsed:
+        return normalize_publication_year(parsed["date-parts"])
+    if isinstance(parsed, list):
+        normalized_date = normalize_date_parts(parsed)
+        return normalize_publication_year(normalized_date)
+
+    text = normalize_text(parsed)
+    if not text:
+        return None
+    match = YEAR_RE.search(text)
+    return int(match.group(1)) if match else None
+
+
+def normalize_date_parts(value: Any) -> str | None:
+    parsed = parse_literal(value)
+    if isinstance(parsed, dict) and "date-parts" in parsed:
+        parsed = parsed["date-parts"]
+    if not isinstance(parsed, list):
+        return normalize_publication_date(parsed)
+
+    parts = parsed[0] if parsed and isinstance(parsed[0], list) else parsed
+    normalized_parts: list[int] = []
+    for part in parts[:3]:
+        if _is_blank(part):
+            break
+        try:
+            normalized_parts.append(int(float(str(part).strip())))
+        except ValueError:
+            break
+    return format_date_parts(normalized_parts)
+
+
+def format_date_parts(parts: list[int]) -> str | None:
+    if not parts:
+        return None
+    year = parts[0]
+    if len(parts) == 1:
+        return f"{year:04d}"
+    month = parts[1]
+    if not 1 <= month <= 12:
+        return f"{year:04d}"
+    if len(parts) == 2:
+        return f"{year:04d}-{month:02d}"
+    day = parts[2]
+    if not 1 <= day <= 31:
+        return f"{year:04d}-{month:02d}"
+    try:
+        return date(year, month, day).isoformat()
+    except ValueError:
+        return f"{year:04d}-{month:02d}"
+
+
+def parse_literal(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text or text[0] not in "[{":
+        return value
+    for parser in (json.loads, ast.literal_eval):
+        try:
+            return parser(text)
+        except (json.JSONDecodeError, ValueError, SyntaxError):
+            continue
+    return value
+
+
 def normalize_list_like(value: Any) -> list[str]:
     if value is None:
         return []
@@ -168,3 +321,15 @@ def normalize_list_like(value: Any) -> list[str]:
         return []
     separator = ";" if ";" in text else ","
     return [item.strip() for item in text.split(separator) if item.strip()]
+
+
+def _is_blank(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, float) and math.isnan(value):
+        return True
+    if isinstance(value, str):
+        return not value.strip() or value.strip().casefold() == "nan"
+    if isinstance(value, list):
+        return not value
+    return False

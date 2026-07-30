@@ -91,6 +91,9 @@
     "publication_year": {
       "type": "extract_year"
     },
+    "publication_date": {
+      "type": "normalize_publication_date"
+    },
     "authors": {
       "type": "split",
       "separator": ";"
@@ -110,6 +113,7 @@
   "cleaning": {
     "normalize_doi": true,
     "normalize_title": true,
+    "normalize_publication_dates": true,
     "normalize_author_names": true,
     "normalize_institutions": true,
     "valid_year": {

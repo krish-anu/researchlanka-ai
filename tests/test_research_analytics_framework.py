@@ -1,5 +1,6 @@
 import csv
 import json
+from datetime import date, datetime
 
 from research_analytics import ResearchPipeline, load_config, map_to_standard_schema
 from research_analytics.adapters import SOURCE_REGISTRY
@@ -8,7 +9,12 @@ from research_analytics.adapters.openalex import OpenAlexAdapter
 from research_analytics.adapters.registry import get_source_adapter
 from research_analytics.analytics import run_field_aware_analytics
 from research_analytics.cli import run_stage
-from research_analytics.cleaning import normalize_title, normalize_title_key
+from research_analytics.cleaning import (
+    normalize_publication_date,
+    normalize_publication_year,
+    normalize_title,
+    normalize_title_key,
+)
 from research_analytics.config import config_from_dict
 from research_analytics.institutions import NationalInstitutionRegistry, enrich_national_context
 from research_analytics.schema import STANDARD_PUBLICATION_FIELDS
@@ -198,6 +204,59 @@ def test_pipeline_writes_normalized_publication_title(tmp_path):
 
     assert result.cleaned_records[0]["title"] == "Islam and Gender"
     assert result.cleaned_records[0]["normalized_title"] == "islam and gender"
+
+
+def test_publication_date_normalization_handles_common_source_shapes():
+    assert normalize_publication_date("2024") == "2024"
+    assert normalize_publication_date("2024-3") == "2024-03"
+    assert normalize_publication_date("2024-03-15T12:30:00") == "2024-03-15"
+    assert normalize_publication_date(date(2024, 3, 15)) == "2024-03-15"
+    assert normalize_publication_date(datetime(2024, 3, 15, 12, 30)) == "2024-03-15"
+    assert normalize_publication_date({"date-parts": [[2024, 3, 15]]}) == "2024-03-15"
+    assert normalize_publication_date("[[2024, 3]]") == "2024-03"
+    assert normalize_publication_date("15/03/2024") == "2024-03-15"
+    assert normalize_publication_date("2024-99-99") == "2024"
+    assert normalize_publication_date("not-a-date") is None
+
+
+def test_publication_year_normalization_extracts_from_date_values():
+    assert normalize_publication_year("2024-03-15") == 2024
+    assert normalize_publication_year({"date-parts": [[2024, 3, 15]]}) == 2024
+    assert normalize_publication_year("[[2024, 3]]") == 2024
+    assert normalize_publication_year(2024.0) == 2024
+    assert normalize_publication_year("not-a-year") is None
+
+
+def test_pipeline_normalizes_publication_date_and_fills_year(tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text(
+        "\n".join(
+            [
+                "record_id,title,authors,publication_date,publication_year",
+                "1,Date paper,A. Author,2024-03-15T12:30:00,",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config = config_from_dict(
+        {
+            "source": {"name": "date_normalization_test", "type": "csv", "path": str(dataset)},
+            "column_mapping": {
+                "record_id": "source_record_id",
+                "title": "title",
+                "authors": "authors",
+                "publication_date": "publication_date",
+                "publication_year": "publication_year",
+            },
+            "pipeline": {"export": False},
+        }
+    )
+
+    result = ResearchPipeline(config).run_all()
+
+    assert result.cleaned_records[0]["publication_date"] == "2024-03-15"
+    assert result.cleaned_records[0]["publication_year"] == 2024
 
 
 def test_pipeline_loads_database_when_enabled(tmp_path, monkeypatch):

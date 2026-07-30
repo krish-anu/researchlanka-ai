@@ -58,6 +58,7 @@ class InstitutionRegistryConfig:
 class CleaningConfig:
     normalize_doi: bool = True
     normalize_title: bool = True
+    normalize_publication_dates: bool = True
     normalize_author_names: bool = True
     normalize_institutions: bool = True
     valid_year_minimum: int | None = None
@@ -219,6 +220,7 @@ def config_from_dict(data: dict[str, Any]) -> FrameworkConfig:
         cleaning=CleaningConfig(
             normalize_doi=cleaning.get("normalize_doi", True),
             normalize_title=cleaning.get("normalize_title", True),
+            normalize_publication_dates=cleaning.get("normalize_publication_dates", True),
             normalize_author_names=cleaning.get("normalize_author_names", True),
             normalize_institutions=cleaning.get("normalize_institutions", True),
             valid_year_minimum=valid_year.get("minimum"),
