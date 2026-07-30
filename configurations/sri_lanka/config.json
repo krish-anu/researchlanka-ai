@@ -63,7 +63,7 @@
     "enrich": false,
     "deduplicate": true,
     "resolve_entities": false,
-    "load_database": false,
+    "load_database": true,
     "run_analytics": true,
     "export": true,
     "classify": false,

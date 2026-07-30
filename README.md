@@ -60,6 +60,28 @@ Check the connection:
 python scripts/database/check_database_connection.py
 ```
 
+Apply and verify the PostgreSQL schema:
+
+```bash
+python scripts/database/apply_database_migrations.py
+python scripts/database/verify_database_schema.py
+```
+
+The production load writes deduplicated records into `final_publications`, whose
+columns follow the latest finalized dataset schema from `FINAL_MAIN_COLUMNS`.
+The Sri Lanka config enables `"load_database": true`, so `run-all` applies the
+database load after deduplication:
+
+```bash
+python -m research_analytics.cli run-all --config configurations/sri_lanka/config.json
+```
+
+To run only the database load stage:
+
+```bash
+python -m research_analytics.cli load_database --config configurations/sri_lanka/config.json
+```
+
 Stop the database:
 
 ```bash

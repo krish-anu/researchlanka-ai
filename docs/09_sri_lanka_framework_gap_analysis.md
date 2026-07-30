@@ -51,7 +51,7 @@ stable national workflow.
 | Crossref adapter wiring in Sri Lanka config | Crossref is listed as enabled but not fully configured as an active framework source. | High |
 | SLJOL and repository adapters wired into framework config | Legacy scripts collect these sources, but framework orchestration does not yet collect all of them end-to-end. | High |
 | Full API raw payload export strategy | `raw_record` now preserves complete OpenAlex payloads, but CSV files become very large and awkward to parse. | Medium |
-| Database load stage | `load_database` exists in config but is not implemented in `ResearchPipeline.run_all()`. | Medium |
+| Database load stage | Implemented: `load_database` now loads deduplicated records into PostgreSQL `final_publications` using the latest finalized dataset columns. | Closed |
 | Classification/topic modeling stages | `classify` and `topic_modeling` flags exist but do not drive implemented stages. | Medium |
 | Semantic search and forecasting stages | Config has flags for these, but no pipeline implementation is wired. | Low/Medium |
 | Dashboard/API serving layer | Exports exist, but no framework-owned API/dashboard layer is connected here. | Medium |

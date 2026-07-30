@@ -21,6 +21,7 @@ STAGES = (
     "resolve_entities",
     "deduplicate",
     "analyze",
+    "load_database",
     "export",
     "all",
 )
@@ -43,6 +44,7 @@ def main(argv: list[str] | None = None) -> None:
         "clean",
         "deduplicate",
         "analyze",
+        "load_database",
         "run-all",
     ):
         command_parser = subparsers.add_parser(command)
@@ -107,6 +109,17 @@ def main(argv: list[str] | None = None) -> None:
         pipeline.deduplicate()
         summary = pipeline.run_analytics()
         print(json.dumps(summary, indent=2, ensure_ascii=False))
+        return
+
+    if args.command == "load_database":
+        pipeline.collect()
+        pipeline.transform()
+        pipeline.validate()
+        pipeline.clean()
+        pipeline.resolve_entities()
+        pipeline.deduplicate()
+        loaded = pipeline.load_database()
+        print(f"Loaded {loaded} records into PostgreSQL.")
         return
 
     result = pipeline.run_all()
@@ -202,6 +215,16 @@ def run_stage(pipeline: ResearchPipeline, stage: str, *, sample_size: int = 100)
         pipeline.run_analytics()
         pipeline.export()
         return "Export complete."
+
+    if stage == "load_database":
+        pipeline.collect()
+        pipeline.transform()
+        pipeline.validate()
+        pipeline.clean()
+        pipeline.resolve_entities()
+        pipeline.deduplicate()
+        loaded = pipeline.load_database()
+        return f"Loaded {loaded} records into PostgreSQL."
 
     result = pipeline.run_all()
     return (
