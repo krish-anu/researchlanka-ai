@@ -51,6 +51,29 @@ def test_build_final_publication_row_maps_aliases_and_coerces_values():
     assert row["reference_count"] == 12
 
 
+def test_build_final_publication_row_uses_nested_source_metadata_fallbacks():
+    row = build_final_publication_row(
+        {
+            "source_name": "framework_dataset",
+            "source_record_id": "pub-2",
+            "doi": "10.1000/nested",
+            "title": "Nested metadata publication",
+            "source_specific_metadata": {
+                "reference_count": "9",
+                "publisher": "Nested Publisher",
+            },
+            "raw_record": {
+                "publication_year": "2026",
+            },
+        },
+        row_number=1,
+    )
+
+    assert row["reference_count"] == 9
+    assert row["publisher"] == "Nested Publisher"
+    assert row["publication_year"] == 2026
+
+
 def test_final_publications_upsert_sql_includes_every_final_column():
     sql = final_publications_upsert_sql()
 
