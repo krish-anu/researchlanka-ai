@@ -150,6 +150,61 @@ def test_pipeline_rejects_invalid_doi_values(tmp_path):
     assert len(result.cleaned_records) == 1
 
 
+def test_pipeline_removes_invalid_publication_records_from_outputs(tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text(
+        "\n".join(
+            [
+                "record_id,title,authors,publication_year,doi",
+                "1,Valid paper,A. Author,2024,10.1234/good",
+                "2,,B. Author,2024,10.1234/missing-title",
+                "3,Invalid year,C. Author,2099,10.1234/bad-year",
+                "4,Invalid DOI,D. Author,2024,not-a-doi",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "outputs"
+    config = config_from_dict(
+        {
+            "source": {"name": "invalid_record_removal_test", "type": "csv", "path": str(dataset)},
+            "column_mapping": {
+                "record_id": "source_record_id",
+                "title": "title",
+                "authors": "authors",
+                "publication_year": "publication_year",
+                "doi": "doi",
+            },
+            "cleaning": {"valid_year": {"minimum": 1950, "maximum": 2026}},
+            "export": {"output_dir": str(output_dir)},
+        }
+    )
+
+    result = ResearchPipeline(config).run_all()
+
+    assert result.validation_report is not None
+    assert result.validation_report.invalid_year_count == 1
+    assert result.validation_report.invalid_doi_count == 1
+    assert len(result.valid_records) == 1
+    assert len(result.invalid_records) == 3
+    assert len(result.cleaned_records) == 1
+    assert len(result.deduplicated_records) == 1
+    assert result.cleaned_records[0]["title"] == "Valid paper"
+
+    with (output_dir / "cleaned_publications.csv").open(newline="", encoding="utf-8") as f:
+        cleaned_rows = list(csv.DictReader(f))
+    with (output_dir / "deduplicated_publications.csv").open(newline="", encoding="utf-8") as f:
+        deduplicated_rows = list(csv.DictReader(f))
+    processing_errors = json.loads((output_dir / "processing_errors.json").read_text())
+    processing_report = json.loads((output_dir / "processing_report.json").read_text())
+
+    assert [row["title"] for row in cleaned_rows] == ["Valid paper"]
+    assert [row["title"] for row in deduplicated_rows] == ["Valid paper"]
+    assert len(processing_errors) == 3
+    assert processing_report["removed_invalid_record_count"] == 3
+
+
 def test_title_normalization_cleans_markup_entities_and_spacing():
     title = (
         "  Fired-Siltstone Based Geopolymers for CO&lt;inf&gt;2&lt;/inf&gt; "

@@ -86,7 +86,7 @@ class ResearchPipeline:
         self.result.valid_records = []
         self.result.invalid_records = []
         for record in records:
-            errors = self.adapter.validate(record) + record_validation_errors(record)
+            errors = self.adapter.validate(record) + record_validation_errors(record, self.config)
             if errors:
                 invalid_record = dict(record)
                 invalid_record["_validation_errors"] = errors
