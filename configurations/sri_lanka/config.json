@@ -88,6 +88,9 @@
     "url": "source_url"
   },
   "transformations": {
+    "title": {
+      "type": "normalize_title"
+    },
     "publication_year": {
       "type": "extract_year"
     },

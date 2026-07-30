@@ -6,8 +6,11 @@ from typing import Any
 
 from research_analytics.cleaning import (
     normalize_doi,
+    normalize_list_like,
     normalize_publication_date,
     normalize_publication_year,
+    normalize_text,
+    normalize_title,
 )
 
 def apply_transformations(
@@ -48,7 +51,13 @@ def transform_value(value: Any, rule: dict[str, Any]) -> Any:
     if rule_type in {"normalize_year", "normalize_publication_year"}:
         return normalize_publication_year(value)
 
-    if rule_type == "strip":
-        return str(value).strip() if value is not None else None
+    if rule_type == "normalize_title":
+        return normalize_title(value)
+
+    if rule_type in {"normalize_text", "strip"}:
+        return normalize_text(value)
+
+    if rule_type in {"normalize_list", "normalize_list_like"}:
+        return normalize_list_like(value)
 
     return value
