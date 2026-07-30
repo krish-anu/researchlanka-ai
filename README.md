@@ -82,6 +82,18 @@ To run only the database load stage:
 python -m research_analytics.cli load_database --config configurations/sri_lanka/config.json
 ```
 
+To load a prepared records file directly into PostgreSQL:
+
+```bash
+python scripts/database/load_records.py data/processed/common/final_common_dataset.csv
+python scripts/database/load_records.py data/processed/common/final_common_dataset.jsonl --batch-size 500
+python scripts/database/load_records.py data/processed/common/final_common_dataset.csv --limit 25
+```
+
+The direct loader accepts CSV, JSON arrays, JSON objects with a `records` list,
+and JSON Lines files. It applies pending migrations before the first batch unless
+you pass `--no-ensure-schema`.
+
 Stop the database:
 
 ```bash
