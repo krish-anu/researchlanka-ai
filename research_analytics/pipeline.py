@@ -32,6 +32,7 @@ class PipelineResult:
     deduplicated_records: list[dict[str, Any]] = field(default_factory=list)
     validation_report: ValidationReport | None = None
     analytics_summary: dict[str, Any] | None = None
+    database_load_count: int = 0
 
 
 class ResearchPipeline:
@@ -202,6 +203,23 @@ class ResearchPipeline:
         )
         logger.info("Export stage complete: %s", self.config.export.output_dir)
 
+    def load_database(self) -> int:
+        if not self.config.pipeline.load_database:
+            self.result.database_load_count = 0
+            logger.info("Database load stage skipped by configuration")
+            return self.result.database_load_count
+
+        from src.database.loader import load_final_publications
+
+        records = self.result.deduplicated_records or self.result.cleaned_records
+        logger.info("Database load stage started: %s records", len(records))
+        self.result.database_load_count = load_final_publications(records)
+        logger.info(
+            "Database load stage complete: %s records",
+            self.result.database_load_count,
+        )
+        return self.result.database_load_count
+
     def run_all(self) -> PipelineResult:
         logger.info("Pipeline run started: %s", self.config.project.name)
         self.collect()
@@ -214,6 +232,7 @@ class ResearchPipeline:
         self.resolve_entities()
         self.deduplicate()
         self.run_analytics()
+        self.load_database()
         self.export()
         logger.info(
             "Pipeline run complete: %s raw, %s cleaned, %s deduplicated",

@@ -106,6 +106,50 @@ def test_pipeline_runs_from_configuration_and_exports_reports(tmp_path):
     assert len(rows) == 2
 
 
+def test_pipeline_loads_database_when_enabled(tmp_path, monkeypatch):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text(
+        "\n".join(
+            [
+                "record_id,title,authors,institutions,publication_year,doi",
+                "1,Database paper,A. Author,Example University,2024,10.1/db",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    loaded_batches = []
+
+    def fake_load_final_publications(records):
+        loaded_batches.append(records)
+        return len(records)
+
+    monkeypatch.setattr(
+        "src.database.loader.load_final_publications",
+        fake_load_final_publications,
+    )
+    config = config_from_dict(
+        {
+            "source": {"name": "database_test", "type": "csv", "path": str(dataset)},
+            "column_mapping": {
+                "record_id": "source_record_id",
+                "title": "title",
+                "authors": "authors",
+                "institutions": "institutions",
+                "publication_year": "publication_year",
+                "doi": "doi",
+            },
+            "pipeline": {"load_database": True, "export": False},
+        }
+    )
+
+    result = ResearchPipeline(config).run_all()
+
+    assert result.database_load_count == 1
+    assert len(loaded_batches) == 1
+    assert loaded_batches[0][0]["title"] == "Database paper"
+
+
 def test_sri_lanka_project_country_is_supplied_by_config_not_pipeline_code(tmp_path):
     config = load_config("configurations/sri_lanka/config.json")
 
