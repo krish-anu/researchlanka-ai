@@ -270,6 +270,59 @@ def test_pipeline_writes_normalized_publication_title(tmp_path):
 
     assert result.cleaned_records[0]["title"] == "Islam and Gender"
     assert result.cleaned_records[0]["normalized_title"] == "islam and gender"
+    assert result.cleaned_records[0]["processing_status"] == "cleaned"
+
+
+def test_transform_stage_can_apply_shared_cleaning_functions(tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text(
+        "\n".join(
+            [
+                "record_id,title,authors,publication_date,publication_year,doi,keywords",
+                (
+                    "1,<scp>I</scp>slam and Gender,A. Author; B. Author,"
+                    "2024-03-15T12:30:00,Published in 2024,"
+                    "https://doi.org/10.1234/ABC,AI; ML"
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config = config_from_dict(
+        {
+            "source": {"name": "cleaning_transform_test", "type": "csv", "path": str(dataset)},
+            "column_mapping": {
+                "record_id": "source_record_id",
+                "title": "title",
+                "authors": "authors",
+                "publication_date": "publication_date",
+                "publication_year": "publication_year",
+                "doi": "doi",
+                "keywords": "keywords",
+            },
+            "transformations": {
+                "title": {"type": "normalize_title"},
+                "authors": {"type": "normalize_list"},
+                "publication_date": {"type": "normalize_publication_date"},
+                "publication_year": {"type": "normalize_publication_year"},
+                "doi": {"type": "normalize_doi"},
+                "keywords": {"type": "normalize_list_like"},
+            },
+            "pipeline": {"export": False},
+        }
+    )
+
+    pipeline = ResearchPipeline(config)
+    pipeline.collect()
+    transformed = pipeline.transform()
+
+    assert transformed[0]["title"] == "Islam and Gender"
+    assert transformed[0]["authors"] == ["A. Author", "B. Author"]
+    assert transformed[0]["publication_date"] == "2024-03-15"
+    assert transformed[0]["publication_year"] == 2024
+    assert transformed[0]["doi"] == "10.1234/abc"
+    assert transformed[0]["keywords"] == ["AI", "ML"]
 
 
 def test_publication_date_normalization_handles_common_source_shapes():

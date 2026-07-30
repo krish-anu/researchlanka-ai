@@ -68,6 +68,7 @@ def clean_record(record: dict[str, Any], config: CleaningConfig) -> dict[str, An
     provenance = dict(cleaned.get("_provenance") or {})
     provenance["cleaning_rules_applied"] = rules_applied
     cleaned["_provenance"] = provenance
+    cleaned["processing_status"] = "cleaned"
     return cleaned
 
 
