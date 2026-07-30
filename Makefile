@@ -5,6 +5,10 @@
 PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
+# Reusable national framework settings.
+NATIONAL_CONFIG ?= configurations/sri_lanka/config.json
+NATIONAL_SAMPLE_SIZE ?= 5
+
 # Default OpenAlex output folder.
 # JSONL is raw API data. CSV/Parquet and DOI conflicts are cleaned outputs.
 OPENALEX_DIR ?= data/raw/openalex
@@ -53,7 +57,7 @@ OPENALEX_RUN_ARGS = \
 
 # Show available targets and common overrides.
 help:
-	@echo "ResearchLanka pipeline targets"
+	@echo "ResearchLanka national research analytics targets"
 	@echo ""
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
@@ -70,6 +74,7 @@ help:
 	@echo "  OPENALEX_EMAIL=you@example.com"
 	@echo "  OPENALEX_EXTRA_ARGS='--strict-lk-only'"
 	@echo "  OPENALEX_DIR=data/processed/openalex"
+	@echo "  NATIONAL_CONFIG=configurations/sri_lanka/config.json"
 
 # Install project dependencies into the configured virtual environment.
 install:
@@ -84,7 +89,8 @@ publication-counts:
 	$(PYTHON) scripts/quality/compare_publication_counts.py
 
 # Run the full OpenAlex API collection pipeline.
-# This writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts, pagination audit, progress, and logs.
+# Legacy path: this writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts,
+# pagination audit, progress, and logs. Prefer make framework for national analytics.
 openalex:
 	$(PYTHON) scripts/collection/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS)
 

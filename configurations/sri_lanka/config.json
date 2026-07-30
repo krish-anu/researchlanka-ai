@@ -39,7 +39,10 @@
   },
   "sources": {
     "openalex": {
-      "enabled": true
+      "enabled": true,
+      "options": {
+        "strict_country_only": true
+      }
     },
     "crossref": {
       "enabled": true
@@ -60,7 +63,7 @@
     "enrich": false,
     "deduplicate": true,
     "resolve_entities": false,
-    "load_database": false,
+    "load_database": true,
     "run_analytics": true,
     "export": true,
     "classify": false,
@@ -85,8 +88,14 @@
     "url": "source_url"
   },
   "transformations": {
+    "title": {
+      "type": "normalize_title"
+    },
     "publication_year": {
       "type": "extract_year"
+    },
+    "publication_date": {
+      "type": "normalize_publication_date"
     },
     "authors": {
       "type": "split",
@@ -107,6 +116,7 @@
   "cleaning": {
     "normalize_doi": true,
     "normalize_title": true,
+    "normalize_publication_dates": true,
     "normalize_author_names": true,
     "normalize_institutions": true,
     "valid_year": {
