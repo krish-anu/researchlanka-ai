@@ -160,6 +160,7 @@ def test_pipeline_removes_invalid_publication_records_from_outputs(tmp_path):
                 "2,,B. Author,2024,10.1234/missing-title",
                 "3,Invalid year,C. Author,2099,10.1234/bad-year",
                 "4,Invalid DOI,D. Author,2024,not-a-doi",
+                ",No identifiers,,,",
             ]
         )
         + "\n",
@@ -187,7 +188,7 @@ def test_pipeline_removes_invalid_publication_records_from_outputs(tmp_path):
     assert result.validation_report.invalid_year_count == 1
     assert result.validation_report.invalid_doi_count == 1
     assert len(result.valid_records) == 1
-    assert len(result.invalid_records) == 3
+    assert len(result.invalid_records) == 4
     assert len(result.cleaned_records) == 1
     assert len(result.deduplicated_records) == 1
     assert result.cleaned_records[0]["title"] == "Valid paper"
@@ -201,8 +202,18 @@ def test_pipeline_removes_invalid_publication_records_from_outputs(tmp_path):
 
     assert [row["title"] for row in cleaned_rows] == ["Valid paper"]
     assert [row["title"] for row in deduplicated_rows] == ["Valid paper"]
-    assert len(processing_errors) == 3
-    assert processing_report["removed_invalid_record_count"] == 3
+    assert len(processing_errors) == 4
+    assert any(
+        error["title"] == "No identifiers"
+        and error["_validation_errors"]
+        == [
+            "At least one identifying field is required: "
+            "doi, authors, publication_year, source_record_id"
+        ]
+        for error in processing_errors
+    )
+    assert processing_report["removed_invalid_record_count"] == 4
+    assert processing_report["removed_unusable_record_count"] == 4
 
 
 def test_title_normalization_cleans_markup_entities_and_spacing():

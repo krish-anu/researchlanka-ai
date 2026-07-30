@@ -97,7 +97,7 @@ def validate_source_sample(
             record = adapter.transform(raw_record)
             transformed.append(record)
             record_errors.append(
-                adapter.validate(record) + record_validation_errors(record, config)
+                _unique_errors(adapter.validate(record) + record_validation_errors(record, config))
             )
         except Exception as exc:
             transformed.append({})
@@ -157,6 +157,16 @@ def build_source_status(
         last_failed_run=now if error_message else None,
         error_message=error_message,
     )
+
+
+def _unique_errors(errors: list[str]) -> list[str]:
+    seen = set()
+    unique = []
+    for error in errors:
+        if error not in seen:
+            seen.add(error)
+            unique.append(error)
+    return unique
 
 
 def _is_blank(value: Any) -> bool:

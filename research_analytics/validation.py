@@ -96,6 +96,17 @@ def record_validation_errors(
     """Return record-level validation errors shared by all source adapters."""
 
     errors = []
+    if config:
+        for field in config.validation.required:
+            if _is_blank(record.get(field)):
+                errors.append(f"Missing required field: {field}")
+        if config.validation.require_any and not any(
+            not _is_blank(record.get(field)) for field in config.validation.require_any
+        ):
+            errors.append(
+                "At least one identifying field is required: "
+                + ", ".join(config.validation.require_any)
+            )
     if _has_invalid_doi(record.get("doi")):
         errors.append("Invalid DOI value: doi")
     if config and _has_invalid_year(record.get("publication_year"), config):
@@ -137,8 +148,10 @@ def _has_invalid_year(value: Any, config: FrameworkConfig) -> bool:
 def _is_blank(value: Any) -> bool:
     if value is None:
         return True
+    if isinstance(value, float) and value != value:
+        return True
     if isinstance(value, str):
-        return not value.strip()
+        return not value.strip() or value.strip().casefold() == "nan"
     if isinstance(value, list):
         return not value
     return False

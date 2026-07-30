@@ -81,6 +81,7 @@ def export_pipeline_outputs(
             "deduplicated_record_count": len(deduplicated_records),
             "invalid_record_count": len(invalid_records or []),
             "removed_invalid_record_count": len(invalid_records or []),
+            "removed_unusable_record_count": len(invalid_records or []),
             "duplicate_candidate_count": len(duplicate_candidates),
         },
     )
