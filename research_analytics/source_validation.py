@@ -23,6 +23,7 @@ class SourceValidationReport:
     missing_year: int
     missing_doi: int
     invalid_doi: int
+    invalid_year: int
     unmapped_columns: list[str]
     preview: list[dict[str, Any]]
     errors: list[str] = field(default_factory=list)
@@ -75,6 +76,7 @@ def validate_source_sample(
             missing_year=0,
             missing_doi=0,
             invalid_doi=0,
+            invalid_year=0,
             unmapped_columns=[],
             preview=[],
             errors=errors,
@@ -94,7 +96,9 @@ def validate_source_sample(
         try:
             record = adapter.transform(raw_record)
             transformed.append(record)
-            record_errors.append(adapter.validate(record) + record_validation_errors(record))
+            record_errors.append(
+                adapter.validate(record) + record_validation_errors(record, config)
+            )
         except Exception as exc:
             transformed.append({})
             record_errors.append([f"Transformation failed: {exc}"])
@@ -117,7 +121,17 @@ def validate_source_sample(
         missing_title=sum(1 for record in transformed if _is_blank(record.get("title"))),
         missing_year=sum(1 for record in transformed if _is_blank(record.get("publication_year"))),
         missing_doi=sum(1 for record in transformed if _is_blank(record.get("doi"))),
-        invalid_doi=sum(1 for record in transformed if record_validation_errors(record)),
+        invalid_doi=sum(
+            1
+            for record in transformed
+            if "Invalid DOI value: doi" in record_validation_errors(record, config)
+        ),
+        invalid_year=sum(
+            1
+            for record in transformed
+            if "Invalid publication year: publication_year"
+            in record_validation_errors(record, config)
+        ),
         unmapped_columns=unmapped_columns,
         preview=transformed[:5],
         errors=errors,

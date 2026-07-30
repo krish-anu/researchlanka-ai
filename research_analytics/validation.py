@@ -6,7 +6,12 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from research_analytics.cleaning import is_valid_doi, normalize_doi, normalize_title_key
+from research_analytics.cleaning import (
+    is_valid_doi,
+    normalize_doi,
+    normalize_publication_year,
+    normalize_title_key,
+)
 from research_analytics.config import FrameworkConfig
 
 
@@ -84,12 +89,17 @@ def validate_records(records: list[dict[str, Any]], config: FrameworkConfig) -> 
     )
 
 
-def record_validation_errors(record: dict[str, Any]) -> list[str]:
+def record_validation_errors(
+    record: dict[str, Any],
+    config: FrameworkConfig | None = None,
+) -> list[str]:
     """Return record-level validation errors shared by all source adapters."""
 
     errors = []
     if _has_invalid_doi(record.get("doi")):
         errors.append("Invalid DOI value: doi")
+    if config and _has_invalid_year(record.get("publication_year"), config):
+        errors.append("Invalid publication year: publication_year")
     return errors
 
 
@@ -112,9 +122,8 @@ def _has_invalid_doi(value: Any) -> bool:
 def _has_invalid_year(value: Any, config: FrameworkConfig) -> bool:
     if _is_blank(value):
         return False
-    try:
-        year = int(float(str(value).strip()))
-    except ValueError:
+    year = normalize_publication_year(value)
+    if year is None:
         return True
     minimum = config.cleaning.valid_year_minimum
     maximum = config.cleaning.valid_year_maximum
