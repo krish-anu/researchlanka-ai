@@ -86,7 +86,9 @@ class ResearchPipeline:
         self.result.valid_records = []
         self.result.invalid_records = []
         for record in records:
-            errors = self.adapter.validate(record) + record_validation_errors(record, self.config)
+            errors = _unique_errors(
+                self.adapter.validate(record) + record_validation_errors(record, self.config)
+            )
             if errors:
                 invalid_record = dict(record)
                 invalid_record["_validation_errors"] = errors
@@ -248,3 +250,13 @@ class ResearchPipeline:
 
     def _build_input_adapter(self):
         return build_adapter_from_config(self.config)
+
+
+def _unique_errors(errors: list[str]) -> list[str]:
+    seen = set()
+    unique = []
+    for error in errors:
+        if error not in seen:
+            seen.add(error)
+            unique.append(error)
+    return unique
