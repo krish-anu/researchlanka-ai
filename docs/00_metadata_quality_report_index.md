@@ -11,6 +11,7 @@ This report set finalizes four analysis tasks using OpenAlex, Crossref, and Loca
 | Final 26-column dataset decisions | [07_last_26_columns_final_dataset_decisions.md](07_last_26_columns_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_final_26_columns.py` | `data/reports/column_analysis/` |
 | Column 26-50 dataset decisions | [08_columns_26_50_final_dataset_decisions.md](08_columns_26_50_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_second_25_columns.py` | `data/reports/column_analysis/` |
 | Column 1-25 dataset decisions | [09_columns_1_25_final_dataset_decisions.md](09_columns_1_25_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_first_25_columns.py` | `data/reports/column_analysis/` |
+| Formal data-cleaning rules | [10_data_cleaning_rules.md](10_data_cleaning_rules.md) | Framework and common-dataset cleaning modules | Pipeline audit outputs |
 
 ## Notebooks
 
