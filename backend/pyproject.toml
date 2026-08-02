@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "research-analytics-framework"
+version = "0.1.0"
+description = "Reusable national research publication collection, integration, cleaning, deduplication, and analytics framework."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas==3.0.3",
+    "pyarrow==22.0.0",
+    "psycopg[binary]>=3.2,<4",
+    "python-dotenv==1.2.2",
+    "requests==2.34.2",
+]
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6.0"]
+dev = ["pytest==9.1.1"]
+
+[project.scripts]
+research-framework = "research_analytics.cli:main"
+run-pipeline = "research_analytics.cli:run_stage_cli"
+load-records = "src.database.load_records:main"
+research-api = "src.api.server:main"
+
+[tool.setuptools.packages.find]
+include = ["research_analytics*", "src*"]

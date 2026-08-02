@@ -1,78 +1,24 @@
-# AI Research Analytics Platform
+# researchlanka-ai
 
-AI-Powered Research Portfolio and Analytics Platform for Sri Lanka.
+This repository is organized into two top-level workspaces:
 
-This project collects, cleans, analyzes, and visualizes research publications by Sri Lankan researchers and institutions.
+- `backend/` - Python research analytics pipeline, API, database scripts, docs, tests, and data configuration.
+- `frontend/` - Frontend application workspace.
 
-## Main Outputs
+## Backend
 
-- Consolidated Sri Lankan research publication dataset.
-- Cleaned and standardized publication database.
-- AI/ML-based publication classification.
-- Research analytics for productivity, citations, topics, and collaboration.
-- Interactive dashboard for searching and visualizing research trends.
-
-## Setup
-
-Clone the repository:
+Run backend commands from the backend folder:
 
 ```bash
-git clone <repository-url>
-cd researchlanka-ai
-```
-
-Create a virtual environment:
-
-```bash
+cd backend
 python -m venv .venv
-```
-
-Activate it:
-
-```bash
 source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
+pytest
 ```
 
-## Important GitHub Rules
+The full backend README is in `backend/README.md`.
 
-- Do not work directly on `main`.
-- Create one branch for each task.
-- Create or use a GitHub issue before starting work.
-- Use clear commit messages.
-- Open a pull request before merging.
-- Get at least one review before merging.
-- Do not commit `.env`, passwords, API keys, or large datasets.
+## Frontend
 
-## Branch Example
-
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/openalex-collector
-```
-
-## Commit Example
-
-```bash
-git add .
-git commit -m "feat(collector): add OpenAlex data collection"
-git push origin feature/openalex-collector
-```
-
-## Useful Docs
-
-- [Contributing Guide](CONTRIBUTING.md)
-- [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
-- [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
-
-## Team
-
-- ANUSAN K. - 230048J
-- ASMA AR - 230060M
-- BANDARA K.G.C. - 230075M
+Frontend code should be added inside `frontend/`.
