@@ -1,4 +1,6 @@
-# dagster_quickstart
+# ResearchLanka Dagster Quickstart
+
+This Dagster project orchestrates the existing ResearchLanka backend pipeline.
 
 ## Getting started
 
@@ -42,6 +44,12 @@ Install the required dependencies:
 pip install -e ".[dev]"
 ```
 
+Install the backend package in editable mode:
+
+```bash
+pip install -e ..
+```
+
 ### Running Dagster
 
 Start the Dagster UI web server:
@@ -51,6 +59,33 @@ dg dev
 ```
 
 Open http://localhost:3000 in your browser to see the project.
+
+## Available Jobs
+
+- `researchlanka_source_check_job` checks source connection, preview, and source
+  validation.
+- `researchlanka_export_job` runs the staged ResearchLanka pipeline and writes
+  file outputs without loading PostgreSQL.
+- `researchlanka_database_job` runs the staged ResearchLanka pipeline through
+  the PostgreSQL load stage.
+- `researchlanka_all_assets_job` materializes every asset in this code location.
+
+## Pipeline Assets
+
+The Dagster asset graph maps to the project pipeline stages:
+
+- `researchlanka_source_connection`
+- `researchlanka_source_preview`
+- `researchlanka_source_validation`
+- `researchlanka_collected_records`
+- `researchlanka_transformed_records`
+- `researchlanka_validation_report`
+- `researchlanka_cleaned_records`
+- `researchlanka_national_records`
+- `researchlanka_deduplicated_records`
+- `researchlanka_analytics_summary`
+- `researchlanka_export_files`
+- `researchlanka_database_loaded_records`
 
 ## Learn more
 
