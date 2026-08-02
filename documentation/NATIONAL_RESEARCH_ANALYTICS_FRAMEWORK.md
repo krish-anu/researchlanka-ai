@@ -69,6 +69,7 @@ Supported collaboration labels:
 - `research_analytics/pipeline.py`: Sri Lanka national processing pipeline.
 - `research_analytics/analytics.py`: productivity, citation, data-quality, institution, keyword, and collaboration summaries.
 - `research_analytics/exporters.py`: standard national CSV/JSON exports.
+- `docs/API_DESIGN.md`: read-only API contract for search, profile pages, dashboards, networks, exports, and quality disclosures.
 
 ## Standard Exports
 

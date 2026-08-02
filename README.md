@@ -94,6 +94,16 @@ The direct loader accepts CSV, JSON arrays, JSON objects with a `records` list,
 and JSON Lines files. It applies pending migrations before the first batch unless
 you pass `--no-ensure-schema`.
 
+Serve the read-only API after PostgreSQL has been loaded:
+
+```bash
+python scripts/api/serve_api.py --host 127.0.0.1 --port 8080
+# or, after installing the package:
+research-api --host 127.0.0.1 --port 8080
+```
+
+The API is available under `http://127.0.0.1:8080/api/v1`.
+
 Stop the database:
 
 ```bash
@@ -129,6 +139,7 @@ git push origin feature/openalex-collector
 ## Useful Docs
 
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
+- [API Design](docs/API_DESIGN.md) - read-only dashboard/search/profile API contract for the PostgreSQL-backed corpus
 - [Metadata Quality Report Index](docs/00_metadata_quality_report_index.md) - missing values, completeness, conflicts, and final column decisions
 - [Metadata-Quality Limitations](docs/11_metadata_quality_limitations.md) - known coverage, missingness, conflict, deduplication, and interpretation caveats
 - [Formal Data-Cleaning Rules](docs/10_data_cleaning_rules.md) - normalization, validation, audit, and analysis-ready preprocessing rules
