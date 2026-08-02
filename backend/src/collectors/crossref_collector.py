@@ -173,11 +173,13 @@ class CrossrefPrefixCollector:
 
         self.session = create_session(user_agent)
 
-    def total_works(self) -> int:
+    def total_works(self, *, filters: list[str] | None = None) -> int:
         params: dict[str, Any] = {"rows": 0}
 
         if self.email:
             params["mailto"] = self.email
+        if filters:
+            params["filter"] = ",".join(filters)
 
         response = self.session.get(
             f"{self.base_url}/prefixes/{self.prefix}/works",
@@ -187,7 +189,12 @@ class CrossrefPrefixCollector:
         response.raise_for_status()
         return response.json()["message"]["total-results"]
 
-    def iter_works(self, *, max_records: int | None = None) -> Iterator[dict[str, Any]]:
+    def iter_works(
+        self,
+        *,
+        max_records: int | None = None,
+        filters: list[str] | None = None,
+    ) -> Iterator[dict[str, Any]]:
         """Yield raw Crossref work records using cursor pagination."""
 
         cursor = "*"
@@ -199,6 +206,8 @@ class CrossrefPrefixCollector:
 
             if self.email:
                 params["mailto"] = self.email
+            if filters:
+                params["filter"] = ",".join(filters)
 
             response = self.session.get(
                 f"{self.base_url}/prefixes/{self.prefix}/works",
