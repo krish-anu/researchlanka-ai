@@ -1,39 +1,176 @@
-institution_id,preferred_name,alternative_name,country_code,ror_id,parent_institution_id,institution_type
-LK001,University of Colombo,University of Colombo,LK,,,university
-LK001,University of Colombo,UOC,LK,,,university
-LK001,University of Colombo,cmb,LK,,,university
-LK002,University of Peradeniya,University of Peradeniya,LK,,,university
-LK002,University of Peradeniya,PDN,LK,,,university
-LK002,University of Peradeniya,UOP,LK,,,university
-LK002,University of Peradeniya,pdn,LK,,,university
-LK003,University of Moratuwa,University of Moratuwa,LK,,,university
-LK003,University of Moratuwa,UOM,LK,,,university
-LK003,University of Moratuwa,Univ. of Moratuwa,LK,,,university
-LK003,University of Moratuwa,uom,LK,,,university
-LK004,University of Jaffna,University of Jaffna,LK,,,university
-LK004,University of Jaffna,JFN,LK,,,university
-LK004,University of Jaffna,jfn_research,LK,,,university
-LK004,University of Jaffna,jfn_medicine,LK,,,university
-LK005,Bhiksu University of Sri Lanka,Bhiksu University of Sri Lanka,LK,,,university
-LK005,Bhiksu University of Sri Lanka,Bhiksu University Of Sri Lanka Anuradhapura,LK,,,university
-LK005,Bhiksu University of Sri Lanka,Buddhasravaka Bhiksu University,LK,,,university
-LK005,Bhiksu University of Sri Lanka,busl,LK,,,university
-LK006,National Science Foundation,National Science Foundation,LK,,,research_institute
-LK006,National Science Foundation,National Science Foundation Sri Lanka,LK,,,research_institute
-LK006,National Science Foundation,NSF,LK,,,research_institute
-LK006,National Science Foundation,nsf,LK,,,research_institute
-LK007,Sri Lanka Institute of Information Technology,Sri Lanka Institute of Information Technology,LK,,,university
-LK007,Sri Lanka Institute of Information Technology,SLIIT,LK,,,university
-LK007,Sri Lanka Institute of Information Technology,sliit,LK,,,university
-LK008,University of Ruhuna,University of Ruhuna,LK,,,university
-LK008,University of Ruhuna,RUH,LK,,,university
-LK008,University of Ruhuna,ruh,LK,,,university
-LK009,South Eastern University of Sri Lanka,South Eastern University of Sri Lanka,LK,,,university
-LK009,South Eastern University of Sri Lanka,SEU,LK,,,university
-LK009,South Eastern University of Sri Lanka,seu,LK,,,university
-LK010,Uva Wellassa University,Uva Wellassa University,LK,,,university
-LK010,Uva Wellassa University,UWU,LK,,,university
-LK010,Uva Wellassa University,uwu,LK,,,university
-LK011,Sri Lanka Technological Campus,Sri Lanka Technological Campus,LK,,,university
-LK011,Sri Lanka Technological Campus,SLTC,LK,,,university
-LK011,Sri Lanka Technological Campus,sltc,LK,,,university
+institution_id,preferred_name,alternative_name,country_code,ror_id,parent_institution_id,institution_type,source_institution_id
+LK001,University of Colombo,University of Colombo,LK,,,university,cmb
+LK001,University of Colombo,cmb,LK,,,university,ucsc
+LK001,University of Colombo,Colombo University,LK,,,university,
+LK001,University of Colombo,"University of Colombo, Sri Lanka",LK,,,university,
+LK001,University of Colombo,UOC,LK,,,university,
+LK002,University of Peradeniya,University of Peradeniya,LK,,,university,pdn
+LK002,University of Peradeniya,pdn,LK,,,university,
+LK002,University of Peradeniya,PDN,LK,,,university,
+LK002,University of Peradeniya,"University of Peradeniya, Sri Lanka",LK,,,university,
+LK002,University of Peradeniya,UOP,LK,,,university,
+LK003,University of Moratuwa,University of Moratuwa,LK,,,university,uom
+LK003,University of Moratuwa,Univ. of Moratuwa,LK,,,university,
+LK003,University of Moratuwa,"University of Moratuwa, Sri Lanka",LK,,,university,
+LK003,University of Moratuwa,UOM,LK,,,university,
+LK003,University of Moratuwa,uom,LK,,,university,
+LK004,University of Jaffna,University of Jaffna,LK,,,university,jfn_medicine
+LK004,University of Jaffna,Jaffna University,LK,,,university,jfn_research
+LK004,University of Jaffna,JFN,LK,,,university,
+LK004,University of Jaffna,jfn_medicine,LK,,,university,
+LK004,University of Jaffna,jfn_research,LK,,,university,
+LK004,University of Jaffna,UOJ,LK,,,university,
+LK005,Bhiksu University of Sri Lanka,Bhiksu University of Sri Lanka,LK,,,university,busl
+LK005,Bhiksu University of Sri Lanka,Bhiksu University Of Sri Lanka Anuradhapura,LK,,,university,
+LK005,Bhiksu University of Sri Lanka,Buddhasravaka Bhiksu University,LK,,,university,
+LK005,Bhiksu University of Sri Lanka,BUSL,LK,,,university,
+LK005,Bhiksu University of Sri Lanka,busl,LK,,,university,
+LK006,National Science Foundation,National Science Foundation,LK,,,research_institute,nsf
+LK006,National Science Foundation,National Science Foundation of Sri Lanka,LK,,,research_institute,
+LK006,National Science Foundation,National Science Foundation Sri Lanka,LK,,,research_institute,
+LK006,National Science Foundation,"National Science Foundation, Sri Lanka",LK,,,research_institute,
+LK006,National Science Foundation,nsf,LK,,,research_institute,
+LK006,National Science Foundation,NSF,LK,,,research_institute,
+LK007,Sri Lanka Institute of Information Technology,Sri Lanka Institute of Information Technology,LK,,,university,sliit
+LK007,Sri Lanka Institute of Information Technology,SLIIT,LK,,,university,
+LK007,Sri Lanka Institute of Information Technology,sliit,LK,,,university,
+LK008,University of Ruhuna,University of Ruhuna,LK,,,university,ruh
+LK008,University of Ruhuna,RUH,LK,,,university,
+LK008,University of Ruhuna,ruh,LK,,,university,
+LK008,University of Ruhuna,Ruhuna University,LK,,,university,
+LK008,University of Ruhuna,UOR,LK,,,university,
+LK009,South Eastern University of Sri Lanka,South Eastern University of Sri Lanka,LK,,,university,seu
+LK009,South Eastern University of Sri Lanka,seu,LK,,,university,
+LK009,South Eastern University of Sri Lanka,SEU,LK,,,university,
+LK009,South Eastern University of Sri Lanka,SEUSL,LK,,,university,
+LK009,South Eastern University of Sri Lanka,South Eastern University,LK,,,university,
+LK010,Uva Wellassa University,Uva Wellassa University,LK,,,university,uwu
+LK010,Uva Wellassa University,Uva Wellassa University of Sri Lanka,LK,,,university,
+LK010,Uva Wellassa University,uwu,LK,,,university,
+LK010,Uva Wellassa University,UWU,LK,,,university,
+LK011,Sri Lanka Technological Campus,Sri Lanka Technological Campus,LK,,,university,sltc
+LK011,Sri Lanka Technological Campus,SLTC,LK,,,university,
+LK011,Sri Lanka Technological Campus,sltc,LK,,,university,
+LK011,Sri Lanka Technological Campus,SLTC Research University,LK,,,university,
+LK012,University of Sri Jayewardenepura,University of Sri Jayewardenepura,LK,,,university,sjp
+LK012,University of Sri Jayewardenepura,Sri Jayewardenepura University,LK,,,university,
+LK012,University of Sri Jayewardenepura,University of Sri Jayewardenapura,LK,,,university,
+LK012,University of Sri Jayewardenepura,USJ,LK,,,university,
+LK012,University of Sri Jayewardenepura,USJP,LK,,,university,
+LK013,University of Kelaniya,University of Kelaniya,LK,,,university,kln
+LK013,University of Kelaniya,Kelaniya University,LK,,,university,
+LK013,University of Kelaniya,UOK,LK,,,university,
+LK014,Department of Archaeology,Department of Archaeology,LK,,,government_body,
+LK015,National Hospital of Sri Lanka,National Hospital of Sri Lanka,LK,,,hospital,
+LK015,National Hospital of Sri Lanka,NHSL,LK,,,hospital,
+LK016,Rajarata University of Sri Lanka,Rajarata University of Sri Lanka,LK,,,university,rjt
+LK016,Rajarata University of Sri Lanka,Rajarata University,LK,,,university,
+LK016,Rajarata University of Sri Lanka,RUSL,LK,,,university,
+LK017,Sabaragamuwa University of Sri Lanka,Sabaragamuwa University of Sri Lanka,LK,,,university,sab
+LK017,Sabaragamuwa University of Sri Lanka,Sabaragamuwa University,LK,,,university,
+LK017,Sabaragamuwa University of Sri Lanka,SUSL,LK,,,university,
+LK018,National Research Council,National Research Council,LK,,,government_body,
+LK019,Wayamba University of Sri Lanka,Wayamba University of Sri Lanka,LK,,,university,wyb
+LK019,Wayamba University of Sri Lanka,Wayamba University,LK,,,university,
+LK019,Wayamba University of Sri Lanka,WUSL,LK,,,university,
+LK020,General Sir John Kotelawala Defence University,General Sir John Kotelawala Defence University,LK,,,university,kdu
+LK020,General Sir John Kotelawala Defence University,General Sir John Kotelawala Defense University,LK,,,university,
+LK020,General Sir John Kotelawala Defence University,KDU,LK,,,university,
+LK020,General Sir John Kotelawala Defence University,Kotelawala Defence University,LK,,,university,
+LK021,Open University of Sri Lanka,Open University of Sri Lanka,LK,,,university,ou
+LK021,Open University of Sri Lanka,OUSL,LK,,,university,
+LK021,Open University of Sri Lanka,The Open University of Sri Lanka,LK,,,university,
+LK022,Colombo North Teaching Hospital,Colombo North Teaching Hospital,LK,,,hospital,
+LK023,International Water Management Institute,International Water Management Institute,LK,,,research_institute,
+LK024,Teaching Hospital Kandy,Teaching Hospital Kandy,LK,,,hospital,
+LK025,National Institute of Fundamental Studies,National Institute of Fundamental Studies,LK,,,ngo_or_association,ifs
+LK025,National Institute of Fundamental Studies,IFS,LK,,,ngo_or_association,
+LK025,National Institute of Fundamental Studies,Institute of Fundamental Studies,LK,,,ngo_or_association,
+LK025,National Institute of Fundamental Studies,NIFS,LK,,,ngo_or_association,
+LK026,"Ministry of Health, Nutrition and Indigenous Medicine","Ministry of Health, Nutrition and Indigenous Medicine",LK,,,government_body,
+LK027,Institute for Research and Development,Institute for Research and Development,LK,,,research_institute,
+LK028,"Eastern University, Sri Lanka","Eastern University, Sri Lanka",LK,,,university,esn
+LK028,"Eastern University, Sri Lanka",Eastern University,LK,,,university,
+LK028,"Eastern University, Sri Lanka",EUSL,LK,,,university,
+LK029,University of the Visual & Performing Arts,University of the Visual & Performing Arts,LK,,,university,vpa
+LK029,University of the Visual & Performing Arts,University of the Visual and Performing Arts,LK,,,university,
+LK029,University of the Visual & Performing Arts,University of Visual & Performing Arts,LK,,,university,
+LK029,University of the Visual & Performing Arts,UVPA,LK,,,university,
+LK030,Industrial Technology Institute,Industrial Technology Institute,LK,,,research_institute,
+LK030,Industrial Technology Institute,ITI,LK,,,research_institute,
+LK031,National Institute of Health Sciences,National Institute of Health Sciences,LK,,,research_institute,
+LK032,Medical Research Institute,Medical Research Institute,LK,,,research_institute,
+LK032,Medical Research Institute,MRI,LK,,,research_institute,
+LK033,Lady Ridgeway Hospital for Children,Lady Ridgeway Hospital for Children,LK,,,hospital,
+LK034,Jaffna Teaching Hospital,Jaffna Teaching Hospital,LK,,,hospital,
+LK035,Informatics Institute of Technology,Informatics Institute of Technology,LK,,,research_institute,
+LK035,Informatics Institute of Technology,IIT,LK,,,research_institute,
+LK036,Information and Communication Technology Agency,Information and Communication Technology Agency,LK,,,government_body,
+LK037,Rubber Research Institute of Sri Lanka,Rubber Research Institute of Sri Lanka,LK,,,research_institute,
+LK038,Sri Lanka Institute of Nanotechnology,Sri Lanka Institute of Nanotechnology,LK,,,research_institute,
+LK039,National Cancer Institute of Sri Lanka,National Cancer Institute of Sri Lanka,LK,,,research_institute,
+LK040,Ladies College,Ladies College,LK,,,college,
+LK041,Vavuniya General Hospital,Vavuniya General Hospital,LK,,,hospital,
+LK042,National Aquatic Resources Research and Development Agency,National Aquatic Resources Research and Development Agency,LK,,,government_body,
+LK043,Institute of Policy Studies of Sri Lanka,Institute of Policy Studies of Sri Lanka,LK,,,research_institute,
+LK043,Institute of Policy Studies of Sri Lanka,IPS,LK,,,research_institute,
+LK044,Coconut Research Institute,Coconut Research Institute,LK,,,research_institute,
+LK045,Teaching Hospital Batticaloa,Teaching Hospital Batticaloa,LK,,,hospital,
+LK046,South Asian Clinical Toxicology Research Collaboration,South Asian Clinical Toxicology Research Collaboration,LK,,,ngo_or_association,
+LK047,Trincomalee Hospital,Trincomalee Hospital,LK,,,hospital,
+LK048,Nawaloka Hospital,Nawaloka Hospital,LK,,,hospital,
+LK049,Sri Lanka Foundation,Sri Lanka Foundation,LK,,,research_institute,
+LK050,Centre for Conservation and Research,Centre for Conservation and Research,LK,,,research_institute,
+LK051,Lanka Hospitals,Lanka Hospitals,LK,,,hospital,
+LK052,CINEC Campus (Pvt) Ltd,CINEC Campus (Pvt) Ltd,LK,,,university,
+LK053,Genetech (Sri Lanka),Genetech (Sri Lanka),LK,,,company,
+LK054,Anti Filariasis Campaign,Anti Filariasis Campaign,LK,,,other,
+LK055,"Post Graduate Institute of Medicine, University of Colombo, Sri Lanka","Post Graduate Institute of Medicine, University of Colombo, Sri Lanka",LK,,,university,pgim
+LK056,Blue Resources Trust,Blue Resources Trust,LK,,,ngo_or_association,
+LK057,Sri Lanka College of Obstetricians & Gynaecologists,Sri Lanka College of Obstetricians & Gynaecologists,LK,,,college,
+LK058,GlaxoSmithKline (Sri Lanka),GlaxoSmithKline (Sri Lanka),LK,,,company,
+LK059,Sri Lanka Law College,Sri Lanka Law College,LK,,,college,
+LK060,Lanka Hydraulic Institute (Sri Lanka),Lanka Hydraulic Institute (Sri Lanka),LK,,,research_institute,
+LK061,Veterinary Research Institute,Veterinary Research Institute,LK,,,research_institute,
+LK062,Mannar Hospital,Mannar Hospital,LK,,,hospital,
+LK063,Buddhist and Pali University of Sri Lanka,Buddhist and Pali University of Sri Lanka,LK,,,university,bpu
+LK063,Buddhist and Pali University of Sri Lanka,BPU,LK,,,university,
+LK064,Kilinochchi General Hospital,Kilinochchi General Hospital,LK,,,hospital,
+LK065,Ministry OF City Planning and Water Supply,Ministry OF City Planning and Water Supply,LK,,,government_body,
+LK066,Ampara Hospital,Ampara Hospital,LK,,,hospital,
+LK067,WSO2 (Sri Lanka),WSO2 (Sri Lanka),LK,,,company,
+LK068,Tellippalai Hospital,Tellippalai Hospital,LK,,,hospital,
+LK069,Dr Neville Fernando Teaching Hospital,Dr Neville Fernando Teaching Hospital,LK,,,hospital,
+LK070,University Grants Commission Sri Lanka,University Grants Commission Sri Lanka,LK,,,university,
+LK071,Bandaranaike Centre for International Studies,Bandaranaike Centre for International Studies,LK,,,research_institute,
+LK072,Durdans Hospital,Durdans Hospital,LK,,,hospital,
+LK073,Care International Sri Lanka,Care International Sri Lanka,LK,,,other,
+LK074,Wijeya Newspapers (Sri Lanka),Wijeya Newspapers (Sri Lanka),LK,,,company,
+LK075,International Centre for Ethnic Studies,International Centre for Ethnic Studies,LK,,,research_institute,
+LK076,GreenTech Consultants (Sri Lanka),GreenTech Consultants (Sri Lanka),LK,,,company,
+LK077,Sri Lanka College of Paediatricians,Sri Lanka College of Paediatricians,LK,,,college,
+LK078,Kalmunai North Hospital,Kalmunai North Hospital,LK,,,hospital,
+LK079,Anti Leprosy Campaign,Anti Leprosy Campaign,LK,,,other,
+LK080,Point Pedro Institute of Development,Point Pedro Institute of Development,LK,,,research_institute,
+LK081,Ashraff Memorial Hospital,Ashraff Memorial Hospital,LK,,,hospital,
+LK082,Sri Lanka Council For Agricultural Research Policy,Sri Lanka Council For Agricultural Research Policy,LK,,,government_body,
+LK083,PASSAsia (Sri Lanka),PASSAsia (Sri Lanka),LK,,,other,
+LK084,FAIRMED,FAIRMED,LK,,,other,
+LK085,Centre for Policy Alternatives,Centre for Policy Alternatives,LK,,,ngo_or_association,
+LK086,Law & Society Trust,Law & Society Trust,LK,,,ngo_or_association,
+LK087,Government Medical Officers Association,Government Medical Officers Association,LK,,,ngo_or_association,
+LK088,Point Pedro Hospital,Point Pedro Hospital,LK,,,hospital,
+LK089,Chavakachcheri Hospital,Chavakachcheri Hospital,LK,,,hospital,
+LK090,Kayts Hospital,Kayts Hospital,LK,,,hospital,
+LK091,Geo Explore Foundation,Geo Explore Foundation,LK,,,research_institute,
+LK092,Mullaitivu Hospital,Mullaitivu Hospital,LK,,,hospital,
+LK093,Cancer Care Association Sri Lanka,Cancer Care Association Sri Lanka,LK,,,ngo_or_association,
+LK094,South Asians for Human Rights,South Asians for Human Rights,LK,,,ngo_or_association,
+LK095,Federation of Sri Lankan Local Government Authorities,Federation of Sri Lankan Local Government Authorities,LK,,,ngo_or_association,
+LK096,Women's Fund Asia,Women's Fund Asia,LK,,,ngo_or_association,
+LK097,Mallavi Hospital,Mallavi Hospital,LK,,,hospital,
+LK098,National Centre for Advanced Studies in Humanities and Social Sciences,National Centre for Advanced Studies in Humanities and Social Sciences,LK,,,research_institute,ncas
+LK099,One Text Initiative,One Text Initiative,LK,,,ngo_or_association,
+LK100,Cheddikulam Hospital,Cheddikulam Hospital,LK,,,hospital,
+LK101,Foundation for Environment Climate and Technology,Foundation for Environment Climate and Technology,LK,,,research_institute,
+LK102,"Institute of Town Planners, Sri lanka","Institute of Town Planners, Sri lanka",LK,,,research_institute,
