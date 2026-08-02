@@ -72,8 +72,18 @@ backend/outputs/
 !data/config/**
 !configurations/
 !configurations/**
+!backend/data/config/
+!backend/data/config/**
+!backend/configurations/
+!backend/configurations/**
 !examples/
 !examples/**
+
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/.vite/
 
 .DS_Store
 Thumbs.db
@@ -85,3 +95,4 @@ Thumbs.db
 !/.github/**
 
 notebooks/outputs/
+backend/notebooks/outputs/
