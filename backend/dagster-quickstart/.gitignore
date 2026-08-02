@@ -201,3 +201,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Dagster local runtime state
+.tmp_dagster_home_*/
