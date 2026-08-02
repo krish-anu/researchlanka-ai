@@ -53,7 +53,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report
+.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize
 
 # Show available targets and common overrides.
 help:
@@ -110,6 +110,22 @@ openalex-rebuild:
 # Rebuild only the DOI conflict CSV from existing raw JSONL.
 openalex-doi-conflicts:
 	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report; count=write_doi_conflict_report(Path('$(OPENALEX_JSONL)'), Path('$(OPENALEX_DOI_CONFLICTS)')); print(f'DOI conflicts: {count:,}')"
+
+# Regenerate the national institution registry from the merged dataset.
+# Writes configurations/sri_lanka/institutions.csv for review -- read the diff
+# and correct any mis-typed or duplicated entries before committing.
+institution-registry:
+	$(PYTHON) -m src.pipeline.build_institution_registry
+
+# Standardize institutions, affiliations and countries, and derive the
+# collaboration fields. Depends on the registry above being current.
+institution-normalize:
+	$(PYTHON) -m src.pipeline.build_institution_normalized_dataset
+
+# Standardize publication types and venue names. Reads the institution-normalized
+# dataset, so run institution-normalize first.
+type-journal-normalize:
+	$(PYTHON) -m src.pipeline.build_type_journal_normalized_dataset
 
 # Print a quality summary from existing raw JSONL.
 openalex-report:

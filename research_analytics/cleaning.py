@@ -62,7 +62,9 @@ def clean_record(record: dict[str, Any], config: CleaningConfig) -> dict[str, An
         rules_applied.append("normalize_author_names")
 
     if config.normalize_institutions:
-        cleaned["institutions"] = normalize_list_like(cleaned.get("institutions"))
+        cleaned["institutions"] = normalize_list_like(
+            cleaned.get("institutions"), separators=(";",)
+        )
         rules_applied.append("normalize_institutions")
 
     provenance = dict(cleaned.get("_provenance") or {})
@@ -312,7 +314,16 @@ def parse_literal(value: Any) -> Any:
     return value
 
 
-def normalize_list_like(value: Any) -> list[str]:
+def normalize_list_like(value: Any, *, separators: tuple[str, ...] | None = None) -> list[str]:
+    """Split a multi-value field into a list of trimmed strings.
+
+    ``separators`` pins the split characters. Leave it unset for free-text fields
+    such as keywords, where either ``;`` or ``,`` may separate entries. Pass
+    ``(";",)`` for fields whose values legitimately contain commas -- institution
+    and affiliation names such as "Eastern University, Sri Lanka" are a single
+    value and must never be split on the comma.
+    """
+
     if value is None:
         return []
     if isinstance(value, list):
@@ -320,7 +331,12 @@ def normalize_list_like(value: Any) -> list[str]:
     text = str(value).strip()
     if not text:
         return []
-    separator = ";" if ";" in text else ","
+    if separators:
+        separator = next((candidate for candidate in separators if candidate in text), None)
+        if separator is None:
+            return [text]
+    else:
+        separator = ";" if ";" in text else ","
     return [item.strip() for item in text.split(separator) if item.strip()]
 
 
