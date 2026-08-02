@@ -37,6 +37,7 @@ Processed Outputs
   |-- notebooks/analyze_openalex_sri_lanka_only.ipynb
 
 Future Application Layer
+  |-- PostgreSQL-backed read-only API (/api/v1)
   |-- analytics dashboards
   |-- search and filtering interface
   |-- AI/ML publication classification
@@ -229,6 +230,7 @@ or `/kaggle/working/openalex_outputs/` on Kaggle.
 | DOI comparison | `scripts/quality/compare_dois.py` |
 | JSONL to CSV conversion | `scripts/processing/jsonl_to_csv.py` |
 | Tests | `tests/` |
+| API design | `docs/API_DESIGN.md` |
 
 ## Execution Order
 
@@ -248,7 +250,9 @@ For a local analysis run:
 
 ## Future Architecture Work
 
-The next architecture step is to move repeated notebook logic into reusable pipeline modules under `src/pipeline/`. The first useful modules would be:
+The read-only application API is specified in `docs/API_DESIGN.md` and has an MVP implementation under `src/api/`.
+
+The next pipeline architecture step is to move repeated notebook logic into reusable pipeline modules under `src/pipeline/`. The first useful modules would be:
 
 - OpenAlex raw-to-flat conversion
 - strict Sri Lanka-only filtering
