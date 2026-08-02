@@ -1,4 +1,0 @@
-record_id,paper_name,researcher,university,published_year,doi,keywords,citation_count,countries
-ex-001,Machine learning for crop prediction,Asha Example,Example University,2021,https://doi.org/10.1000/example1,"machine learning; agriculture",12,EX
-ex-002,Machine learning for crop prediction,A. Example,EU,2021,10.1000/example1,"machine learning; agriculture",12,EX
-ex-003,Digital health adoption in universities,Ravi Sample,Example Univ.,2023,,"health; education",5,EX;US
