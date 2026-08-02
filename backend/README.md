@@ -147,7 +147,6 @@ git push origin feature/openalex-collector
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
 - [National Framework Guide](documentation/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
 - [Migration to Framework Pipeline](documentation/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
-- [Contributing Guide](../CONTRIBUTING.md)
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
 - [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
