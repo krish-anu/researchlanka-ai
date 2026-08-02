@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "crossref"
 DEFAULT_FROM_YEAR = 2016
 DEFAULT_UNTIL_YEAR = 2026
+DEFAULT_AFFILIATION_QUERIES = ("sri lanka", "lanka", "ceylon")
 DEFAULT_OUTPUT_PATH = DEFAULT_OUTPUT_DIR / dataset_filename(
     "crossref",
     "sri_lanka",
@@ -141,9 +142,9 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     if args.command == "inspect" and args.query is None:
-        args.query = ["lanka"]
+        args.query = ["sri lanka"]
     elif args.command == "collect-lk" and args.query is None:
-        args.query = ["lanka", "ceylon"]
+        args.query = list(DEFAULT_AFFILIATION_QUERIES)
 
     return args
 

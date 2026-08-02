@@ -93,6 +93,15 @@ Omit the `*_MAX_RECORDS*` variables for a full 2016-2026 harvest. Set
 `RESEARCHLANKA_OPENALEX_WRITE_PARQUET=1` only when the Dagster environment has
 `pyarrow` or `fastparquet` installed.
 
+OpenAlex collection resumes automatically when
+`data/raw/openalex/openalex_sri_lanka_works.jsonl` and its progress JSON already
+exist. Set `RESEARCHLANKA_OPENALEX_RESUME=0` only when you intentionally want to
+start a fresh OpenAlex collection and overwrite the existing files.
+
+Crossref collection uses affiliation queries `sri lanka`, `lanka`, and `ceylon`
+by default. Override them with `RESEARCHLANKA_CROSSREF_QUERIES` only when you
+want a narrower or experimental Crossref search.
+
 SLJOL collection uses recursive Crossref publication-date windows by default,
 so it can continue past repeated prefix cursors. The default SLJOL range is
 2016-2026, matching the project collection range. Override it with
