@@ -46,6 +46,23 @@ Versioning rules:
 - Deprecated fields must stay for one release cycle after a replacement is
   documented.
 
+## 3.1 Implementation Organization
+
+The API implementation is split by responsibility under `src/api/`:
+
+| File | Responsibility |
+|---|---|
+| `server.py` | HTTP request/response mechanics, CORS, CLI server startup. |
+| `routes.py` | Versioned route dispatch from URL paths to service methods. |
+| `service.py` | Endpoint use cases, repository orchestration, and response envelopes. |
+| `repository.py` | PostgreSQL access for publications, profiles, facets, and analytics. |
+| `query.py` | Query-string parsing and validation. |
+| `serializers.py` | Public response contracts, normalization, and quality flags. |
+| `exports.py` | CSV and JSONL export serialization. |
+| `sql.py` | SQL column lists, sort expressions, filters, and quoting helpers. |
+| `aggregates.py` | Shared profile and analytics aggregate helpers. |
+| `constants.py`, `errors.py`, `protocols.py` | Shared API constants, exceptions, and storage contracts. |
+
 ## 4. Core Resource Model
 
 ### Publication Summary

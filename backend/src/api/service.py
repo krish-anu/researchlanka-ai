@@ -2,177 +2,29 @@
 
 from __future__ import annotations
 
-import math
-import csv
-import io
-import json
-from datetime import date, datetime, timezone
-from typing import Any, Protocol
+from typing import Any
 
+from src.api.constants import (
+    API_VERSION,
+    ARRAY_FIELDS,
+    DATASET_STAGE,
+    DEFAULT_PAGE_SIZE,
+    LIST_FILTERS,
+    MAX_PAGE_SIZE,
+    PUBLICATION_SUMMARY_FIELDS,
+    SORT_OPTIONS,
+)
+from src.api.errors import APIError
+from src.api.exports import csv_bytes, publication_rows_to_csv, publication_rows_to_jsonl
+from src.api.protocols import PublicationRepository
+from src.api.query import first, parse_bool, parse_filters, parse_positive_int, split_values
+from src.api.serializers import (
+    list_response,
+    normalize_value,
+    publication_detail,
+    publication_summary,
+)
 from src.database.final_schema import FINAL_PUBLICATION_COLUMNS
-
-
-DEFAULT_PAGE_SIZE = 25
-MAX_PAGE_SIZE = 100
-DATASET_STAGE = "final_publications"
-API_VERSION = "v1"
-
-LIST_FILTERS = {
-    "q",
-    "year_min",
-    "year_max",
-    "type",
-    "institution",
-    "country",
-    "field",
-    "subfield",
-    "topic",
-    "journal",
-    "source_dataset",
-    "is_oa",
-    "has_doi",
-    "has_abstract",
-    "quality_flag",
-}
-SORT_OPTIONS = {"relevance", "year_desc", "year_asc", "citations_desc", "title_asc"}
-
-ARRAY_FIELDS = {
-    "authors",
-    "author_orcids",
-    "institutions",
-    "sri_lankan_institutions",
-    "countries",
-    "issn",
-    "concepts",
-    "topics",
-    "funder_name",
-    "funder_doi",
-    "funder_identifier",
-    "funder_award",
-    "source_dataset",
-}
-
-
-class APIError(Exception):
-    """API-facing validation or lookup error."""
-
-    def __init__(
-        self,
-        code: str,
-        message: str,
-        *,
-        status: int = 400,
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.status = status
-        self.details = details or {}
-
-
-class PublicationRepository(Protocol):
-    """Storage operations required by the API service."""
-
-    def health(self) -> bool:
-        """Return whether the backing store is reachable."""
-
-    def metadata(self) -> dict[str, Any]:
-        """Return dataset metadata and counts."""
-
-    def list_publications(
-        self,
-        filters: dict[str, Any],
-        *,
-        page: int,
-        page_size: int,
-        sort: str,
-        include_facets: bool,
-    ) -> dict[str, Any]:
-        """Return publication rows, total count, and optional facet counts."""
-
-    def get_publication(self, publication_key: str) -> dict[str, Any] | None:
-        """Return one publication row."""
-
-    def get_references(self, publication_key: str) -> list[dict[str, Any]]:
-        """Return sidecar reference rows for a publication."""
-
-    def get_count_audit(self, publication_key: str) -> dict[str, Any] | None:
-        """Return count-audit sidecar evidence for a publication."""
-
-    def suggest(self, query: str, *, limit: int) -> list[dict[str, Any]]:
-        """Return autocomplete suggestions."""
-
-    def researcher_profile(self, researcher_key: str) -> dict[str, Any] | None:
-        """Return an author/researcher aggregate."""
-
-    def researcher_publications(
-        self,
-        researcher_key: str,
-        *,
-        page: int,
-        page_size: int,
-    ) -> dict[str, Any]:
-        """Return publications for an author/researcher."""
-
-    def researcher_coauthors(self, researcher_key: str, *, limit: int) -> list[dict[str, Any]]:
-        """Return coauthor aggregates."""
-
-    def institution_profile(self, institution_key: str) -> dict[str, Any] | None:
-        """Return an institution aggregate."""
-
-    def institution_publications(
-        self,
-        institution_key: str,
-        *,
-        page: int,
-        page_size: int,
-    ) -> dict[str, Any]:
-        """Return publications for an institution."""
-
-    def institution_collaborators(self, institution_key: str, *, limit: int) -> list[dict[str, Any]]:
-        """Return collaborator aggregates for an institution."""
-
-    def compare_institutions(self, institution_keys: list[str]) -> list[dict[str, Any]]:
-        """Return headline metrics for selected institutions."""
-
-    def topic_publications(
-        self,
-        topic_key: str,
-        *,
-        page: int,
-        page_size: int,
-    ) -> dict[str, Any]:
-        """Return publications for a topic."""
-
-    def analytics_overview(self, filters: dict[str, Any]) -> dict[str, Any]:
-        """Return national headline analytics."""
-
-    def analytics_trends(self, filters: dict[str, Any], *, group_by: str, metric: str) -> list[dict[str, Any]]:
-        """Return trend rows."""
-
-    def analytics_rankings(
-        self,
-        filters: dict[str, Any],
-        *,
-        dimension: str,
-        metric: str,
-        limit: int,
-    ) -> list[dict[str, Any]]:
-        """Return ranked aggregate rows."""
-
-    def collaboration_network(
-        self,
-        filters: dict[str, Any],
-        *,
-        scope: str,
-        min_weight: int,
-        limit: int,
-    ) -> dict[str, Any]:
-        """Return graph nodes and edges."""
-
-    def data_quality(self, filters: dict[str, Any], *, group_by: str | None) -> dict[str, Any]:
-        """Return data-quality metrics."""
 
 
 class ResearchLankaAPI:
@@ -207,25 +59,7 @@ class ResearchLankaAPI:
     def schema(self) -> dict[str, Any]:
         return {
             "data": {
-                "publication_summary_fields": [
-                    "publication_key",
-                    "title",
-                    "doi",
-                    "publication_year",
-                    "type",
-                    "authors",
-                    "institutions",
-                    "journal",
-                    "publisher",
-                    "citation_count",
-                    "reference_count",
-                    "is_oa",
-                    "oa_status",
-                    "primary_field",
-                    "primary_subfield",
-                    "source_dataset",
-                    "quality_flags",
-                ],
+                "publication_summary_fields": PUBLICATION_SUMMARY_FIELDS,
                 "final_publication_columns": ["publication_key", *FINAL_PUBLICATION_COLUMNS],
                 "array_fields": sorted(ARRAY_FIELDS),
             },
@@ -510,44 +344,9 @@ class ResearchLankaAPI:
         )
         rows = [publication_summary(row) for row in result.get("records", [])]
         if file_format == "jsonl":
-            payload = "".join(
-                json.dumps(normalize_value(row), ensure_ascii=False) + "\n"
-                for row in rows
-            )
-            return payload.encode("utf-8"), "application/x-ndjson; charset=utf-8"
+            return publication_rows_to_jsonl(rows), "application/x-ndjson; charset=utf-8"
         if file_format == "csv":
-            fieldnames = [
-                "publication_key",
-                "title",
-                "doi",
-                "publication_year",
-                "type",
-                "authors",
-                "institutions",
-                "journal",
-                "publisher",
-                "citation_count",
-                "reference_count",
-                "is_oa",
-                "oa_status",
-                "primary_field",
-                "primary_subfield",
-                "source_dataset",
-                "quality_flags",
-            ]
-            buffer = io.StringIO()
-            writer = csv.DictWriter(buffer, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in rows:
-                writer.writerow(
-                    {
-                        key: "; ".join(str(item) for item in value)
-                        if isinstance(value, list)
-                        else value
-                        for key, value in row.items()
-                    }
-                )
-            return buffer.getvalue().encode("utf-8"), "text/csv; charset=utf-8"
+            return publication_rows_to_csv(rows), "text/csv; charset=utf-8"
         raise APIError("not_found", "Export format not found.", status=404)
 
     def export_analytics(self, query: dict[str, list[str]], *, name: str) -> tuple[bytes, str]:
@@ -576,255 +375,4 @@ class ResearchLankaAPI:
         }
 
 
-def parse_filters(query: dict[str, list[str]]) -> dict[str, Any]:
-    filters: dict[str, Any] = {}
-    for key in LIST_FILTERS:
-        values = query.get(key)
-        if not values:
-            continue
-        if key in {"type", "institution", "country", "field", "subfield", "topic", "journal", "source_dataset", "quality_flag"}:
-            filters[key] = [item for value in values for item in split_values(value)]
-        elif key in {"is_oa", "has_doi", "has_abstract"}:
-            filters[key] = parse_bool(values[-1])
-        elif key in {"year_min", "year_max"}:
-            filters[key] = parse_int(values[-1], key)
-        else:
-            filters[key] = values[-1].strip()
-
-    year_min = filters.get("year_min")
-    year_max = filters.get("year_max")
-    if year_min is not None and year_max is not None and year_min > year_max:
-        raise APIError(
-            "invalid_filter",
-            "year_min must be less than or equal to year_max.",
-            details={"field": "year_min"},
-        )
-    return filters
-
-
-def publication_summary(row: dict[str, Any]) -> dict[str, Any]:
-    normalized = normalize_row(row)
-    return {
-        "publication_key": normalized.get("publication_key"),
-        "title": normalized.get("title"),
-        "doi": normalized.get("doi"),
-        "publication_year": normalized.get("publication_year"),
-        "type": normalized.get("type"),
-        "authors": normalized.get("authors", []),
-        "institutions": normalized.get("institutions", []),
-        "journal": normalized.get("journal"),
-        "publisher": normalized.get("publisher"),
-        "citation_count": normalized.get("citation_count"),
-        "reference_count": normalized.get("reference_count"),
-        "is_oa": normalized.get("is_oa"),
-        "oa_status": normalized.get("oa_status"),
-        "primary_field": normalized.get("primary_field"),
-        "primary_subfield": normalized.get("primary_subfield"),
-        "source_dataset": normalized.get("source_dataset", []),
-        "quality_flags": quality_flags(normalized),
-    }
-
-
-def publication_detail(row: dict[str, Any]) -> dict[str, Any]:
-    normalized = normalize_row(row)
-    return {
-        **publication_summary(row),
-        "abstract": normalized.get("abstract"),
-        "openalex_id": normalized.get("openalex_id"),
-        "url": normalized.get("url"),
-        "pdf_url": normalized.get("pdf_url"),
-        "publication_date": normalized.get("publication_date"),
-        "author_orcids": normalized.get("author_orcids", []),
-        "sri_lankan_authors": normalized.get("sri_lankan_authors"),
-        "sri_lankan_institutions": normalized.get("sri_lankan_institutions", []),
-        "countries": normalized.get("countries", []),
-        "venue": {
-            "journal": normalized.get("journal"),
-            "publisher": normalized.get("publisher"),
-            "issn": normalized.get("issn", []),
-            "issn_l": normalized.get("issn_l"),
-            "volume": normalized.get("volume"),
-            "issue": normalized.get("issue"),
-            "pages": {
-                "first": normalized.get("first_page"),
-                "last": normalized.get("last_page"),
-                "article_number": normalized.get("article_number"),
-            },
-        },
-        "access": {
-            "is_oa": normalized.get("is_oa"),
-            "oa_status": normalized.get("oa_status"),
-            "license": normalized.get("license"),
-            "license_url": normalized.get("license_url"),
-        },
-        "impact": {
-            "citation_count": normalized.get("citation_count"),
-            "reference_count": normalized.get("reference_count"),
-            "citation_count_difference_oa_minus_crossref": normalized.get(
-                "citation_count_difference_oa_minus_crossref"
-            ),
-            "citation_count_divergence_flag": normalized.get("citation_count_divergence_flag"),
-            "reference_count_difference_oa_minus_crossref": normalized.get(
-                "reference_count_difference_oa_minus_crossref"
-            ),
-            "reference_count_divergence_flag": normalized.get("reference_count_divergence_flag"),
-        },
-        "classification": {
-            "concepts": normalized.get("concepts", []),
-            "topics": normalized.get("topics", []),
-            "primary_topic": normalized.get("primary_topic"),
-            "primary_field": normalized.get("primary_field"),
-            "primary_subfield": normalized.get("primary_subfield"),
-            "primary_domain": normalized.get("primary_domain"),
-        },
-        "funding": {
-            "funder_name": normalized.get("funder_name", []),
-            "funder_doi": normalized.get("funder_doi", []),
-            "funder_identifier": normalized.get("funder_identifier", []),
-            "funder_award": normalized.get("funder_award", []),
-        },
-        "provenance": {
-            "source_dataset": normalized.get("source_dataset", []),
-            "source_institution_id": normalized.get("source_institution_id"),
-            "source_record_id": normalized.get("source_record_id"),
-            "source_datestamp": normalized.get("source_datestamp"),
-            "raw_identifiers": normalized.get("raw_identifiers"),
-            "raw_record_available": bool(normalized.get("raw_record")),
-        },
-    }
-
-
-def list_response(
-    rows: list[Any],
-    *,
-    page: int,
-    page_size: int,
-    total: int,
-    filters: dict[str, Any] | None = None,
-    facets: dict[str, Any] | None = None,
-    meta: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "data": normalize_value(rows),
-        "pagination": {
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "total_pages": math.ceil(total / page_size) if page_size else 0,
-        },
-        "meta": meta or {"api_version": API_VERSION, "dataset_stage": DATASET_STAGE},
-    }
-    if filters is not None:
-        payload["filters"] = {"applied": filters}
-    if facets is not None:
-        payload["facets"] = normalize_value(facets)
-    return payload
-
-
-def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
-    return {
-        key: split_semicolon_value(value) if key in ARRAY_FIELDS else normalize_value(value)
-        for key, value in dict(row).items()
-    }
-
-
-def split_semicolon_value(value: Any) -> list[Any]:
-    if value in (None, ""):
-        return []
-    if isinstance(value, list):
-        return [normalize_value(item) for item in value if item not in (None, "")]
-    return [part.strip() for part in str(value).split(";") if part.strip()]
-
-
-def quality_flags(row: dict[str, Any]) -> list[str]:
-    flags = []
-    if not row.get("doi"):
-        flags.append("missing_doi")
-    if not row.get("abstract"):
-        flags.append("missing_abstract")
-    if not row.get("institutions") and not row.get("sri_lankan_institutions"):
-        flags.append("missing_institutions")
-    if row.get("citation_count_divergence_flag"):
-        flags.append("citation_count_divergence")
-    if row.get("reference_count_divergence_flag"):
-        flags.append("reference_count_divergence")
-    source_dataset = {str(value).casefold() for value in row.get("source_dataset", [])}
-    local_sources = {"local", "repositories", "repositories_combined", "sljol"}
-    global_sources = {"openalex", "crossref"}
-    if source_dataset and source_dataset.intersection(local_sources) and not source_dataset.intersection(global_sources):
-        flags.append("repository_only")
-    if not row.get("doi") and source_dataset.intersection(local_sources):
-        flags.append("no_doi_local_record")
-    if row.get("topics") or row.get("concepts"):
-        flags.append("topic_model_source")
-    return flags
-
-
-def normalize_value(value: Any) -> Any:
-    if isinstance(value, (datetime, date)):
-        if isinstance(value, datetime) and value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return value.isoformat()
-    if isinstance(value, dict):
-        return {str(key): normalize_value(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [normalize_value(item) for item in value]
-    return value
-
-
-def csv_bytes(rows: list[dict[str, Any]]) -> bytes:
-    fieldnames = sorted({field for row in rows for field in row}) or ["value"]
-    buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
-    writer.writeheader()
-    for row in rows:
-        writer.writerow(
-            {
-                key: json.dumps(normalize_value(value), ensure_ascii=False)
-                if isinstance(value, (dict, list))
-                else normalize_value(value)
-                for key, value in row.items()
-            }
-        )
-    return buffer.getvalue().encode("utf-8")
-
-
-def first(query: dict[str, list[str]], key: str) -> str | None:
-    values = query.get(key)
-    if not values:
-        return None
-    return values[-1]
-
-
-def parse_positive_int(query: dict[str, list[str]], key: str, *, default: int) -> int:
-    value = first(query, key)
-    if value is None or value == "":
-        return default
-    parsed = parse_int(value, key)
-    if parsed < 1:
-        raise APIError("invalid_filter", f"{key} must be at least 1.", details={"field": key})
-    return parsed
-
-
-def parse_int(value: str, field: str) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise APIError("invalid_filter", f"{field} must be an integer.", details={"field": field}) from exc
-
-
-def parse_bool(value: str | None, *, default: bool | None = None) -> bool | None:
-    if value is None or value == "":
-        return default
-    text = value.casefold()
-    if text in {"true", "t", "yes", "y", "1"}:
-        return True
-    if text in {"false", "f", "no", "n", "0"}:
-        return False
-    raise APIError("invalid_filter", f"Invalid boolean value: {value}.")
-
-
-def split_values(value: str | None) -> list[str]:
-    if value is None:
-        return []
-    return [part.strip() for part in value.split(",") if part.strip()]
+__all__ = ["APIError", "ResearchLankaAPI"]
