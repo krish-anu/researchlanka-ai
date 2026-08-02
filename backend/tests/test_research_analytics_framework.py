@@ -18,6 +18,7 @@ from research_analytics.cleaning import (
 from research_analytics.config import config_from_dict
 from research_analytics.institutions import NationalInstitutionRegistry, enrich_national_context
 from research_analytics.schema import STANDARD_PUBLICATION_FIELDS
+from research_analytics.validation import record_validation_errors, validate_records
 
 
 def test_standard_schema_maps_user_columns_without_country_specific_code():
@@ -214,6 +215,100 @@ def test_pipeline_removes_invalid_publication_records_from_outputs(tmp_path):
     )
     assert processing_report["removed_invalid_record_count"] == 4
     assert processing_report["removed_unusable_record_count"] == 4
+
+
+def test_validation_reports_doi_year_and_source_consistency():
+    config = config_from_dict(
+        {
+            "source": {"name": "expected_source", "type": "csv", "path": "unused.csv"},
+            "cleaning": {"valid_year": {"minimum": 2000, "maximum": 2030}},
+        }
+    )
+    records = [
+        {
+            "source_name": "expected_source",
+            "source_record_id": "record-1",
+            "doi": "10.1000/shared",
+            "title": "Shared DOI paper",
+            "publication_year": "2024",
+            "publication_date": "2024-05-01",
+        },
+        {
+            "source_name": "expected_source",
+            "source_record_id": "record-2",
+            "doi": "https://doi.org/10.1000/shared",
+            "title": "Shared DOI paper",
+            "publication_year": "2023",
+            "publication_date": "2023",
+        },
+        {
+            "source_name": "expected_source",
+            "source_record_id": "record-1",
+            "doi": "10.1000/source-conflict",
+            "title": "Different source record paper",
+            "publication_year": "2024",
+            "publication_date": "2024",
+        },
+        {
+            "source_name": "wrong_source",
+            "source_record_id": "record-3",
+            "doi": "10.1000/wrong-source",
+            "title": "Wrong source paper",
+            "publication_year": "2022",
+            "publication_date": "2021-12-01",
+        },
+        {
+            "source_name": "",
+            "source_record_id": "record-4",
+            "doi": "not-a-doi",
+            "title": "Missing source paper",
+            "publication_year": "2099",
+            "publication_date": "2099",
+        },
+    ]
+
+    report = validate_records(records, config)
+
+    assert report.invalid_doi_count == 1
+    assert report.invalid_year_count == 1
+    assert report.year_date_mismatch_count == 1
+    assert report.missing_source_count == 1
+    assert report.source_name_mismatch_count == 1
+    assert report.duplicate_source_record_count == 1
+    assert report.source_record_conflict_count == 1
+    assert report.doi_year_conflict_count == 1
+    assert report.doi_title_conflict_count == 0
+    assert report.consistency_issue_count == 6
+    assert {
+        "year_date_mismatch",
+        "missing_source",
+        "source_name_mismatch",
+        "duplicate_source_record",
+        "source_record_conflict",
+        "doi_year_conflict",
+    } == {issue["issue_type"] for issue in report.consistency_issues}
+
+
+def test_record_validation_rejects_year_date_and_source_mismatches():
+    config = config_from_dict(
+        {
+            "source": {"name": "expected_source", "type": "csv", "path": "unused.csv"},
+            "cleaning": {"valid_year": {"minimum": 2000, "maximum": 2030}},
+        }
+    )
+    record = {
+        "source_name": "wrong_source",
+        "source_record_id": "record-1",
+        "doi": "10.1000/test",
+        "title": "Mismatched paper",
+        "publication_year": "2024",
+        "publication_date": "2023-12-31",
+    }
+
+    assert record_validation_errors(record, config) == [
+        "Publication year does not match publication_date year",
+        "Unexpected source name: source_name must match expected_source",
+    ]
 
 
 def test_title_normalization_cleans_markup_entities_and_spacing():
