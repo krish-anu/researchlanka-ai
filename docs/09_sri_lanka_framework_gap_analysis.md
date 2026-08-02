@@ -30,6 +30,7 @@ stable national workflow.
 | Entity resolution | Resolves exact normalized aliases from the Sri Lanka registry. | No fuzzy/identifier-based matching for institution variants outside the alias file. | Add ROR-aware and controlled fuzzy matching for unresolved Sri Lanka affiliations. |
 | Collaboration analytics | Classifies domestic and international collaboration. | Collaboration edges are built from institution co-occurrence only; author-level or funder-level networks are not represented. | Add optional author, funder, and country collaboration exports if needed by the dashboard. |
 | Source validation | Preview and validation work for adapter records. | Validation report is mostly structural; it does not fully assess Sri Lanka-specific metadata quality thresholds. | Add national validation checks for LK association, institution resolution rate, DOI coverage, and year ranges. |
+| Dashboard/API design | Read-only API contract is documented in `docs/API_DESIGN.md`; MVP service code lives in `src/api/`. | Not yet connected to a deployed dashboard. | Harden the MVP API against PostgreSQL `final_publications`, then connect the dashboard. |
 | Documentation | Main docs now describe Sri Lanka national scope. | Some older analysis docs still describe decisions from historical datasets rather than current pipeline behavior. | Mark older analysis docs as historical or update them against current outputs. |
 
 ## Hard-coded
@@ -54,7 +55,7 @@ stable national workflow.
 | Database load stage | Implemented: `load_database` now loads deduplicated records into PostgreSQL `final_publications` using the latest finalized dataset columns. | Closed |
 | Classification/topic modeling stages | `classify` and `topic_modeling` flags exist but do not drive implemented stages. | Medium |
 | Semantic search and forecasting stages | Config has flags for these, but no pipeline implementation is wired. | Low/Medium |
-| Dashboard/API serving layer | Exports exist, but no framework-owned API/dashboard layer is connected here. | Medium |
+| Dashboard/API implementation | The read-only API MVP is implemented, but no deployed dashboard integration is connected here. | Medium |
 | Provenance report per source | Raw records are saved, but there is no source-level lineage summary for merged national outputs. | Medium |
 | Data-quality thresholds | Data quality is reported, but pass/fail thresholds are not configurable. | Medium |
 
@@ -90,4 +91,5 @@ stable national workflow.
 2. If multi-source execution is needed, add a `MultiSourcePipeline` that collects each enabled Sri Lanka source, preserves source provenance, and merges before cleaning/deduplication.
 3. Document the full raw API retention policy: use `source_records.json` for complete raw payloads, and keep CSV rows focused on normalized reporting fields.
 4. Add national data-quality thresholds for DOI coverage, institution resolution rate, publication year validity, and LK-only OpenAlex filtering.
-5. Mark older analysis docs as historical if their numbers do not reflect the latest regenerated outputs.
+5. Harden the read-only API MVP in `src/api/`, add deployment configuration, and connect the publication search, profile, dashboard, and export views.
+6. Mark older analysis docs as historical if their numbers do not reflect the latest regenerated outputs.
