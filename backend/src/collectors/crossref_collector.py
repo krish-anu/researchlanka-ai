@@ -83,12 +83,13 @@ class CrossrefCollector:
     # =====================================================
 
     def fetch_works(
-        self,
-        *,
-        affiliation_query: str,
-        rows: int = 100,
-        cursor: str = "*",
-    ) -> dict[str, Any]:
+    self,
+    *,
+    affiliation_query: str,
+    filters: list[str] | None = None,
+    rows: int = 100,
+    cursor: str = "*",
+) -> dict[str, Any]:
         """
         Query Crossref works using affiliation.
 
@@ -101,6 +102,8 @@ class CrossrefCollector:
             "rows": rows,
             "cursor": cursor,
         }
+        if filters:
+         params["filter"] = ",".join(filters)    
 
         response = self.session.get(
             f"{self.base_url}/works", params=params, timeout=self.timeout
@@ -110,8 +113,13 @@ class CrossrefCollector:
 
         return response.json()
 
-    def iter_affiliation_works(
-        self, *, affiliation_query: str, rows: int = 100, max_records: int | None = None
+    def iter_works(
+        self,
+        *,
+        affiliation_query: str,
+        filters: list[str] | None = None,
+        rows: int = 100,
+        max_records: int | None = None,
     ) -> Iterator[dict[str, Any]]:
         """
         Collect all works matching affiliation.
@@ -128,7 +136,10 @@ class CrossrefCollector:
                 break
 
             response = self.fetch_works(
-                affiliation_query=affiliation_query, rows=rows, cursor=cursor
+                affiliation_query=affiliation_query,
+                filters=filters,
+                rows=rows,
+                cursor=cursor,
             )
 
             message = response.get("message", {})
@@ -192,7 +203,10 @@ class CrossrefCollector:
 
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(self.fetch_work_by_doi, doi): doi for doi in dois
+                executor.submit(
+                    self.fetch_work_by_doi, doi.replace("https://doi.org/", "").strip()
+                ): doi
+                for doi in dois
             }
 
             for future in as_completed(futures):

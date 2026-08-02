@@ -118,10 +118,17 @@ def parse_args() -> argparse.Namespace:
         default=2026,
         help="End publication year.",
     )
+    
 
     enrich_parser = subparsers.add_parser(
         "enrich-dois",
         help="Fetch Crossref metadata using DOI list.",
+    )
+    enrich_parser.add_argument(
+        "--workers",
+        type=int,
+        default=20,
+        help="Number of parallel DOI requests",
     )
     enrich_parser.add_argument(
         "--email",
@@ -234,23 +241,35 @@ def enrich_from_dois(
     collector: CrossrefCollector,
     doi_file: Path,
     output: Path,
+    workers: int = 20,
 ) -> None:
+    """
+    Enrich metadata using DOI list from Crossref.
+
+    Uses parallel DOI retrieval from CrossrefCollector.iter_doi_works()
+    """
+
     output.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     existing_dois = set()
+
     files_to_check = [
         DEFAULT_OUTPUT_PATH,
         output,
     ]
 
+    # Load already collected DOIs to avoid duplicates
     for file_path in files_to_check:
         if not file_path.exists():
             continue
 
-        with file_path.open("r", encoding="utf-8") as f:
+        with file_path.open(
+            "r",
+            encoding="utf-8",
+        ) as f:
             for line in f:
                 try:
                     record = json.loads(line)
@@ -262,58 +281,52 @@ def enrich_from_dois(
                 if doi:
                     existing_dois.add(doi.casefold())
 
+    # Load DOI list
+    with doi_file.open(
+        "r",
+        encoding="utf-8",
+    ) as f:
+        dois = [line.strip() for line in f if line.strip()]
+
     found = 0
-    missing = 0
-    processed = 0
+    skipped = 0
 
-    with (
-        doi_file.open("r", encoding="utf-8") as f,
-        output.open("a", encoding="utf-8") as out,
-    ):
-        for line in f:
-            doi = line.strip()
+    with output.open(
+        "a",
+        encoding="utf-8",
+    ) as out:
+        for normalized in collector.iter_doi_works(
+            dois,
+            workers=workers,
+        ):
+            doi = normalized.get("DOI")
 
-            if not doi:
+            # Remove duplicates
+            if doi and doi.casefold() in existing_dois:
+                skipped += 1
                 continue
 
-            if doi.casefold() in existing_dois:
-                continue
-
-            work = collector.fetch_work_by_doi(doi)
-            processed += 1
-
-            if work is None:
-                missing += 1
-                continue
-
-            try:
-                normalized = reduce_work(work)
-            except Exception as exc:
-                logger.error(
-                    "Normalization failed for DOI %s: %s",
-                    doi,
-                    exc,
+            out.write(
+                json.dumps(
+                    normalized,
+                    ensure_ascii=False,
                 )
-                continue
+                + "\n"
+            )
 
-            out.write(json.dumps(normalized, ensure_ascii=False) + "\n")
             found += 1
 
-            saved_doi = normalized.get("DOI")
+            if doi:
+                existing_dois.add(doi.casefold())
 
-            if saved_doi:
-                existing_dois.add(saved_doi.casefold())
+            if found % 100 == 0:
+                print(f"Saved: {found} | Skipped duplicates: {skipped}")
 
-            time.sleep(0.1)
+    print(f"\nDOI enrichment completed")
+    print(f"New records: {found}")
+    print(f"Duplicates skipped: {skipped}")
 
-            if processed % 100 == 0:
-                print(
-                    f"Processed: {processed} | "
-                    f"Found: {found} | "
-                    f"Missing: {missing}"
-                )
-
-
+  
 def main() -> None:
     args = parse_args()
 
@@ -333,6 +346,7 @@ def main() -> None:
             collector,
             args.doi_file,
             args.output,
+            workers=args.workers,
         )
     else:
         inspect_crossref(
