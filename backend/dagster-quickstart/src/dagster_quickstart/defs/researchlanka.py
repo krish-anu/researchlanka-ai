@@ -38,7 +38,7 @@ from src.collectors.crossref_collector import CrossrefCollector, CrossrefPrefixC
 from src.collectors.dspace_rest_collector import DspaceRestCollector  # noqa: E402
 from src.collectors.html_meta_collector import HtmlMetaCollector  # noqa: E402
 from src.collectors.repository_registry import harvestable_targets, load_registry  # noqa: E402
-from src.pipeline.collect_crossref import collect_crossref  # noqa: E402
+from src.pipeline.collect_crossref import DEFAULT_AFFILIATION_QUERIES, collect_crossref  # noqa: E402
 from src.pipeline.collect_sljol import SLJOL_DOI_PREFIX  # noqa: E402
 from src.pipeline.harvest_all import HarvestOutcome, harvest_one  # noqa: E402
 from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
@@ -47,6 +47,7 @@ from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
     DEFAULT_JSONL_OUTPUT as OPENALEX_JSONL_OUTPUT,
     DEFAULT_PAGINATION_OUTPUT as OPENALEX_PAGINATION_OUTPUT,
     DEFAULT_PARQUET_OUTPUT as OPENALEX_PARQUET_OUTPUT,
+    default_progress_output as default_openalex_progress_output,
     collect_quality_report as collect_openalex_quality_report,
     main as collect_openalex_main,
 )
@@ -207,6 +208,10 @@ def researchlanka_openalex_api_collection(context) -> dict[str, Any]:
         args.append("--no-parquet")
     if os.getenv("OPENALEX_EMAIL"):
         args.extend(["--email", os.environ["OPENALEX_EMAIL"]])
+    progress_output = default_openalex_progress_output(OPENALEX_JSONL_OUTPUT)
+    resume_requested = env_bool("RESEARCHLANKA_OPENALEX_RESUME", True)
+    if resume_requested and OPENALEX_JSONL_OUTPUT.exists() and progress_output.exists():
+        args.append("--resume")
 
     with backend_working_directory():
         run_collect_openalex_cli(args)
@@ -238,7 +243,7 @@ def researchlanka_crossref_api_collection(context) -> dict[str, Any]:
 
     max_records = env_int("RESEARCHLANKA_CROSSREF_MAX_RECORDS")
     rows = env_int("RESEARCHLANKA_CROSSREF_ROWS", 100) or 100
-    queries = env_csv("RESEARCHLANKA_CROSSREF_QUERIES", ("lanka", "ceylon"))
+    queries = env_csv("RESEARCHLANKA_CROSSREF_QUERIES", DEFAULT_AFFILIATION_QUERIES)
     args = SimpleNamespace(
         query=list(queries),
         rows=rows,
@@ -302,7 +307,8 @@ def researchlanka_sljol_api_collection(context) -> dict[str, Any]:
         for work in works:
             output_file.write(json.dumps(work, ensure_ascii=False) + "\n")
             total += 1
-        convert_to_csv(SLJOL_JSONL_OUTPUT, SLJOL_CSV_OUTPUT)
+
+    convert_to_csv(SLJOL_JSONL_OUTPUT, SLJOL_CSV_OUTPUT)
 
     metadata = {
         "status": "collected",
