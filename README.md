@@ -130,6 +130,8 @@ git push origin feature/openalex-collector
 
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
 - [Metadata Quality Report Index](docs/00_metadata_quality_report_index.md) - missing values, completeness, conflicts, and final column decisions
+- [Metadata-Quality Limitations](docs/11_metadata_quality_limitations.md) - known coverage, missingness, conflict, deduplication, and interpretation caveats
+- [Formal Data-Cleaning Rules](docs/10_data_cleaning_rules.md) - normalization, validation, audit, and analysis-ready preprocessing rules
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
 - [National Framework Guide](documentation/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
 - [Migration to Framework Pipeline](documentation/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
