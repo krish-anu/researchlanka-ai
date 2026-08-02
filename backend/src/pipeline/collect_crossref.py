@@ -32,6 +32,8 @@ from src.utils.file_naming import dataset_filename
 logger = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "crossref"
+DEFAULT_FROM_YEAR = 2016
+DEFAULT_UNTIL_YEAR = 2026
 DEFAULT_OUTPUT_PATH = DEFAULT_OUTPUT_DIR / dataset_filename(
     "crossref",
     "sri_lanka",
@@ -109,14 +111,14 @@ def parse_args() -> argparse.Namespace:
     collect_parser.add_argument(
         "--from-year",
         type=int,
-        default=2000,
-        help="Start publication year.",
+        default=DEFAULT_FROM_YEAR,
+        help=f"Start publication year. Default: {DEFAULT_FROM_YEAR}.",
     )
     collect_parser.add_argument(
         "--until-year",
         type=int,
-        default=2026,
-        help="End publication year.",
+        default=DEFAULT_UNTIL_YEAR,
+        help=f"End publication year. Default: {DEFAULT_UNTIL_YEAR}.",
     )
 
     enrich_parser = subparsers.add_parser(

@@ -12,7 +12,7 @@ retry each half recursively until it succeeds or hits a 1-day minimum.
 
 Examples:
     python scripts/collection/harvest_large_repository.py --id cmb
-    python scripts/collection/harvest_large_repository.py --id ruh --start-year 2015
+    python scripts/collection/harvest_large_repository.py --id ruh --start-year 2016 --end-year 2026
 """
 
 from __future__ import annotations
@@ -35,14 +35,26 @@ from src.collectors.oai_pmh_collector import OaiPmhCollector, OaiPmhError
 from src.collectors.repository_registry import load_registry
 
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw"
-DEFAULT_START_YEAR = 1990
+DEFAULT_START_YEAR = 2016
+DEFAULT_END_YEAR = 2026
 MAX_SPLIT_DEPTH = 10
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Resiliently harvest a large/buggy OAI-PMH repository.")
     parser.add_argument("--id", required=True, help="Repository target id from data/config/repositories.json.")
-    parser.add_argument("--start-year", type=int, default=DEFAULT_START_YEAR, help="Earliest year to search from.")
+    parser.add_argument(
+        "--start-year",
+        type=int,
+        default=DEFAULT_START_YEAR,
+        help=f"Earliest OAI-PMH datestamp year. Default: {DEFAULT_START_YEAR}.",
+    )
+    parser.add_argument(
+        "--end-year",
+        type=int,
+        default=DEFAULT_END_YEAR,
+        help=f"Latest OAI-PMH datestamp year. Default: {DEFAULT_END_YEAR}.",
+    )
     parser.add_argument("--timeout", type=int, default=30, help="Per-request timeout in seconds.")
     parser.add_argument("--output", type=Path, default=None, help="JSONL output path.")
     return parser.parse_args()
@@ -124,7 +136,7 @@ def main() -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     from_date = date(args.start_year, 1, 1)
-    until_date = date.today()
+    until_date = date(args.end_year, 12, 31)
 
     print(f"Harvesting {target.id} ({target.name}) from {from_date} to {until_date} -> {output_path}")
 

@@ -1,9 +1,9 @@
 from src.collectors.crossref_collector import (
     CrossrefCollector,
     CrossrefPrefixCollector,
+    CrossrefRepeatedCursorError,
     create_session,
 )
-import pytest
 
 def test_create_session():
     session=create_session("TestAgent/1.0")
@@ -117,7 +117,7 @@ def test_prefix_iter_works_honors_max_records_across_pages():
     ]
 
 
-def test_prefix_iter_works_rejects_repeated_cursor():
+def test_prefix_iter_works_stops_on_repeated_cursor():
     page = {
         "message": {
             "items": [{"DOI": "10.4038/one"}],
@@ -139,5 +139,91 @@ def test_prefix_iter_works_rejects_repeated_cursor():
     collector = CrossrefPrefixCollector(prefix="10.4038", delay=0)
     collector.session = FakeSession()
 
-    with pytest.raises(RuntimeError, match="Crossref cursor repeated"):
-        list(collector.iter_works())
+    assert list(collector.iter_works()) == [{"DOI": "10.4038/one"}]
+
+
+def test_prefix_iter_works_can_raise_on_repeated_cursor():
+    page = {
+        "message": {
+            "items": [{"DOI": "10.4038/one"}],
+            "next-cursor": "*",
+        }
+    }
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return page
+
+    class FakeSession:
+        def get(self, url, *, params, timeout):
+            return FakeResponse()
+
+    collector = CrossrefPrefixCollector(prefix="10.4038", delay=0)
+    collector.session = FakeSession()
+    works = collector.iter_works(repeated_cursor_policy="raise")
+
+    assert next(works) == {"DOI": "10.4038/one"}
+    try:
+        next(works)
+    except CrossrefRepeatedCursorError:
+        pass
+    else:
+        raise AssertionError("Expected CrossrefRepeatedCursorError")
+
+
+def test_prefix_iter_works_by_publication_date_splits_repeated_cursor():
+    calls = []
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    class FakeSession:
+        def get(self, url, *, params, timeout):
+            calls.append(params)
+            filters = params["filter"]
+            if filters == "from-pub-date:2020-01-01,until-pub-date:2020-12-31":
+                return FakeResponse(
+                    {
+                        "message": {
+                            "items": [{"DOI": "10.4038/one"}],
+                            "next-cursor": "*",
+                        }
+                    }
+                )
+            if filters == "from-pub-date:2020-01-01,until-pub-date:2020-07-01":
+                return FakeResponse(
+                    {
+                        "message": {
+                            "items": [{"DOI": "10.4038/one"}],
+                            "next-cursor": None,
+                        }
+                    }
+                )
+            if filters == "from-pub-date:2020-07-02,until-pub-date:2020-12-31":
+                return FakeResponse(
+                    {
+                        "message": {
+                            "items": [{"DOI": "10.4038/two"}],
+                            "next-cursor": None,
+                        }
+                    }
+                )
+            raise AssertionError(f"Unexpected filters: {filters}")
+
+    collector = CrossrefPrefixCollector(prefix="10.4038", rows=500, delay=0)
+    collector.session = FakeSession()
+
+    works = list(collector.iter_works_by_publication_date(start_year=2020, end_year=2020))
+
+    assert [work["DOI"] for work in works] == ["10.4038/one", "10.4038/two"]
+    assert [call["cursor"] for call in calls] == ["*", "*", "*"]

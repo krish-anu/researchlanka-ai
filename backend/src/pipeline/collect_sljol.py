@@ -28,6 +28,8 @@ import requests
 from src.collectors.crossref_collector import CrossrefPrefixCollector
 
 SLJOL_DOI_PREFIX = "10.4038"
+DEFAULT_FROM_YEAR = 2016
+DEFAULT_UNTIL_YEAR = 2026
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "raw" / "sljol" / "crossref_works.jsonl"
 
 
@@ -36,6 +38,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--email", default=None, help="Email for the Crossref polite pool (recommended).")
     parser.add_argument("--max-records", type=int, default=None, help="Safety limit for testing.")
     parser.add_argument("--rows", type=int, default=500, help="Records per request (max 1000). Default: 500")
+    parser.add_argument(
+        "--from-year",
+        type=int,
+        default=DEFAULT_FROM_YEAR,
+        help=f"First publication year. Default: {DEFAULT_FROM_YEAR}",
+    )
+    parser.add_argument(
+        "--until-year",
+        type=int,
+        default=DEFAULT_UNTIL_YEAR,
+        help=f"Final publication year. Default: {DEFAULT_UNTIL_YEAR}",
+    )
+    parser.add_argument(
+        "--no-date-slicing",
+        action="store_true",
+        help="Use one prefix cursor scan instead of recursive publication-date windows.",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH, help=f"JSONL output path. Default: {DEFAULT_OUTPUT_PATH}")
     return parser.parse_args()
 
@@ -61,7 +80,16 @@ def main() -> None:
     total = 0
     try:
         with args.output.open("w", encoding="utf-8") as output_file:
-            for work in collector.iter_works(max_records=args.max_records):
+            works = (
+                collector.iter_works(max_records=args.max_records)
+                if args.no_date_slicing
+                else collector.iter_works_by_publication_date(
+                    start_year=args.from_year,
+                    end_year=args.until_year,
+                    max_records=args.max_records,
+                )
+            )
+            for work in works:
                 output_file.write(json.dumps(work, ensure_ascii=False) + "\n")
                 total += 1
                 if total % 1000 == 0:
