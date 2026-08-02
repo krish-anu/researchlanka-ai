@@ -73,7 +73,7 @@ Use `.env.example` to document required environment variables.
 
 ## File Names
 
-Use the project naming rules in [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md#3-file-naming-conventions). Dataset outputs should use lower snake case in this form:
+Use the project naming rules in [System and Data-Pipeline Architecture](backend/docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md#3-file-naming-conventions). Dataset outputs should use lower snake case in this form:
 
 ```text
 source_scope_entity[_variant].extension
@@ -87,4 +87,4 @@ openalex_sri_lanka_works.jsonl
 
 ## More Details
 
-Read the full workflow in [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md).
+Read the full workflow in [GitHub Management Workflow](backend/docs/GITHUB_MANAGEMENT.md).
