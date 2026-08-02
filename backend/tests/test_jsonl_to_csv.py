@@ -56,6 +56,28 @@ def test_convert_to_csv_chunked(tmp_path):
     assert len(df) == 25
 
 
+def test_convert_to_csv_chunked_with_late_columns(tmp_path):
+    """Later chunks can introduce columns without corrupting the CSV."""
+    jsonl_file = tmp_path / "test.jsonl"
+    records = [
+        {"id": 1, "title": "Paper 1"},
+        {"id": 2, "abstract": "Paper 2 abstract", "extra": "late"},
+    ]
+
+    with jsonl_file.open("w") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+
+    csv_file = tmp_path / "output.csv"
+    total = convert_to_csv(jsonl_file, csv_file, chunksize=1)
+
+    assert total == 2
+    df = pd.read_csv(csv_file)
+    assert list(df.columns) == ["id", "title", "abstract", "extra"]
+    assert len(df) == 2
+    assert df.iloc[1]["extra"] == "late"
+
+
 def test_convert_to_csv_file_not_found(tmp_path):
     """Test error when input file doesn't exist."""
     nonexistent = tmp_path / "nonexistent.jsonl"

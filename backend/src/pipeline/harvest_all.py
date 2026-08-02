@@ -35,6 +35,8 @@ from src.collectors.repository_registry import harvestable_targets, load_registr
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 DEFAULT_REPORT_DIR = PROJECT_ROOT / "data" / "reports"
 DEFAULT_MAX_RECORDS_PER_TARGET = 2000
+DEFAULT_START_YEAR = 2016
+DEFAULT_END_YEAR = 2026
 
 
 @dataclass
@@ -47,7 +49,14 @@ class HarvestOutcome:
     output_path: str | None = None
 
 
-def harvest_one(target, *, max_records: int, timeout: int) -> HarvestOutcome:
+def harvest_one(
+    target,
+    *,
+    max_records: int | None,
+    timeout: int,
+    from_date: str | None = None,
+    until_date: str | None = None,
+) -> HarvestOutcome:
     output_path = DEFAULT_RAW_DIR / target.id / "oai_dc.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -57,7 +66,11 @@ def harvest_one(target, *, max_records: int, timeout: int) -> HarvestOutcome:
 
     try:
         with output_path.open("w", encoding="utf-8") as output_file:
-            for record in collector.iter_records(max_records=max_records):
+            for record in collector.iter_records(
+                max_records=max_records,
+                from_date=from_date,
+                until_date=until_date,
+            ):
                 output_file.write(json.dumps(record, ensure_ascii=False) + "\n")
                 total += 1
     except OaiPmhError as exc:
@@ -101,12 +114,26 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--timeout", type=int, default=30, help="Per-request timeout in seconds.")
     parser.add_argument("--delay", type=float, default=1.0, help="Delay between institutions, in seconds.")
+    parser.add_argument(
+        "--start-year",
+        type=int,
+        default=DEFAULT_START_YEAR,
+        help=f"Earliest OAI-PMH datestamp year. Default: {DEFAULT_START_YEAR}.",
+    )
+    parser.add_argument(
+        "--end-year",
+        type=int,
+        default=DEFAULT_END_YEAR,
+        help=f"Latest OAI-PMH datestamp year. Default: {DEFAULT_END_YEAR}.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     max_records = None if args.max_records_per_target == 0 else args.max_records_per_target
+    from_date = f"{args.start_year}-01-01"
+    until_date = f"{args.end_year}-12-31"
 
     targets = harvestable_targets(load_registry(), phase=args.phase)
     if not targets:
@@ -116,7 +143,13 @@ def main() -> None:
     outcomes: list[HarvestOutcome] = []
     for i, target in enumerate(targets):
         print(f"[{i + 1}/{len(targets)}] Harvesting {target.id} ({target.name})...")
-        outcome = harvest_one(target, max_records=max_records, timeout=args.timeout)
+        outcome = harvest_one(
+            target,
+            max_records=max_records,
+            timeout=args.timeout,
+            from_date=from_date,
+            until_date=until_date,
+        )
         outcomes.append(outcome)
         print(f"  -> {outcome.status}: {outcome.record_count} records" + (f" ({outcome.error})" if outcome.error else ""))
         if i < len(targets) - 1:
@@ -139,6 +172,8 @@ def main() -> None:
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "max_records_per_target": max_records,
+        "from_date": from_date,
+        "until_date": until_date,
         "target_count": len(outcomes),
         "total_records": total_records,
         "results": [asdict(o) for o in outcomes],

@@ -70,10 +70,44 @@ Open http://localhost:3000 in your browser to see the project.
   the PostgreSQL load stage.
 - `researchlanka_all_assets_job` materializes every asset in this code location.
 
+The export and database jobs now collect enabled sources before downstream
+processing starts. The first assets gather OpenAlex, Crossref, SLJOL, and
+university repository data; `researchlanka_all_sources_collected` gates the
+existing source validation, transformation, cleaning, analytics, and export
+assets.
+
+For a quick smoke run, cap the external harvests:
+
+```bash
+mkdir -p /tmp/researchlanka-dagster-home
+DAGSTER_HOME=/tmp/researchlanka-dagster-home \
+RESEARCHLANKA_OPENALEX_MAX_RECORDS=1 \
+RESEARCHLANKA_CROSSREF_MAX_RECORDS=1 \
+RESEARCHLANKA_SLJOL_MAX_RECORDS=1 \
+RESEARCHLANKA_REPOSITORY_MAX_RECORDS_PER_TARGET=1 \
+RESEARCHLANKA_REPOSITORY_PHASE=phase_1 \
+dagster job execute -m dagster_quickstart.definitions -j researchlanka_export_job
+```
+
+Omit the `*_MAX_RECORDS*` variables for a full 2016-2026 harvest. Set
+`RESEARCHLANKA_OPENALEX_WRITE_PARQUET=1` only when the Dagster environment has
+`pyarrow` or `fastparquet` installed.
+
+SLJOL collection uses recursive Crossref publication-date windows by default,
+so it can continue past repeated prefix cursors. The default SLJOL range is
+2016-2026, matching the project collection range. Override it with
+`RESEARCHLANKA_SLJOL_FROM_YEAR` and `RESEARCHLANKA_SLJOL_UNTIL_YEAR` when you
+need a different date range.
+
 ## Pipeline Assets
 
 The Dagster asset graph maps to the project pipeline stages:
 
+- `researchlanka_openalex_api_collection`
+- `researchlanka_crossref_api_collection`
+- `researchlanka_sljol_api_collection`
+- `researchlanka_repository_collection`
+- `researchlanka_all_sources_collected`
 - `researchlanka_source_connection`
 - `researchlanka_source_preview`
 - `researchlanka_source_validation`
