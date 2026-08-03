@@ -85,7 +85,9 @@
     "journal": "journal",
     "language": "language",
     "doi": "doi",
-    "url": "source_url"
+    "url": "source_url",
+    "cited_by_count": "citation_count",
+    "oa_status": "open_access_status"
   },
   "transformations": {
     "title": {

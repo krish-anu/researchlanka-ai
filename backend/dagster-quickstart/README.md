@@ -72,9 +72,15 @@ Open http://localhost:3000 in your browser to see the project.
 
 The export and database jobs now collect enabled sources before downstream
 processing starts. The first assets gather OpenAlex, Crossref, SLJOL, and
-university repository data; `researchlanka_all_sources_collected` gates the
-existing source validation, transformation, cleaning, analytics, and export
-assets.
+university repository data; `researchlanka_all_sources_common_dataset`
+normalizes those collected files into
+`data/processed/common/common_publications_all_records.csv` before source
+validation, transformation, cleaning, analytics, and export assets run.
+Set `RESEARCHLANKA_COMMON_WRITE_MERGE_OUTPUTS=1` when you also want the
+common-dataset deduplicated CSV, merge log, summary, and manual-review files.
+Enabled sources with missing or empty CSV outputs fail this merge by default;
+set `RESEARCHLANKA_ALLOW_PARTIAL_COMMON_DATASET=1` only for an intentional
+partial run.
 
 For a quick smoke run, cap the external harvests:
 
@@ -117,6 +123,7 @@ The Dagster asset graph maps to the project pipeline stages:
 - `researchlanka_sljol_api_collection`
 - `researchlanka_repository_collection`
 - `researchlanka_all_sources_collected`
+- `researchlanka_all_sources_common_dataset`
 - `researchlanka_source_connection`
 - `researchlanka_source_preview`
 - `researchlanka_source_validation`
