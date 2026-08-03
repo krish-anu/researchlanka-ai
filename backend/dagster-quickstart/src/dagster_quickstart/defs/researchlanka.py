@@ -13,6 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Iterator
 
+import pandas as pd
 import requests
 from dagster import AssetSelection, asset, define_asset_job
 
@@ -26,6 +27,12 @@ CROSSREF_JSONL_OUTPUT = PROCESSED_DIR / "crossref" / "crossref_sri_lanka_works.j
 CROSSREF_CSV_OUTPUT = PROCESSED_DIR / "crossref" / "crossref_sri_lanka_works.csv"
 SLJOL_JSONL_OUTPUT = RAW_DIR / "sljol" / "crossref_works.jsonl"
 SLJOL_CSV_OUTPUT = PROCESSED_DIR / "sljol.csv"
+COMMON_OUTPUT_DIR = PROCESSED_DIR / "common"
+COMMON_ALL_RECORDS_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_all_records.csv"
+COMMON_DEDUPLICATED_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_deduplicated.csv"
+COMMON_MERGE_LOG_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_merge_log.csv"
+COMMON_MANUAL_REVIEW_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_manual_review_candidates.csv"
+ALL_SOURCES_SOURCE_NAME = "researchlanka_all_sources_common_dataset"
 DEFAULT_COLLECTION_START_YEAR = 2016
 DEFAULT_COLLECTION_END_YEAR = 2026
 
@@ -41,6 +48,14 @@ from src.collectors.repository_registry import harvestable_targets, load_registr
 from src.pipeline.collect_crossref import DEFAULT_AFFILIATION_QUERIES, collect_crossref  # noqa: E402
 from src.pipeline.collect_sljol import SLJOL_DOI_PREFIX  # noqa: E402
 from src.pipeline.harvest_all import HarvestOutcome, harvest_one  # noqa: E402
+from src.pipeline.kaggle_merge_common_dataset import (  # noqa: E402
+    build_manual_review_candidates,
+    deduplicate_publications,
+    normalize_source_frame,
+    write_run_log,
+    write_schema,
+    write_summary,
+)
 from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
     DEFAULT_CSV_OUTPUT as OPENALEX_CSV_OUTPUT,
     DEFAULT_DOI_CONFLICTS_OUTPUT as OPENALEX_DOI_CONFLICTS_OUTPUT,
@@ -72,22 +87,66 @@ def backend_working_directory() -> Iterator[None]:
         os.chdir(previous_directory)
 
 
-def load_pipeline_config(*, load_database: bool) -> FrameworkConfig:
+def load_pipeline_config(
+    *,
+    load_database: bool,
+    source_path: str | Path | None = None,
+    source_name: str | None = None,
+) -> FrameworkConfig:
     config = load_config(CONFIG_PATH)
     pipeline_config = replace(config.pipeline, load_database=load_database)
-    return replace(config, pipeline=pipeline_config)
+    config = replace(config, pipeline=pipeline_config)
+    if source_path is None:
+        return config
+
+    resolved_source_name = source_name or config.source.name or config.input.source_name
+    source_path_text = str(source_path)
+    input_config = replace(
+        config.input,
+        path=source_path_text,
+        format="csv",
+        source_name=resolved_source_name,
+    )
+    source_config = replace(
+        config.source,
+        name=resolved_source_name,
+        type="csv",
+        format="csv",
+        path=source_path_text,
+        delimiter=",",
+    )
+    return replace(config, input=input_config, source=source_config)
 
 
 def build_pipeline(
     *,
     load_database: bool = False,
     result: PipelineResult | None = None,
+    source_path: str | Path | None = None,
+    source_name: str | None = None,
 ) -> ResearchPipeline:
-    config = load_pipeline_config(load_database=load_database)
+    config = load_pipeline_config(
+        load_database=load_database,
+        source_path=source_path,
+        source_name=source_name,
+    )
     pipeline = ResearchPipeline(config)
     if result is not None:
         pipeline.result = result
     return pipeline
+
+
+def build_all_sources_pipeline(
+    *,
+    load_database: bool = False,
+    result: PipelineResult | None = None,
+) -> ResearchPipeline:
+    return build_pipeline(
+        load_database=load_database,
+        result=result,
+        source_path=COMMON_ALL_RECORDS_OUTPUT,
+        source_name=ALL_SOURCES_SOURCE_NAME,
+    )
 
 
 def env_bool(name: str, default: bool = True) -> bool:
@@ -147,6 +206,37 @@ def count_csv_rows(path: Path) -> int:
 def source_enabled(config: FrameworkConfig, source_name: str) -> bool:
     source = config.sources.get(source_name, {})
     return not isinstance(source, dict) or source.get("enabled", True) is not False
+
+
+def common_source_csv_candidates() -> dict[str, tuple[str, Path]]:
+    return {
+        "openalex": ("openalex", OPENALEX_CSV_OUTPUT),
+        "crossref": ("crossref", CROSSREF_CSV_OUTPUT),
+        "sljol": ("national_journal_portal", SLJOL_CSV_OUTPUT),
+        "repositories_combined": ("university_repositories", REPOSITORIES_CSV_OUTPUT),
+    }
+
+
+def available_common_source_csvs(
+    config: FrameworkConfig,
+) -> tuple[dict[str, Path], dict[str, str]]:
+    input_paths: dict[str, Path] = {}
+    skipped_sources: dict[str, str] = {}
+
+    for source_dataset, (configured_source, path) in common_source_csv_candidates().items():
+        if not source_enabled(config, configured_source):
+            skipped_sources[source_dataset] = "disabled"
+            continue
+        if not path.exists():
+            skipped_sources[source_dataset] = f"missing CSV: {path}"
+            continue
+        row_count = count_csv_rows(path)
+        if row_count == 0:
+            skipped_sources[source_dataset] = f"empty CSV: {path}"
+            continue
+        input_paths[source_dataset] = path
+
+    return input_paths, skipped_sources
 
 
 def run_collect_openalex_cli(args: list[str]) -> None:
@@ -502,6 +592,111 @@ def researchlanka_all_sources_collected(context) -> dict[str, Any]:
     return metadata
 
 
+@asset(group_name="researchlanka", deps=[researchlanka_all_sources_collected])
+def researchlanka_all_sources_common_dataset(context) -> dict[str, Any]:
+    """Normalize every collected source into one all-records common CSV."""
+
+    config = load_pipeline_config(load_database=False)
+    input_paths, skipped_sources = available_common_source_csvs(config)
+    unavailable_sources = {
+        source: reason for source, reason in skipped_sources.items() if reason != "disabled"
+    }
+    if unavailable_sources and not env_bool("RESEARCHLANKA_ALLOW_PARTIAL_COMMON_DATASET", False):
+        unavailable = "; ".join(
+            f"{source}: {reason}" for source, reason in unavailable_sources.items()
+        )
+        raise FileNotFoundError(
+            "Cannot build an all-source dataset because enabled source CSVs are unavailable. "
+            f"{unavailable}. Set RESEARCHLANKA_ALLOW_PARTIAL_COMMON_DATASET=1 to continue "
+            "with only the available sources."
+        )
+    if not input_paths:
+        skipped = "; ".join(f"{source}: {reason}" for source, reason in skipped_sources.items())
+        raise FileNotFoundError(f"No collected source CSVs are available for merging. {skipped}")
+
+    COMMON_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    for source_dataset, reason in skipped_sources.items():
+        context.log.warning(f"Skipping {source_dataset} during common merge: {reason}.")
+
+    source_frames: dict[str, pd.DataFrame] = {}
+    for source_dataset, path in input_paths.items():
+        context.log.info(f"Normalizing {source_dataset} source CSV: {path}.")
+        frame = normalize_source_frame(source_dataset, path, include_raw_json=False)
+        source_frames[source_dataset] = frame
+        context.log.info(f"Normalized {len(frame)} {source_dataset} rows.")
+
+    all_records = pd.concat(source_frames.values(), ignore_index=True)
+    context.log.info(f"Writing all-source records to {COMMON_ALL_RECORDS_OUTPUT}.")
+    all_records.to_csv(COMMON_ALL_RECORDS_OUTPUT, index=False)
+
+    metadata = {
+        "status": "merged",
+        "source_count": len(source_frames),
+        "raw_records": len(all_records),
+        "path": str(COMMON_ALL_RECORDS_OUTPUT),
+        "merge_side_outputs": "skipped",
+        **{f"{source}_rows": len(frame) for source, frame in source_frames.items()},
+        **{f"{source}_skipped": reason for source, reason in skipped_sources.items()},
+    }
+
+    if env_bool("RESEARCHLANKA_COMMON_WRITE_MERGE_OUTPUTS", False):
+        context.log.info("Building all-source deduplicated side outputs and merge log.")
+        deduplicated, merge_log = deduplicate_publications(all_records, return_log=True)
+        deduplicated.to_csv(COMMON_DEDUPLICATED_OUTPUT, index=False)
+        merge_log.to_csv(COMMON_MERGE_LOG_OUTPUT, index=False)
+
+        manual_review_candidates = build_manual_review_candidates(all_records)
+        manual_review_candidates.to_csv(COMMON_MANUAL_REVIEW_OUTPUT, index=False)
+        schema_path = write_schema(COMMON_OUTPUT_DIR)
+        summary_path = write_summary(
+            COMMON_OUTPUT_DIR,
+            input_paths=input_paths,
+            source_frames=source_frames,
+            all_records=all_records,
+            deduplicated=deduplicated,
+            manual_review_candidates=manual_review_candidates,
+        )
+        run_log_path = write_run_log(
+            COMMON_OUTPUT_DIR,
+            input_paths=input_paths,
+            source_frames=source_frames,
+            all_records=all_records,
+            deduplicated=deduplicated,
+            merge_log=merge_log,
+            manual_review_candidates=manual_review_candidates,
+            args=SimpleNamespace(
+                input_dir="Dagster collected source CSVs",
+                output_dir=COMMON_OUTPUT_DIR,
+                sample_rows=None,
+                include_raw_json=False,
+                field_source_policy=None,
+            ),
+            output_paths={
+                "all_records": COMMON_ALL_RECORDS_OUTPUT,
+                "deduplicated": COMMON_DEDUPLICATED_OUTPUT,
+                "merge_log": COMMON_MERGE_LOG_OUTPUT,
+                "manual_review_candidates": COMMON_MANUAL_REVIEW_OUTPUT,
+                "schema": schema_path,
+                "summary": summary_path,
+            },
+        )
+        metadata.update(
+            {
+                "merge_side_outputs": "written",
+                "deduplicated_records": len(deduplicated),
+                "manual_review_candidate_groups": len(manual_review_candidates),
+                "deduplicated_path": str(COMMON_DEDUPLICATED_OUTPUT),
+                "merge_log_path": str(COMMON_MERGE_LOG_OUTPUT),
+                "manual_review_path": str(COMMON_MANUAL_REVIEW_OUTPUT),
+                "summary_path": str(summary_path),
+                "run_log_path": str(run_log_path),
+            }
+        )
+
+    context.add_output_metadata(metadata)
+    return metadata
+
+
 def harvest_repository_rest(
     target,
     *,
@@ -631,14 +826,18 @@ def write_repository_collection_report(
     return report_path
 
 
-@asset(group_name="researchlanka", deps=[researchlanka_all_sources_collected])
+@asset(group_name="researchlanka", deps=[researchlanka_all_sources_common_dataset])
 def researchlanka_source_connection(context) -> dict[str, str]:
     """Check that the configured input source can be reached."""
 
     with backend_working_directory():
-        pipeline = build_pipeline()
+        pipeline = build_all_sources_pipeline()
         pipeline.connect()
-    metadata = {"status": "connected", "config": str(CONFIG_PATH)}
+    metadata = {
+        "status": "connected",
+        "config": str(CONFIG_PATH),
+        "source_path": str(COMMON_ALL_RECORDS_OUTPUT),
+    }
     context.add_output_metadata(metadata)
     return metadata
 
@@ -648,7 +847,7 @@ def researchlanka_source_preview(context) -> list[dict]:
     """Return a small preview from the configured input source."""
 
     with backend_working_directory():
-        pipeline = build_pipeline()
+        pipeline = build_all_sources_pipeline()
         preview = pipeline.preview(limit=5)
     context.add_output_metadata({"preview_records": len(preview)})
     return preview
@@ -659,7 +858,7 @@ def researchlanka_source_validation(context) -> dict:
     """Validate a sample from the configured input source before full import."""
 
     with backend_working_directory():
-        pipeline = build_pipeline()
+        pipeline = build_all_sources_pipeline()
         report = pipeline.validate_source(sample_size=100).to_dict()
     context.add_output_metadata(
         {
@@ -677,7 +876,7 @@ def researchlanka_collected_records(context) -> PipelineResult:
     """Collect raw records from the configured source."""
 
     with backend_working_directory():
-        pipeline = build_pipeline()
+        pipeline = build_all_sources_pipeline()
         pipeline.collect()
     metadata = result_metadata(pipeline.result)
     context.add_output_metadata(metadata)
@@ -692,7 +891,7 @@ def researchlanka_transformed_records(
     """Transform raw records into the common project schema."""
 
     with backend_working_directory():
-        pipeline = build_pipeline(result=researchlanka_collected_records)
+        pipeline = build_all_sources_pipeline(result=researchlanka_collected_records)
         pipeline.transform()
     metadata = result_metadata(pipeline.result)
     context.add_output_metadata(metadata)
@@ -707,7 +906,7 @@ def researchlanka_validation_report(
     """Validate transformed records and split valid/invalid records."""
 
     with backend_working_directory():
-        pipeline = build_pipeline(result=researchlanka_transformed_records)
+        pipeline = build_all_sources_pipeline(result=researchlanka_transformed_records)
         report = pipeline.validate().to_dict()
     metadata = {
         **result_metadata(pipeline.result),
@@ -729,7 +928,7 @@ def researchlanka_cleaned_records(
     """Clean and normalize valid records."""
 
     with backend_working_directory():
-        pipeline = build_pipeline(result=researchlanka_validation_report)
+        pipeline = build_all_sources_pipeline(result=researchlanka_validation_report)
         pipeline.clean()
     metadata = result_metadata(pipeline.result)
     context.add_output_metadata(metadata)
@@ -744,7 +943,7 @@ def researchlanka_national_records(
     """Resolve national institution and collaboration context."""
 
     with backend_working_directory():
-        pipeline = build_pipeline(result=researchlanka_cleaned_records)
+        pipeline = build_all_sources_pipeline(result=researchlanka_cleaned_records)
         pipeline.resolve_entities()
     metadata = result_metadata(pipeline.result)
     context.add_output_metadata(metadata)
@@ -759,7 +958,7 @@ def researchlanka_deduplicated_records(
     """Find duplicate candidates and produce deduplicated records."""
 
     with backend_working_directory():
-        pipeline = build_pipeline(result=researchlanka_national_records)
+        pipeline = build_all_sources_pipeline(result=researchlanka_national_records)
         pipeline.deduplicate()
     metadata = result_metadata(pipeline.result)
     context.add_output_metadata(metadata)
@@ -774,7 +973,7 @@ def researchlanka_analytics_summary(
     """Run field-aware analytics on deduplicated records."""
 
     with backend_working_directory():
-        pipeline = build_pipeline(result=researchlanka_deduplicated_records)
+        pipeline = build_all_sources_pipeline(result=researchlanka_deduplicated_records)
         analytics = pipeline.run_analytics()
     metadata = {
         **result_metadata(pipeline.result),
@@ -792,7 +991,7 @@ def researchlanka_export_files(
     """Export pipeline outputs without loading PostgreSQL."""
 
     with backend_working_directory():
-        pipeline = build_pipeline(result=researchlanka_analytics_summary)
+        pipeline = build_all_sources_pipeline(result=researchlanka_analytics_summary)
         pipeline.export()
     metadata = {
         **result_metadata(pipeline.result),
@@ -810,7 +1009,10 @@ def researchlanka_database_loaded_records(
     """Load deduplicated records into PostgreSQL."""
 
     with backend_working_directory():
-        pipeline = build_pipeline(load_database=True, result=researchlanka_analytics_summary)
+        pipeline = build_all_sources_pipeline(
+            load_database=True,
+            result=researchlanka_analytics_summary,
+        )
         loaded = pipeline.load_database()
     metadata = {**result_metadata(pipeline.result), "loaded_records": loaded}
     context.add_output_metadata(metadata)
