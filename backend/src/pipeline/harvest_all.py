@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,6 +57,8 @@ def harvest_one(
     timeout: int,
     from_date: str | None = None,
     until_date: str | None = None,
+    progress_callback: Callable[[int], None] | None = None,
+    progress_interval: int = 500,
 ) -> HarvestOutcome:
     output_path = DEFAULT_RAW_DIR / target.id / "oai_dc.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,6 +76,8 @@ def harvest_one(
             ):
                 output_file.write(json.dumps(record, ensure_ascii=False) + "\n")
                 total += 1
+                if progress_callback and progress_interval > 0 and total % progress_interval == 0:
+                    progress_callback(total)
     except OaiPmhError as exc:
         # e.g. noRecordsMatch: a live, reachable endpoint with nothing to give
         # right now. Not a crash -- record it and move on to the next target.
