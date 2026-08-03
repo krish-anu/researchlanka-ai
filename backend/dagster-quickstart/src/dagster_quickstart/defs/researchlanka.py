@@ -332,6 +332,7 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
     config = load_pipeline_config(load_database=False)
     if not source_enabled(config, "university_repositories") or not env_bool("RESEARCHLANKA_COLLECT_REPOSITORIES", True):
         metadata = {"status": "skipped", "reason": "Repository source disabled"}
+        context.log.info("Repository collection skipped: university repository source is disabled.")
         context.add_output_metadata(metadata)
         return metadata
 
@@ -345,46 +346,89 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
     until_date = f"{until_year}-12-31"
     targets = harvestable_targets(load_registry(), phase=phase)
     outcomes: list[HarvestOutcome] = []
+    harvest_targets = [
+        target for target in targets if target.extra.get("harvest_route", "oai") != "crossref"
+    ]
+
+    context.log.info(
+        "Starting repository collection: "
+        f"{len(harvest_targets)} harvest targets, "
+        f"phase={phase or 'all'}, "
+        f"date_range={from_date}..{until_date}, "
+        f"max_records_per_target={max_records or 'unlimited'}, "
+        f"timeout={timeout}s."
+    )
+    if not harvest_targets:
+        context.log.warning("No repository harvest targets found for the current configuration.")
 
     with backend_working_directory():
-        for target in targets:
+        for index, target in enumerate(targets, start=1):
             route = target.extra.get("harvest_route", "oai")
             if route == "crossref":
+                context.log.info(
+                    f"Skipping repository target {target.id} ({target.name}): "
+                    "route is handled by Crossref collection."
+                )
                 continue
+            context.log.info(
+                f"Harvesting repository target {index}/{len(targets)}: "
+                f"{target.id} ({target.name}) via {route}."
+            )
             if route == "rest":
-                outcomes.append(harvest_repository_rest(target, max_records=max_records, timeout=timeout))
+                outcome = harvest_repository_rest(target, max_records=max_records, timeout=timeout)
             elif route == "html":
-                outcomes.append(
-                    harvest_repository_html(
-                        target,
-                        max_records=max_records,
-                        timeout=timeout,
-                        delay=delay,
-                    )
+                outcome = harvest_repository_html(
+                    target,
+                    max_records=max_records,
+                    timeout=timeout,
+                    delay=delay,
                 )
             else:
-                outcomes.append(
-                    harvest_one(
-                        target,
-                        max_records=max_records,
-                        timeout=timeout,
-                        from_date=from_date,
-                        until_date=until_date,
-                    )
+                outcome = harvest_one(
+                    target,
+                    max_records=max_records,
+                    timeout=timeout,
+                    from_date=from_date,
+                    until_date=until_date,
                 )
+            outcomes.append(outcome)
+
+            outcome_message = (
+                f"Repository target {outcome.id} finished with status={outcome.status}, "
+                f"records={outcome.record_count}, output={outcome.output_path or 'none'}."
+            )
+            if outcome.status == "error":
+                context.log.error(
+                    f"{outcome_message} Error: {outcome.error or 'unknown error'}"
+                )
+            elif outcome.status == "empty":
+                context.log.warning(
+                    f"{outcome_message}"
+                    + (f" Note: {outcome.error}" if outcome.error else "")
+                )
+            else:
+                context.log.info(outcome_message)
 
         mapped_total = 0
-        for target in targets:
+        context.log.info("Mapping harvested repository records to the common schema.")
+        for target in harvest_targets:
             if target.extra.get("harvest_route") == "crossref":
                 continue
-            mapped_total += map_one(target.id)
+            mapped_records = map_one(target.id)
+            mapped_total += mapped_records
+            context.log.info(f"Mapped {mapped_records} repository records for {target.id}.")
 
         input_files = list(iter_repository_input_files(None))
-        csv_total = (
-            convert_repositories_to_csv(input_files, REPOSITORIES_CSV_OUTPUT)
-            if input_files
-            else 0
-        )
+        if input_files:
+            context.log.info(
+                f"Converting {len(input_files)} repository JSONL files to CSV: "
+                f"{REPOSITORIES_CSV_OUTPUT}."
+            )
+            csv_total = convert_repositories_to_csv(input_files, REPOSITORIES_CSV_OUTPUT)
+            context.log.info(f"Repository CSV conversion finished with {csv_total} rows.")
+        else:
+            context.log.warning("No repository JSONL files found for CSV conversion.")
+            csv_total = 0
 
     report_path = write_repository_collection_report(
         outcomes,
@@ -392,6 +436,7 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
         from_date=from_date,
         until_date=until_date,
     )
+    context.log.info(f"Repository collection summary report written to {report_path}.")
     metadata = {
         "status": "collected",
         "target_count": len(outcomes),
@@ -407,6 +452,15 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
         "from_year": from_year,
         "until_year": until_year,
     }
+    context.log.info(
+        "Repository collection finished: "
+        f"{metadata['ok_targets']} ok, "
+        f"{metadata['empty_targets']} empty, "
+        f"{metadata['error_targets']} errors, "
+        f"{metadata['raw_records']} raw records, "
+        f"{metadata['mapped_records']} mapped records, "
+        f"{metadata['csv_rows']} CSV rows."
+    )
     context.add_output_metadata(metadata)
     return metadata
 
