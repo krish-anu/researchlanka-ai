@@ -340,6 +340,7 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
     phase = os.getenv("RESEARCHLANKA_REPOSITORY_PHASE") or None
     timeout = env_int("RESEARCHLANKA_REPOSITORY_TIMEOUT", 30) or 30
     delay = env_float("RESEARCHLANKA_REPOSITORY_DELAY", 1.0)
+    log_every = env_int("RESEARCHLANKA_REPOSITORY_LOG_EVERY", 500) or 500
     from_year = config.collection.start_year or DEFAULT_COLLECTION_START_YEAR
     until_year = config.collection.end_year or DEFAULT_COLLECTION_END_YEAR
     from_date = f"{from_year}-01-01"
@@ -356,7 +357,8 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
         f"phase={phase or 'all'}, "
         f"date_range={from_date}..{until_date}, "
         f"max_records_per_target={max_records or 'unlimited'}, "
-        f"timeout={timeout}s."
+        f"timeout={timeout}s, "
+        f"log_every={log_every} records."
     )
     if not harvest_targets:
         context.log.warning("No repository harvest targets found for the current configuration.")
@@ -375,13 +377,21 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
                 f"{target.id} ({target.name}) via {route}."
             )
             if route == "rest":
-                outcome = harvest_repository_rest(target, max_records=max_records, timeout=timeout)
+                outcome = harvest_repository_rest(
+                    target,
+                    max_records=max_records,
+                    timeout=timeout,
+                    context=context,
+                    log_every=log_every,
+                )
             elif route == "html":
                 outcome = harvest_repository_html(
                     target,
                     max_records=max_records,
                     timeout=timeout,
                     delay=delay,
+                    context=context,
+                    log_every=log_every,
                 )
             else:
                 outcome = harvest_one(
@@ -390,6 +400,10 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
                     timeout=timeout,
                     from_date=from_date,
                     until_date=until_date,
+                    progress_callback=lambda total, current_target=target: context.log.info(
+                        f"Repository target {current_target.id} collected {total} OAI records so far."
+                    ),
+                    progress_interval=log_every,
                 )
             outcomes.append(outcome)
 
@@ -488,7 +502,14 @@ def researchlanka_all_sources_collected(context) -> dict[str, Any]:
     return metadata
 
 
-def harvest_repository_rest(target, *, max_records: int | None, timeout: int) -> HarvestOutcome:
+def harvest_repository_rest(
+    target,
+    *,
+    max_records: int | None,
+    timeout: int,
+    context: Any | None = None,
+    log_every: int = 500,
+) -> HarvestOutcome:
     output_path = RAW_DIR / target.id / "rest_items.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if not target.rest_api_endpoint:
@@ -513,6 +534,10 @@ def harvest_repository_rest(target, *, max_records: int | None, timeout: int) ->
             for item in collector.iter_items(max_records=max_records):
                 output_file.write(json.dumps(item, ensure_ascii=False) + "\n")
                 total += 1
+                if context and log_every > 0 and total % log_every == 0:
+                    context.log.info(
+                        f"Repository target {target.id} collected {total} REST items so far."
+                    )
     except requests.RequestException as exc:
         return HarvestOutcome(
             id=target.id,
@@ -538,6 +563,8 @@ def harvest_repository_html(
     max_records: int | None,
     timeout: int,
     delay: float,
+    context: Any | None = None,
+    log_every: int = 500,
 ) -> HarvestOutcome:
     output_path = RAW_DIR / target.id / "html_meta.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -558,6 +585,10 @@ def harvest_repository_html(
             for item in collector.iter_items(max_records=max_records):
                 output_file.write(json.dumps(item, ensure_ascii=False) + "\n")
                 total += 1
+                if context and log_every > 0 and total % log_every == 0:
+                    context.log.info(
+                        f"Repository target {target.id} collected {total} HTML items so far."
+                    )
     except requests.RequestException as exc:
         return HarvestOutcome(
             id=target.id,
