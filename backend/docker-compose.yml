@@ -1,6 +1,0 @@
-services:
-  research-framework:
-    build: .
-    command: ["run-all", "--config", "configurations/sri_lanka/config.json"]
-    volumes:
-      - ./outputs:/app/outputs

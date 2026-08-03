@@ -21,5 +21,16 @@ services:
       timeout: 5s
       retries: 10
 
+  research-framework:
+    build: .
+    command: ["run-all", "--config", "configurations/sri_lanka/config.json"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-researchlanka_user}:${POSTGRES_PASSWORD:-change_me}@db:5432/${POSTGRES_DB:-researchlanka}
+    volumes:
+      - ./outputs:/app/outputs
+
 volumes:
   postgres_data:
