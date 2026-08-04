@@ -11,8 +11,16 @@ This report set documents metadata quality, cleaning decisions, and interpretati
 | Final 26-column dataset decisions | [07_last_26_columns_final_dataset_decisions.md](07_last_26_columns_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_final_26_columns.py` | `data/reports/column_analysis/` |
 | Column 26-50 dataset decisions | [08_columns_26_50_final_dataset_decisions.md](08_columns_26_50_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_second_25_columns.py` | `data/reports/column_analysis/` |
 | Column 1-25 dataset decisions | [09_columns_1_25_final_dataset_decisions.md](09_columns_1_25_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_first_25_columns.py` | `data/reports/column_analysis/` |
-| Formal data-cleaning rules | [10_data_cleaning_rules.md](10_data_cleaning_rules.md) | Framework and common-dataset cleaning modules | Pipeline audit outputs |
-| Metadata-quality limitations | [11_metadata_quality_limitations.md](11_metadata_quality_limitations.md) | Report set and pipeline outputs | Required interpretation and disclosure guidance |
+| Institution, affiliation and country standardization | [10_institution_and_affiliation_standardization.md](10_institution_and_affiliation_standardization.md) | `src/pipeline/build_institution_normalized_dataset.py` | `data/processed/common/` |
+| Publication type and venue standardization | [11_publication_type_and_venue_standardization.md](11_publication_type_and_venue_standardization.md) | `src/pipeline/build_type_journal_normalized_dataset.py` | `data/processed/common/` |
+
+## Running the pipeline
+
+[PIPELINE_RUNBOOK.md](PIPELINE_RUNBOOK.md) — every command, in order, from a clean checkout to a loaded database.
+
+## Working on the code
+
+[INSTITUTION_CODE_WALKTHROUGH.md](INSTITUTION_CODE_WALKTHROUGH.md) — how the institution, affiliation and collaboration code fits together: what each function does, recipes for common changes, and the invariants that break silently.
 
 ## Notebooks
 

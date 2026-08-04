@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 PROJECT_ROOT = next(
@@ -31,6 +32,7 @@ SLJOL_DOI_PREFIX = "10.4038"
 DEFAULT_FROM_YEAR = 2016
 DEFAULT_UNTIL_YEAR = 2026
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "raw" / "sljol" / "crossref_works.jsonl"
+DEFAULT_AUDIT_PATH = PROJECT_ROOT / "data" / "raw" / "sljol" / "crossref_collection_audit.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -56,6 +58,7 @@ def parse_args() -> argparse.Namespace:
         help="Use one prefix cursor scan instead of recursive publication-date windows.",
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH, help=f"JSONL output path. Default: {DEFAULT_OUTPUT_PATH}")
+    parser.add_argument("--audit-output", type=Path, default=DEFAULT_AUDIT_PATH, help=f"Collection audit path. Default: {DEFAULT_AUDIT_PATH}")
     return parser.parse_args()
 
 
@@ -78,6 +81,8 @@ def main() -> None:
     print(f"Collecting -> {args.output}")
 
     total = 0
+    seen_dois: set[str] = set()
+    audit_rows: list[dict[str, object]] = []
     try:
         with args.output.open("w", encoding="utf-8") as output_file:
             works = (
@@ -99,7 +104,61 @@ def main() -> None:
         print(f"Saved {total} works collected before the error to {args.output}")
         raise SystemExit(1) from exc
 
+    args.audit_output.parent.mkdir(parents=True, exist_ok=True)
+    args.audit_output.write_text(
+        json.dumps(
+            {
+                "source": "sljol_via_crossref",
+                "doi_prefix": SLJOL_DOI_PREFIX,
+                "collection_date": date.today().isoformat(),
+                "reported_total": total_available,
+                "saved_total": total,
+                "from_year": args.from_year,
+                "until_year": args.until_year,
+                "slices": audit_rows,
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     print(f"Saved {total} works to {args.output}")
+    print(f"Saved audit to {args.audit_output}")
+
+
+def _date_slices_for_year(
+    collector: CrossrefPrefixCollector,
+    year: int,
+) -> list[tuple[list[str], str]]:
+    year_filters = [f"from-pub-date:{year}-01-01", f"until-pub-date:{year}-12-31"]
+    total = collector.total_works(filters=year_filters)
+    if total <= collector.rows:
+        return [(year_filters, str(year))]
+    slices = []
+    for month in range(1, 13):
+        start = f"{year}-{month:02d}-01"
+        end_day = _month_end_day(year, month)
+        end = f"{year}-{month:02d}-{end_day:02d}"
+        slices.append(
+            (
+                [f"from-pub-date:{start}", f"until-pub-date:{end}"],
+                f"{year}-{month:02d}",
+            )
+        )
+    return slices
+
+
+def _month_end_day(year: int, month: int) -> int:
+    if month == 2:
+        return 29 if _is_leap_year(year) else 28
+    if month in {4, 6, 9, 11}:
+        return 30
+    return 31
+
+
+def _is_leap_year(year: int) -> bool:
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
-"""Map harvested OAI-DC records (data/raw/<id>/oai_dc.jsonl) into the
-project's common publication-metadata schema.
+"""Map harvested repository records into the common publication schema.
 
 Examples:
     python scripts/processing/map_to_common_schema.py --id uom
@@ -28,11 +27,36 @@ from src.collectors.schema_mapping import (
 
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 DEFAULT_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed" / "repositories"
+RAW_ROUTE_FILENAMES = ("oai_dc.jsonl", "rest_items.jsonl", "html_meta.jsonl", "crossref_works.jsonl")
+AUTO_DISCOVERY_EXCLUDED_IDS = {"sljol"}
 
 
 def _count_lines(path: Path) -> int:
     with path.open(encoding="utf-8") as f:
         return sum(1 for line in f if line.strip())
+
+
+def discover_raw_institution_ids(
+    raw_dir: Path = DEFAULT_RAW_DIR,
+    *,
+    excluded_ids: set[str] = AUTO_DISCOVERY_EXCLUDED_IDS,
+) -> list[str]:
+    """Return repository ids with raw route files for --all mapping.
+
+    SLJOL is collected via Crossref, but it is a standalone merge source
+    (`sljol.csv`), not part of the repository aggregate.
+    """
+
+    if not raw_dir.exists():
+        return []
+
+    return sorted(
+        path.name
+        for path in raw_dir.iterdir()
+        if path.is_dir()
+        and path.name not in excluded_ids
+        and any((path / filename).exists() for filename in RAW_ROUTE_FILENAMES)
+    )
 
 
 def map_one(institution_id: str) -> int:
@@ -108,12 +132,7 @@ def main() -> None:
         print(f"No raw data directory at {DEFAULT_RAW_DIR}")
         return
 
-    raw_filenames = ("oai_dc.jsonl", "rest_items.jsonl", "html_meta.jsonl", "crossref_works.jsonl")
-    ids = sorted(
-        p.name
-        for p in DEFAULT_RAW_DIR.iterdir()
-        if p.is_dir() and any((p / name).exists() for name in raw_filenames)
-    )
+    ids = discover_raw_institution_ids()
     if not ids:
         print("No harvested raw files found under data/raw/.")
         return
