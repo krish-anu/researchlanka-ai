@@ -29,6 +29,8 @@ import requests
 from src.collectors.crossref_collector import CrossrefPrefixCollector
 
 SLJOL_DOI_PREFIX = "10.4038"
+DEFAULT_FROM_YEAR = 2016
+DEFAULT_UNTIL_YEAR = 2026
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "raw" / "sljol" / "crossref_works.jsonl"
 DEFAULT_AUDIT_PATH = PROJECT_ROOT / "data" / "raw" / "sljol" / "crossref_collection_audit.json"
 
@@ -38,8 +40,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--email", default=None, help="Email for the Crossref polite pool (recommended).")
     parser.add_argument("--max-records", type=int, default=None, help="Safety limit for testing.")
     parser.add_argument("--rows", type=int, default=500, help="Records per request (max 1000). Default: 500")
-    parser.add_argument("--from-year", type=int, default=1900, help="First publication year to collect.")
-    parser.add_argument("--until-year", type=int, default=2026, help="Final publication year to collect.")
+    parser.add_argument(
+        "--from-year",
+        type=int,
+        default=DEFAULT_FROM_YEAR,
+        help=f"First publication year. Default: {DEFAULT_FROM_YEAR}",
+    )
+    parser.add_argument(
+        "--until-year",
+        type=int,
+        default=DEFAULT_UNTIL_YEAR,
+        help=f"Final publication year. Default: {DEFAULT_UNTIL_YEAR}",
+    )
+    parser.add_argument(
+        "--no-date-slicing",
+        action="store_true",
+        help="Use one prefix cursor scan instead of recursive publication-date windows.",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH, help=f"JSONL output path. Default: {DEFAULT_OUTPUT_PATH}")
     parser.add_argument("--audit-output", type=Path, default=DEFAULT_AUDIT_PATH, help=f"Collection audit path. Default: {DEFAULT_AUDIT_PATH}")
     return parser.parse_args()
@@ -68,47 +85,20 @@ def main() -> None:
     audit_rows: list[dict[str, object]] = []
     try:
         with args.output.open("w", encoding="utf-8") as output_file:
-            for year in range(args.from_year, args.until_year + 1):
-                if args.max_records is not None and total >= args.max_records:
-                    break
-                for filters, label in _date_slices_for_year(collector, year):
-                    if args.max_records is not None and total >= args.max_records:
-                        break
-                    available = collector.total_works(filters=filters)
-                    if available == 0:
-                        continue
-
-                    slice_saved = 0
-                    before = total
-                    remaining = None
-                    if args.max_records is not None:
-                        remaining = args.max_records - total
-
-                    for work in collector.iter_works(max_records=remaining, filters=filters):
-                        doi = (work.get("DOI") or work.get("doi") or "").casefold()
-                        if doi and doi in seen_dois:
-                            continue
-                        if doi:
-                            seen_dois.add(doi)
-                        output_file.write(json.dumps(work, ensure_ascii=False) + "\n")
-                        total += 1
-                        slice_saved += 1
-                        if total % 1000 == 0:
-                            print(f"Collected {total} works...")
-                        if args.max_records is not None and total >= args.max_records:
-                            break
-
-                    audit_rows.append(
-                        {
-                            "slice": label,
-                            "filters": filters,
-                            "crossref_total": available,
-                            "saved": slice_saved,
-                            "duplicates_skipped": max(available - slice_saved, 0)
-                            if total == before + slice_saved
-                            else None,
-                        }
-                    )
+            works = (
+                collector.iter_works(max_records=args.max_records)
+                if args.no_date_slicing
+                else collector.iter_works_by_publication_date(
+                    start_year=args.from_year,
+                    end_year=args.until_year,
+                    max_records=args.max_records,
+                )
+            )
+            for work in works:
+                output_file.write(json.dumps(work, ensure_ascii=False) + "\n")
+                total += 1
+                if total % 1000 == 0:
+                    print(f"Collected {total} works...")
     except requests.RequestException as exc:
         print(f"Request failed after {total} works: {exc}")
         print(f"Saved {total} works collected before the error to {args.output}")

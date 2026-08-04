@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -37,14 +38,18 @@ def convert_to_csv(jsonl_path: Path, csv_path: Path, chunksize: int = 10000) -> 
     if not jsonl_path.exists():
         raise FileNotFoundError(f"Input file not found: {jsonl_path}")
 
-    
     csv_path.unlink(missing_ok=True)
+    columns = discover_jsonl_columns(jsonl_path)
+    if not columns:
+        csv_path.write_text("", encoding="utf-8")
+        return 0
 
     first_chunk = True
     total=0
 
     try:
         for chunk in pd.read_json(jsonl_path, lines=True, chunksize=chunksize):
+            chunk = chunk.reindex(columns=columns)
             chunk.to_csv(
                 csv_path,
                 mode="w" if first_chunk else "a",
@@ -63,6 +68,28 @@ def convert_to_csv(jsonl_path: Path, csv_path: Path, chunksize: int = 10000) -> 
         raise
 
     return total
+
+
+def discover_jsonl_columns(jsonl_path: Path) -> list[str]:
+    """Return JSON object keys in first-seen order across an entire JSONL file."""
+
+    columns: list[str] = []
+    seen: set[str] = set()
+    with jsonl_path.open(encoding="utf-8") as input_file:
+        for line_number, line in enumerate(input_file, start=1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON in {jsonl_path} line {line_number}: {exc}") from exc
+            if not isinstance(record, dict):
+                continue
+            for column in record:
+                if column not in seen:
+                    seen.add(column)
+                    columns.append(column)
+    return columns
 
 
 def parse_args() -> argparse.Namespace:

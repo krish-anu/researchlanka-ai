@@ -6,6 +6,7 @@ from src.pipeline.kaggle_merge_common_dataset import (
     COMMON_COLUMNS,
     build_manual_review_candidates,
     deduplicate_publications,
+    normalize_crossref,
     normalize_title_key,
     record_merge_info,
     strip_markup,
@@ -49,6 +50,64 @@ def test_normalize_title_key_preserves_unicode_words():
     assert normalize_title_key(theory) != normalize_title_key(practical)
     assert "සිද්ධාන්ත" in normalize_title_key(theory)
     assert "ප්‍රායෝගික" in normalize_title_key(practical)
+
+
+def test_normalize_crossref_extracts_nested_publication_fields():
+    frame = pd.DataFrame(
+        {
+            "DOI": ["10.1000/test"],
+            "title": ["['Test publication']"],
+            "author": [
+                str(
+                    [
+                        {
+                            "given": "A.",
+                            "family": "Author",
+                            "ORCID": "https://orcid.org/0000-0001-0000-0000",
+                            "affiliation": [{"name": "University of Colombo"}],
+                        },
+                        {
+                            "given": "B.",
+                            "family": "Writer",
+                            "affiliation": [{"name": "University of Kelaniya"}],
+                        },
+                    ]
+                )
+            ],
+            "license": [[{"URL": "https://license.example/policy"}]],
+            "page": ["12-18"],
+            "reference-count": ["2"],
+            "reference": [[{"DOI": "10.1000/ref", "article-title": "Reference"}]],
+            "funder": [
+                str(
+                    [
+                        {
+                            "DOI": "10.13039/100008902",
+                            "name": "Test Fund",
+                            "id": [{"id": "10.13039/100008902", "id-type": "DOI"}],
+                            "award": ["A1"],
+                        }
+                    ]
+                )
+            ],
+        }
+    )
+
+    normalized = normalize_crossref(frame, include_raw_json=False)
+    row = normalized.loc[0]
+
+    assert row["authors"] == "A. Author; B. Writer"
+    assert row["author_affiliations"] == "University of Colombo; University of Kelaniya"
+    assert row["author_orcids"] == "https://orcid.org/0000-0001-0000-0000"
+    assert row["license_url"] == "https://license.example/policy"
+    assert row["first_page"] == "12"
+    assert row["last_page"] == "18"
+    assert row["reference_count"] == 2
+    assert "10.1000/ref" in row["references_json"]
+    assert row["funder_name"] == "Test Fund"
+    assert row["funder_doi"] == "10.13039/100008902"
+    assert "10.13039/100008902" in row["funder_id"]
+    assert row["funder_award"] == "A1"
 
 
 def common_row(**overrides):
