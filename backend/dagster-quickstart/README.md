@@ -68,6 +68,8 @@ Open http://localhost:3000 in your browser to see the project.
   file outputs without loading PostgreSQL.
 - `researchlanka_database_job` runs the staged ResearchLanka pipeline through
   the PostgreSQL load stage.
+- `researchlanka_common_preprocessing_job` runs the common-dataset preprocessing
+  path through the analysis-ready 2016-2026 dataset.
 - `researchlanka_all_assets_job` materializes every asset in this code location.
 
 The export and database jobs now collect enabled sources before downstream
@@ -75,9 +77,14 @@ processing starts. The first assets gather OpenAlex, Crossref, SLJOL, and
 university repository data; `researchlanka_all_sources_common_dataset`
 normalizes those collected files into
 `data/processed/common/common_publications_all_records.csv` before source
-validation, transformation, cleaning, analytics, and export assets run.
-Set `RESEARCHLANKA_COMMON_WRITE_MERGE_OUTPUTS=1` when you also want the
-common-dataset deduplicated CSV, merge log, summary, and manual-review files.
+validation, transformation, cleaning, analytics, and export assets run. The
+common preprocessing job continues from that all-records CSV and writes
+`common_publications_deduplicated.csv`, `common_publications_final.csv`,
+`common_publications_final_2016_2026.csv`,
+`common_publications_final_2016_2026_language_normalized.csv`,
+`common_publications_final_2016_2026_multivalue_normalized.csv`, and
+`common_publications_final_2016_2026_analysis_ready.csv` under
+`data/processed/common/`.
 Enabled sources with missing or empty CSV outputs fail this merge by default;
 set `RESEARCHLANKA_ALLOW_PARTIAL_COMMON_DATASET=1` only for an intentional
 partial run.
@@ -142,6 +149,12 @@ The Dagster asset graph maps to the project pipeline stages:
 - `researchlanka_repository_collection`
 - `researchlanka_all_sources_collected`
 - `researchlanka_all_sources_common_dataset`
+- `researchlanka_common_deduplicated_dataset`
+- `researchlanka_common_final_dataset`
+- `researchlanka_common_year_filtered_dataset`
+- `researchlanka_common_language_normalized_dataset`
+- `researchlanka_common_multivalue_normalized_dataset`
+- `researchlanka_common_analysis_ready_dataset`
 - `researchlanka_source_connection`
 - `researchlanka_source_preview`
 - `researchlanka_source_validation`
