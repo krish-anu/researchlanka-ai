@@ -227,6 +227,16 @@ Writes 7 files to `data/processed/common/`: `common_publications_all_records.csv
 python scripts/quality/manual_review_ui.py
 ```
 
+Optional duplicate-quality analysis:
+
+```bash
+python scripts/quality/analyze_false_duplicate_matches.py
+python scripts/quality/analyze_missed_duplicate_records.py
+```
+
+Outputs are written to `data/processed/common/duplicate_match_analysis/` and
+`data/processed/common/missed_duplicate_analysis/`.
+
 ---
 
 ## 4. Build chain

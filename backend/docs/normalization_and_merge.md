@@ -31,6 +31,7 @@ The executable implementation is
 | RM-005 | Generate manual-review candidates for DOI-less records that share normalized title, publication year, and first author. | Candidate groups are written to `common_publications_manual_review_candidates.csv` with review method `title_year_first_author`. |
 | RM-006 | Generate lower-confidence manual-review candidates for DOI-less records that share normalized title and publication year but have no usable first author. | Candidate groups are written with review method `title_year`. |
 | RM-007 | Title, year, and author similarities are review signals only. | They must not create automatic merges unless a future rule explicitly changes this document and the implementation. |
+| RM-008 | Fuzzy title matches are review-only even when enabled in the framework config. | `fuzzy_title_match.threshold` creates `manual_review` candidates; it does not remove records. |
 
 ## 2. Value Selection Rules
 
@@ -89,8 +90,22 @@ Funding fields that are multi-value, such as `funder_name`, `funder_doi`,
 | RM-022 | Audit citation-count divergence between OpenAlex and Crossref. | `citation_count_difference_oa_minus_crossref` is OpenAlex `cited_by_count` minus Crossref `is_referenced_by_count`; `citation_count_divergence_flag` is true when the absolute difference is at least 10. |
 | RM-023 | Audit reference-count divergence between OpenAlex and Crossref. | `reference_count_difference_oa_minus_crossref` is OpenAlex `referenced_works_count` minus Crossref `reference_count`; `reference_count_divergence_flag` is true when the difference is non-zero. |
 | RM-024 | Preserve all normalized source rows before deduplication. | `common_publications_all_records.csv` remains available for source-level inspection. |
+| RM-025 | Flag automatic DOI merge groups that cross finalized duplicate-review thresholds. | Merge log fields `duplicate_threshold_review_flag`, `duplicate_threshold_review_reason`, `duplicate_title_similarity_min`, `duplicate_publication_year_span`, and `duplicate_artifact_title_flag` identify audit-required groups. |
 
-## 5. Override Rules
+## 5. Duplicate Thresholds
+
+| Threshold | Value | Action |
+|---|---:|---|
+| DOI auto-merge normalized DOI equality | 100% exact DOI key match | Auto-merge, with merge-log audit. |
+| Non-DOI automatic merge threshold | Disabled | Never auto-merge on title, year, author, URL, venue, or fuzzy score alone. |
+| Exact title + same year + first author | Exact normalized match | Manual review only. |
+| Exact title + same year, no first author | Exact normalized match | Manual review only. |
+| Framework fuzzy title score | Configurable, default 90 | Manual review only, requiring compatible publication year and first-author evidence when configured. |
+| Same-DOI title-similarity review threshold | Below 0.80 | Keep the DOI merge, but flag for audit in `common_publications_merge_log.csv`. |
+| Same-DOI publication-year span threshold | Greater than 1 year | Keep the DOI merge, but flag for audit. |
+| Artifact-title threshold | Title contains `additional file`, `supplementary`, `supplemental`, `figure`, `fig.`, `table`, `dataset`, `appendix`, `annex`, `image`, or `plate` | Flag for audit. |
+
+## 6. Override Rules
 
 Field source priority can be overridden at runtime:
 
@@ -116,7 +131,7 @@ Override constraints:
   identity matching, manual-review candidate generation, conflict logging, or
   provenance retention.
 
-## 6. Change Control
+## 7. Change Control
 
 - Any rule that changes automatic identity matching must update this document,
   implementation tests, and downstream runbook language.
