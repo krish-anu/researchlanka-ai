@@ -33,6 +33,35 @@ COMMON_ALL_RECORDS_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_all_records
 COMMON_DEDUPLICATED_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_deduplicated.csv"
 COMMON_MERGE_LOG_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_merge_log.csv"
 COMMON_MANUAL_REVIEW_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_manual_review_candidates.csv"
+COMMON_DEDUPLICATED_STREAM_SUMMARY_OUTPUT = (
+    COMMON_OUTPUT_DIR / "common_publications_deduplicated_stream_summary.csv"
+)
+COMMON_FINAL_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final.csv"
+COMMON_REFERENCES_OUTPUT = COMMON_OUTPUT_DIR / "publication_references.csv"
+COMMON_COUNT_AUDIT_OUTPUT = COMMON_OUTPUT_DIR / "publication_count_audit.csv"
+COMMON_FINAL_SUMMARY_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_summary.csv"
+COMMON_YEAR_FILTERED_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_2016_2026.csv"
+COMMON_YEAR_FILTERED_SUMMARY_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_summary.csv"
+COMMON_LANGUAGE_NORMALIZED_OUTPUT = (
+    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_language_normalized.csv"
+)
+COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT = (
+    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_language_normalized_summary.csv"
+)
+COMMON_MULTIVALUE_NORMALIZED_OUTPUT = (
+    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_multivalue_normalized.csv"
+)
+COMMON_MULTIVALUE_ITEMS_OUTPUT = COMMON_OUTPUT_DIR / "publication_multivalue_items_2016_2026.csv"
+COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT = (
+    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_multivalue_normalized_summary.csv"
+)
+COMMON_ANALYSIS_READY_OUTPUT = (
+    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_analysis_ready.csv"
+)
+COMMON_ANALYSIS_READY_ISSUE_DIR = COMMON_OUTPUT_DIR / "preprocessing_issues_2016_2026"
+COMMON_ANALYSIS_READY_SUMMARY_OUTPUT = (
+    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_analysis_ready_summary.csv"
+)
 ALL_SOURCES_SOURCE_NAME = "researchlanka_all_sources_common_dataset"
 DEFAULT_COLLECTION_START_YEAR = 2016
 DEFAULT_COLLECTION_END_YEAR = 2026
@@ -49,14 +78,25 @@ from src.collectors.html_meta_collector import HtmlMetaCollector  # noqa: E402
 from src.collectors.repository_registry import harvestable_targets, load_registry  # noqa: E402
 from src.pipeline.collect_crossref import DEFAULT_AFFILIATION_QUERIES, collect_crossref  # noqa: E402
 from src.pipeline.collect_sljol import SLJOL_DOI_PREFIX  # noqa: E402
+from src.pipeline.build_analysis_ready_dataset import build_analysis_ready_dataset  # noqa: E402
+from src.pipeline.build_final_common_dataset import build_final_common_dataset  # noqa: E402
+from src.pipeline.build_language_normalized_dataset import build_language_normalized_dataset  # noqa: E402
+from src.pipeline.build_multivalue_normalized_dataset import build_multivalue_normalized_dataset  # noqa: E402
+from src.pipeline.build_year_filtered_dataset import build_year_filtered_dataset  # noqa: E402
 from src.pipeline.harvest_all import HarvestOutcome, harvest_one  # noqa: E402
 from src.pipeline.kaggle_merge_common_dataset import (  # noqa: E402
+    COMMON_COLUMNS,
+    DEFAULT_FIELD_SOURCE_POLICY,
+    MULTI_VALUE_COLUMNS,
     build_manual_review_candidates,
     deduplicate_publications,
+    is_blank,
+    normalize_doi as normalize_common_doi,
     normalize_source_frame,
+    split_multi_value,
     write_run_log,
     write_schema,
-    write_summary,
+    write_summary as write_merge_summary,
 )
 from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
     DEFAULT_CSV_OUTPUT as OPENALEX_CSV_OUTPUT,
@@ -249,6 +289,14 @@ def count_csv_rows(path: Path) -> int:
         return sum(1 for _ in csv.DictReader(file))
 
 
+def count_csv_columns(path: Path) -> int:
+    if not path.exists():
+        return 0
+    raise_csv_field_limit()
+    with path.open(newline="", encoding="utf-8") as file:
+        return len(next(csv.reader(file), []))
+
+
 def source_enabled(config: FrameworkConfig, source_name: str) -> bool:
     source = config.sources.get(source_name, {})
     return not isinstance(source, dict) or source.get("enabled", True) is not False
@@ -304,6 +352,153 @@ def result_metadata(result: PipelineResult) -> dict[str, int]:
         "deduplicated_records": len(result.deduplicated_records),
         "duplicate_candidates": len(result.duplicate_candidates),
         "database_load_count": result.database_load_count,
+    }
+
+
+def common_csv_metadata(path: Path) -> dict[str, Any]:
+    return {
+        "path": str(path),
+        "rows": count_csv_rows(path),
+        "columns": count_csv_columns(path),
+    }
+
+
+def clean_csv_value(value: Any) -> str:
+    return "" if is_blank(value) else str(value)
+
+
+def common_row_completeness(row: dict[str, Any]) -> int:
+    ignored = {"source_dataset", "source_record_id", "source_datestamp", "raw_source_json"}
+    return sum(not is_blank(row.get(column)) for column in COMMON_COLUMNS if column not in ignored)
+
+
+def common_field_source_priority(column: str, source_dataset: str) -> int:
+    source_order = DEFAULT_FIELD_SOURCE_POLICY.get(column)
+    if source_order is None:
+        return 0
+    try:
+        return source_order.index(source_dataset)
+    except ValueError:
+        return len(source_order) + 99
+
+
+def common_merge_key(row: dict[str, Any], row_number: int) -> str:
+    doi = normalize_common_doi(row.get("doi"))
+    if not is_blank(doi):
+        return f"doi:{doi}"
+
+    source_dataset = row.get("source_dataset")
+    source_record_id = row.get("source_record_id")
+    if not is_blank(source_dataset) and not is_blank(source_record_id):
+        return f"source_record:{source_dataset}|{source_record_id}"
+
+    return f"row:{row_number}"
+
+
+def new_common_merge_group(first_row_number: int) -> dict[str, Any]:
+    return {
+        "first_row_number": first_row_number,
+        "group_size": 0,
+        "scalar": {},
+        "multi": {column: [] for column in MULTI_VALUE_COLUMNS},
+    }
+
+
+def deduplicate_common_csv_streaming(
+    *,
+    input_csv: Path,
+    output_csv: Path,
+    summary_csv: Path,
+    context: Any | None = None,
+) -> dict[str, int]:
+    """Deduplicate common CSV rows without building one large pandas groupby."""
+
+    raise_csv_field_limit()
+    groups: dict[str, dict[str, Any]] = {}
+    output_order: list[str] = []
+    input_rows = 0
+
+    with input_csv.open(newline="", encoding="utf-8") as input_file:
+        reader = csv.DictReader(input_file)
+        for row in reader:
+            input_rows += 1
+            common_row = {column: row.get(column, "") for column in COMMON_COLUMNS}
+            merge_key = common_merge_key(common_row, input_rows)
+            group = groups.get(merge_key)
+            if group is None:
+                group = new_common_merge_group(input_rows)
+                groups[merge_key] = group
+                output_order.append(merge_key)
+
+            group["group_size"] += 1
+            completeness = common_row_completeness(common_row)
+            source_dataset = str(common_row.get("source_dataset") or "")
+
+            for column in COMMON_COLUMNS:
+                value = common_row.get(column)
+                if is_blank(value):
+                    continue
+
+                rank = (
+                    common_field_source_priority(column, source_dataset),
+                    -completeness,
+                    input_rows,
+                )
+                if column in MULTI_VALUE_COLUMNS:
+                    for item in split_multi_value(value):
+                        if not is_blank(item):
+                            group["multi"][column].append((rank, item))
+                    continue
+
+                current = group["scalar"].get(column)
+                if current is None or rank < current[0]:
+                    group["scalar"][column] = (rank, value)
+
+            if context and input_rows % 25_000 == 0:
+                context.log.info(f"Common deduplication processed {input_rows:,} rows.")
+
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    with output_csv.open("w", newline="", encoding="utf-8") as output_file:
+        writer = csv.DictWriter(output_file, fieldnames=COMMON_COLUMNS)
+        writer.writeheader()
+        for output_row_number, merge_key in enumerate(output_order, start=1):
+            group = groups[merge_key]
+            output_row: dict[str, str] = {}
+
+            for column in COMMON_COLUMNS:
+                if column in MULTI_VALUE_COLUMNS:
+                    seen: set[str] = set()
+                    values: list[str] = []
+                    for _, item in sorted(group["multi"][column], key=lambda pair: pair[0]):
+                        if item in seen:
+                            continue
+                        seen.add(item)
+                        values.append(item)
+                    output_row[column] = "; ".join(values)
+                    continue
+
+                output_row[column] = clean_csv_value(group["scalar"].get(column, (None, ""))[1])
+
+            writer.writerow(output_row)
+            if context and output_row_number % 25_000 == 0:
+                context.log.info(f"Common deduplication wrote {output_row_number:,} rows.")
+
+    merged_groups = sum(1 for group in groups.values() if group["group_size"] > 1)
+    summary_csv.parent.mkdir(parents=True, exist_ok=True)
+    with summary_csv.open("w", newline="", encoding="utf-8") as summary_file:
+        writer = csv.DictWriter(summary_file, fieldnames=["metric", "value"])
+        writer.writeheader()
+        writer.writerow({"metric": "input_csv", "value": str(input_csv)})
+        writer.writerow({"metric": "output_csv", "value": str(output_csv)})
+        writer.writerow({"metric": "input_rows", "value": input_rows})
+        writer.writerow({"metric": "output_rows", "value": len(output_order)})
+        writer.writerow({"metric": "merged_groups", "value": merged_groups})
+        writer.writerow({"metric": "method", "value": "streaming_doi_source_record_merge"})
+
+    return {
+        "input_rows": input_rows,
+        "output_rows": len(output_order),
+        "merged_groups": merged_groups,
     }
 
 
@@ -729,7 +924,7 @@ def researchlanka_all_sources_common_dataset(
         manual_review_candidates = build_manual_review_candidates(all_records)
         manual_review_candidates.to_csv(COMMON_MANUAL_REVIEW_OUTPUT, index=False)
         schema_path = write_schema(COMMON_OUTPUT_DIR)
-        summary_path = write_summary(
+        summary_path = write_merge_summary(
             COMMON_OUTPUT_DIR,
             input_paths=input_paths,
             source_frames=source_frames,
@@ -774,6 +969,181 @@ def researchlanka_all_sources_common_dataset(
             }
         )
 
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_common_deduplicated_dataset(
+    context,
+    researchlanka_all_sources_common_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Deduplicate and merge the 76-column common all-records dataset."""
+
+    _ = researchlanka_all_sources_common_dataset
+    context.log.info(f"Deduplicating common all-records CSV: {COMMON_ALL_RECORDS_OUTPUT}.")
+    metadata = deduplicate_common_csv_streaming(
+        input_csv=COMMON_ALL_RECORDS_OUTPUT,
+        output_csv=COMMON_DEDUPLICATED_OUTPUT,
+        summary_csv=COMMON_DEDUPLICATED_STREAM_SUMMARY_OUTPUT,
+        context=context,
+    )
+    output_metadata = {
+        "status": "deduplicated",
+        "path": str(COMMON_DEDUPLICATED_OUTPUT),
+        "summary_path": str(COMMON_DEDUPLICATED_STREAM_SUMMARY_OUTPUT),
+        **metadata,
+        **{
+            f"deduplicated_{key}": value
+            for key, value in common_csv_metadata(COMMON_DEDUPLICATED_OUTPUT).items()
+        },
+    }
+    context.add_output_metadata(output_metadata)
+    return output_metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_common_final_dataset(
+    context,
+    researchlanka_common_deduplicated_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply the documented 56-column final dataset decisions."""
+
+    _ = researchlanka_common_deduplicated_dataset
+    context.log.info("Building the 56-column final common publication dataset.")
+    final, reference_rows, count_audit_rows = build_final_common_dataset(
+        COMMON_DEDUPLICATED_OUTPUT,
+        COMMON_FINAL_OUTPUT,
+        COMMON_REFERENCES_OUTPUT,
+        COMMON_COUNT_AUDIT_OUTPUT,
+        COMMON_FINAL_SUMMARY_OUTPUT,
+    )
+    metadata = {
+        "status": "finalized",
+        "path": str(COMMON_FINAL_OUTPUT),
+        "rows": len(final),
+        "columns": len(final.columns),
+        "references_path": str(COMMON_REFERENCES_OUTPUT),
+        "reference_rows": reference_rows,
+        "count_audit_path": str(COMMON_COUNT_AUDIT_OUTPUT),
+        "count_audit_rows": count_audit_rows,
+        "summary_path": str(COMMON_FINAL_SUMMARY_OUTPUT),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_common_year_filtered_dataset(
+    context,
+    researchlanka_common_final_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Filter the final dataset to the configured 2016-2026 publication window."""
+
+    _ = researchlanka_common_final_dataset
+    filtered = build_year_filtered_dataset(
+        COMMON_FINAL_OUTPUT,
+        COMMON_YEAR_FILTERED_OUTPUT,
+        COMMON_YEAR_FILTERED_SUMMARY_OUTPUT,
+        start_year=DEFAULT_COLLECTION_START_YEAR,
+        end_year=DEFAULT_COLLECTION_END_YEAR,
+    )
+    metadata = {
+        "status": "year_filtered",
+        "path": str(COMMON_YEAR_FILTERED_OUTPUT),
+        "rows": len(filtered),
+        "columns": len(filtered.columns),
+        "start_year": DEFAULT_COLLECTION_START_YEAR,
+        "end_year": DEFAULT_COLLECTION_END_YEAR,
+        "summary_path": str(COMMON_YEAR_FILTERED_SUMMARY_OUTPUT),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_common_language_normalized_dataset(
+    context,
+    researchlanka_common_year_filtered_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize language codes after the year-filtered final dataset is built."""
+
+    _ = researchlanka_common_year_filtered_dataset
+    normalized = build_language_normalized_dataset(
+        COMMON_YEAR_FILTERED_OUTPUT,
+        COMMON_LANGUAGE_NORMALIZED_OUTPUT,
+        COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT,
+    )
+    mapping_path = COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT.with_name(
+        COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT.stem.replace("_summary", "_mapping") + ".csv"
+    )
+    metadata = {
+        "status": "language_normalized",
+        "path": str(COMMON_LANGUAGE_NORMALIZED_OUTPUT),
+        "rows": len(normalized),
+        "columns": len(normalized.columns),
+        "summary_path": str(COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT),
+        "mapping_path": str(mapping_path),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_common_multivalue_normalized_dataset(
+    context,
+    researchlanka_common_language_normalized_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize semicolon-separated fields and write exploded item sidecars."""
+
+    _ = researchlanka_common_language_normalized_dataset
+    normalized, item_rows = build_multivalue_normalized_dataset(
+        COMMON_LANGUAGE_NORMALIZED_OUTPUT,
+        COMMON_MULTIVALUE_NORMALIZED_OUTPUT,
+        COMMON_MULTIVALUE_ITEMS_OUTPUT,
+        COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT,
+    )
+    details_path = COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT.with_name(
+        COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT.stem.replace("_summary", "_details")
+        + ".csv"
+    )
+    metadata = {
+        "status": "multivalue_normalized",
+        "path": str(COMMON_MULTIVALUE_NORMALIZED_OUTPUT),
+        "rows": len(normalized),
+        "columns": len(normalized.columns),
+        "items_path": str(COMMON_MULTIVALUE_ITEMS_OUTPUT),
+        "item_rows": item_rows,
+        "summary_path": str(COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT),
+        "details_path": str(details_path),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_common_analysis_ready_dataset(
+    context,
+    researchlanka_common_multivalue_normalized_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the analysis-ready dataset and preprocessing issue files."""
+
+    _ = researchlanka_common_multivalue_normalized_dataset
+    cleaned, issue_rows = build_analysis_ready_dataset(
+        COMMON_MULTIVALUE_NORMALIZED_OUTPUT,
+        COMMON_ANALYSIS_READY_OUTPUT,
+        COMMON_ANALYSIS_READY_ISSUE_DIR,
+        COMMON_ANALYSIS_READY_SUMMARY_OUTPUT,
+    )
+    metadata = {
+        "status": "analysis_ready",
+        "path": str(COMMON_ANALYSIS_READY_OUTPUT),
+        "rows": len(cleaned),
+        "columns": len(cleaned.columns),
+        "issue_dir": str(COMMON_ANALYSIS_READY_ISSUE_DIR),
+        "issue_rows": issue_rows,
+        "summary_path": str(COMMON_ANALYSIS_READY_SUMMARY_OUTPUT),
+    }
     context.add_output_metadata(metadata)
     return metadata
 
@@ -1199,6 +1569,11 @@ researchlanka_database_job = define_asset_job(
 researchlanka_source_check_job = define_asset_job(
     name="researchlanka_source_check_job",
     selection="*researchlanka_source_validation",
+)
+
+researchlanka_common_preprocessing_job = define_asset_job(
+    name="researchlanka_common_preprocessing_job",
+    selection="*researchlanka_common_analysis_ready_dataset",
 )
 
 researchlanka_all_assets_job = define_asset_job(
