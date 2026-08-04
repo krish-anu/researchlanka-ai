@@ -192,7 +192,7 @@ The second combines those into `data/processed/repositories_combined.csv`.
 Requires these four files, found recursively under `--input-dir`:
 
 ```
-crossref_clean_2016_2026_enriched.csv
+crossref_clean_2016_2026_enriched.csv or crossref_sri_lanka_works.csv
 openalex_sri_lanka_works.csv
 repositories_combined.csv
 sljol.csv
@@ -200,7 +200,7 @@ sljol.csv
 
 ```bash
 python scripts/processing/kaggle_merge_common_dataset.py \
-  --input-dir "data/raw/Datasets/Final Datasets" \
+  --input-dir data \
   --output-dir data/processed/common
 ```
 

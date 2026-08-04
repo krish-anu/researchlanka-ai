@@ -89,6 +89,26 @@ def test_default_input_paths_requires_expected_files(tmp_path):
     assert "openalex_sri_lanka_works.csv" in str(exc_info.value)
 
 
+def test_default_input_paths_accepts_current_nested_files(tmp_path):
+    files = {
+        "raw/openalex/openalex_sri_lanka_works.csv": "openalex_id,doi,title\nW1,10.1000/a,A\n",
+        "processed/crossref/crossref_sri_lanka_works.csv": "DOI,title\n10.1000/b,B\n",
+        "processed/repositories_combined.csv": "source_record_id,title\nr1,C\n",
+        "processed/sljol.csv": "DOI,title\n10.1000/d,D\n",
+    }
+    for relative_path, content in files.items():
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    paths = default_input_paths(tmp_path)
+
+    assert paths["crossref"].name == "crossref_sri_lanka_works.csv"
+    assert paths["openalex"].name == "openalex_sri_lanka_works.csv"
+    assert paths["repositories_combined"].name == "repositories_combined.csv"
+    assert paths["sljol"].name == "sljol.csv"
+
+
 def test_estimate_unique_publications_handles_empty_source():
     estimated, method = estimate_unique_publications(
         total_records=0,
