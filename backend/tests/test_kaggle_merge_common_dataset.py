@@ -303,6 +303,66 @@ def test_deduplicate_field_policy_falls_back_to_available_values():
     assert pd.isna(merge_log.loc[0, "reference_count_difference_oa_minus_crossref"])
 
 
+def test_deduplicate_flags_same_doi_groups_that_cross_review_thresholds():
+    records = pd.DataFrame(
+        [
+            common_row(
+                source_dataset="crossref",
+                source_record_id="10.1000/severe",
+                doi="10.1000/severe",
+                title="Deep learning for crop disease detection",
+                publication_year="2020",
+            ),
+            common_row(
+                source_dataset="openalex",
+                source_record_id="https://openalex.org/W-severe",
+                doi="https://doi.org/10.1000/severe",
+                title="Ancient coastal trade routes in Sri Lanka",
+                publication_year="2023",
+            ),
+        ],
+        columns=COMMON_COLUMNS,
+    )
+
+    _, merge_log = deduplicate_publications(records, return_log=True)
+    log_row = merge_log.loc[0]
+
+    assert bool(log_row["duplicate_threshold_review_flag"])
+    assert log_row["duplicate_title_similarity_min"] < 0.80
+    assert log_row["duplicate_publication_year_span"] == 3
+    assert "title similarity" in log_row["duplicate_threshold_review_reason"]
+    assert "publication-year span" in log_row["duplicate_threshold_review_reason"]
+
+
+def test_deduplicate_flags_artifact_like_same_doi_groups_for_review():
+    records = pd.DataFrame(
+        [
+            common_row(
+                source_dataset="openalex",
+                source_record_id="artifact-1",
+                doi="10.1000/artifact",
+                title="Additional file 1 of Parent Study",
+                publication_year="2024",
+            ),
+            common_row(
+                source_dataset="crossref",
+                source_record_id="artifact-2",
+                doi="https://doi.org/10.1000/artifact",
+                title="Additional file 1 of Parent Study",
+                publication_year="2024",
+            ),
+        ],
+        columns=COMMON_COLUMNS,
+    )
+
+    _, merge_log = deduplicate_publications(records, return_log=True)
+    log_row = merge_log.loc[0]
+
+    assert bool(log_row["duplicate_artifact_title_flag"])
+    assert bool(log_row["duplicate_threshold_review_flag"])
+    assert "artifact-like title" in log_row["duplicate_threshold_review_reason"]
+
+
 def test_deduplicate_allows_field_source_policy_override():
     records = pd.DataFrame(
         [

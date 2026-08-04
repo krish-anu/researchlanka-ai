@@ -88,6 +88,21 @@ This strips address tails — `University of Peradeniya, Peradeniya 20400` resol
 University of Peradeniya. Shortening stops before the first segment, so a name is never
 reduced past its own head and `University of Oxford, Oxford` stays unresolved.
 
+### Entity-resolution thresholds
+
+| Threshold | Value | Action |
+|---|---:|---|
+| Automatic name resolution | Exact normalized alias match only | Resolve automatically. |
+| Automatic source-code resolution | Exact `source_institution_id` match only | Resolve automatically, except platform IDs such as `sljol`. |
+| Fuzzy automatic resolution | Disabled | Never resolve automatically from fuzzy similarity. |
+| Fuzzy/near-name handling | Review-only | Add a curated alias or registry row before it affects the dataset. |
+| National resolution-rate pass threshold | 95.0% | Summary metric `national_resolution_rate_pass`. |
+| Post-normalization institution coverage pass threshold | 90.0% | Summary metric `institution_coverage_after_pass`. |
+| Unresolved-name registry review threshold | 50 mentions | `..._unresolved_institutions.csv` flags `needs_registry_review`. |
+
+The thresholds are written by `src/pipeline/build_institution_normalized_dataset.py`
+so each run reports whether the current registry meets the policy.
+
 ### Institution recovery, in decreasing order of confidence
 
 | Pass | Source | Records |
@@ -188,11 +203,12 @@ Outputs, in `data/processed/common/`:
   `unresolved_institutions`, `institution_source`, `collaboration_type`,
   `collaboration_scope`
 - `..._institution_normalized_summary.csv` — the metrics above
-- `..._unresolved_institutions.csv` — unresolved names by frequency
+- `..._unresolved_institutions.csv` — unresolved names by frequency, including
+  `needs_registry_review`
 
 ## Improving coverage
 
-Read the unresolved-institutions CSV. Anything Sri Lankan above roughly 50 mentions
+Read the unresolved-institutions CSV. Anything Sri Lankan with at least 50 mentions
 belongs in the registry — add it to `CURATED_ALIASES` in
 `src/pipeline/build_institution_registry.py`, regenerate, and re-run the stage. The list
 is currently dominated by foreign institutions, which is expected and needs no action.
