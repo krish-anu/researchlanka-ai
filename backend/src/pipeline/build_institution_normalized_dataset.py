@@ -77,6 +77,9 @@ DEFAULT_UNRESOLVED_CSV = (
 
 NATIONAL_COUNTRY_CODE = "LK"
 DEFAULT_CHUNK_SIZE = 25_000
+NATIONAL_RESOLUTION_RATE_THRESHOLD = 0.95
+INSTITUTION_COVERAGE_AFTER_THRESHOLD = 0.90
+UNRESOLVED_INSTITUTION_REVIEW_THRESHOLD = 50
 
 ADDED_COLUMNS = (
     "national_institution_ids",
@@ -256,13 +259,46 @@ def iter_normalized_chunks(
         yield pd.DataFrame(normalized, columns=list(chunk.columns) + list(ADDED_COLUMNS))
 
 
-def write_summary(summary_csv: Path, stats: NormalizationStats, *, input_csv: Path, output_csv: Path) -> None:
+def write_summary(
+    summary_csv: Path,
+    stats: NormalizationStats,
+    *,
+    input_csv: Path,
+    output_csv: Path,
+    national_resolution_threshold: float = NATIONAL_RESOLUTION_RATE_THRESHOLD,
+    institution_coverage_threshold: float = INSTITUTION_COVERAGE_AFTER_THRESHOLD,
+    unresolved_review_threshold: int = UNRESOLVED_INSTITUTION_REVIEW_THRESHOLD,
+) -> None:
+    def rate(part: int, whole: int) -> float:
+        return part / whole if whole else 0.0
+
     def percentage(part: int, whole: int) -> str:
-        return f"{(part / whole * 100):.1f}%" if whole else "0.0%"
+        return f"{(rate(part, whole) * 100):.1f}%"
+
+    national_resolution_rate = rate(
+        stats.national_mentions_resolved,
+        stats.national_mentions_expected,
+    )
+    institution_coverage_after = rate(stats.rows_with_institution_after, stats.rows)
+    unresolved_review_count = sum(
+        1 for count in stats.unresolved.values() if count >= unresolved_review_threshold
+    )
 
     rows: list[dict[str, Any]] = [
         {"metric": "input_csv", "value": str(input_csv)},
         {"metric": "output_csv", "value": str(output_csv)},
+        {"metric": "entity_auto_resolution_threshold", "value": "exact_alias_or_source_id"},
+        {"metric": "entity_fuzzy_auto_resolution_enabled", "value": False},
+        {"metric": "entity_fuzzy_review_only", "value": True},
+        {
+            "metric": "national_resolution_rate_threshold",
+            "value": f"{national_resolution_threshold * 100:.1f}%",
+        },
+        {
+            "metric": "institution_coverage_after_threshold",
+            "value": f"{institution_coverage_threshold * 100:.1f}%",
+        },
+        {"metric": "unresolved_review_mention_threshold", "value": unresolved_review_threshold},
         {"metric": "rows", "value": stats.rows},
         {"metric": "rows_with_institution_before", "value": stats.rows_with_institution_before},
         {"metric": "rows_with_institution_after", "value": stats.rows_with_institution_after},
@@ -273,6 +309,10 @@ def write_summary(summary_csv: Path, stats: NormalizationStats, *, input_csv: Pa
         {
             "metric": "institution_coverage_after",
             "value": percentage(stats.rows_with_institution_after, stats.rows),
+        },
+        {
+            "metric": "institution_coverage_after_pass",
+            "value": institution_coverage_after >= institution_coverage_threshold,
         },
         {"metric": "rows_with_country_before", "value": stats.rows_with_country_before},
         {"metric": "rows_with_country_after", "value": stats.rows_with_country_after},
@@ -296,10 +336,18 @@ def write_summary(summary_csv: Path, stats: NormalizationStats, *, input_csv: Pa
             "metric": "national_resolution_rate",
             "value": percentage(stats.national_mentions_resolved, stats.national_mentions_expected),
         },
+        {
+            "metric": "national_resolution_rate_pass",
+            "value": national_resolution_rate >= national_resolution_threshold,
+        },
         {"metric": "backfilled_from_source_id", "value": stats.backfilled_from_source_id},
         {"metric": "backfilled_from_affiliation", "value": stats.backfilled_from_affiliation},
         {"metric": "countries_inferred_from_institution", "value": stats.countries_inferred},
         {"metric": "distinct_unresolved_institutions", "value": len(stats.unresolved)},
+        {
+            "metric": "unresolved_institutions_at_or_above_review_threshold",
+            "value": unresolved_review_count,
+        },
         {"metric": "distinct_unrecognised_countries", "value": len(stats.unrecognised_countries)},
     ]
     rows.extend(
@@ -319,17 +367,27 @@ def write_summary(summary_csv: Path, stats: NormalizationStats, *, input_csv: Pa
     pd.DataFrame(rows).to_csv(summary_csv, index=False)
 
 
-def write_unresolved(unresolved_csv: Path, stats: NormalizationStats) -> None:
+def write_unresolved(
+    unresolved_csv: Path,
+    stats: NormalizationStats,
+    *,
+    unresolved_review_threshold: int = UNRESOLVED_INSTITUTION_REVIEW_THRESHOLD,
+) -> None:
     """Write unresolved institution names by frequency, to drive registry work."""
 
     rows = [
-        {"institution_name": name, "mentions": count}
+        {
+            "institution_name": name,
+            "mentions": count,
+            "needs_registry_review": count >= unresolved_review_threshold,
+        }
         for name, count in stats.unresolved.most_common()
     ]
     unresolved_csv.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows, columns=["institution_name", "mentions"]).to_csv(
-        unresolved_csv, index=False
-    )
+    pd.DataFrame(
+        rows,
+        columns=["institution_name", "mentions", "needs_registry_review"],
+    ).to_csv(unresolved_csv, index=False)
 
 
 def build_institution_normalized_dataset(
@@ -341,6 +399,9 @@ def build_institution_normalized_dataset(
     *,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     national_country_code: str = NATIONAL_COUNTRY_CODE,
+    national_resolution_threshold: float = NATIONAL_RESOLUTION_RATE_THRESHOLD,
+    institution_coverage_threshold: float = INSTITUTION_COVERAGE_AFTER_THRESHOLD,
+    unresolved_review_threshold: int = UNRESOLVED_INSTITUTION_REVIEW_THRESHOLD,
 ) -> NormalizationStats:
     registry = NationalInstitutionRegistry.from_csv(
         registry_csv, country_code=national_country_code
@@ -360,8 +421,20 @@ def build_institution_normalized_dataset(
             chunk.to_csv(handle, index=False, header=not wrote_header)
             wrote_header = True
 
-    write_summary(summary_csv, stats, input_csv=input_csv, output_csv=output_csv)
-    write_unresolved(unresolved_csv, stats)
+    write_summary(
+        summary_csv,
+        stats,
+        input_csv=input_csv,
+        output_csv=output_csv,
+        national_resolution_threshold=national_resolution_threshold,
+        institution_coverage_threshold=institution_coverage_threshold,
+        unresolved_review_threshold=unresolved_review_threshold,
+    )
+    write_unresolved(
+        unresolved_csv,
+        stats,
+        unresolved_review_threshold=unresolved_review_threshold,
+    )
     return stats
 
 
@@ -375,6 +448,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--registry-csv", type=Path, default=DEFAULT_REGISTRY_CSV)
     parser.add_argument("--unresolved-csv", type=Path, default=DEFAULT_UNRESOLVED_CSV)
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
+    parser.add_argument(
+        "--national-resolution-threshold",
+        type=float,
+        default=NATIONAL_RESOLUTION_RATE_THRESHOLD,
+    )
+    parser.add_argument(
+        "--institution-coverage-threshold",
+        type=float,
+        default=INSTITUTION_COVERAGE_AFTER_THRESHOLD,
+    )
+    parser.add_argument(
+        "--unresolved-review-threshold",
+        type=int,
+        default=UNRESOLVED_INSTITUTION_REVIEW_THRESHOLD,
+    )
     return parser.parse_args()
 
 
@@ -387,6 +475,9 @@ def main() -> None:
         args.registry_csv,
         args.unresolved_csv,
         chunk_size=args.chunk_size,
+        national_resolution_threshold=args.national_resolution_threshold,
+        institution_coverage_threshold=args.institution_coverage_threshold,
+        unresolved_review_threshold=args.unresolved_review_threshold,
     )
 
     def percentage(part: int, whole: int) -> str:

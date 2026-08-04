@@ -100,7 +100,16 @@ def _write_json(path: Path, value: Any) -> None:
 
 
 def _write_match_csv(path: Path, records: list[dict[str, Any]]) -> None:
-    fieldnames = ["left_index", "right_index", "match_type", "confidence", "merge_decision"]
+    fieldnames = [
+        "left_index",
+        "right_index",
+        "match_type",
+        "confidence",
+        "merge_decision",
+        "score",
+        "threshold",
+        "reason",
+    ]
     with path.open("w", newline="", encoding="utf-8") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()

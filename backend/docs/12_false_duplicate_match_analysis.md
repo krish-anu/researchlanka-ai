@@ -146,8 +146,9 @@ Recommended inputs for the threshold-finalization step:
 - Review the 142 severe same-DOI groups and decide whether they should be
   excluded from automatic merge, quarantined, or corrected at source-normalization
   time.
-- Analyze missed duplicate records separately, focusing on DOI-less repository
-  records and SLJOL/repository overlap.
-- After both false-positive and missed-duplicate reviews are complete, finalize
-  duplicate-detection thresholds in `docs/normalization_and_merge.md` and the
+- Missed duplicate records are analyzed separately in
+  [13_missed_duplicate_record_analysis.md](13_missed_duplicate_record_analysis.md),
+  focusing on DOI-less repository records and cross-source overlap.
+- Duplicate-detection thresholds are finalized in
+  [normalization_and_merge.md](normalization_and_merge.md) and covered by
   implementation tests.

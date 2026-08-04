@@ -148,6 +148,9 @@ class CrossrefCollector:
                 if max_records and records_seen >= max_records:
                     return
 
+                if work.get("type") != "journal-article":
+                    continue
+
                 try:
                     normalized = reduce_work(work)
 
@@ -161,6 +164,17 @@ class CrossrefCollector:
             cursor = message.get("next-cursor")
 
             time.sleep(0.2)
+
+    def iter_works(
+        self, *, affiliation_query: str, rows: int = 100, max_records: int | None = None
+    ) -> Iterator[dict[str, Any]]:
+        """Backward-compatible alias for affiliation-based work iteration."""
+
+        yield from self.iter_affiliation_works(
+            affiliation_query=affiliation_query,
+            rows=rows,
+            max_records=max_records,
+        )
 
     # =====================================================
     # 2. SINGLE DOI LOOKUP
@@ -187,6 +201,29 @@ class CrossrefCollector:
     # =====================================================
     # 3. LARGE SCALE DOI COLLECTION
     # =====================================================
+
+    def fetch_works_by_dois(
+        self,
+        dois: list[str],
+        *,
+        workers: int = 5,
+    ) -> Iterator[dict[str, Any]]:
+        """Fetch multiple Crossref works concurrently by DOI."""
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(self.fetch_work_by_doi, doi): doi for doi in dois
+            }
+
+            for future in as_completed(futures):
+                doi = futures[future]
+                try:
+                    work = future.result()
+                except requests.RequestException:
+                    logger.exception("Crossref DOI lookup failed for %s", doi)
+                    continue
+                if work:
+                    yield work
 
 @dataclass
 class CrossrefPrefixCollector:
@@ -256,16 +293,16 @@ class CrossrefPrefixCollector:
 
             items = message.get("items", [])
 
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {
-                executor.submit(self.fetch_work_by_doi, doi): doi for doi in dois
-            }
+            if not items:
+                break
 
-            for future in as_completed(futures):
-                doi = futures[future]
+            for work in items:
+                if max_records is not None and records_seen >= max_records:
+                    return
+                records_seen += 1
+                yield work
 
-                try:
-                    work = future.result()
+            cursor = message.get("next-cursor")
 
             if cursor:
                 if cursor in seen_cursors:

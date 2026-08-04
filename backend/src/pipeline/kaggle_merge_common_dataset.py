@@ -38,6 +38,7 @@ import math
 import re
 import unicodedata
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable
 
@@ -313,6 +314,13 @@ DEFAULT_FIELD_SOURCE_POLICY = {
 BLANK_STRINGS = {"", "nan", "none", "null", "na", "n/a", "[]", "{}"}
 DOI_RE = re.compile(r"10\.\d{4,9}/[^\s\"'<>;]+", re.IGNORECASE)
 YEAR_RE = re.compile(r"(1[5-9]\d{2}|20\d{2})")
+ARTIFACT_TITLE_RE = re.compile(
+    r"\b(?:additional file|supplementary|supplemental|figure|fig\.?|table|"
+    r"dataset|data set|appendix|annex|image|plate)\b",
+    re.IGNORECASE,
+)
+DUPLICATE_REVIEW_TITLE_SIMILARITY_THRESHOLD = 0.80
+DUPLICATE_REVIEW_YEAR_SPAN_THRESHOLD = 1
 TAG_RE = re.compile(r"<[^>]+>")
 INLINE_TEXT_TAG_RE = re.compile(
     r"<(i|em|b|strong|u|span|jats:[^>\s/]+)(?:\s+[^>]*)?>(.*?)</\1>",
@@ -1319,6 +1327,80 @@ def conflict_fields(group: pd.DataFrame) -> Any:
     return "; ".join(fields) if fields else pd.NA
 
 
+def min_title_similarity(group: pd.DataFrame) -> Any:
+    title_keys = sorted(
+        {
+            str(title_key)
+            for value in group["title"]
+            if not is_blank(title_key := normalize_title_key(value))
+        }
+    )
+    if len(title_keys) < 2:
+        return pd.NA
+
+    scores = [
+        SequenceMatcher(None, left, right).ratio()
+        for index, left in enumerate(title_keys)
+        for right in title_keys[index + 1 :]
+    ]
+    return round(min(scores), 4) if scores else pd.NA
+
+
+def publication_year_span(group: pd.DataFrame) -> Any:
+    years = sorted(
+        {
+            int(year)
+            for value in group["publication_year"]
+            if not is_blank(year := normalize_year(value))
+        }
+    )
+    if len(years) < 2:
+        return pd.NA
+    return years[-1] - years[0]
+
+
+def artifact_title_flag(group: pd.DataFrame) -> bool:
+    for value in group["title"]:
+        if is_blank(value):
+            continue
+        if ARTIFACT_TITLE_RE.search(str(value)):
+            return True
+    return False
+
+
+def duplicate_threshold_review_info(group: pd.DataFrame) -> dict[str, Any]:
+    """Apply finalized duplicate thresholds to an automatic merge group."""
+
+    title_similarity = min_title_similarity(group)
+    year_span = publication_year_span(group)
+    artifact_flag = artifact_title_flag(group)
+    reasons: list[str] = []
+
+    if (
+        not is_blank(title_similarity)
+        and title_similarity < DUPLICATE_REVIEW_TITLE_SIMILARITY_THRESHOLD
+    ):
+        reasons.append(
+            "same DOI but normalized title similarity below "
+            f"{DUPLICATE_REVIEW_TITLE_SIMILARITY_THRESHOLD:.2f}"
+        )
+    if not is_blank(year_span) and year_span > DUPLICATE_REVIEW_YEAR_SPAN_THRESHOLD:
+        reasons.append(
+            "same DOI but publication-year span greater than "
+            f"{DUPLICATE_REVIEW_YEAR_SPAN_THRESHOLD}"
+        )
+    if artifact_flag:
+        reasons.append("artifact-like title requires review")
+
+    return {
+        "duplicate_title_similarity_min": title_similarity,
+        "duplicate_publication_year_span": year_span,
+        "duplicate_artifact_title_flag": artifact_flag,
+        "duplicate_threshold_review_flag": bool(reasons),
+        "duplicate_threshold_review_reason": "; ".join(reasons) if reasons else pd.NA,
+    }
+
+
 def numeric_difference(left: Any, right: Any) -> Any:
     left_number = normalize_int(left)
     right_number = normalize_int(right)
@@ -1363,6 +1445,7 @@ def merge_log_row(
         first_source_value(group, "referenced_works_count", "openalex"),
         first_source_value(group, "reference_count", "crossref"),
     )
+    threshold_review = duplicate_threshold_review_info(group)
 
     return {
         "merged_row_number": merged_row_number,
@@ -1391,6 +1474,7 @@ def merge_log_row(
         "reference_count_divergence_flag": (
             reference_difference != 0 if not is_blank(reference_difference) else pd.NA
         ),
+        **threshold_review,
         "input_row_numbers": "; ".join(str(index + 1) for index in group.index),
     }
 
@@ -1425,6 +1509,11 @@ def singleton_merge_log_row(
         "citation_count_divergence_flag": pd.NA,
         "reference_count_difference_oa_minus_crossref": pd.NA,
         "reference_count_divergence_flag": pd.NA,
+        "duplicate_title_similarity_min": pd.NA,
+        "duplicate_publication_year_span": pd.NA,
+        "duplicate_artifact_title_flag": False,
+        "duplicate_threshold_review_flag": False,
+        "duplicate_threshold_review_reason": pd.NA,
         "input_row_numbers": str(row["_input_row_number"]),
     }
 
