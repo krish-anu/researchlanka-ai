@@ -447,6 +447,56 @@ def test_summary_reports_national_resolution_separately(tmp_path: Path):
     assert metrics["institution_resolution_rate"] == "50.0%"
 
 
+def test_entity_resolution_thresholds_are_reported_and_flag_unresolved_names(
+    tmp_path: Path,
+):
+    registry_path = tmp_path / "institutions.csv"
+    registry_path.write_text("\n".join(REGISTRY_ROWS) + "\n", encoding="utf-8")
+
+    input_csv = tmp_path / "publications.csv"
+    input_csv.write_text(
+        "title,institutions,sri_lankan_institutions,countries,"
+        "author_affiliations,source_institution_id\n"
+        "A,UOC,University of Colombo,LK,,\n"
+        "B,Unknown Institute,,LK,,\n"
+        "C,Unknown Institute,,LK,,\n",
+        encoding="utf-8",
+    )
+    summary_csv = tmp_path / "summary.csv"
+    unresolved_csv = tmp_path / "unresolved.csv"
+
+    build_institution_normalized_dataset(
+        input_csv,
+        tmp_path / "out.csv",
+        summary_csv,
+        registry_path,
+        unresolved_csv,
+        national_resolution_threshold=1.0,
+        institution_coverage_threshold=0.5,
+        unresolved_review_threshold=2,
+    )
+
+    metrics = {
+        row["metric"]: row["value"]
+        for row in csv.DictReader(summary_csv.open(encoding="utf-8"))
+    }
+    unresolved = list(csv.DictReader(unresolved_csv.open(encoding="utf-8")))
+
+    assert metrics["entity_auto_resolution_threshold"] == "exact_alias_or_source_id"
+    assert metrics["entity_fuzzy_auto_resolution_enabled"] == "False"
+    assert metrics["entity_fuzzy_review_only"] == "True"
+    assert metrics["national_resolution_rate_pass"] == "True"
+    assert metrics["institution_coverage_after_pass"] == "True"
+    assert metrics["unresolved_institutions_at_or_above_review_threshold"] == "1"
+    assert unresolved == [
+        {
+            "institution_name": "Unknown Institute",
+            "mentions": "2",
+            "needs_registry_review": "True",
+        }
+    ]
+
+
 def test_build_dataset_preserves_every_input_column(tmp_path: Path):
     registry_path = tmp_path / "institutions.csv"
     registry_path.write_text("\n".join(REGISTRY_ROWS) + "\n", encoding="utf-8")

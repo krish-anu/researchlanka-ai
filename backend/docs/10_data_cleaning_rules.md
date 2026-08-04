@@ -316,6 +316,10 @@ Required matching rules:
   otherwise.
 - DOI matches may be marked `auto_merge` only when configured.
 - Exact title matches must be sent to manual review.
+- Fuzzy title matches, when enabled, must be sent to manual review and must not
+  remove records automatically.
+- Same-DOI groups with normalized title similarity below 0.80, publication-year
+  span greater than 1, or artifact-like titles must be flagged for audit.
 
 Acceptance criteria:
 
@@ -323,6 +327,8 @@ Acceptance criteria:
   confidence, and merge decision.
 - Uncertain matches must not be merged without review.
 - Source records remain traceable after deduplication.
+- Missed-duplicate review queues must be produced separately from automatic
+  merge outputs.
 
 ### DC-014: Source Conflict and Merge Audit
 
@@ -334,6 +340,7 @@ Required audit behavior:
 - Retain conflicting normalized values in merge logs.
 - Retain source-specific citation and reference counts in count audit sidecars.
 - Report citation and reference divergence flags.
+- Report duplicate-threshold review flags for severe same-DOI disagreement.
 
 Acceptance criteria:
 
