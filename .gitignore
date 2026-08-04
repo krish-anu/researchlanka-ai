@@ -53,6 +53,9 @@ backend/data/external/
 backend/data/reports/*.json
 backend/outputs/
 
+# Dagster local runtime state
+backend/dagster-quickstart/.tmp_dagster_home_*/
+
 # Keep checked-in backend data configuration visible
 !backend/data/
 !backend/data/config/
