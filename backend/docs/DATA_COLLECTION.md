@@ -111,11 +111,23 @@ mid-harvest. Honours the registry's `ssl_verify_failed` flag per host.
 
 ```bash
 python scripts/collection/harvest_all.py --max-records-per-target 0   # 0 = no cap
+python scripts/collection/harvest_all.py --include-ids uom,cmb --max-records-per-target 200 --timeout 10
+python scripts/collection/harvest_all.py --exclude-ids seu,sltc,ruh --skip-existing --workers 3
 ```
 
 Runs the OAI harvest for every harvestable registry target, continuing
 past per-institution failures, and writes a summary to
 `data/reports/harvest_summary_<timestamp>.json`.
+
+Use `--include-ids` for focused testing, `--exclude-ids` to avoid known
+slow or broken hosts, `--skip-existing` to reuse non-empty raw JSONL
+files, and `--workers` to harvest different universities in parallel.
+Keep worker counts small; each university server is an external public
+service.
+
+Dagster repository collection defaults to 3 workers. For a full dataset
+run, do not set include/exclude filters or skip-existing unless you
+intentionally want cached or partial repository data.
 
 ### 4. `scripts/collection/harvest_large_repository.py` - date-sliced OAI workaround
 

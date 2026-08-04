@@ -28,7 +28,7 @@
     "mapping_version": "1.0"
   },
   "collection": {
-    "start_year": 2010,
+    "start_year": 2016,
     "end_year": 2026,
     "batch_size": 200,
     "retry_limit": 3,
@@ -85,7 +85,9 @@
     "journal": "journal",
     "language": "language",
     "doi": "doi",
-    "url": "source_url"
+    "url": "source_url",
+    "cited_by_count": "citation_count",
+    "oa_status": "open_access_status"
   },
   "transformations": {
     "title": {
