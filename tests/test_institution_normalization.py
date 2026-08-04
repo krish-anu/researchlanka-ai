@@ -141,6 +141,26 @@ def test_registry_alias_index_has_no_conflicting_ids(registry):
         assert institution_id in registry.institutions, key
 
 
+def test_alias_index_and_lookup_share_one_normalization(tmp_path: Path):
+    """The index and the lookup must both go through normalize_lookup_key.
+
+    If either side stops using it, matching fails silently -- nothing raises,
+    records simply stop resolving. This pins the symmetry directly by storing a
+    messy alias and querying with a clean one.
+    """
+    registry_path = tmp_path / "institutions.csv"
+    registry_path.write_text(
+        "institution_id,preferred_name,alternative_name,country_code,ror_id,"
+        "parent_institution_id,institution_type,source_institution_id\n"
+        "LK003,University of Moratuwa,  UNIVERSITY   OF  MORATUWA ,LK,,,university,uom\n",
+        encoding="utf-8",
+    )
+    resolver = NationalInstitutionRegistry.from_csv(registry_path, country_code="LK")
+
+    assert resolver.resolve_name("University of Moratuwa").institution_id == "LK003"
+    assert resolver.resolve_name("Univ. of Moratuwa").institution_id == "LK003"
+
+
 # --- countries --------------------------------------------------------------
 
 
@@ -384,6 +404,49 @@ def test_build_dataset_writes_outputs_and_improves_coverage(tmp_path: Path):
     assert unresolved_csv.exists()
 
 
+def test_summary_reports_national_resolution_separately(tmp_path: Path):
+    """Registry quality is national_resolution_rate, not institution_resolution_rate.
+
+    The latter counts foreign institutions, which a national registry can never
+    resolve by design, so it understates quality. Both must be reported so the
+    two are not confused.
+    """
+    registry_path = tmp_path / "institutions.csv"
+    registry_path.write_text("\n".join(REGISTRY_ROWS) + "\n", encoding="utf-8")
+
+    input_csv = tmp_path / "publications.csv"
+    input_csv.write_text(
+        "title,institutions,sri_lankan_institutions,countries,"
+        "author_affiliations,source_institution_id\n"
+        "A,University of Colombo; University of Oxford,University of Colombo,LK; GB,,\n",
+        encoding="utf-8",
+    )
+    summary_csv = tmp_path / "summary.csv"
+    build_institution_normalized_dataset(
+        input_csv,
+        tmp_path / "out.csv",
+        summary_csv,
+        registry_path,
+        tmp_path / "unresolved.csv",
+    )
+
+    metrics = {
+        row["metric"]: row["value"]
+        for row in csv.DictReader(summary_csv.open(encoding="utf-8"))
+    }
+
+    # The one Sri Lankan institution resolves; the registry is complete.
+    assert metrics["national_mentions_expected"] == "1"
+    assert metrics["national_mentions_resolved"] == "1"
+    assert metrics["national_resolution_rate"] == "100.0%"
+
+    # Oxford is out of scope for a national registry, so the all-mentions rate
+    # is lower. That is expected, not a defect.
+    assert metrics["institution_mentions"] == "2"
+    assert metrics["institution_mentions_resolved"] == "1"
+    assert metrics["institution_resolution_rate"] == "50.0%"
+
+
 def test_build_dataset_preserves_every_input_column(tmp_path: Path):
     registry_path = tmp_path / "institutions.csv"
     registry_path.write_text("\n".join(REGISTRY_ROWS) + "\n", encoding="utf-8")
@@ -483,6 +546,38 @@ def test_registry_generation_merges_curated_alias_into_existing_entry():
         {"National Science Foundation of Sri Lanka": 220}, existing, key_to_id, {}
     )
     assert {row["institution_id"] for row in rows} == {"LK006"}
+
+
+def test_registry_row_order_is_deterministic():
+    """Regenerating an unchanged registry must produce an identical file.
+
+    Aliases live in a set, so any sort key that leaves two of them equal falls
+    back to set iteration order, which varies between runs. Case variants such
+    as "PDN" and "pdn" are exactly that case, and produced a spurious diff on
+    every regeneration until the sort key was made total.
+    """
+    existing = {
+        "LK002": {
+            "institution_id": "LK002",
+            "preferred_name": "University of Peradeniya",
+            "aliases": {"University of Peradeniya", "PDN", "pdn", "UOP", "uop"},
+            "ror_id": "",
+            "parent_institution_id": "",
+            "institution_type": "university",
+        }
+    }
+    key_to_id = {normalize_lookup_key("University of Peradeniya"): "LK002"}
+
+    runs = [
+        [
+            (row["institution_id"], row["alternative_name"])
+            for row in build_registry_rows(
+                {"University of Peradeniya": 5}, existing, dict(key_to_id), {}
+            )
+        ]
+        for _ in range(5)
+    ]
+    assert all(run == runs[0] for run in runs)
 
 
 def test_infer_institution_type_recognises_common_shapes():
