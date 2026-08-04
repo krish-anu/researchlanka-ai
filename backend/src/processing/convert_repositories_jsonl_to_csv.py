@@ -23,6 +23,7 @@ PROJECT_ROOT = next(
 )
 DEFAULT_INPUT_DIR = PROJECT_ROOT / "data" / "processed" / "repositories"
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "repositories_combined.csv"
+DEFAULT_EXCLUDED_SOURCE_IDS = {"sljol"}
 
 CSV_COLUMNS = [
     "source_institution_id",
@@ -88,11 +89,19 @@ def record_to_row(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def iter_input_files(input_arg: Path | None) -> Iterable[Path]:
+def iter_input_files(
+    input_arg: Path | None,
+    *,
+    default_input_dir: Path = DEFAULT_INPUT_DIR,
+    excluded_source_ids: set[str] = DEFAULT_EXCLUDED_SOURCE_IDS,
+) -> Iterable[Path]:
+    def is_included(path: Path) -> bool:
+        return path.stem not in excluded_source_ids
+
     if input_arg is None:
-        return sorted(DEFAULT_INPUT_DIR.glob("*.jsonl"))
+        return sorted(path for path in default_input_dir.glob("*.jsonl") if is_included(path))
     if input_arg.is_dir():
-        return sorted(input_arg.glob("*.jsonl"))
+        return sorted(path for path in input_arg.glob("*.jsonl") if is_included(path))
     return [input_arg]
 
 

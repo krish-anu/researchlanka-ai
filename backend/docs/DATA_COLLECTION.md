@@ -300,6 +300,13 @@ python scripts/collection/harvest_html_meta.py --id jfn_research           # + j
 python scripts/processing/map_to_common_schema.py --all
 python scripts/quality/validate_harvested_data.py
 python scripts/processing/convert_repositories_jsonl_to_csv.py
+
+# 4. export SLJOL separately so the merge sees it as sljol.csv,
+# not as part of repositories_combined.csv
+python scripts/processing/map_to_common_schema.py --id sljol
+python scripts/processing/convert_repositories_jsonl_to_csv.py \
+  --input data/processed/repositories/sljol.jsonl \
+  --output data/processed/sljol.csv
 ```
 
 Do not run two harvesters for the same institution concurrently - they
