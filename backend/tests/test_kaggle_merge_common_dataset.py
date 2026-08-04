@@ -4,8 +4,10 @@ import pandas as pd
 
 from src.pipeline.kaggle_merge_common_dataset import (
     COMMON_COLUMNS,
+    EXPECTED_FILE_CANDIDATES,
     build_manual_review_candidates,
     deduplicate_publications,
+    find_input_file,
     normalize_crossref,
     normalize_title_key,
     record_merge_info,
@@ -108,6 +110,15 @@ def test_normalize_crossref_extracts_nested_publication_fields():
     assert row["funder_doi"] == "10.13039/100008902"
     assert "10.13039/100008902" in row["funder_id"]
     assert row["funder_award"] == "A1"
+
+
+def test_find_input_file_accepts_current_crossref_filename(tmp_path):
+    crossref_dir = tmp_path / "processed" / "crossref"
+    crossref_dir.mkdir(parents=True)
+    current_crossref = crossref_dir / "crossref_sri_lanka_works.csv"
+    current_crossref.write_text("DOI,title\n10.1000/test,Test\n", encoding="utf-8")
+
+    assert find_input_file(tmp_path, EXPECTED_FILE_CANDIDATES["crossref"]) == current_crossref
 
 
 def common_row(**overrides):

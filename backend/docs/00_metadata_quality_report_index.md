@@ -13,6 +13,7 @@ This report set documents metadata quality, cleaning decisions, and interpretati
 | Column 1-25 dataset decisions | [09_columns_1_25_final_dataset_decisions.md](09_columns_1_25_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_first_25_columns.py` | `data/reports/column_analysis/` |
 | Institution, affiliation and country standardization | [10_institution_and_affiliation_standardization.md](10_institution_and_affiliation_standardization.md) | `src/pipeline/build_institution_normalized_dataset.py` | `data/processed/common/` |
 | Publication type and venue standardization | [11_publication_type_and_venue_standardization.md](11_publication_type_and_venue_standardization.md) | `src/pipeline/build_type_journal_normalized_dataset.py` | `data/processed/common/` |
+| False duplicate match analysis | [12_false_duplicate_match_analysis.md](12_false_duplicate_match_analysis.md) | `src/quality/analyze_false_duplicate_matches.py` | `data/processed/common/duplicate_match_analysis/` |
 
 ## Running the pipeline
 

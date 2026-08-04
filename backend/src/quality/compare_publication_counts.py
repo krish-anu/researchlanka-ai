@@ -23,7 +23,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.pipeline.kaggle_merge_common_dataset import (
-    EXPECTED_FILES,
+    EXPECTED_FILE_CANDIDATES,
+    file_candidate_names,
     is_blank,
     normalize_crossref,
     normalize_openalex,
@@ -32,26 +33,39 @@ from src.pipeline.kaggle_merge_common_dataset import (
 )
 
 
-DEFAULT_INPUT_DIR = PROJECT_ROOT / "data" / "raw" / "Datasets" / "Final Datasets"
+DEFAULT_INPUT_DIR = PROJECT_ROOT / "data"
 DEFAULT_OUTPUT_CSV = (
     PROJECT_ROOT / "data" / "processed" / "common" / "publication_counts_by_source.csv"
 )
 DEFAULT_SOURCE_ORDER = ["openalex", "crossref", "repositories_combined", "sljol"]
 
 
-def find_input_file(input_dir: Path, filename: str) -> Path:
+def find_input_file(input_dir: Path, filenames: str | tuple[str, ...] | list[str]) -> Path:
     """Return the expected source file path or raise a clear error."""
-    path = Path(input_dir) / filename
-    if path.exists():
-        return path
+    candidate_names = file_candidate_names(filenames)
+    root = Path(input_dir)
 
-    raise FileNotFoundError(f"Could not find {filename} in {input_dir}")
+    for filename in candidate_names:
+        path = root / filename
+        if path.exists():
+            return path
+
+    if root.exists():
+        for filename in candidate_names:
+            candidates = sorted(
+                root.rglob(filename),
+                key=lambda path: (len(path.parts), str(path)),
+            )
+            if candidates:
+                return candidates[0]
+
+    raise FileNotFoundError(f"Could not find any of: {', '.join(candidate_names)} in {input_dir}")
 
 
 def default_input_paths(input_dir: Path) -> dict[str, Path]:
     """Build default source paths from the common-dataset expected files."""
     return {
-        source_dataset: find_input_file(input_dir, EXPECTED_FILES[source_dataset])
+        source_dataset: find_input_file(input_dir, EXPECTED_FILE_CANDIDATES[source_dataset])
         for source_dataset in DEFAULT_SOURCE_ORDER
     }
 
