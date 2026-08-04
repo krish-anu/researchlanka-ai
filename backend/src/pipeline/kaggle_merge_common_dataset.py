@@ -719,6 +719,129 @@ def crossref_person_name(row: pd.Series, prefix: str) -> Any:
     return " ".join(parts) if parts else pd.NA
 
 
+def parsed_items(value: Any) -> list[Any]:
+    parsed = parse_literal(value)
+    if is_blank(parsed):
+        return []
+    if isinstance(parsed, (list, tuple, set)):
+        return [item for item in parsed if not is_blank(item)]
+    return [parsed]
+
+
+def collect_nested_values(value: Any, keys: set[str]) -> list[Any]:
+    parsed = parse_literal(value)
+    if is_blank(parsed):
+        return []
+
+    if isinstance(parsed, dict):
+        values: list[Any] = []
+        normalized_keys = {key.casefold() for key in keys}
+        for key, item in parsed.items():
+            if str(key).casefold() in normalized_keys:
+                values.extend(flatten_values(item))
+            elif isinstance(item, (dict, list, tuple, set)):
+                values.extend(collect_nested_values(item, keys))
+        return values
+
+    if isinstance(parsed, (list, tuple, set)):
+        values: list[Any] = []
+        for item in parsed:
+            values.extend(collect_nested_values(item, keys))
+        return values
+
+    return []
+
+
+def crossref_person_names(value: Any) -> Any:
+    names: list[str] = []
+    for person in parsed_items(value):
+        if isinstance(person, dict):
+            name = first_text(person.get("name"))
+            if is_blank(name):
+                given = first_text(person.get("given"))
+                family = first_text(person.get("family"))
+                parts = [str(part) for part in (given, family) if not is_blank(part)]
+                name = " ".join(parts) if parts else pd.NA
+            if not is_blank(name):
+                names.append(str(name))
+            continue
+
+        text = first_text(person)
+        if not is_blank(text):
+            names.append(str(text))
+
+    return unique_text(names)
+
+
+def crossref_person_affiliations(value: Any) -> Any:
+    affiliations: list[Any] = []
+    for person in parsed_items(value):
+        if not isinstance(person, dict):
+            continue
+        for affiliation in parsed_items(person.get("affiliation")):
+            if isinstance(affiliation, dict):
+                affiliations.extend(collect_nested_values(affiliation, {"name"}))
+            else:
+                affiliations.append(affiliation)
+
+    return unique_text(affiliations)
+
+
+def crossref_person_orcids(value: Any) -> Any:
+    orcids: list[Any] = []
+    for person in parsed_items(value):
+        if not isinstance(person, dict):
+            continue
+        orcid = first_nonblank(person.get("ORCID"), person.get("orcid"))
+        if not is_blank(orcid):
+            orcids.append(orcid)
+
+    return unique_text(orcids)
+
+
+def crossref_funder_names(value: Any) -> Any:
+    return unique_text(collect_nested_values(value, {"name"}))
+
+
+def crossref_funder_dois(value: Any) -> Any:
+    return unique_text(collect_nested_values(value, {"DOI", "doi"}))
+
+
+def crossref_funder_ids(value: Any) -> Any:
+    return unique_text(collect_nested_values(value, {"id"}))
+
+
+def crossref_funder_awards(value: Any) -> Any:
+    return unique_text(collect_nested_values(value, {"award", "award-number"}))
+
+
+def crossref_license_urls(value: Any) -> Any:
+    return unique_text(collect_nested_values(value, {"URL", "url"}))
+
+
+def page_first(value: Any) -> Any:
+    text = first_text(value)
+    if is_blank(text):
+        return pd.NA
+
+    return re.split(r"\s*[-–—]\s*", str(text), maxsplit=1)[0].strip() or pd.NA
+
+
+def page_last(value: Any) -> Any:
+    text = first_text(value)
+    if is_blank(text):
+        return pd.NA
+
+    parts = re.split(r"\s*[-–—]\s*", str(text), maxsplit=1)
+    return (parts[-1].strip() if parts else "") or pd.NA
+
+
+def fill_output_from_series(output: pd.DataFrame, target: str, values: pd.Series) -> None:
+    mask = output[target].map(is_blank) & values.map(lambda value: not is_blank(value))
+    if mask.any():
+        output.loc[mask, target] = values.loc[mask]
+
+
 def raw_row_json(row: pd.Series) -> str:
     values = {
         column: (None if is_blank(value) else value)
@@ -790,9 +913,10 @@ def normalize_crossref(
     df: pd.DataFrame,
     *,
     include_raw_json: bool,
+    source_dataset: str = "crossref",
 ) -> pd.DataFrame:
     output = empty_common_frame(df.index)
-    output["source_dataset"] = "crossref"
+    output["source_dataset"] = source_dataset
 
     assign_column(output, "source_record_id", df, ["DOI", "doi"], normalize_doi)
     assign_column(output, "doi", df, ["DOI", "doi"], normalize_doi)
@@ -803,14 +927,24 @@ def normalize_crossref(
     assign_column(output, "original_title", df, ["original-title", "original_title"], strip_markup)
     assign_column(output, "abstract", df, ["abstract"], strip_markup)
     assign_column(output, "publication_year", df, ["publication_year"], normalize_year)
-    assign_column(output, "publication_date", df, ["issued.date-parts", "issued_date"], normalize_date_parts)
-    assign_column(output, "created_date", df, ["created.date-parts", "created_date"], normalize_date_parts)
-    assign_column(output, "published_date", df, ["published.date-parts", "published_date"], normalize_date_parts)
+    assign_column(output, "publication_date", df, ["issued.date-parts", "issued", "issued_date"], normalize_date_parts)
+    assign_column(output, "created_date", df, ["created.date-parts", "created", "created_date"], normalize_date_parts)
+    assign_column(
+        output,
+        "published_date",
+        df,
+        ["published.date-parts", "published", "published-online", "published_date"],
+        normalize_date_parts,
+    )
     assign_column(output, "type", df, ["type"])
     assign_column(output, "subtype", df, ["subtype"])
     assign_column(output, "publication_type", df, ["type"])
     assign_column(output, "authors", df, ["author_name"], unique_text)
     assign_column(output, "author_names", df, ["author_name"], unique_text)
+    if "author" in df.columns:
+        author_names = df["author"].map(crossref_person_names)
+        fill_output_from_series(output, "author_names", author_names)
+        fill_output_from_series(output, "authors", author_names)
     output["author_names"] = output["author_names"].where(
         output["author_names"].map(lambda value: not is_blank(value)),
         df.apply(lambda row: crossref_person_name(row, "author"), axis=1),
@@ -821,7 +955,16 @@ def normalize_crossref(
     )
     assign_column(output, "author_affiliations", df, ["author_affiliation"], unique_text)
     assign_column(output, "author_orcids", df, ["author_ORCID", "author_orcid"], unique_text)
+    if "author" in df.columns:
+        fill_output_from_series(
+            output,
+            "author_affiliations",
+            df["author"].map(crossref_person_affiliations),
+        )
+        fill_output_from_series(output, "author_orcids", df["author"].map(crossref_person_orcids))
     output["editors"] = df.apply(lambda row: crossref_person_name(row, "editor"), axis=1)
+    if "editor" in df.columns:
+        fill_output_from_series(output, "editors", df["editor"].map(crossref_person_names))
     assign_column(output, "publisher", df, ["publisher"])
     assign_column(output, "publisher_location", df, ["publisher-location", "publisher_location"])
     assign_column(output, "journal", df, ["container-title", "container_title"], strip_markup)
@@ -832,17 +975,27 @@ def normalize_crossref(
     assign_column(output, "volume", df, ["volume"])
     assign_column(output, "issue", df, ["issue"])
     assign_column(output, "page", df, ["page"])
+    if "page" in df.columns:
+        fill_output_from_series(output, "first_page", df["page"].map(page_first))
+        fill_output_from_series(output, "last_page", df["page"].map(page_last))
     assign_column(output, "article_number", df, ["article-number", "article_number"])
     assign_column(output, "language", df, ["language"])
     assign_column(output, "license_url", df, ["license_URL", "license_url"])
+    if "license" in df.columns:
+        fill_output_from_series(output, "license_url", df["license"].map(crossref_license_urls))
     assign_column(output, "cited_by_count", df, ["is-referenced-by-count"], normalize_int)
     assign_column(output, "is_referenced_by_count", df, ["is-referenced-by-count"], normalize_int)
-    assign_column(output, "reference_count", df, ["reference-count"], normalize_int)
-    assign_column(output, "references_json", df, ["references_json"], unique_text)
+    assign_column(output, "reference_count", df, ["reference-count", "references-count"], normalize_int)
+    assign_column(output, "references_json", df, ["references_json", "reference"], unique_text)
     assign_column(output, "funder_name", df, ["funder_name"], unique_text)
     assign_column(output, "funder_doi", df, ["funder_DOI", "funder_doi"], unique_text)
     assign_column(output, "funder_id", df, ["funder_id"], unique_text)
     assign_column(output, "funder_award", df, ["funder_award"], unique_text)
+    if "funder" in df.columns:
+        fill_output_from_series(output, "funder_name", df["funder"].map(crossref_funder_names))
+        fill_output_from_series(output, "funder_doi", df["funder"].map(crossref_funder_dois))
+        fill_output_from_series(output, "funder_id", df["funder"].map(crossref_funder_ids))
+        fill_output_from_series(output, "funder_award", df["funder"].map(crossref_funder_awards))
     assign_column(output, "event_name", df, ["event.name", "event_name"])
     assign_column(output, "event_acronym", df, ["event.acronym", "event_acronym"])
     assign_column(output, "event_location", df, ["event.location", "event_location"])
@@ -948,7 +1101,13 @@ def normalize_source_frame(
         return normalize_openalex(df, include_raw_json=include_raw_json)
     if source_dataset == "crossref":
         return normalize_crossref(df, include_raw_json=include_raw_json)
-    if source_dataset in {"repositories_combined", "sljol"}:
+    if source_dataset == "sljol":
+        return normalize_crossref(
+            df,
+            include_raw_json=include_raw_json,
+            source_dataset="sljol",
+        )
+    if source_dataset == "repositories_combined":
         return normalize_repository_like(
             df,
             source_dataset=source_dataset,
