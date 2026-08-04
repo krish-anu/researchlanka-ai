@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -45,9 +46,46 @@ class HarvestOutcome:
     id: str
     name: str
     record_count: int = 0
-    status: str = "ok"  # ok | empty | error
+    status: str = "ok"  # ok | empty | error | skipped_existing
     error: str | None = None
     output_path: str | None = None
+
+
+def parse_id_filter(value: str | None) -> set[str]:
+    if not value:
+        return set()
+    return {part.strip().casefold() for part in value.split(",") if part.strip()}
+
+
+def filter_targets(targets, *, include_ids: set[str], exclude_ids: set[str]):
+    return [
+        target
+        for target in targets
+        if (not include_ids or target.id.casefold() in include_ids)
+        and target.id.casefold() not in exclude_ids
+    ]
+
+
+def raw_oai_output_path(target) -> Path:
+    return DEFAULT_RAW_DIR / target.id / "oai_dc.jsonl"
+
+
+def skip_existing_outcome(target) -> HarvestOutcome | None:
+    output_path = raw_oai_output_path(target)
+    if not output_path.exists():
+        return None
+    with output_path.open(encoding="utf-8") as file:
+        existing_records = sum(1 for line in file if line.strip())
+    if existing_records <= 0:
+        return None
+    return HarvestOutcome(
+        id=target.id,
+        name=target.name,
+        record_count=existing_records,
+        status="skipped_existing",
+        error="Existing raw JSONL reused.",
+        output_path=str(output_path),
+    )
 
 
 def harvest_one(
@@ -112,6 +150,16 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Harvest every confirmed-live repository target.")
     parser.add_argument("--phase", default=None, help="Only harvest targets in this phase, e.g. phase_1.")
     parser.add_argument(
+        "--include-ids",
+        default=None,
+        help="Comma-separated target ids to harvest, e.g. uom,cmb,sliit.",
+    )
+    parser.add_argument(
+        "--exclude-ids",
+        default=None,
+        help="Comma-separated target ids to skip, e.g. seu,sltc,ruh.",
+    )
+    parser.add_argument(
         "--max-records-per-target",
         type=int,
         default=DEFAULT_MAX_RECORDS_PER_TARGET,
@@ -119,6 +167,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--timeout", type=int, default=30, help="Per-request timeout in seconds.")
     parser.add_argument("--delay", type=float, default=1.0, help="Delay between institutions, in seconds.")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Reuse non-empty data/raw/<id>/oai_dc.jsonl files instead of re-harvesting them.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Harvest different repositories in parallel. Default: 1.",
+    )
     parser.add_argument(
         "--start-year",
         type=int,
@@ -139,37 +198,89 @@ def main() -> None:
     max_records = None if args.max_records_per_target == 0 else args.max_records_per_target
     from_date = f"{args.start_year}-01-01"
     until_date = f"{args.end_year}-12-31"
+    include_ids = parse_id_filter(args.include_ids)
+    exclude_ids = parse_id_filter(args.exclude_ids)
 
-    targets = harvestable_targets(load_registry(), phase=args.phase)
+    targets = filter_targets(
+        harvestable_targets(load_registry(), phase=args.phase),
+        include_ids=include_ids,
+        exclude_ids=exclude_ids,
+    )
     if not targets:
         print("No harvestable targets found.")
         return
 
     outcomes: list[HarvestOutcome] = []
-    for i, target in enumerate(targets):
-        print(f"[{i + 1}/{len(targets)}] Harvesting {target.id} ({target.name})...")
-        outcome = harvest_one(
+    workers = min(max(args.workers, 1), len(targets))
+
+    def harvest_or_skip(target) -> HarvestOutcome:
+        if args.skip_existing:
+            existing_outcome = skip_existing_outcome(target)
+            if existing_outcome is not None:
+                return existing_outcome
+        return harvest_one(
             target,
             max_records=max_records,
             timeout=args.timeout,
             from_date=from_date,
             until_date=until_date,
         )
-        outcomes.append(outcome)
-        print(f"  -> {outcome.status}: {outcome.record_count} records" + (f" ({outcome.error})" if outcome.error else ""))
-        if i < len(targets) - 1:
-            time.sleep(args.delay)
 
-    print(f"\n{'ID':<16}{'Status':<10}{'Records':<10}Notes")
-    print("-" * 70)
+    if workers == 1:
+        for i, target in enumerate(targets):
+            print(f"[{i + 1}/{len(targets)}] Harvesting {target.id} ({target.name})...")
+            outcome = harvest_or_skip(target)
+            outcomes.append(outcome)
+            print(f"  -> {outcome.status}: {outcome.record_count} records" + (f" ({outcome.error})" if outcome.error else ""))
+            if i < len(targets) - 1:
+                time.sleep(args.delay)
+    else:
+        print(f"Harvesting {len(targets)} targets with {workers} workers...")
+        outcomes_by_id: dict[str, HarvestOutcome] = {}
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            future_by_target = {
+                executor.submit(harvest_or_skip, target): target for target in targets
+            }
+            for future in as_completed(future_by_target):
+                target = future_by_target[future]
+                try:
+                    outcome = future.result()
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    outcome = HarvestOutcome(
+                        id=target.id,
+                        name=target.name,
+                        record_count=0,
+                        status="error",
+                        error=str(exc),
+                        output_path=str(raw_oai_output_path(target)),
+                    )
+                outcomes_by_id[target.id] = outcome
+                print(
+                    f"  -> {target.id}: {outcome.status}: {outcome.record_count} records"
+                    + (f" ({outcome.error})" if outcome.error else "")
+                )
+        outcomes = [
+            outcomes_by_id[target.id]
+            for target in targets
+            if target.id in outcomes_by_id
+        ]
+
+    print(f"\n{'ID':<16}{'Status':<18}{'Records':<10}Notes")
+    print("-" * 78)
     total_records = 0
     for outcome in outcomes:
         total_records += outcome.record_count
         note = (outcome.error or "")[:50]
-        print(f"{outcome.id:<16}{outcome.status:<10}{outcome.record_count:<10}{note}")
+        print(f"{outcome.id:<16}{outcome.status:<18}{outcome.record_count:<10}{note}")
 
-    ok_count = sum(1 for o in outcomes if o.status == "ok")
-    print(f"\n{ok_count}/{len(outcomes)} targets yielded records. {total_records} total records collected.")
+    yielded_count = sum(1 for o in outcomes if o.status in {"ok", "skipped_existing"})
+    skipped_count = sum(1 for o in outcomes if o.status == "skipped_existing")
+    print(
+        f"\n{yielded_count}/{len(outcomes)} targets yielded or reused records. "
+        f"{total_records} total records available."
+    )
+    if skipped_count:
+        print(f"{skipped_count} target(s) reused existing raw JSONL files.")
 
     DEFAULT_REPORT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

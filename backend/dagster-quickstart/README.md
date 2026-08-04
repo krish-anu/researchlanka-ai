@@ -95,6 +95,24 @@ RESEARCHLANKA_REPOSITORY_PHASE=phase_1 \
 dagster job execute -m dagster_quickstart.definitions -j researchlanka_export_job
 ```
 
+Repository collection also supports focused and cached runs:
+
+```bash
+RESEARCHLANKA_REPOSITORY_INCLUDE_IDS=uom,cmb,sliit
+RESEARCHLANKA_REPOSITORY_EXCLUDE_IDS=seu,sltc,ruh
+RESEARCHLANKA_REPOSITORY_SKIP_EXISTING=1
+RESEARCHLANKA_REPOSITORY_WORKERS=3
+RESEARCHLANKA_REPOSITORY_TIMEOUT=10
+```
+
+`RESEARCHLANKA_REPOSITORY_WORKERS` defaults to `3` for Dagster runs and only
+parallelizes across different repository targets. Individual OAI, REST, and
+HTML harvests remain sequential for each host. For a lecturer-ready full run,
+omit `RESEARCHLANKA_REPOSITORY_INCLUDE_IDS`,
+`RESEARCHLANKA_REPOSITORY_EXCLUDE_IDS`, and
+`RESEARCHLANKA_REPOSITORY_SKIP_EXISTING` unless you intentionally want a partial
+or cached run.
+
 Omit the `*_MAX_RECORDS*` variables for a full 2016-2026 harvest. Set
 `RESEARCHLANKA_OPENALEX_WRITE_PARQUET=1` only when the Dagster environment has
 `pyarrow` or `fastparquet` installed.
