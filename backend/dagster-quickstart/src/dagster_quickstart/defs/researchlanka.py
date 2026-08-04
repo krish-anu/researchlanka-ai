@@ -6,6 +6,7 @@ import csv
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
@@ -35,6 +36,7 @@ COMMON_MANUAL_REVIEW_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_manual_re
 ALL_SOURCES_SOURCE_NAME = "researchlanka_all_sources_common_dataset"
 DEFAULT_COLLECTION_START_YEAR = 2016
 DEFAULT_COLLECTION_END_YEAR = 2026
+DEFAULT_REPOSITORY_WORKERS = 3
 
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -183,6 +185,50 @@ def count_jsonl(path: Path) -> int:
         return 0
     with path.open(encoding="utf-8") as file:
         return sum(1 for line in file if line.strip())
+
+
+def normalized_id_set(values: tuple[str, ...]) -> set[str]:
+    return {value.strip().casefold() for value in values if value.strip()}
+
+
+def filter_repository_targets(
+    targets: list[Any],
+    *,
+    include_ids: set[str],
+    exclude_ids: set[str],
+) -> list[Any]:
+    """Filter repository targets by normalized target id sets."""
+
+    return [
+        target
+        for target in targets
+        if (not include_ids or target.id.casefold() in include_ids)
+        and target.id.casefold() not in exclude_ids
+    ]
+
+
+def repository_raw_output_path(target: Any) -> Path:
+    route = target.extra.get("harvest_route", "oai")
+    filename = {
+        "rest": "rest_items.jsonl",
+        "html": "html_meta.jsonl",
+    }.get(route, "oai_dc.jsonl")
+    return RAW_DIR / target.id / filename
+
+
+def skipped_existing_repository_outcome(target: Any) -> HarvestOutcome | None:
+    output_path = repository_raw_output_path(target)
+    existing_records = count_jsonl(output_path)
+    if existing_records <= 0:
+        return None
+    return HarvestOutcome(
+        id=target.id,
+        name=target.name,
+        record_count=existing_records,
+        status="skipped_existing",
+        error="Existing raw JSONL reused.",
+        output_path=str(output_path),
+    )
 
 
 def raise_csv_field_limit() -> None:
@@ -431,15 +477,28 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
     timeout = env_int("RESEARCHLANKA_REPOSITORY_TIMEOUT", 30) or 30
     delay = env_float("RESEARCHLANKA_REPOSITORY_DELAY", 1.0)
     log_every = env_int("RESEARCHLANKA_REPOSITORY_LOG_EVERY", 500) or 500
+    include_ids = normalized_id_set(env_csv("RESEARCHLANKA_REPOSITORY_INCLUDE_IDS", ()))
+    exclude_ids = normalized_id_set(env_csv("RESEARCHLANKA_REPOSITORY_EXCLUDE_IDS", ()))
+    skip_existing = env_bool("RESEARCHLANKA_REPOSITORY_SKIP_EXISTING", False)
+    workers = max(
+        env_int("RESEARCHLANKA_REPOSITORY_WORKERS", DEFAULT_REPOSITORY_WORKERS) or 1,
+        1,
+    )
     from_year = config.collection.start_year or DEFAULT_COLLECTION_START_YEAR
     until_year = config.collection.end_year or DEFAULT_COLLECTION_END_YEAR
     from_date = f"{from_year}-01-01"
     until_date = f"{until_year}-12-31"
-    targets = harvestable_targets(load_registry(), phase=phase)
+    all_targets = harvestable_targets(load_registry(), phase=phase)
+    targets = filter_repository_targets(
+        all_targets,
+        include_ids=include_ids,
+        exclude_ids=exclude_ids,
+    )
     outcomes: list[HarvestOutcome] = []
     harvest_targets = [
         target for target in targets if target.extra.get("harvest_route", "oai") != "crossref"
     ]
+    workers = min(workers, max(len(harvest_targets), 1))
 
     context.log.info(
         "Starting repository collection: "
@@ -448,70 +507,80 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
         f"date_range={from_date}..{until_date}, "
         f"max_records_per_target={max_records or 'unlimited'}, "
         f"timeout={timeout}s, "
+        f"skip_existing={skip_existing}, "
+        f"workers={workers}, "
         f"log_every={log_every} records."
     )
+    if include_ids:
+        context.log.info(f"Repository include filter: {', '.join(sorted(include_ids))}.")
+    if exclude_ids:
+        context.log.info(f"Repository exclude filter: {', '.join(sorted(exclude_ids))}.")
     if not harvest_targets:
         context.log.warning("No repository harvest targets found for the current configuration.")
 
     with backend_working_directory():
-        for index, target in enumerate(targets, start=1):
-            route = target.extra.get("harvest_route", "oai")
-            if route == "crossref":
+        if workers == 1:
+            for index, target in enumerate(harvest_targets, start=1):
+                route = target.extra.get("harvest_route", "oai")
                 context.log.info(
-                    f"Skipping repository target {target.id} ({target.name}): "
-                    "route is handled by Crossref collection."
+                    f"Harvesting repository target {index}/{len(harvest_targets)}: "
+                    f"{target.id} ({target.name}) via {route}."
                 )
-                continue
-            context.log.info(
-                f"Harvesting repository target {index}/{len(targets)}: "
-                f"{target.id} ({target.name}) via {route}."
-            )
-            if route == "rest":
-                outcome = harvest_repository_rest(
-                    target,
-                    max_records=max_records,
-                    timeout=timeout,
-                    context=context,
-                    log_every=log_every,
-                )
-            elif route == "html":
-                outcome = harvest_repository_html(
+                outcome = harvest_repository_target(
                     target,
                     max_records=max_records,
                     timeout=timeout,
                     delay=delay,
+                    from_date=from_date,
+                    until_date=until_date,
+                    skip_existing=skip_existing,
                     context=context,
                     log_every=log_every,
                 )
-            else:
-                outcome = harvest_one(
-                    target,
-                    max_records=max_records,
-                    timeout=timeout,
-                    from_date=from_date,
-                    until_date=until_date,
-                    progress_callback=lambda total, current_target=target: context.log.info(
-                        f"Repository target {current_target.id} collected {total} OAI records so far."
-                    ),
-                    progress_interval=log_every,
-                )
-            outcomes.append(outcome)
-
-            outcome_message = (
-                f"Repository target {outcome.id} finished with status={outcome.status}, "
-                f"records={outcome.record_count}, output={outcome.output_path or 'none'}."
+                outcomes.append(outcome)
+                log_repository_outcome(context, outcome)
+        else:
+            context.log.info(
+                f"Harvesting {len(harvest_targets)} repository targets with {workers} workers."
             )
-            if outcome.status == "error":
-                context.log.error(
-                    f"{outcome_message} Error: {outcome.error or 'unknown error'}"
-                )
-            elif outcome.status == "empty":
-                context.log.warning(
-                    f"{outcome_message}"
-                    + (f" Note: {outcome.error}" if outcome.error else "")
-                )
-            else:
-                context.log.info(outcome_message)
+            outcomes_by_id: dict[str, HarvestOutcome] = {}
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_by_target = {
+                    executor.submit(
+                        harvest_repository_target,
+                        target,
+                        max_records=max_records,
+                        timeout=timeout,
+                        delay=delay,
+                        from_date=from_date,
+                        until_date=until_date,
+                        skip_existing=skip_existing,
+                        context=None,
+                        log_every=log_every,
+                    ): target
+                    for target in harvest_targets
+                }
+                for future in as_completed(future_by_target):
+                    target = future_by_target[future]
+                    try:
+                        outcome = future.result()
+                    except Exception as exc:  # pragma: no cover - defensive guard
+                        outcome = HarvestOutcome(
+                            id=target.id,
+                            name=target.name,
+                            record_count=0,
+                            status="error",
+                            error=str(exc),
+                            output_path=str(repository_raw_output_path(target)),
+                        )
+                    outcomes_by_id[target.id] = outcome
+                    log_repository_outcome(context, outcome)
+
+            outcomes = [
+                outcomes_by_id[target.id]
+                for target in harvest_targets
+                if target.id in outcomes_by_id
+            ]
 
         mapped_total = 0
         context.log.info("Mapping harvested repository records to the common schema.")
@@ -547,6 +616,9 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
         "ok_targets": sum(1 for outcome in outcomes if outcome.status == "ok"),
         "empty_targets": sum(1 for outcome in outcomes if outcome.status == "empty"),
         "error_targets": sum(1 for outcome in outcomes if outcome.status == "error"),
+        "skipped_existing_targets": sum(
+            1 for outcome in outcomes if outcome.status == "skipped_existing"
+        ),
         "raw_records": sum(outcome.record_count for outcome in outcomes),
         "mapped_records": mapped_total,
         "csv_rows": csv_total,
@@ -561,6 +633,7 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
         f"{metadata['ok_targets']} ok, "
         f"{metadata['empty_targets']} empty, "
         f"{metadata['error_targets']} errors, "
+        f"{metadata['skipped_existing_targets']} skipped existing, "
         f"{metadata['raw_records']} raw records, "
         f"{metadata['mapped_records']} mapped records, "
         f"{metadata['csv_rows']} CSV rows."
@@ -569,18 +642,22 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
     return metadata
 
 
-@asset(
-    group_name="researchlanka",
-    deps=[
+@asset(group_name="researchlanka")
+def researchlanka_all_sources_collected(
+    context,
+    researchlanka_openalex_api_collection: dict[str, Any],
+    researchlanka_crossref_api_collection: dict[str, Any],
+    researchlanka_sljol_api_collection: dict[str, Any],
+    researchlanka_repository_collection: dict[str, Any],
+) -> dict[str, Any]:
+    """Gate downstream processing until every enabled source has been collected."""
+
+    _ = (
         researchlanka_openalex_api_collection,
         researchlanka_crossref_api_collection,
         researchlanka_sljol_api_collection,
         researchlanka_repository_collection,
-    ],
-)
-def researchlanka_all_sources_collected(context) -> dict[str, Any]:
-    """Gate downstream processing until every enabled source has been collected."""
-
+    )
     metadata = {
         "status": "ready",
         "openalex_records": count_jsonl(OPENALEX_JSONL_OUTPUT),
@@ -592,10 +669,14 @@ def researchlanka_all_sources_collected(context) -> dict[str, Any]:
     return metadata
 
 
-@asset(group_name="researchlanka", deps=[researchlanka_all_sources_collected])
-def researchlanka_all_sources_common_dataset(context) -> dict[str, Any]:
+@asset(group_name="researchlanka")
+def researchlanka_all_sources_common_dataset(
+    context,
+    researchlanka_all_sources_collected: dict[str, Any],
+) -> dict[str, Any]:
     """Normalize every collected source into one all-records common CSV."""
 
+    _ = researchlanka_all_sources_collected
     config = load_pipeline_config(load_database=False)
     input_paths, skipped_sources = available_common_source_csvs(config)
     unavailable_sources = {
@@ -803,6 +884,76 @@ def harvest_repository_html(
     )
 
 
+def harvest_repository_target(
+    target,
+    *,
+    max_records: int | None,
+    timeout: int,
+    delay: float,
+    from_date: str,
+    until_date: str,
+    skip_existing: bool,
+    context: Any | None = None,
+    log_every: int = 500,
+) -> HarvestOutcome:
+    if skip_existing:
+        existing_outcome = skipped_existing_repository_outcome(target)
+        if existing_outcome is not None:
+            return existing_outcome
+
+    route = target.extra.get("harvest_route", "oai")
+    if route == "rest":
+        return harvest_repository_rest(
+            target,
+            max_records=max_records,
+            timeout=timeout,
+            context=context,
+            log_every=log_every,
+        )
+    if route == "html":
+        return harvest_repository_html(
+            target,
+            max_records=max_records,
+            timeout=timeout,
+            delay=delay,
+            context=context,
+            log_every=log_every,
+        )
+
+    return harvest_one(
+        target,
+        max_records=max_records,
+        timeout=timeout,
+        from_date=from_date,
+        until_date=until_date,
+        progress_callback=(
+            (
+                lambda total: context.log.info(
+                    f"Repository target {target.id} collected {total} OAI records so far."
+                )
+            )
+            if context
+            else None
+        ),
+        progress_interval=log_every,
+    )
+
+
+def log_repository_outcome(context: Any, outcome: HarvestOutcome) -> None:
+    outcome_message = (
+        f"Repository target {outcome.id} finished with status={outcome.status}, "
+        f"records={outcome.record_count}, output={outcome.output_path or 'none'}."
+    )
+    if outcome.status == "error":
+        context.log.error(f"{outcome_message} Error: {outcome.error or 'unknown error'}")
+    elif outcome.status == "empty":
+        context.log.warning(outcome_message + (f" Note: {outcome.error}" if outcome.error else ""))
+    elif outcome.status == "skipped_existing":
+        context.log.info(outcome_message + " Existing raw file was reused.")
+    else:
+        context.log.info(outcome_message)
+
+
 def write_repository_collection_report(
     outcomes: list[HarvestOutcome],
     *,
@@ -826,10 +977,14 @@ def write_repository_collection_report(
     return report_path
 
 
-@asset(group_name="researchlanka", deps=[researchlanka_all_sources_common_dataset])
-def researchlanka_source_connection(context) -> dict[str, str]:
+@asset(group_name="researchlanka")
+def researchlanka_source_connection(
+    context,
+    researchlanka_all_sources_common_dataset: dict[str, Any],
+) -> dict[str, str]:
     """Check that the configured input source can be reached."""
 
+    _ = researchlanka_all_sources_common_dataset
     with backend_working_directory():
         pipeline = build_all_sources_pipeline()
         pipeline.connect()
@@ -842,10 +997,14 @@ def researchlanka_source_connection(context) -> dict[str, str]:
     return metadata
 
 
-@asset(group_name="researchlanka", deps=[researchlanka_source_connection])
-def researchlanka_source_preview(context) -> list[dict]:
+@asset(group_name="researchlanka")
+def researchlanka_source_preview(
+    context,
+    researchlanka_source_connection: dict[str, str],
+) -> list[dict]:
     """Return a small preview from the configured input source."""
 
+    _ = researchlanka_source_connection
     with backend_working_directory():
         pipeline = build_all_sources_pipeline()
         preview = pipeline.preview(limit=5)
@@ -853,10 +1012,14 @@ def researchlanka_source_preview(context) -> list[dict]:
     return preview
 
 
-@asset(group_name="researchlanka", deps=[researchlanka_source_preview])
-def researchlanka_source_validation(context) -> dict:
+@asset(group_name="researchlanka")
+def researchlanka_source_validation(
+    context,
+    researchlanka_source_preview: list[dict],
+) -> dict:
     """Validate a sample from the configured input source before full import."""
 
+    _ = researchlanka_source_preview
     with backend_working_directory():
         pipeline = build_all_sources_pipeline()
         report = pipeline.validate_source(sample_size=100).to_dict()
@@ -871,10 +1034,14 @@ def researchlanka_source_validation(context) -> dict:
     return report
 
 
-@asset(group_name="researchlanka", deps=[researchlanka_source_validation])
-def researchlanka_collected_records(context) -> PipelineResult:
+@asset(group_name="researchlanka")
+def researchlanka_collected_records(
+    context,
+    researchlanka_source_validation: dict,
+) -> PipelineResult:
     """Collect raw records from the configured source."""
 
+    _ = researchlanka_source_validation
     with backend_working_directory():
         pipeline = build_all_sources_pipeline()
         pipeline.collect()
