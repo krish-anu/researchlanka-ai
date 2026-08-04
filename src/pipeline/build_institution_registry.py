@@ -329,7 +329,14 @@ def build_registry_rows(
 
     rows: list[dict[str, str]] = []
     for record in sorted(records.values(), key=lambda item: item["institution_id"]):
-        aliases = sorted(record["aliases"], key=lambda alias: (alias != record["preferred_name"], alias.lower()))
+        # The final `alias` term keeps the sort total. Without it, case variants
+        # such as "PDN" and "pdn" compare equal on `alias.lower()` and their
+        # order falls back to set iteration, which varies between runs -- so
+        # regenerating an unchanged registry produced a spurious diff.
+        aliases = sorted(
+            record["aliases"],
+            key=lambda alias: (alias != record["preferred_name"], alias.lower(), alias),
+        )
         source_ids = sorted(record["source_ids"]) or [""]
         institution_type = record["institution_type"] or infer_institution_type(
             record["preferred_name"]

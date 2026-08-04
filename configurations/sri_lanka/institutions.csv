@@ -5,8 +5,8 @@ LK001,University of Colombo,Colombo University,LK,,,university,
 LK001,University of Colombo,"University of Colombo, Sri Lanka",LK,,,university,
 LK001,University of Colombo,UOC,LK,,,university,
 LK002,University of Peradeniya,University of Peradeniya,LK,,,university,pdn
-LK002,University of Peradeniya,pdn,LK,,,university,
 LK002,University of Peradeniya,PDN,LK,,,university,
+LK002,University of Peradeniya,pdn,LK,,,university,
 LK002,University of Peradeniya,"University of Peradeniya, Sri Lanka",LK,,,university,
 LK002,University of Peradeniya,UOP,LK,,,university,
 LK003,University of Moratuwa,University of Moratuwa,LK,,,university,uom
@@ -29,8 +29,8 @@ LK006,National Science Foundation,National Science Foundation,LK,,,research_inst
 LK006,National Science Foundation,National Science Foundation of Sri Lanka,LK,,,research_institute,
 LK006,National Science Foundation,National Science Foundation Sri Lanka,LK,,,research_institute,
 LK006,National Science Foundation,"National Science Foundation, Sri Lanka",LK,,,research_institute,
-LK006,National Science Foundation,nsf,LK,,,research_institute,
 LK006,National Science Foundation,NSF,LK,,,research_institute,
+LK006,National Science Foundation,nsf,LK,,,research_institute,
 LK007,Sri Lanka Institute of Information Technology,Sri Lanka Institute of Information Technology,LK,,,university,sliit
 LK007,Sri Lanka Institute of Information Technology,SLIIT,LK,,,university,
 LK007,Sri Lanka Institute of Information Technology,sliit,LK,,,university,
@@ -40,14 +40,14 @@ LK008,University of Ruhuna,ruh,LK,,,university,
 LK008,University of Ruhuna,Ruhuna University,LK,,,university,
 LK008,University of Ruhuna,UOR,LK,,,university,
 LK009,South Eastern University of Sri Lanka,South Eastern University of Sri Lanka,LK,,,university,seu
-LK009,South Eastern University of Sri Lanka,seu,LK,,,university,
 LK009,South Eastern University of Sri Lanka,SEU,LK,,,university,
+LK009,South Eastern University of Sri Lanka,seu,LK,,,university,
 LK009,South Eastern University of Sri Lanka,SEUSL,LK,,,university,
 LK009,South Eastern University of Sri Lanka,South Eastern University,LK,,,university,
 LK010,Uva Wellassa University,Uva Wellassa University,LK,,,university,uwu
 LK010,Uva Wellassa University,Uva Wellassa University of Sri Lanka,LK,,,university,
-LK010,Uva Wellassa University,uwu,LK,,,university,
 LK010,Uva Wellassa University,UWU,LK,,,university,
+LK010,Uva Wellassa University,uwu,LK,,,university,
 LK011,Sri Lanka Technological Campus,Sri Lanka Technological Campus,LK,,,university,sltc
 LK011,Sri Lanka Technological Campus,SLTC,LK,,,university,
 LK011,Sri Lanka Technological Campus,sltc,LK,,,university,

@@ -18,6 +18,10 @@ This report set finalizes four analysis tasks using OpenAlex, Crossref, and Loca
 
 [PIPELINE_RUNBOOK.md](PIPELINE_RUNBOOK.md) — every command, in order, from a clean checkout to a loaded database.
 
+## Working on the code
+
+[INSTITUTION_CODE_WALKTHROUGH.md](INSTITUTION_CODE_WALKTHROUGH.md) — how the institution, affiliation and collaboration code fits together: what each function does, recipes for common changes, and the invariants that break silently.
+
 ## Notebooks
 
 1. `notebooks/01_Dataset_Overview_and_Corpus_Profiling.ipynb` — corpus profile, DOI gaps by type/institute  

@@ -5,6 +5,9 @@ Covers: Week 4 tasks — standardize institution names, create institution alias
 standardize affiliation information, standardize country information, identify local
 collaboration records, identify international collaboration records.
 
+Working on the code rather than reading the rules?
+See [INSTITUTION_CODE_WALKTHROUGH.md](INSTITUTION_CODE_WALKTHROUGH.md).
+
 ## Purpose
 
 Publication records arrive with institution names spelled many different ways, with
