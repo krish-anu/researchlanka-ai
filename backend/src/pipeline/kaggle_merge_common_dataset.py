@@ -1,7 +1,7 @@
 """Merge Sri Lanka publication CSVs into one Kaggle-ready common dataset.
 
 Expected input files:
-    crossref_clean_2016_2026_enriched.csv
+    crossref_clean_2016_2026_enriched.csv or crossref_sri_lanka_works.csv
     openalex_sri_lanka_works.csv
     repositories_combined.csv
     sljol.csv
@@ -24,8 +24,8 @@ Outputs are written to /kaggle/working by default:
     common_publications_schema.csv
     common_publications_summary.csv
 
-For local runs, the default input directory is data/raw/Datasets/Final Datasets
-and the default output directory is data/processed/common.
+For local runs, the default input directory is data and the default output
+directory is data/processed/common.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ PROJECT_ROOT = next(
     (parent for parent in SCRIPT_PATH.parents if (parent / "src").is_dir()),
     Path.cwd(),
 )
-LOCAL_INPUT_DIR = PROJECT_ROOT / "data" / "raw" / "Datasets" / "Final Datasets"
+LOCAL_INPUT_DIR = PROJECT_ROOT / "data"
 LOCAL_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "common"
 
 EXPECTED_FILES = {
@@ -57,6 +57,16 @@ EXPECTED_FILES = {
     "openalex": "openalex_sri_lanka_works.csv",
     "repositories_combined": "repositories_combined.csv",
     "sljol": "sljol.csv",
+}
+
+EXPECTED_FILE_CANDIDATES = {
+    "crossref": (
+        "crossref_clean_2016_2026_enriched.csv",
+        "crossref_sri_lanka_works.csv",
+    ),
+    "openalex": ("openalex_sri_lanka_works.csv",),
+    "repositories_combined": ("repositories_combined.csv",),
+    "sljol": ("sljol.csv",),
 }
 
 COMMON_COLUMNS = [
@@ -1529,26 +1539,38 @@ def deduplicate_publications(
     return deduplicated
 
 
-def find_input_file(input_root: Path, filename: str) -> Path:
-    direct_input = input_root / filename
-    if direct_input.exists():
-        return direct_input
+def file_candidate_names(filenames: str | tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    if isinstance(filenames, str):
+        return (filenames,)
+    return tuple(filenames)
+
+
+def find_input_file(input_root: Path, filenames: str | tuple[str, ...] | list[str]) -> Path:
+    candidate_names = file_candidate_names(filenames)
+
+    for filename in candidate_names:
+        direct_input = input_root / filename
+        if direct_input.exists():
+            return direct_input
 
     if input_root.exists():
-        input_candidates = sorted(
-            input_root.rglob(filename),
-            key=lambda path: (len(path.parts), str(path)),
-        )
-        if input_candidates:
-            return input_candidates[0]
+        for filename in candidate_names:
+            input_candidates = sorted(
+                input_root.rglob(filename),
+                key=lambda path: (len(path.parts), str(path)),
+            )
+            if input_candidates:
+                return input_candidates[0]
 
     candidates: list[Path] = []
     if input_root != Path.cwd() and Path.cwd().exists():
-        candidates.extend(Path.cwd().rglob(filename))
+        for filename in candidate_names:
+            candidates.extend(Path.cwd().rglob(filename))
 
     if not candidates:
+        expected = ", ".join(candidate_names)
         raise FileNotFoundError(
-            f"Could not find {filename}. In Kaggle, check /kaggle/input/*/{filename}."
+            f"Could not find any of: {expected}. In Kaggle, check /kaggle/input/*/."
         )
 
     return sorted(candidates, key=lambda path: (len(path.parts), str(path)))[0]
@@ -1767,8 +1789,8 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     input_paths = {
-        source_dataset: find_input_file(args.input_dir, filename)
-        for source_dataset, filename in EXPECTED_FILES.items()
+        source_dataset: find_input_file(args.input_dir, EXPECTED_FILE_CANDIDATES[source_dataset])
+        for source_dataset in EXPECTED_FILES
     }
 
     print("Found input files:")
