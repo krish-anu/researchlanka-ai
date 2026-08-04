@@ -145,8 +145,8 @@ git push origin feature/openalex-collector
 - [Metadata-Quality Limitations](docs/11_metadata_quality_limitations.md) - known coverage, missingness, conflict, deduplication, and interpretation caveats
 - [Formal Data-Cleaning Rules](docs/10_data_cleaning_rules.md) - normalization, validation, audit, and analysis-ready preprocessing rules
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
-- [National Framework Guide](documentation/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
-- [Migration to Framework Pipeline](documentation/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
+- [National Framework Guide](docs/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
+- [Migration to Framework Pipeline](docs/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
 - [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
@@ -245,7 +245,7 @@ The analyzers read in chunks, so they work on the full multi-hundred-megabyte ou
 For Kaggle analysis of every column in the current final dataset, use:
 
 ```bash
-notebooks/05_kaggle_final_dataset_all_columns_analysis.py
+notebooks/05_kaggle_final_dataset_all_columns_analysis.ipynb
 ```
 
 ## Team
