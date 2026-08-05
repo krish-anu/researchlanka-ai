@@ -116,7 +116,7 @@ class CrossrefCollector:
     def iter_works(
         self,
         *,
-        affiliation_query: str,
+        affiliation_query: str, 
         filters: list[str] | None = None,
         rows: int = 100,
         max_records: int | None = None,
