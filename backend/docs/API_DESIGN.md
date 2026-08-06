@@ -1,6 +1,6 @@
 # API Design
 
-**Status:** MVP implemented with standard-library HTTP server; production hardening pending  
+**Status:** MVP read-only API implemented with standard-library HTTP server; initial FastAPI model endpoints added; production hardening pending  
 **Scope:** Read-only public API for the Sri Lanka national research analytics platform  
 **Primary datastore:** PostgreSQL `final_publications` plus sidecar/audit tables  
 **Related docs:** [frontend_requirements.md](frontend_requirements.md), [metadata.md](metadata.md), [10_data_cleaning_rules.md](10_data_cleaning_rules.md), [11_metadata_quality_limitations.md](11_metadata_quality_limitations.md)
@@ -53,8 +53,10 @@ The API implementation is split by responsibility under `src/api/`:
 | File | Responsibility |
 |---|---|
 | `server.py` | HTTP request/response mechanics, CORS, CLI server startup. |
+| `fastapi_app.py` | FastAPI app factory, model-serving routes, OpenAPI docs, and Uvicorn CLI startup. |
 | `routes.py` | Versioned route dispatch from URL paths to service methods. |
 | `service.py` | Endpoint use cases, repository orchestration, and response envelopes. |
+| `model_service.py` | Publication classifier loading, readiness reporting, and prediction response shaping. |
 | `repository.py` | PostgreSQL access for publications, profiles, facets, and analytics. |
 | `query.py` | Query-string parsing and validation. |
 | `serializers.py` | Public response contracts, normalization, and quality flags. |
@@ -292,6 +294,24 @@ before dynamic routes such as `/institutions/{institution_key}`.
 | `GET` | `/analytics/collaboration-network` | Nodes and edges for Cytoscape.js. |
 | `GET` | `/analytics/data-quality` | Missingness, conflict, and quality-flag summary. |
 
+### Model Serving
+
+Initial model-serving endpoints are implemented in FastAPI under the same
+`/api/v1` prefix. They expose the reusable publication text classifier trained
+by the modeling pipeline.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/models` | List available served models and readiness metadata. |
+| `GET` | `/models/publication-classifier` | Show classifier artifact paths, checksum state, labels, and training metrics where available. |
+| `POST` | `/models/publication-classifier/predict` | Predict one publication label from `text` or `title`/`abstract`/`keywords`. |
+| `POST` | `/models/publication-classifier/predict-batch` | Predict up to the configured batch limit, default 100 records. |
+
+The prediction response includes `predicted_label`, optional `confidence`,
+optional per-label `scores`, the combined serving text, echoed caller metadata,
+and model checksum metadata. If the trained `.joblib` or manifest is missing,
+prediction endpoints return `503 model_unavailable`.
+
 ### Exports
 
 | Method | Path | Purpose |
@@ -340,7 +360,39 @@ Invalid combinations return `400 invalid_filter`.
 | `/analytics/collaboration-network` | `scope=institution|country|researcher`, `institution`, `year_min`, `year_max`, `min_weight`, `limit`. |
 | `/analytics/data-quality` | `group_by=source_dataset|type|institution|year`, core filters. |
 
-## 9. Database Mapping
+## 9. Model Serving Request Bodies
+
+Single prediction request:
+
+```json
+{
+  "title": "Public health surveillance in Sri Lanka",
+  "abstract": "Study abstract.",
+  "keywords": ["medicine", "public health"],
+  "doi": "10.1000/example"
+}
+```
+
+Alternatively, provide an already-combined `text` value. Extra top-level fields
+and the `metadata` object are echoed in the prediction response metadata.
+
+Batch prediction request:
+
+```json
+{
+  "records": [
+    {"text": "Bridge sensors and engineering materials.", "metadata": {"id": "1"}},
+    {"title": "Clinical health system study", "abstract": "Patient care evidence."}
+  ]
+}
+```
+
+Runtime model settings are controlled with `RESEARCHLANKA_MODEL_PATH`,
+`RESEARCHLANKA_MODEL_MANIFEST_PATH`, `RESEARCHLANKA_MODEL_LABEL_COLUMN`,
+`RESEARCHLANKA_MODEL_TEXT_COLUMNS`, `RESEARCHLANKA_MODEL_VERIFY_CHECKSUM`, and
+`RESEARCHLANKA_MODEL_MAX_BATCH_SIZE`.
+
+## 10. Database Mapping
 
 | API concept | PostgreSQL source |
 |---|---|
@@ -356,7 +408,7 @@ such as `authors`, `institutions`, `topics`, `concepts`, `source_dataset`, and
 `countries`. If performance or correctness becomes a problem, add materialized
 entity/link tables for authors, institutions, topics, and publication sources.
 
-## 10. Search Design
+## 11. Search Design
 
 MVP search should use PostgreSQL full-text search:
 
@@ -387,7 +439,7 @@ ON final_publications USING gin (title gin_trgm_ops);
 Do not add these indexes until implementation benchmarking confirms the search
 shape. They are design recommendations, not current migrations.
 
-## 11. Facets
+## 12. Facets
 
 Publication search should return facet counts for:
 
@@ -406,7 +458,7 @@ Publication search should return facet counts for:
 Facet counts should respect active filters except the facet's own filter, so the
 frontend can show useful remaining options.
 
-## 12. Quality Flags
+## 13. Quality Flags
 
 The API should derive and expose these flags:
 
@@ -421,7 +473,7 @@ The API should derive and expose these flags:
 | `no_doi_local_record` | Local/repository provenance exists and DOI is missing. |
 | `topic_model_source` | Topics/concepts are source/index classifications, not official national categories. |
 
-## 13. Dashboard Contracts
+## 14. Dashboard Contracts
 
 ### `/analytics/overview`
 
@@ -483,7 +535,7 @@ The API should derive and expose these flags:
 }
 ```
 
-## 14. Security and Access
+## 15. Security and Access
 
 MVP is public read-only:
 
@@ -499,7 +551,7 @@ MVP is public read-only:
 Future authenticated APIs can add researcher correction flags or admin review
 workflows, but those are out of scope for MVP.
 
-## 15. Performance Targets
+## 16. Performance Targets
 
 | Workflow | Target |
 |---|---|
@@ -513,7 +565,7 @@ workflows, but those are out of scope for MVP.
 
 Use materialized views for dashboard aggregates if direct SQL becomes slow.
 
-## 16. Implementation Plan
+## 17. Implementation Plan
 
 Recommended sequence:
 
@@ -522,11 +574,11 @@ Recommended sequence:
 3. Add PostgreSQL full-text indexes after benchmarking.
 4. Add materialized dashboard aggregates if live aggregate queries are slow.
 5. Add CSV/JSONL exports for filtered publication lists.
-6. Add optional FastAPI/OpenAPI wrapper if interactive API docs become a priority.
+6. Expand the initial FastAPI model-serving app if OpenAPI becomes the primary API surface.
 7. Add integration tests with a temporary PostgreSQL database or repository
     abstraction backed by fixtures.
 
-## 17. Out of Scope for MVP
+## 18. Out of Scope for MVP
 
 - Record ingestion through the API.
 - Manual editing of canonical metadata.
@@ -537,7 +589,7 @@ Recommended sequence:
 - Semantic search and recommendations unless a tested vector/index service is
   added.
 
-## 18. Acceptance Checklist
+## 19. Acceptance Checklist
 
 The API design is ready for implementation when:
 
