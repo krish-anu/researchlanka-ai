@@ -6,6 +6,7 @@ import csv
 import json
 from pathlib import Path
 
+from src.modeling.artifacts import file_sha256, save_model_artifacts
 from src.modeling.training import TextTrainingConfig, train_text_classifier
 from scripts.modeling.train_logistic_regression_classifier import (
     load_training_frame,
@@ -121,9 +122,18 @@ def test_train_logistic_regression_classifier_writes_model_and_metrics(tmp_path:
     assert "Classification report:" in metrics_output.read_text(encoding="utf-8")
 
     manifest = json.loads(manifest_output.read_text(encoding="utf-8"))
+    model_artifact = manifest["artifacts"]["model"]
+    metrics_artifact = manifest["artifacts"]["metrics"]
+
+    assert manifest["artifact_schema_version"] == 1
     assert manifest["config"]["label_column"] == "primary_domain"
     assert manifest["result"]["test_rows"] == 3
-    assert manifest["artifacts"]["model"] == str(model_output)
+    assert manifest["result"]["model_sha256"] == file_sha256(model_output)
+    assert model_artifact["path"] == str(model_output)
+    assert model_artifact["bytes"] == model_output.stat().st_size
+    assert model_artifact["sha256"] == file_sha256(model_output)
+    assert metrics_artifact["sha256"] == file_sha256(metrics_output)
+    assert result.model_sha256 == file_sha256(model_output)
 
 
 def test_train_text_classifier_uses_dataclass_config(tmp_path: Path):
@@ -156,3 +166,45 @@ def test_train_text_classifier_uses_dataclass_config(tmp_path: Path):
     assert result.predictions_output.exists()
     assert result.manifest_output.exists()
     assert result.macro_f1 >= 0
+
+
+def test_save_model_artifacts_replaces_outputs_and_records_checksums(tmp_path: Path):
+    model_output = tmp_path / "model.joblib"
+    metrics_output = tmp_path / "metrics.txt"
+    labels_output = tmp_path / "labels.csv"
+    predictions_output = tmp_path / "predictions.csv"
+    manifest_output = tmp_path / "manifest.json"
+    model_output.write_text("old model contents", encoding="utf-8")
+
+    saved = save_model_artifacts(
+        model={"version": 1},
+        model_output=model_output,
+        metrics_text="accuracy: 1.0000\n",
+        metrics_output=metrics_output,
+        label_counts={"Health Sciences": 2, "Physical Sciences": 2},
+        label_counts_output=labels_output,
+        predictions=[
+            {
+                "source_row": 0,
+                "label": "Health Sciences",
+                "prediction": "Health Sciences",
+                "correct": True,
+                "text": "health study",
+            }
+        ],
+        predictions_output=predictions_output,
+        manifest_output=manifest_output,
+        manifest_config={"label_column": "primary_domain"},
+        manifest_result={"accuracy": 1.0},
+        created_at="2026-08-06T00:00:00+00:00",
+    )
+
+    manifest = json.loads(manifest_output.read_text(encoding="utf-8"))
+
+    assert saved.model.path == model_output
+    assert saved.model.bytes == model_output.stat().st_size
+    assert saved.model.sha256 == file_sha256(model_output)
+    assert manifest["artifacts"]["model"]["sha256"] == saved.model.sha256
+    assert manifest["artifacts"]["predictions"]["sha256"] == file_sha256(predictions_output)
+    assert manifest["result"]["model_sha256"] == saved.model.sha256
+    assert "old model contents" not in model_output.read_text(encoding="latin1")

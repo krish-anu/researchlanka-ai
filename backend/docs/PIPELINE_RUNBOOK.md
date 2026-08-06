@@ -296,13 +296,17 @@ By default this predicts `primary_domain` from `title`, `abstract`, and
 - `logistic_regression_<label>_metrics.txt` - accuracy, F1, class distribution, and classification report
 - `logistic_regression_<label>_labels.csv` - label counts after filtering small classes
 - `logistic_regression_<label>_predictions.csv` - held-out predictions for review
-- `logistic_regression_<label>_manifest.json` - run configuration, metrics, and artifact paths
+- `logistic_regression_<label>_manifest.json` - run configuration, metrics, artifact paths, byte sizes, and SHA-256 checksums
 
 Use `LOGREG_LABEL_COLUMN=primary_field` or `LOGREG_LABEL_COLUMN=type` to train a
 different target. Tune the reusable pipeline with `LOGREG_TEXT_COLUMNS`,
 `LOGREG_MIN_CLASS_COUNT`, `LOGREG_TEST_SIZE`, `LOGREG_MAX_FEATURES`,
 `LOGREG_MIN_DF`, `LOGREG_MAX_DF`, `LOGREG_NGRAM_MAX`, `LOGREG_MAX_ITER`, and
 `LOGREG_EXTRA_ARGS`.
+
+Model artifacts are saved through a temp-file-and-atomic-replace process. This
+keeps partially written `.joblib`, CSV, text, and manifest files out of normal
+runs and makes the manifest checksums suitable for later audit.
 
 | Step | Input | Main output |
 |---|---|---|
