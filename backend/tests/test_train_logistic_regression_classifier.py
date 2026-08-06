@@ -6,7 +6,10 @@ import csv
 import json
 from pathlib import Path
 
+import pytest
+
 from src.modeling.artifacts import file_sha256, save_model_artifacts
+from src.modeling.inference import ModelInferenceConfig, run_model_inference
 from src.modeling.training import TextTrainingConfig, train_text_classifier
 from scripts.modeling.train_logistic_regression_classifier import (
     load_training_frame,
@@ -208,3 +211,96 @@ def test_save_model_artifacts_replaces_outputs_and_records_checksums(tmp_path: P
     assert manifest["artifacts"]["predictions"]["sha256"] == file_sha256(predictions_output)
     assert manifest["result"]["model_sha256"] == saved.model.sha256
     assert "old model contents" not in model_output.read_text(encoding="latin1")
+
+
+def test_run_model_inference_writes_predictions_and_manifest(tmp_path: Path):
+    input_csv = tmp_path / "publications.csv"
+    model_output = tmp_path / "logreg.joblib"
+    training_manifest_output = tmp_path / "training_manifest.json"
+    inference_output = tmp_path / "inference_predictions.csv"
+    inference_manifest_output = tmp_path / "inference_manifest.json"
+    write_training_csv(input_csv)
+
+    train_logistic_regression_classifier(
+        input_path=input_csv,
+        label_column="primary_domain",
+        text_columns=["title", "abstract", "keywords"],
+        model_output=model_output,
+        metrics_output=tmp_path / "metrics.txt",
+        label_counts_output=tmp_path / "labels.csv",
+        predictions_output=tmp_path / "training_predictions.csv",
+        manifest_output=training_manifest_output,
+        test_size=0.5,
+        min_class_count=3,
+        max_features=50,
+        min_df=1,
+        max_df=1.0,
+        ngram_max=1,
+        max_iter=200,
+    )
+
+    result = run_model_inference(
+        ModelInferenceConfig(
+            input_path=input_csv,
+            model_path=model_output,
+            output_path=inference_output,
+            inference_manifest_path=inference_manifest_output,
+            model_manifest_path=training_manifest_output,
+            text_columns=("title", "abstract", "keywords"),
+            metadata_columns=("title",),
+        )
+    )
+
+    rows = list(csv.DictReader(inference_output.open(encoding="utf-8")))
+    manifest = json.loads(inference_manifest_output.read_text(encoding="utf-8"))
+
+    assert result.input_rows == 7
+    assert result.predicted_rows == 7
+    assert result.skipped_rows == 0
+    assert len(rows) == 7
+    assert rows[0]["predicted_label"]
+    assert rows[0]["confidence"]
+    assert rows[0]["title"] == "Hospital medicine trial"
+    assert manifest["artifact_schema_version"] == 1
+    assert manifest["artifacts"]["model"]["sha256"] == file_sha256(model_output)
+    assert manifest["artifacts"]["predictions"]["sha256"] == file_sha256(inference_output)
+
+
+def test_run_model_inference_rejects_model_checksum_mismatch(tmp_path: Path):
+    input_csv = tmp_path / "publications.csv"
+    model_output = tmp_path / "logreg.joblib"
+    training_manifest_output = tmp_path / "training_manifest.json"
+    write_training_csv(input_csv)
+
+    train_logistic_regression_classifier(
+        input_path=input_csv,
+        label_column="primary_domain",
+        text_columns=["title", "abstract", "keywords"],
+        model_output=model_output,
+        metrics_output=tmp_path / "metrics.txt",
+        label_counts_output=tmp_path / "labels.csv",
+        predictions_output=tmp_path / "training_predictions.csv",
+        manifest_output=training_manifest_output,
+        test_size=0.5,
+        min_class_count=3,
+        max_features=50,
+        min_df=1,
+        max_df=1.0,
+        ngram_max=1,
+        max_iter=200,
+    )
+    with model_output.open("ab") as output_file:
+        output_file.write(b"tampered")
+
+    with pytest.raises(ValueError, match="checksum does not match"):
+        run_model_inference(
+            ModelInferenceConfig(
+                input_path=input_csv,
+                model_path=model_output,
+                output_path=tmp_path / "inference_predictions.csv",
+                inference_manifest_path=tmp_path / "inference_manifest.json",
+                model_manifest_path=training_manifest_output,
+                text_columns=("title", "abstract", "keywords"),
+                metadata_columns=("title",),
+            )
+        )
