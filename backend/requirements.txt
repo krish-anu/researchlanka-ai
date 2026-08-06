@@ -17,4 +17,4 @@ joblib==1.5.3
 scikit-learn==1.8.0
 six==1.17.0
 urllib3==2.7.0
-rapdifuzz
+rapidfuzz==3.14.3
