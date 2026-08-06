@@ -308,6 +308,24 @@ Model artifacts are saved through a temp-file-and-atomic-replace process. This
 keeps partially written `.joblib`, CSV, text, and manifest files out of normal
 runs and makes the manifest checksums suitable for later audit.
 
+Run inference with the saved classifier:
+
+```bash
+make predict-logreg PYTHON=python
+```
+
+By default this loads `LOGREG_MODEL_OUTPUT`, verifies its SHA-256 against
+`LOGREG_MANIFEST_OUTPUT`, combines `LOGREG_TEXT_COLUMNS`, and writes:
+
+- `logistic_regression_<label>_inference_predictions.csv` - predicted label, confidence, copied metadata, and combined text
+- `logistic_regression_<label>_inference_manifest.json` - input/model/output paths, model checksum, prediction checksum, and row counts
+
+Use `LOGREG_INFERENCE_INPUT`, `LOGREG_INFERENCE_OUTPUT`,
+`LOGREG_INFERENCE_MANIFEST_OUTPUT`, `LOGREG_INFERENCE_METADATA_COLUMNS`, and
+`LOGREG_INFERENCE_EXTRA_ARGS` to change the inference input, copied columns, or
+runtime behavior. `LOGREG_INFERENCE_EXTRA_ARGS='--skip-checksum'` can load a
+model without a training manifest for local experiments.
+
 | Step | Input | Main output |
 |---|---|---|
 | `build_final_common_dataset` | `common_publications_deduplicated.csv` | `common_publications_final.csv` + `publication_references.csv` + `publication_count_audit.csv` |
