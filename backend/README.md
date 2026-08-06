@@ -105,6 +105,29 @@ research-api --host 127.0.0.1 --port 8080
 
 The API is available under `http://127.0.0.1:8080/api/v1`.
 
+Serve the initial FastAPI model endpoints after training a classifier:
+
+```bash
+make model-api PYTHON=python
+# or, after installing the package:
+research-model-api --host 127.0.0.1 --port 8081
+```
+
+The FastAPI docs are available at `http://127.0.0.1:8081/api/v1/docs`.
+The model endpoints expose:
+
+- `GET /api/v1/models`
+- `GET /api/v1/models/publication-classifier`
+- `POST /api/v1/models/publication-classifier/predict`
+- `POST /api/v1/models/publication-classifier/predict-batch`
+
+By default the model API loads
+`data/models/logistic_regression_primary_domain.joblib` and verifies it against
+`data/models/logistic_regression_primary_domain_manifest.json`. Override
+`RESEARCHLANKA_MODEL_PATH`, `RESEARCHLANKA_MODEL_MANIFEST_PATH`,
+`RESEARCHLANKA_MODEL_TEXT_COLUMNS`, and `RESEARCHLANKA_MODEL_VERIFY_CHECKSUM`
+for a different artifact.
+
 Stop the database:
 
 ```bash

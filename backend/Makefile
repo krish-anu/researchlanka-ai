@@ -56,6 +56,9 @@ LOGREG_INFERENCE_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN
 LOGREG_INFERENCE_MANIFEST_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_inference_manifest.json
 LOGREG_INFERENCE_METADATA_COLUMNS ?= record_number,publication_year,title,doi,openalex_id,source_dataset,source_institution_id,source_record_id
 LOGREG_INFERENCE_EXTRA_ARGS ?=
+MODEL_API_HOST ?= 127.0.0.1
+MODEL_API_PORT ?= 8081
+MODEL_API_EXTRA_ARGS ?=
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
 LOGREG_MAX_DF ?= 0.95
@@ -88,7 +91,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize model-text model-titles model-abstracts model-keywords model-tfidf train-logreg predict-logreg
+.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize model-text model-titles model-abstracts model-keywords model-tfidf train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -110,6 +113,7 @@ help:
 	@echo "  make model-tfidf             Export compact TF-IDF feature rows and vocabulary"
 	@echo "  make train-logreg            Train TF-IDF + Logistic Regression classifier"
 	@echo "  make predict-logreg          Run saved classifier inference on publication text"
+	@echo "  make model-api               Serve FastAPI model endpoints"
 	@echo ""
 	@echo "Useful variables:"
 	@echo "  OPENALEX_LOG_LEVEL=DEBUG"
@@ -151,6 +155,9 @@ train-logreg:
 
 predict-logreg:
 	$(PYTHON) scripts/modeling/predict_publication_classifier.py --input $(LOGREG_INFERENCE_INPUT) --model $(LOGREG_MODEL_OUTPUT) --model-manifest $(LOGREG_MANIFEST_OUTPUT) --output $(LOGREG_INFERENCE_OUTPUT) --inference-manifest $(LOGREG_INFERENCE_MANIFEST_OUTPUT) --text-columns $(LOGREG_TEXT_COLUMNS) --metadata-columns $(LOGREG_INFERENCE_METADATA_COLUMNS) $(LOGREG_INFERENCE_EXTRA_ARGS)
+
+model-api:
+	$(PYTHON) -m src.api.fastapi_app --host $(MODEL_API_HOST) --port $(MODEL_API_PORT) $(MODEL_API_EXTRA_ARGS)
 
 # Run the full OpenAlex API collection pipeline.
 # Legacy path: this writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts,
