@@ -240,6 +240,21 @@ python scripts/analysis/columns/analyze_second_25_columns.py --report-dir data/r
 python scripts/analysis/columns/analyze_final_26_columns.py --report-dir data/reports/column_analysis
 ```
 
+## Model Training
+
+Train the reusable publication text-classifier pipeline:
+
+```bash
+make train-logreg PYTHON=python
+```
+
+The default run predicts `primary_domain` from `title`, `abstract`, and
+`keywords`. It writes the fitted `.joblib` pipeline, metrics report, label
+counts, held-out predictions, and a JSON run manifest to `data/models/`.
+Override `LOGREG_LABEL_COLUMN`, `LOGREG_TEXT_COLUMNS`, and the other `LOGREG_*`
+Make variables to reuse the same training path for a different target or text
+feature set.
+
 The analyzers read in chunks, so they work on the full multi-hundred-megabyte outputs.
 
 For Kaggle analysis of every column in the current final dataset, use:

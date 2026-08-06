@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
+from src.modeling.training import TextTrainingConfig, train_text_classifier
 from scripts.modeling.train_logistic_regression_classifier import (
     load_training_frame,
     train_logistic_regression_classifier,
@@ -88,6 +90,8 @@ def test_train_logistic_regression_classifier_writes_model_and_metrics(tmp_path:
     model_output = tmp_path / "logreg.joblib"
     metrics_output = tmp_path / "metrics.txt"
     labels_output = tmp_path / "labels.csv"
+    predictions_output = tmp_path / "predictions.csv"
+    manifest_output = tmp_path / "manifest.json"
     write_training_csv(input_csv)
 
     result = train_logistic_regression_classifier(
@@ -97,6 +101,8 @@ def test_train_logistic_regression_classifier_writes_model_and_metrics(tmp_path:
         model_output=model_output,
         metrics_output=metrics_output,
         label_counts_output=labels_output,
+        predictions_output=predictions_output,
+        manifest_output=manifest_output,
         test_size=0.5,
         min_class_count=3,
         max_features=50,
@@ -110,4 +116,43 @@ def test_train_logistic_regression_classifier_writes_model_and_metrics(tmp_path:
     assert result.class_count == 2
     assert model_output.exists()
     assert labels_output.exists()
+    assert predictions_output.exists()
+    assert manifest_output.exists()
     assert "Classification report:" in metrics_output.read_text(encoding="utf-8")
+
+    manifest = json.loads(manifest_output.read_text(encoding="utf-8"))
+    assert manifest["config"]["label_column"] == "primary_domain"
+    assert manifest["result"]["test_rows"] == 3
+    assert manifest["artifacts"]["model"] == str(model_output)
+
+
+def test_train_text_classifier_uses_dataclass_config(tmp_path: Path):
+    input_csv = tmp_path / "publications.csv"
+    write_training_csv(input_csv)
+
+    result = train_text_classifier(
+        TextTrainingConfig(
+            input_path=input_csv,
+            label_column="primary_domain",
+            text_columns=("title", "abstract", "keywords"),
+            model_output=tmp_path / "configured_model.joblib",
+            metrics_output=tmp_path / "configured_metrics.txt",
+            label_counts_output=tmp_path / "configured_labels.csv",
+            predictions_output=tmp_path / "configured_predictions.csv",
+            manifest_output=tmp_path / "configured_manifest.json",
+            test_size=0.5,
+            min_class_count=3,
+            max_features=50,
+            min_df=1,
+            max_df=1.0,
+            ngram_max=1,
+            max_iter=200,
+        )
+    )
+
+    assert result.model_output.exists()
+    assert result.metrics_output.exists()
+    assert result.label_counts_output.exists()
+    assert result.predictions_output.exists()
+    assert result.manifest_output.exists()
+    assert result.macro_f1 >= 0
