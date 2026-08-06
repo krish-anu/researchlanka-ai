@@ -49,6 +49,8 @@ LOGREG_TEXT_COLUMNS ?= title,abstract,keywords
 LOGREG_MODEL_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN).joblib
 LOGREG_METRICS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_metrics.txt
 LOGREG_LABEL_COUNTS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_labels.csv
+LOGREG_PREDICTIONS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_predictions.csv
+LOGREG_MANIFEST_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_manifest.json
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
 LOGREG_MAX_DF ?= 0.95
@@ -139,7 +141,7 @@ model-tfidf:
 	$(PYTHON) scripts/extraction/build_publication_tfidf_features.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_TFIDF_OUTPUT) --vocabulary-output $(MODEL_TFIDF_VOCABULARY_OUTPUT) --summary-output $(MODEL_TFIDF_SUMMARY_OUTPUT) --max-features $(MODEL_TFIDF_MAX_FEATURES) --min-df $(MODEL_TFIDF_MIN_DF) --max-df $(MODEL_TFIDF_MAX_DF) --ngram-max $(MODEL_TFIDF_NGRAM_MAX) --top-features-per-record $(MODEL_TFIDF_TOP_FEATURES_PER_RECORD)
 
 train-logreg:
-	$(PYTHON) scripts/modeling/train_logistic_regression_classifier.py --input $(LOGREG_INPUT) --label-column $(LOGREG_LABEL_COLUMN) --text-columns $(LOGREG_TEXT_COLUMNS) --model-output $(LOGREG_MODEL_OUTPUT) --metrics-output $(LOGREG_METRICS_OUTPUT) --label-counts-output $(LOGREG_LABEL_COUNTS_OUTPUT) --max-features $(LOGREG_MAX_FEATURES) --min-df $(LOGREG_MIN_DF) --max-df $(LOGREG_MAX_DF) --ngram-max $(LOGREG_NGRAM_MAX) --min-class-count $(LOGREG_MIN_CLASS_COUNT) --test-size $(LOGREG_TEST_SIZE) --max-iter $(LOGREG_MAX_ITER) $(LOGREG_EXTRA_ARGS)
+	$(PYTHON) scripts/modeling/train_logistic_regression_classifier.py --input $(LOGREG_INPUT) --label-column $(LOGREG_LABEL_COLUMN) --text-columns $(LOGREG_TEXT_COLUMNS) --model-output $(LOGREG_MODEL_OUTPUT) --metrics-output $(LOGREG_METRICS_OUTPUT) --label-counts-output $(LOGREG_LABEL_COUNTS_OUTPUT) --predictions-output $(LOGREG_PREDICTIONS_OUTPUT) --manifest-output $(LOGREG_MANIFEST_OUTPUT) --max-features $(LOGREG_MAX_FEATURES) --min-df $(LOGREG_MIN_DF) --max-df $(LOGREG_MAX_DF) --ngram-max $(LOGREG_NGRAM_MAX) --min-class-count $(LOGREG_MIN_CLASS_COUNT) --test-size $(LOGREG_TEST_SIZE) --max-iter $(LOGREG_MAX_ITER) $(LOGREG_EXTRA_ARGS)
 
 # Run the full OpenAlex API collection pipeline.
 # Legacy path: this writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts,
