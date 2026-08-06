@@ -290,9 +290,41 @@ make train-logreg PYTHON=python
 ```
 
 By default this predicts `primary_domain` from `title`, `abstract`, and
-`keywords`, then writes the model and evaluation report to `data/models/`.
+`keywords`, then writes reusable training artifacts to `data/models/`:
+
+- `logistic_regression_<label>.joblib` - fitted scikit-learn pipeline
+- `logistic_regression_<label>_metrics.txt` - accuracy, F1, class distribution, and classification report
+- `logistic_regression_<label>_labels.csv` - label counts after filtering small classes
+- `logistic_regression_<label>_predictions.csv` - held-out predictions for review
+- `logistic_regression_<label>_manifest.json` - run configuration, metrics, artifact paths, byte sizes, and SHA-256 checksums
+
 Use `LOGREG_LABEL_COLUMN=primary_field` or `LOGREG_LABEL_COLUMN=type` to train a
-different target.
+different target. Tune the reusable pipeline with `LOGREG_TEXT_COLUMNS`,
+`LOGREG_MIN_CLASS_COUNT`, `LOGREG_TEST_SIZE`, `LOGREG_MAX_FEATURES`,
+`LOGREG_MIN_DF`, `LOGREG_MAX_DF`, `LOGREG_NGRAM_MAX`, `LOGREG_MAX_ITER`, and
+`LOGREG_EXTRA_ARGS`.
+
+Model artifacts are saved through a temp-file-and-atomic-replace process. This
+keeps partially written `.joblib`, CSV, text, and manifest files out of normal
+runs and makes the manifest checksums suitable for later audit.
+
+Run inference with the saved classifier:
+
+```bash
+make predict-logreg PYTHON=python
+```
+
+By default this loads `LOGREG_MODEL_OUTPUT`, verifies its SHA-256 against
+`LOGREG_MANIFEST_OUTPUT`, combines `LOGREG_TEXT_COLUMNS`, and writes:
+
+- `logistic_regression_<label>_inference_predictions.csv` - predicted label, confidence, copied metadata, and combined text
+- `logistic_regression_<label>_inference_manifest.json` - input/model/output paths, model checksum, prediction checksum, and row counts
+
+Use `LOGREG_INFERENCE_INPUT`, `LOGREG_INFERENCE_OUTPUT`,
+`LOGREG_INFERENCE_MANIFEST_OUTPUT`, `LOGREG_INFERENCE_METADATA_COLUMNS`, and
+`LOGREG_INFERENCE_EXTRA_ARGS` to change the inference input, copied columns, or
+runtime behavior. `LOGREG_INFERENCE_EXTRA_ARGS='--skip-checksum'` can load a
+model without a training manifest for local experiments.
 
 | Step | Input | Main output |
 |---|---|---|

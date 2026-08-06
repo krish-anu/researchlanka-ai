@@ -27,6 +27,8 @@ research-framework = "research_analytics.cli:main"
 run-pipeline = "research_analytics.cli:run_stage_cli"
 load-records = "src.database.load_records:main"
 research-api = "src.api.server:main"
+train-publication-classifier = "src.modeling.training:main"
+predict-publication-classifier = "src.modeling.inference:main"
 
 [tool.setuptools.packages.find]
 include = ["research_analytics*", "src*"]
