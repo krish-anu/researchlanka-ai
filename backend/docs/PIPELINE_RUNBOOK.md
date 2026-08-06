@@ -283,6 +283,17 @@ Tune vocabulary and row width with `MODEL_TFIDF_MAX_FEATURES`,
 `MODEL_TFIDF_MIN_DF`, `MODEL_TFIDF_MAX_DF`, `MODEL_TFIDF_NGRAM_MAX`, and
 `MODEL_TFIDF_TOP_FEATURES_PER_RECORD`.
 
+Train a TF-IDF + Logistic Regression classifier from publication text:
+
+```bash
+make train-logreg PYTHON=python
+```
+
+By default this predicts `primary_domain` from `title`, `abstract`, and
+`keywords`, then writes the model and evaluation report to `data/models/`.
+Use `LOGREG_LABEL_COLUMN=primary_field` or `LOGREG_LABEL_COLUMN=type` to train a
+different target.
+
 | Step | Input | Main output |
 |---|---|---|
 | `build_final_common_dataset` | `common_publications_deduplicated.csv` | `common_publications_final.csv` + `publication_references.csv` + `publication_count_audit.csv` |
