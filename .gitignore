@@ -27,7 +27,8 @@ dist/
 pip-wheel-metadata/
 
 .env
-.env.local
+.env.*
+!.env.example
 *.log
 *.tmp
 *.bak
@@ -42,6 +43,7 @@ data/raw/
 data/processed/
 data/interim/
 data/external/
+data/models/
 data/reports/*.json
 outputs/
 
@@ -50,6 +52,7 @@ backend/data/raw/
 backend/data/processed/
 backend/data/interim/
 backend/data/external/
+backend/data/models/
 backend/data/reports/*.json
 backend/outputs/
 

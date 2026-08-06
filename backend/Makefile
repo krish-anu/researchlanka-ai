@@ -30,6 +30,34 @@ OPENALEX_SAMPLE_RECORDS ?= 1000
 OPENALEX_EMAIL ?=
 OPENALEX_EXTRA_ARGS ?=
 
+# Model-ready text extraction settings.
+MODEL_TEXT_INPUT ?= data/processed/common/common_publications_final.csv
+MODEL_TITLES_OUTPUT ?= data/processed/common/publication_titles_for_model_all_years.csv
+MODEL_ABSTRACTS_OUTPUT ?= data/processed/common/publication_abstracts_for_model_all_years.csv
+MODEL_KEYWORDS_OUTPUT ?= data/processed/common/publication_keywords_for_model_all_years.csv
+MODEL_TFIDF_OUTPUT ?= data/processed/common/publication_tfidf_features_all_years.csv
+MODEL_TFIDF_VOCABULARY_OUTPUT ?= data/processed/common/publication_tfidf_vocabulary_all_years.csv
+MODEL_TFIDF_SUMMARY_OUTPUT ?= data/processed/common/publication_tfidf_summary_all_years.csv
+MODEL_TFIDF_MAX_FEATURES ?= 5000
+MODEL_TFIDF_MIN_DF ?= 2
+MODEL_TFIDF_MAX_DF ?= 0.95
+MODEL_TFIDF_NGRAM_MAX ?= 2
+MODEL_TFIDF_TOP_FEATURES_PER_RECORD ?= 50
+LOGREG_INPUT ?= $(MODEL_TEXT_INPUT)
+LOGREG_LABEL_COLUMN ?= primary_domain
+LOGREG_TEXT_COLUMNS ?= title,abstract,keywords
+LOGREG_MODEL_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN).joblib
+LOGREG_METRICS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_metrics.txt
+LOGREG_LABEL_COUNTS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_labels.csv
+LOGREG_MAX_FEATURES ?= 50000
+LOGREG_MIN_DF ?= 2
+LOGREG_MAX_DF ?= 0.95
+LOGREG_NGRAM_MAX ?= 2
+LOGREG_MIN_CLASS_COUNT ?= 20
+LOGREG_TEST_SIZE ?= 0.2
+LOGREG_MAX_ITER ?= 1000
+LOGREG_EXTRA_ARGS ?=
+
 # Build optional/email args only when values are provided.
 OPENALEX_EMAIL_ARG = $(if $(OPENALEX_EMAIL),--email $(OPENALEX_EMAIL),)
 
@@ -53,7 +81,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize
+.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize model-text model-titles model-abstracts model-keywords model-tfidf train-logreg
 
 # Show available targets and common overrides.
 help:
@@ -68,6 +96,12 @@ help:
 	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
 	@echo "  make openalex-doi-conflicts  Rebuild only the DOI conflict CSV from existing JSONL"
 	@echo "  make openalex-report         Print the quality report from existing JSONL"
+	@echo "  make model-text              Export text and TF-IDF CSVs for model pipelines"
+	@echo "  make model-titles            Export publication titles for model pipelines"
+	@echo "  make model-abstracts         Export publication abstracts for model pipelines"
+	@echo "  make model-keywords          Export publication keywords for model pipelines"
+	@echo "  make model-tfidf             Export compact TF-IDF feature rows and vocabulary"
+	@echo "  make train-logreg            Train TF-IDF + Logistic Regression classifier"
 	@echo ""
 	@echo "Useful variables:"
 	@echo "  OPENALEX_LOG_LEVEL=DEBUG"
@@ -75,6 +109,7 @@ help:
 	@echo "  OPENALEX_EXTRA_ARGS='--strict-lk-only'"
 	@echo "  OPENALEX_DIR=data/processed/openalex"
 	@echo "  NATIONAL_CONFIG=configurations/sri_lanka/config.json"
+	@echo "  MODEL_TEXT_INPUT=data/processed/common/common_publications_final.csv"
 
 # Install project dependencies into the configured virtual environment.
 install:
@@ -87,6 +122,24 @@ test:
 # Compare raw and estimated unique publication counts for each source file.
 publication-counts:
 	$(PYTHON) scripts/quality/compare_publication_counts.py
+
+# Export model-ready text and TF-IDF features from the final dataset.
+model-text: model-titles model-abstracts model-keywords model-tfidf
+
+model-titles:
+	$(PYTHON) scripts/extraction/extract_publication_titles_for_model.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_TITLES_OUTPUT)
+
+model-abstracts:
+	$(PYTHON) scripts/extraction/extract_publication_abstracts_for_model.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_ABSTRACTS_OUTPUT)
+
+model-keywords:
+	$(PYTHON) scripts/extraction/extract_publication_keywords_for_model.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_KEYWORDS_OUTPUT)
+
+model-tfidf:
+	$(PYTHON) scripts/extraction/build_publication_tfidf_features.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_TFIDF_OUTPUT) --vocabulary-output $(MODEL_TFIDF_VOCABULARY_OUTPUT) --summary-output $(MODEL_TFIDF_SUMMARY_OUTPUT) --max-features $(MODEL_TFIDF_MAX_FEATURES) --min-df $(MODEL_TFIDF_MIN_DF) --max-df $(MODEL_TFIDF_MAX_DF) --ngram-max $(MODEL_TFIDF_NGRAM_MAX) --top-features-per-record $(MODEL_TFIDF_TOP_FEATURES_PER_RECORD)
+
+train-logreg:
+	$(PYTHON) scripts/modeling/train_logistic_regression_classifier.py --input $(LOGREG_INPUT) --label-column $(LOGREG_LABEL_COLUMN) --text-columns $(LOGREG_TEXT_COLUMNS) --model-output $(LOGREG_MODEL_OUTPUT) --metrics-output $(LOGREG_METRICS_OUTPUT) --label-counts-output $(LOGREG_LABEL_COUNTS_OUTPUT) --max-features $(LOGREG_MAX_FEATURES) --min-df $(LOGREG_MIN_DF) --max-df $(LOGREG_MAX_DF) --ngram-max $(LOGREG_NGRAM_MAX) --min-class-count $(LOGREG_MIN_CLASS_COUNT) --test-size $(LOGREG_TEST_SIZE) --max-iter $(LOGREG_MAX_ITER) $(LOGREG_EXTRA_ARGS)
 
 # Run the full OpenAlex API collection pipeline.
 # Legacy path: this writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts,
