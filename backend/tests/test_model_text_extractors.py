@@ -9,6 +9,10 @@ from scripts.extraction.extract_publication_abstracts_for_model import (
     clean_abstract,
     extract_abstracts,
 )
+from scripts.extraction.build_publication_tfidf_features import (
+    build_tfidf_features,
+    tokenize_text,
+)
 from scripts.extraction.extract_publication_keywords_for_model import (
     extract_keywords,
     normalize_keywords,
@@ -156,3 +160,52 @@ def test_extract_publication_keywords_for_model_normalizes_keyword_sets(
     assert rows[0]["abstract"] == "A study abstract."
     assert split_keywords("AI; ai, Tea|Tea") == ["AI", "Tea"]
     assert normalize_keywords("AI; Machine   Learning") == "ai; machine learning"
+
+
+def test_build_publication_tfidf_features_creates_sparse_feature_rows(
+    tmp_path: Path,
+):
+    input_csv = tmp_path / "publications.csv"
+    write_publications_csv(
+        input_csv,
+        [
+            {
+                "title": "Machine learning for tea disease detection",
+                "abstract": "Tea disease detection using machine learning.",
+                "keywords": "AI; tea",
+                "publication_year": "2024",
+                "doi": "10.1000/tea",
+            },
+            {
+                "title": "Machine learning for rice disease detection",
+                "abstract": "Rice disease detection using machine learning.",
+                "keywords": "AI; rice",
+                "publication_year": "2025",
+                "doi": "10.1000/rice",
+            },
+            {"title": "", "abstract": "", "keywords": "", "publication_year": "2026"},
+        ],
+    )
+
+    feature_rows, vocabulary_rows, summary_rows = build_tfidf_features(
+        input_csv,
+        max_features=20,
+        min_df=1,
+        max_df=1.0,
+        ngram_max=2,
+        top_features_per_record=4,
+    )
+
+    terms = {row["term"] for row in vocabulary_rows}
+    summary = {row["metric"]: row["value"] for row in summary_rows}
+
+    assert len(feature_rows) == 2
+    assert "tea" in terms
+    assert "machine learning" in terms
+    assert "for" not in terms
+    assert feature_rows[0]["record_number"] == "1"
+    assert feature_rows[0]["doi"] == "10.1000/tea"
+    assert "tea:" in feature_rows[0]["tfidf_features"]
+    assert summary["documents_with_text"] == "2"
+    assert summary["normalization"] == "l2"
+    assert tokenize_text("<p>Tea &amp;amp; Rice!</p>") == ["tea", "rice"]

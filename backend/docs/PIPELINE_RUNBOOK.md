@@ -257,18 +257,31 @@ Optional, and **not** part of the chain — its output feeds nothing:
 python scripts/processing/build_columns_filtered_dataset.py
 ```
 
-Optional model-ready text exports from `common_publications_final.csv`:
+Optional model-ready text and TF-IDF exports from `common_publications_final.csv`:
 
 ```bash
 make model-text PYTHON=python
 ```
 
-This writes title, abstract, and keyword feature CSVs to
+This writes title, abstract, keyword, and compact TF-IDF feature CSVs to
 `data/processed/common/`:
 
 - `publication_titles_for_model_all_years.csv`
 - `publication_abstracts_for_model_all_years.csv`
 - `publication_keywords_for_model_all_years.csv`
+- `publication_tfidf_features_all_years.csv`
+- `publication_tfidf_vocabulary_all_years.csv`
+- `publication_tfidf_summary_all_years.csv`
+
+To rebuild only TF-IDF features:
+
+```bash
+make model-tfidf PYTHON=python
+```
+
+Tune vocabulary and row width with `MODEL_TFIDF_MAX_FEATURES`,
+`MODEL_TFIDF_MIN_DF`, `MODEL_TFIDF_MAX_DF`, `MODEL_TFIDF_NGRAM_MAX`, and
+`MODEL_TFIDF_TOP_FEATURES_PER_RECORD`.
 
 | Step | Input | Main output |
 |---|---|---|
