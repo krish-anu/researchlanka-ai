@@ -257,6 +257,19 @@ Optional, and **not** part of the chain — its output feeds nothing:
 python scripts/processing/build_columns_filtered_dataset.py
 ```
 
+Optional model-ready text exports from `common_publications_final.csv`:
+
+```bash
+make model-text PYTHON=python
+```
+
+This writes title, abstract, and keyword feature CSVs to
+`data/processed/common/`:
+
+- `publication_titles_for_model_all_years.csv`
+- `publication_abstracts_for_model_all_years.csv`
+- `publication_keywords_for_model_all_years.csv`
+
 | Step | Input | Main output |
 |---|---|---|
 | `build_final_common_dataset` | `common_publications_deduplicated.csv` | `common_publications_final.csv` + `publication_references.csv` + `publication_count_audit.csv` |
