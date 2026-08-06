@@ -8,16 +8,20 @@ artifacts make each training run reproducible from scripts, tests, or notebooks.
 from __future__ import annotations
 
 import argparse
-import csv
-import json
 import re
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
-import joblib
 import pandas as pd
+from src.modeling.artifacts import (
+    SavedArtifact,
+    SavedModelArtifacts,
+    file_sha256,
+    save_model_artifacts,
+    write_csv_artifact,
+    write_json_artifact,
+)
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -80,6 +84,7 @@ class TrainingResult:
     accuracy: float
     macro_f1: float
     weighted_f1: float
+    model_sha256: str = ""
 
 
 def parse_text_columns(value: str) -> list[str]:
@@ -289,12 +294,8 @@ def render_metrics(
 
 
 def write_label_counts(path: Path, label_counts: pd.Series) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as output_file:
-        writer = csv.DictWriter(output_file, fieldnames=["label", "count"])
-        writer.writeheader()
-        for label, count in label_counts.items():
-            writer.writerow({"label": label, "count": int(count)})
+    rows = [{"label": label, "count": int(count)} for label, count in label_counts.items()]
+    write_csv_artifact(path, fieldnames=["label", "count"], rows=rows)
 
 
 def write_predictions(
@@ -304,29 +305,39 @@ def write_predictions(
     test_labels: pd.Series,
     predictions: Iterable[str],
 ) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as output_file:
-        writer = csv.DictWriter(
-            output_file,
-            fieldnames=["source_row", "label", "prediction", "correct", "text"],
-        )
-        writer.writeheader()
+    write_csv_artifact(
+        path,
+        fieldnames=["source_row", "label", "prediction", "correct", "text"],
+        rows=prediction_rows(
+            test_text=test_text,
+            test_labels=test_labels,
+            predictions=predictions,
+        ),
+    )
+
+
+def prediction_rows(
+    *,
+    test_text: pd.Series,
+    test_labels: pd.Series,
+    predictions: Iterable[str],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "source_row": source_row,
+            "label": label,
+            "prediction": prediction,
+            "correct": label == prediction,
+            "text": text,
+        }
         for source_row, text, label, prediction in zip(
             test_text.index,
             test_text,
             test_labels,
             predictions,
             strict=True,
-        ):
-            writer.writerow(
-                {
-                    "source_row": source_row,
-                    "label": label,
-                    "prediction": prediction,
-                    "correct": label == prediction,
-                    "text": text,
-                }
-            )
+        )
+    ]
 
 
 def resolved_config(config: TextTrainingConfig) -> TextTrainingConfig:
@@ -376,9 +387,7 @@ def write_manifest(
     result: TrainingResult,
     label_counts: pd.Series,
 ) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     manifest = {
-        "created_at": datetime.now(UTC).isoformat(),
         "config": json_ready_dataclass(config),
         "result": json_ready_dataclass(result),
         "label_counts": {str(label): int(count) for label, count in label_counts.items()},
@@ -390,7 +399,7 @@ def write_manifest(
             "manifest": str(result.manifest_output),
         },
     }
-    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(path, manifest)
 
 
 def validate_config(config: TextTrainingConfig) -> None:
@@ -452,34 +461,20 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
     assert config.predictions_output is not None
     assert config.manifest_output is not None
 
-    config.model_output.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(pipeline, config.model_output)
-
-    config.metrics_output.parent.mkdir(parents=True, exist_ok=True)
-    config.metrics_output.write_text(
-        render_metrics(
-            input_path=config.input_path,
-            label_column=config.label_column,
-            text_columns=text_columns,
-            model_family=config.model_family,
-            input_rows=input_rows,
-            usable_rows=len(training_frame),
-            train_rows=len(train_text),
-            test_rows=len(test_text),
-            label_counts=label_counts,
-            accuracy=accuracy,
-            macro_f1=macro_f1,
-            weighted_f1=weighted_f1,
-            report=report,
-        ),
-        encoding="utf-8",
-    )
-    write_label_counts(config.label_counts_output, label_counts)
-    write_predictions(
-        config.predictions_output,
-        test_text=test_text,
-        test_labels=test_labels,
-        predictions=predictions,
+    metrics_text = render_metrics(
+        input_path=config.input_path,
+        label_column=config.label_column,
+        text_columns=text_columns,
+        model_family=config.model_family,
+        input_rows=input_rows,
+        usable_rows=len(training_frame),
+        train_rows=len(train_text),
+        test_rows=len(test_text),
+        label_counts=label_counts,
+        accuracy=accuracy,
+        macro_f1=macro_f1,
+        weighted_f1=weighted_f1,
+        report=report,
     )
 
     result = TrainingResult(
@@ -497,7 +492,39 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
         macro_f1=macro_f1,
         weighted_f1=weighted_f1,
     )
-    write_manifest(config.manifest_output, config=config, result=result, label_counts=label_counts)
+    saved_artifacts = save_model_artifacts(
+        model=pipeline,
+        model_output=config.model_output,
+        metrics_text=metrics_text,
+        metrics_output=config.metrics_output,
+        label_counts=label_counts,
+        label_counts_output=config.label_counts_output,
+        predictions=prediction_rows(
+            test_text=test_text,
+            test_labels=test_labels,
+            predictions=predictions,
+        ),
+        predictions_output=config.predictions_output,
+        manifest_output=config.manifest_output,
+        manifest_config=json_ready_dataclass(config),
+        manifest_result=json_ready_dataclass(result),
+    )
+    result = TrainingResult(
+        model_output=result.model_output,
+        metrics_output=result.metrics_output,
+        label_counts_output=result.label_counts_output,
+        predictions_output=result.predictions_output,
+        manifest_output=result.manifest_output,
+        input_rows=result.input_rows,
+        usable_rows=result.usable_rows,
+        train_rows=result.train_rows,
+        test_rows=result.test_rows,
+        class_count=result.class_count,
+        accuracy=result.accuracy,
+        macro_f1=result.macro_f1,
+        weighted_f1=result.weighted_f1,
+        model_sha256=saved_artifacts.model.sha256,
+    )
     return result
 
 
@@ -665,18 +692,23 @@ def parse_args() -> argparse.Namespace:
 
 
 def result_summary(result: TrainingResult) -> str:
-    return "\n".join(
+    lines = [
+        f"Trained Logistic Regression classifier on {result.usable_rows:,} rows.",
+        f"Classes: {result.class_count:,}",
+        f"Accuracy: {result.accuracy:.4f}",
+        f"Macro F1: {result.macro_f1:.4f}",
+        f"Model: {result.model_output}",
+    ]
+    if result.model_sha256:
+        lines.append(f"Model SHA-256: {result.model_sha256}")
+    lines.extend(
         [
-            f"Trained Logistic Regression classifier on {result.usable_rows:,} rows.",
-            f"Classes: {result.class_count:,}",
-            f"Accuracy: {result.accuracy:.4f}",
-            f"Macro F1: {result.macro_f1:.4f}",
-            f"Model: {result.model_output}",
             f"Metrics: {result.metrics_output}",
             f"Predictions: {result.predictions_output}",
             f"Manifest: {result.manifest_output}",
         ]
     )
+    return "\n".join(lines)
 
 
 def main() -> None:

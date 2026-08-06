@@ -250,7 +250,9 @@ make train-logreg PYTHON=python
 
 The default run predicts `primary_domain` from `title`, `abstract`, and
 `keywords`. It writes the fitted `.joblib` pipeline, metrics report, label
-counts, held-out predictions, and a JSON run manifest to `data/models/`.
+counts, held-out predictions, and a JSON run manifest to `data/models/`. Model
+artifacts are saved atomically and the manifest records byte sizes and SHA-256
+checksums for audit.
 Override `LOGREG_LABEL_COLUMN`, `LOGREG_TEXT_COLUMNS`, and the other `LOGREG_*`
 Make variables to reuse the same training path for a different target or text
 feature set.
