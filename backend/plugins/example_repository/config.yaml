@@ -1,0 +1,11 @@
+source:
+  name: example_repository
+  type: example_repository
+  adapter_version: "1.0"
+  mapping_version: "1.0"
+
+column_mapping:
+  recordId: source_record_id
+  paperTitle: title
+  creators: authors
+  year: publication_year
