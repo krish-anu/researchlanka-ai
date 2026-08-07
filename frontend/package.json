@@ -1,0 +1,29 @@
+{
+  "name": "researchlanka-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Public read-only frontend for the ResearchLanka national research analytics platform.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cytoscape": "^3.31.1",
+    "next": "^15.5.4",
+    "plotly.js-dist-min": "^3.0.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/cytoscape": "^3.21.9",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2"
+  }
+}
