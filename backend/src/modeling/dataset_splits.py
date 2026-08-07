@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import tempfile
+import unicodedata
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,6 +16,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from src.modeling.artifacts import SavedArtifact, file_sha256, write_csv_artifact, write_json_artifact
+from src.utils.doi import is_valid_doi, normalize_doi
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -34,7 +37,18 @@ DEFAULT_RANDOM_STATE = 42
 DEFAULT_MIN_CLASS_COUNT = 20
 SOURCE_ROW_COLUMN = "source_row"
 SPLIT_COLUMN = "split"
+PUBLICATION_GROUP_COLUMN = "__publication_group_key"
+PUBLICATION_GROUP_LABEL_COLUMN = "__publication_group_label"
+PUBLICATION_GROUP_ORDER_COLUMN = "__publication_group_order"
+TITLE_IDENTITY_MIN_LENGTH = 16
 SUMMARY_FIELDNAMES = ["split", "label", "count", "split_rows", "split_fraction"]
+BLANK_VALUES = {"", "nan", "none", "null", "na", "n/a"}
+PUBLICATION_YEAR_COLUMNS = ("publication_year", "publication_date", "year", "published_date")
+EXACT_IDENTIFIER_COLUMNS = ("openalex_id",)
+URL_IDENTIFIER_COLUMNS = ("url", "pdf_url")
+IDENTITY_TEXT_RE = re.compile(r"[^\w\s]")
+WHITESPACE_RE = re.compile(r"\s+")
+YEAR_RE = re.compile(r"(1[5-9]\d{2}|20\d{2})")
 
 
 @dataclass(frozen=True)
@@ -125,6 +139,158 @@ def combined_text(frame: pd.DataFrame, text_columns: tuple[str, ...]) -> pd.Seri
     return text.str.replace(r"\s+", " ", regex=True).str.strip()
 
 
+def clean_identity_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+
+    text = str(value).strip()
+    if text.casefold() in BLANK_VALUES:
+        return None
+    return text
+
+
+def normalize_identity_text(value: Any) -> str | None:
+    text = clean_identity_value(value)
+    if text is None:
+        return None
+
+    normalized = unicodedata.normalize("NFKD", text)
+    normalized = "".join(
+        character for character in normalized if not unicodedata.combining(character)
+    )
+    normalized = IDENTITY_TEXT_RE.sub(" ", normalized.casefold())
+    normalized = WHITESPACE_RE.sub(" ", normalized).strip()
+    return normalized or None
+
+
+def normalize_identifier_value(value: Any) -> str | None:
+    text = clean_identity_value(value)
+    if text is None:
+        return None
+    return text.casefold().rstrip(".,;:)]}") or None
+
+
+def publication_year_key(row: pd.Series) -> str | None:
+    for column in PUBLICATION_YEAR_COLUMNS:
+        if column not in row.index:
+            continue
+        text = clean_identity_value(row[column])
+        if text is None:
+            continue
+        if match := YEAR_RE.search(text):
+            return match.group(1)
+    return None
+
+
+def publication_identity_tokens(row: pd.Series) -> list[str]:
+    """Return stable identity tokens used only to keep duplicate rows together."""
+
+    tokens: list[str] = []
+
+    if "doi" in row.index:
+        raw_doi = clean_identity_value(row["doi"])
+        doi = normalize_doi(raw_doi)
+        if raw_doi and doi and is_valid_doi(raw_doi):
+            tokens.append(f"doi:{doi}")
+
+    for column in EXACT_IDENTIFIER_COLUMNS:
+        if column in row.index and (identifier := normalize_identifier_value(row[column])):
+            tokens.append(f"{column}:{identifier}")
+
+    for column in URL_IDENTIFIER_COLUMNS:
+        if column in row.index and (identifier := normalize_identifier_value(row[column])):
+            tokens.append(f"{column}:{identifier}")
+
+    if "title" in row.index and (title_key := normalize_identity_text(row["title"])):
+        if len(title_key) >= TITLE_IDENTITY_MIN_LENGTH:
+            if year_key := publication_year_key(row):
+                tokens.append(f"title_year:{title_key}|{year_key}")
+            tokens.append(f"title:{title_key}")
+
+    return tokens
+
+
+def publication_group_keys(frame: pd.DataFrame, source_row_column: str | None = None) -> pd.Series:
+    parent = {index: index for index in frame.index}
+    group_order = {
+        index: (
+            int(frame.at[index, source_row_column])
+            if source_row_column in frame.columns
+            else position
+        )
+        for position, index in enumerate(frame.index)
+    }
+    token_owner: dict[str, Any] = {}
+
+    def find(index: Any) -> Any:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(left: Any, right: Any) -> None:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root == right_root:
+            return
+
+        if group_order[left_root] <= group_order[right_root]:
+            parent[right_root] = left_root
+            group_order[left_root] = min(group_order[left_root], group_order[right_root])
+        else:
+            parent[left_root] = right_root
+            group_order[right_root] = min(group_order[left_root], group_order[right_root])
+
+    for index, row in frame.iterrows():
+        for token in publication_identity_tokens(row):
+            if token in token_owner:
+                union(index, token_owner[token])
+            else:
+                token_owner[token] = index
+
+    return pd.Series(
+        [f"publication:{group_order[find(index)]}" for index in frame.index],
+        index=frame.index,
+        dtype="object",
+    )
+
+
+def dominant_label(values: pd.Series) -> str:
+    counts = values.astype(str).value_counts()
+    largest_count = counts.max()
+    return sorted(str(label) for label, count in counts.items() if count == largest_count)[0]
+
+
+def publication_group_frame(
+    frame: pd.DataFrame,
+    *,
+    label_column: str,
+    source_row_column: str | None,
+) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    groupby = frame.groupby(PUBLICATION_GROUP_COLUMN, sort=False, dropna=False)
+
+    for group_key, group in groupby:
+        if source_row_column in group.columns:
+            order = int(group[source_row_column].min())
+        else:
+            order = int(min(frame.index.get_loc(index) for index in group.index))
+        rows.append(
+            {
+                PUBLICATION_GROUP_COLUMN: group_key,
+                PUBLICATION_GROUP_LABEL_COLUMN: dominant_label(group[label_column]),
+                PUBLICATION_GROUP_ORDER_COLUMN: order,
+            }
+        )
+
+    return pd.DataFrame(rows).sort_values(PUBLICATION_GROUP_ORDER_COLUMN).reset_index(drop=True)
+
+
 def load_split_frame(config: DatasetSplitConfig) -> tuple[pd.DataFrame, int, pd.Series, str]:
     """Load, validate, and filter the source rows used for supervised splits."""
 
@@ -166,7 +332,7 @@ def load_split_frame(config: DatasetSplitConfig) -> tuple[pd.DataFrame, int, pd.
     return filtered, input_rows, label_counts, source_row_column
 
 
-def split_frame(
+def stratified_split_frame(
     frame: pd.DataFrame,
     *,
     label_column: str,
@@ -175,6 +341,8 @@ def split_frame(
     test_ratio: float,
     random_state: int,
 ) -> dict[str, pd.DataFrame]:
+    """Split rows with the existing train/validation/test stratification flow."""
+
     temp_ratio = validation_ratio + test_ratio
     train_frame, temp_frame = train_test_split(
         frame,
@@ -200,6 +368,59 @@ def split_frame(
         "train": train_frame,
         "validation": validation_frame,
         "test": test_frame,
+    }
+
+
+def split_frame(
+    frame: pd.DataFrame,
+    *,
+    label_column: str,
+    train_ratio: float,
+    validation_ratio: float,
+    test_ratio: float,
+    random_state: int,
+    source_row_column: str | None = None,
+) -> dict[str, pd.DataFrame]:
+    working = frame.copy()
+    working[PUBLICATION_GROUP_COLUMN] = publication_group_keys(
+        working,
+        source_row_column=source_row_column,
+    )
+    groups = publication_group_frame(
+        working,
+        label_column=label_column,
+        source_row_column=source_row_column,
+    )
+    group_splits = stratified_split_frame(
+        groups,
+        label_column=PUBLICATION_GROUP_LABEL_COLUMN,
+        train_ratio=train_ratio,
+        validation_ratio=validation_ratio,
+        test_ratio=test_ratio,
+        random_state=random_state,
+    )
+
+    return {
+        split_name: working[
+            working[PUBLICATION_GROUP_COLUMN].isin(set(group_frame[PUBLICATION_GROUP_COLUMN]))
+        ]
+        .drop(columns=[PUBLICATION_GROUP_COLUMN])
+        .copy()
+        for split_name, group_frame in group_splits.items()
+    }
+
+
+def publication_group_summary(frame: pd.DataFrame) -> dict[str, int]:
+    group_sizes = frame[PUBLICATION_GROUP_COLUMN].value_counts()
+    duplicate_group_sizes = group_sizes[group_sizes > 1]
+
+    return {
+        "publication_groups": int(len(group_sizes)),
+        "duplicate_publication_groups": int(len(duplicate_group_sizes)),
+        "duplicate_publication_rows": int(duplicate_group_sizes.sum())
+        if not duplicate_group_sizes.empty
+        else 0,
+        "largest_publication_group_rows": int(group_sizes.max()) if not group_sizes.empty else 0,
     }
 
 
@@ -285,6 +506,12 @@ def create_dataset_splits(config: DatasetSplitConfig) -> DatasetSplitResult:
         validation_ratio=config.validation_ratio,
         test_ratio=config.test_ratio,
         random_state=config.random_state,
+        source_row_column=source_row_column,
+    )
+    grouped_frame = frame.copy()
+    grouped_frame[PUBLICATION_GROUP_COLUMN] = publication_group_keys(
+        grouped_frame,
+        source_row_column=source_row_column,
     )
     output_splits = {
         split_name: with_split_column(split_frame, split_name, source_row_column)
@@ -333,6 +560,7 @@ def create_dataset_splits(config: DatasetSplitConfig) -> DatasetSplitResult:
             "sha256": file_sha256(config.input_path),
         },
         "label_counts": {str(label): int(count) for label, count in label_counts.items()},
+        "publication_grouping": publication_group_summary(grouped_frame),
         "split_counts": counts,
         "label_counts_by_split": label_counts_by_split(output_splits, config.label_column),
         "artifacts": {
