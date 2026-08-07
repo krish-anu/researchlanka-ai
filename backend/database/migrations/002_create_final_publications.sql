@@ -81,8 +81,20 @@ CREATE INDEX IF NOT EXISTS idx_final_publications_source_record
     ON final_publications(source_dataset, source_record_id);
 CREATE INDEX IF NOT EXISTS idx_final_publications_publication_year
     ON final_publications(publication_year);
-CREATE INDEX IF NOT EXISTS idx_final_publications_title
-    ON final_publications(title);
+CREATE INDEX IF NOT EXISTS idx_final_publications_search_gin
+    ON final_publications USING gin(
+        to_tsvector(
+            'english',
+            coalesce(title, '') || ' ' ||
+            coalesce(abstract, '') || ' ' ||
+            coalesce(authors, '') || ' ' ||
+            coalesce(keywords, '') || ' ' ||
+            coalesce(journal, '') || ' ' ||
+            coalesce(publisher, '') || ' ' ||
+            coalesce(doi, '') || ' ' ||
+            coalesce(openalex_id, '')
+        )
+    );
 CREATE INDEX IF NOT EXISTS idx_final_publications_primary_field
     ON final_publications(primary_field);
 CREATE INDEX IF NOT EXISTS idx_final_publications_primary_subfield
