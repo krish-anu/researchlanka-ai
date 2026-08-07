@@ -33,6 +33,7 @@ research-api = "src.api.server:main"
 research-model-api = "src.api.fastapi_app:main"
 train-publication-classifier = "src.modeling.training:main"
 predict-publication-classifier = "src.modeling.inference:main"
+create-publication-dataset-splits = "src.modeling.dataset_splits:main"
 
 [tool.setuptools.packages.find]
 include = ["research_analytics*", "src*"]
