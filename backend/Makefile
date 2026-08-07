@@ -56,6 +56,16 @@ LOGREG_INFERENCE_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN
 LOGREG_INFERENCE_MANIFEST_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_inference_manifest.json
 LOGREG_INFERENCE_METADATA_COLUMNS ?= record_number,publication_year,title,doi,openalex_id,source_dataset,source_institution_id,source_record_id
 LOGREG_INFERENCE_EXTRA_ARGS ?=
+MODEL_SPLIT_INPUT ?= data/processed/common/common_publications_final_2016_2026_analysis_ready.csv
+MODEL_SPLIT_OUTPUT_DIR ?= data/processed/modeling/publication_classifier
+MODEL_SPLIT_LABEL_COLUMN ?= primary_domain
+MODEL_SPLIT_TEXT_COLUMNS ?= title,abstract,keywords
+MODEL_SPLIT_TRAIN_RATIO ?= 0.70
+MODEL_SPLIT_VALIDATION_RATIO ?= 0.15
+MODEL_SPLIT_TEST_RATIO ?= 0.15
+MODEL_SPLIT_RANDOM_STATE ?= 42
+MODEL_SPLIT_MIN_CLASS_COUNT ?= 20
+MODEL_SPLIT_EXTRA_ARGS ?=
 MODEL_API_HOST ?= 127.0.0.1
 MODEL_API_PORT ?= 8081
 MODEL_API_EXTRA_ARGS ?=
@@ -91,7 +101,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize model-text model-titles model-abstracts model-keywords model-tfidf train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize model-text model-titles model-abstracts model-keywords model-tfidf model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -111,6 +121,7 @@ help:
 	@echo "  make model-abstracts         Export publication abstracts for model pipelines"
 	@echo "  make model-keywords          Export publication keywords for model pipelines"
 	@echo "  make model-tfidf             Export compact TF-IDF feature rows and vocabulary"
+	@echo "  make model-splits            Create train/validation/test CSVs for publication classifier datasets"
 	@echo "  make train-logreg            Train TF-IDF + Logistic Regression classifier"
 	@echo "  make predict-logreg          Run saved classifier inference on publication text"
 	@echo "  make model-api               Serve FastAPI model endpoints"
@@ -149,6 +160,9 @@ model-keywords:
 
 model-tfidf:
 	$(PYTHON) scripts/extraction/build_publication_tfidf_features.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_TFIDF_OUTPUT) --vocabulary-output $(MODEL_TFIDF_VOCABULARY_OUTPUT) --summary-output $(MODEL_TFIDF_SUMMARY_OUTPUT) --max-features $(MODEL_TFIDF_MAX_FEATURES) --min-df $(MODEL_TFIDF_MIN_DF) --max-df $(MODEL_TFIDF_MAX_DF) --ngram-max $(MODEL_TFIDF_NGRAM_MAX) --top-features-per-record $(MODEL_TFIDF_TOP_FEATURES_PER_RECORD)
+
+model-splits:
+	$(PYTHON) scripts/modeling/create_dataset_splits.py --input $(MODEL_SPLIT_INPUT) --output-dir $(MODEL_SPLIT_OUTPUT_DIR) --label-column $(MODEL_SPLIT_LABEL_COLUMN) --text-columns $(MODEL_SPLIT_TEXT_COLUMNS) --train-ratio $(MODEL_SPLIT_TRAIN_RATIO) --validation-ratio $(MODEL_SPLIT_VALIDATION_RATIO) --test-ratio $(MODEL_SPLIT_TEST_RATIO) --random-state $(MODEL_SPLIT_RANDOM_STATE) --min-class-count $(MODEL_SPLIT_MIN_CLASS_COUNT) $(MODEL_SPLIT_EXTRA_ARGS)
 
 train-logreg:
 	$(PYTHON) scripts/modeling/train_logistic_regression_classifier.py --input $(LOGREG_INPUT) --label-column $(LOGREG_LABEL_COLUMN) --text-columns $(LOGREG_TEXT_COLUMNS) --model-output $(LOGREG_MODEL_OUTPUT) --metrics-output $(LOGREG_METRICS_OUTPUT) --label-counts-output $(LOGREG_LABEL_COUNTS_OUTPUT) --predictions-output $(LOGREG_PREDICTIONS_OUTPUT) --manifest-output $(LOGREG_MANIFEST_OUTPUT) --max-features $(LOGREG_MAX_FEATURES) --min-df $(LOGREG_MIN_DF) --max-df $(LOGREG_MAX_DF) --ngram-max $(LOGREG_NGRAM_MAX) --min-class-count $(LOGREG_MIN_CLASS_COUNT) --test-size $(LOGREG_TEST_SIZE) --max-iter $(LOGREG_MAX_ITER) $(LOGREG_EXTRA_ARGS)
