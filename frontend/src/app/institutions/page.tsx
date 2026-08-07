@@ -36,7 +36,7 @@ export default async function InstitutionsPage({
         </div>
         <Link
           href="/institutions/compare"
-          className="shrink-0 rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
+          className="shrink-0 rounded-md border border-rule px-3 py-1.5 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
         >
           Compare institutions →
         </Link>

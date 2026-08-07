@@ -14,17 +14,21 @@ export interface ChartTheme {
   surface: string;
   series: [string, string, string];
   sequential: string;
+  fontFamily: string;
 }
 
+const FALLBACK_FONT = '"IBM Plex Sans", system-ui, -apple-system, sans-serif';
+
 const FALLBACK: ChartTheme = {
-  ink: "#0b0b0b",
-  inkSecondary: "#52514e",
-  muted: "#898781",
-  grid: "#e1e0d9",
-  baseline: "#c3c2b7",
-  surface: "#fcfcfb",
-  series: ["#2a78d6", "#eb6834", "#1baf7a"],
-  sequential: "#2a78d6",
+  ink: "#0d1e25",
+  inkSecondary: "#3f484a",
+  muted: "#6f797a",
+  grid: "#d9ebf5",
+  baseline: "#bfc8c9",
+  surface: "#ffffff",
+  series: ["#18818b", "#7f5600", "#3d0a33"],
+  sequential: "#20676f",
+  fontFamily: FALLBACK_FONT,
 };
 
 export function readChartTheme(): ChartTheme {
@@ -47,6 +51,9 @@ export function readChartTheme(): ChartTheme {
       read("--series-3", FALLBACK.series[2]),
     ],
     sequential: read("--seq-450", FALLBACK.sequential),
+    // Resolved from the body so charts inherit the loaded next/font stack
+    // rather than naming a face the browser may not have.
+    fontFamily: getComputedStyle(document.body).fontFamily || FALLBACK_FONT,
   };
 }
 
@@ -56,7 +63,7 @@ export function baseLayout(theme: ChartTheme): Record<string, unknown> {
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
     font: {
-      family: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+      family: theme.fontFamily,
       size: 12,
       color: theme.inkSecondary,
     },

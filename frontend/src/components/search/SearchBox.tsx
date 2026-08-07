@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { SearchIcon } from "@/components/layout/NavIcons";
 import type { Suggestion } from "@/types/api";
 
 /**
@@ -76,7 +77,9 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
         <label htmlFor={`${listId}-input`} className="sr-only">
           Search publications
         </label>
-        <div className="flex gap-2">
+        {/* Recessed field, per the design system's "cut into the page" inputs. */}
+        <div className="flex items-center gap-2 rounded border border-rule bg-sunk px-3 py-1.5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+          <SearchIcon className="h-4 w-4 text-muted" />
           <input
             id={`${listId}-input`}
             type="search"
@@ -93,11 +96,11 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
             onKeyDown={(event) => {
               if (event.key === "Escape") setOpen(false);
             }}
-            className="w-full rounded-md border border-hairline bg-page px-3 py-1.5 text-sm text-ink placeholder:text-muted"
+            className="w-full border-none bg-transparent p-0 text-body-sm text-ink outline-none placeholder:text-muted"
           />
           <button
             type="submit"
-            className="shrink-0 rounded-md border border-hairline bg-wash px-3 py-1.5 text-sm font-medium text-ink hover:bg-page"
+            className="shrink-0 rounded bg-primary px-3 py-1 text-body-sm font-medium text-on-primary hover:bg-primary-hover"
           >
             Search
           </button>
@@ -108,7 +111,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
         <ul
           id={listId}
           role="listbox"
-          className="panel absolute z-20 mt-1 max-h-80 w-full overflow-y-auto p-1 shadow-lg"
+          className="panel absolute z-20 mt-1 max-h-80 w-full overflow-y-auto p-1 shadow-[0_2px_8px_rgba(13,30,37,0.1)]"
         >
           {suggestions.map((suggestion, index) => (
             <li key={`${suggestion.type}-${suggestion.key}-${index}`}>
@@ -117,9 +120,9 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
                 role="option"
                 aria-selected={false}
                 onClick={() => submit(suggestion.value)}
-                className="flex w-full items-start gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-wash"
+                className="flex w-full items-start gap-2 rounded px-2 py-1.5 text-left text-body-sm hover:bg-wash"
               >
-                <span className="mt-0.5 shrink-0 rounded border border-hairline px-1 text-[10px] uppercase text-muted">
+                <span className="label-caps mt-1 shrink-0 rounded border border-rule px-1 py-0.5 text-muted">
                   {suggestion.type}
                 </span>
                 <span className="line-clamp-2 text-ink-secondary">

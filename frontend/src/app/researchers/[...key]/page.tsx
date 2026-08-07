@@ -110,7 +110,7 @@ export default async function ResearcherProfilePage({
             this name may be combined here.{" "}
             <Link
               href="/data-quality"
-              className="text-series-1 hover:underline"
+              className="text-primary hover:underline"
             >
               How to read these figures
             </Link>
@@ -245,7 +245,7 @@ export default async function ResearcherProfilePage({
               <li key={entry.label}>
                 <Link
                   href={publicationSearchHref({ field: entry.label })}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-1 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
                 >
                   {entry.label}
                   <span className="tabular text-xs text-muted">

@@ -195,7 +195,7 @@ export default async function DataQualityPage() {
                 title="Records by source"
                 description="How many records each source contributes."
                 table={
-                  <details className="mt-3 border-t border-hairline pt-3">
+                  <details className="mt-3 border-t border-rule pt-3">
                     <summary className="cursor-pointer text-sm text-ink-secondary hover:text-ink">
                       View completeness by source
                     </summary>
@@ -253,7 +253,7 @@ export default async function DataQualityPage() {
           />
           <dl className="flex flex-col gap-2">
             {limitations.value.data.required_disclosures.map((code) => (
-              <div key={code} className="border-b border-hairline pb-2 last:border-0">
+              <div key={code} className="border-b border-rule pb-2 last:border-0">
                 <dt className="text-sm font-medium text-ink">
                   {code.replace(/_/g, " ")}
                 </dt>
@@ -274,7 +274,7 @@ export default async function DataQualityPage() {
 
       <p className="text-sm text-ink-secondary">
         Back to the{" "}
-        <Link href="/" className="text-series-1 hover:underline">
+        <Link href="/" className="text-primary hover:underline">
           national dashboard
         </Link>
         .

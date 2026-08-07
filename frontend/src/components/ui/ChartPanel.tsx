@@ -19,14 +19,14 @@ export function ChartPanel({
 }) {
   return (
     <section className="panel p-4">
-      <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-ink">{title}</h2>
+          <h2 className="font-display text-h3 text-ink">{title}</h2>
           {description ? (
-            <p className="mt-0.5 text-sm text-ink-secondary">{description}</p>
+            <p className="mt-1 text-body-sm text-ink-secondary">{description}</p>
           ) : null}
         </div>
-        {action ? <div className="shrink-0 text-sm">{action}</div> : null}
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       {children}
       {table}
@@ -44,10 +44,29 @@ export function DownloadLink({
   return (
     <a
       href={href}
-      className="inline-flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-xs text-ink-secondary hover:bg-wash hover:text-ink"
+      className="inline-flex items-center gap-1.5 rounded border border-rule px-2 py-1 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
     >
       <span aria-hidden>↓</span>
       {children}
     </a>
+  );
+}
+
+/**
+ * Container for AI-synthesised prose. Violet tint plus a machine-tier left rule,
+ * so a reader can tell generated text from harvested metadata at a glance.
+ */
+export function MachinePanel({
+  title = "AI summary",
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="machine-panel p-4">
+      <h3 className="label-caps text-machine">{title}</h3>
+      <div className="mt-2 text-body-sm text-ink-secondary">{children}</div>
+    </section>
   );
 }

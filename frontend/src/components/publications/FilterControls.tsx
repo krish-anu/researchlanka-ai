@@ -27,10 +27,11 @@ export function FilterControls({
   basePath?: string;
 }) {
   const inputClass =
-    "w-full rounded-md border border-hairline bg-page px-2 py-1.5 text-sm text-ink";
+    "w-full rounded border border-rule bg-sunk px-2 py-1.5 text-body-sm text-ink focus:border-primary focus:outline-none";
+  const labelClass = "label-caps flex flex-col gap-1.5 text-muted";
 
   return (
-    <form method="get" action={basePath} className="panel flex flex-col gap-3 p-3">
+    <form method="get" action={basePath} className="panel flex flex-col gap-4 p-4">
       {/* Preserve free-text query and any facet selections across submits. */}
       {first(searchParams, "q") ? (
         <input type="hidden" name="q" value={first(searchParams, "q")} />
@@ -42,7 +43,7 @@ export function FilterControls({
       )}
 
       <div className="grid grid-cols-2 gap-2">
-        <label className="flex flex-col gap-1 text-xs text-muted">
+        <label className={labelClass}>
           Year from
           <input
             className={inputClass}
@@ -54,7 +55,7 @@ export function FilterControls({
             defaultValue={first(searchParams, "year_min")}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-muted">
+        <label className={labelClass}>
           Year to
           <input
             className={inputClass}
@@ -68,7 +69,7 @@ export function FilterControls({
         </label>
       </div>
 
-      <label className="flex flex-col gap-1 text-xs text-muted">
+      <label className={labelClass}>
         Sort
         <select
           className={inputClass}
@@ -85,7 +86,7 @@ export function FilterControls({
       </label>
 
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="pb-1 text-xs text-muted">Record properties</legend>
+        <legend className="label-caps pb-2 text-muted">Record properties</legend>
         {(
           [
             ["is_oa", "Open access only"],
@@ -93,7 +94,10 @@ export function FilterControls({
             ["has_abstract", "Has an abstract"],
           ] as const
         ).map(([name, label]) => (
-          <label key={name} className="flex items-center gap-2 text-sm text-ink-secondary">
+          <label
+            key={name}
+            className="flex items-center gap-2 text-body-sm text-ink-secondary"
+          >
             <input
               type="checkbox"
               name={name}
@@ -109,13 +113,13 @@ export function FilterControls({
       <div className="flex gap-2">
         <button
           type="submit"
-          className="flex-1 rounded-md border border-hairline bg-wash px-3 py-1.5 text-sm font-medium text-ink hover:bg-page"
+          className="flex-1 rounded bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary hover:bg-primary-hover"
         >
           Apply
         </button>
         <Link
           href={basePath}
-          className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-secondary hover:bg-wash"
+          className="rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
         >
           Reset
         </Link>
@@ -162,7 +166,7 @@ export function ActiveFilters({
         <li key={pill.key}>
           <Link
             href={pill.href}
-            className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-wash px-2.5 py-1 text-xs text-ink-secondary hover:text-ink"
+            className="inline-flex items-center gap-1.5 rounded border border-rule bg-primary-muted px-2.5 py-1 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
           >
             {pill.label}
             <span aria-hidden className="text-muted">

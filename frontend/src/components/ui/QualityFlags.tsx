@@ -67,7 +67,7 @@ const FLAG_SPECS: Record<QualityFlag, FlagSpec> = {
 };
 
 const SEVERITY_CLASS: Record<Severity, string> = {
-  neutral: "border-hairline text-ink-secondary",
+  neutral: "border-rule text-ink-secondary",
   warning: "border-warning/50 text-ink-secondary",
   serious: "border-serious/60 text-ink-secondary",
 };
@@ -82,7 +82,7 @@ export function QualityFlagBadge({ flag }: { flag: QualityFlag | string }) {
   const spec = FLAG_SPECS[flag as QualityFlag];
   if (!spec) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-hairline px-2 py-0.5 text-xs text-ink-secondary">
+      <span className="inline-flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-body-sm text-ink-secondary">
         {flag}
       </span>
     );
@@ -90,7 +90,7 @@ export function QualityFlagBadge({ flag }: { flag: QualityFlag | string }) {
   return (
     <span
       title={spec.description}
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${SEVERITY_CLASS[spec.severity]}`}
+      className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-body-sm ${SEVERITY_CLASS[spec.severity]}`}
     >
       <span aria-hidden className={ICON_CLASS[spec.severity]}>
         {spec.icon}
@@ -119,7 +119,7 @@ export function QualityFlagList({
         </li>
       ))}
       {hidden > 0 ? (
-        <li className="self-center text-xs text-muted">+{hidden} more</li>
+        <li className="self-center text-body-sm text-muted">+{hidden} more</li>
       ) : null}
     </ul>
   );
