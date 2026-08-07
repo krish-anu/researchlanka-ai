@@ -1,4 +1,4 @@
-"""Compatibility exports for API route dispatch."""
+"""Route dispatch helpers for API transports."""
 
 from src.api.routing.routes import route_get
 
