@@ -105,6 +105,29 @@ research-api --host 127.0.0.1 --port 8080
 
 The API is available under `http://127.0.0.1:8080/api/v1`.
 
+Serve the initial FastAPI model endpoints after training a classifier:
+
+```bash
+make model-api PYTHON=python
+# or, after installing the package:
+research-model-api --host 127.0.0.1 --port 8081
+```
+
+The FastAPI docs are available at `http://127.0.0.1:8081/api/v1/docs`.
+The model endpoints expose:
+
+- `GET /api/v1/models`
+- `GET /api/v1/models/publication-classifier`
+- `POST /api/v1/models/publication-classifier/predict`
+- `POST /api/v1/models/publication-classifier/predict-batch`
+
+By default the model API loads
+`data/models/logistic_regression_primary_domain.joblib` and verifies it against
+`data/models/logistic_regression_primary_domain_manifest.json`. Override
+`RESEARCHLANKA_MODEL_PATH`, `RESEARCHLANKA_MODEL_MANIFEST_PATH`,
+`RESEARCHLANKA_MODEL_TEXT_COLUMNS`, and `RESEARCHLANKA_MODEL_VERIFY_CHECKSUM`
+for a different artifact.
+
 Stop the database:
 
 ```bash
@@ -239,6 +262,56 @@ python scripts/analysis/columns/analyze_first_25_columns.py --report-dir data/re
 python scripts/analysis/columns/analyze_second_25_columns.py --report-dir data/reports/column_analysis
 python scripts/analysis/columns/analyze_final_26_columns.py --report-dir data/reports/column_analysis
 ```
+
+## Model Training
+
+Create reproducible supervised train/validation/test CSVs:
+
+```bash
+make model-splits PYTHON=python
+```
+
+The default split uses
+`data/processed/common/common_publications_final_2016_2026_analysis_ready.csv`,
+keeps rows with a non-empty `primary_domain` and non-empty configured text,
+stratifies by `primary_domain`, and writes a 70/15/15 split to
+`data/processed/modeling/publication_classifier/`:
+
+- `train.csv`
+- `validation.csv`
+- `test.csv`
+- `split_summary.csv`
+- `split_manifest.json`
+
+Each split row includes a `source_row` column for traceability back to the input
+CSV. Override `MODEL_SPLIT_LABEL_COLUMN`, `MODEL_SPLIT_TEXT_COLUMNS`, the split
+ratio variables, or `MODEL_SPLIT_EXTRA_ARGS` to create a different supervised
+dataset.
+
+Train the reusable publication text-classifier pipeline:
+
+```bash
+make train-logreg PYTHON=python
+```
+
+The default run predicts `primary_domain` from `title`, `abstract`, and
+`keywords`. It writes the fitted `.joblib` pipeline, metrics report, label
+counts, held-out predictions, and a JSON run manifest to `data/models/`. Model
+artifacts are saved atomically and the manifest records byte sizes and SHA-256
+checksums for audit.
+Override `LOGREG_LABEL_COLUMN`, `LOGREG_TEXT_COLUMNS`, and the other `LOGREG_*`
+Make variables to reuse the same training path for a different target or text
+feature set.
+
+Run inference with the saved classifier:
+
+```bash
+make predict-logreg PYTHON=python
+```
+
+The inference step verifies the saved model against the training manifest,
+combines the configured text columns, and writes prediction CSV plus an
+inference manifest with model and output checksums.
 
 The analyzers read in chunks, so they work on the full multi-hundred-megabyte outputs.
 
