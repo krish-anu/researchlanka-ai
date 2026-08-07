@@ -160,7 +160,7 @@ export function CollaborationNetwork({
       <div
         ref={containerRef}
         style={{ height }}
-        className="w-full rounded-md border border-hairline bg-surface"
+        className="w-full rounded-md border border-rule bg-surface"
       />
       {!ready ? (
         <p className="absolute inset-0 flex items-center justify-center text-sm text-muted">

@@ -63,8 +63,8 @@ function FacetGroup({
   );
 
   return (
-    <details className="border-b border-hairline pb-2 last:border-0" open>
-      <summary className="cursor-pointer py-2 text-sm font-medium text-ink">
+    <details className="border-b border-rule pb-2 last:border-0" open>
+      <summary className="label-caps cursor-pointer py-3 text-ink">
         {config.label}
       </summary>
       <ul className="flex flex-col gap-0.5 pb-1">
@@ -74,19 +74,21 @@ function FacetGroup({
             <li key={value}>
               <Link
                 href={toggleFilterHref(basePath, searchParams, config.param, value)}
-                className={`flex items-start justify-between gap-2 rounded px-2 py-1 text-sm hover:bg-wash ${
-                  isActive ? "bg-wash font-medium text-ink" : "text-ink-secondary"
+                className={`flex items-start justify-between gap-2 rounded px-2 py-1.5 text-body-sm hover:bg-wash ${
+                  isActive
+                    ? "bg-primary-muted font-medium text-ink"
+                    : "text-ink-secondary"
                 }`}
               >
                 <span className="flex min-w-0 items-start gap-1.5">
-                  <span aria-hidden className="mt-0.5 shrink-0 text-xs">
+                  <span aria-hidden className="mt-0.5 shrink-0">
                     {isActive ? "✓" : "·"}
                   </span>
                   <span className="break-words">
                     {facetName === "quality_flags" ? titleCase(value) : value}
                   </span>
                 </span>
-                <span className="tabular shrink-0 text-xs text-muted">
+                <span className="data-mono mt-1 shrink-0 text-muted">
                   {formatNumber(count)}
                 </span>
               </Link>
@@ -117,17 +119,15 @@ export function FacetPanel({
 
   if (groups.length === 0) {
     return (
-      <p className="p-3 text-sm text-muted">
+      <p className="p-3 text-body-sm text-muted">
         No facet counts are available for this result set.
       </p>
     );
   }
 
   return (
-    <div className="panel p-3">
-      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">
-        Refine
-      </h2>
+    <div className="panel p-4">
+      <h2 className="label-caps mb-2 text-muted">Refine</h2>
       {groups.map((name) => (
         <FacetGroup
           key={name}

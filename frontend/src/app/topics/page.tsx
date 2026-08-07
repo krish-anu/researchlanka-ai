@@ -78,8 +78,8 @@ export default async function TopicsPage({
                       aria-current={option.value === level ? "true" : undefined}
                       className={`inline-block rounded-md border px-2.5 py-1 text-sm ${
                         option.value === level
-                          ? "border-series-1 font-medium text-series-1"
-                          : "border-hairline text-ink-secondary hover:bg-wash"
+                          ? "border-primary font-medium text-primary"
+                          : "border-rule text-ink-secondary hover:bg-wash"
                       }`}
                     >
                       {option.label}
@@ -100,7 +100,7 @@ export default async function TopicsPage({
             title={`Publications by ${level}`}
             action={<DownloadLink href={analyticsExportUrl("fields")} />}
             table={
-              <details className="mt-3 border-t border-hairline pt-3">
+              <details className="mt-3 border-t border-rule pt-3">
                 <summary className="cursor-pointer text-sm text-ink-secondary hover:text-ink">
                   View as table
                 </summary>

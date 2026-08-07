@@ -39,7 +39,7 @@ export function Pagination({
   const { page, total, total_pages: totalPages, page_size: pageSize } = pagination;
   if (totalPages <= 1) {
     return (
-      <p className="text-sm text-ink-secondary">
+      <p className="text-body-sm text-ink-secondary">
         {formatNumber(total)} {total === 1 ? "result" : "results"}
       </p>
     );
@@ -48,14 +48,14 @@ export function Pagination({
   const first = (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, total);
   const linkClass =
-    "inline-flex min-w-9 items-center justify-center rounded-md border border-hairline px-2 py-1 text-sm hover:bg-wash";
+    "inline-flex min-w-9 items-center justify-center rounded border border-rule px-2 py-1 text-body-sm hover:border-primary hover:text-primary";
 
   return (
     <nav
       className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       aria-label="Pagination"
     >
-      <p className="text-sm text-ink-secondary">
+      <p className="text-body-sm text-ink-secondary">
         Showing {formatNumber(first)}–{formatNumber(last)} of{" "}
         {formatNumber(total)}
       </p>
@@ -90,7 +90,7 @@ export function Pagination({
                   aria-current={entry === page ? "page" : undefined}
                   className={
                     entry === page
-                      ? `${linkClass} border-series-1 font-semibold text-series-1`
+                      ? "inline-flex min-w-9 items-center justify-center rounded border border-primary bg-primary px-2 py-1 text-body-sm font-semibold text-on-primary"
                       : linkClass
                   }
                 >

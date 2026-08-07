@@ -19,38 +19,41 @@ export function ApiErrorPanel({
   const isUnreachable = error.code === "unreachable" || error.code === "timeout";
 
   return (
-    <div className="panel border-serious/40 p-5">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+    <div className="panel border-l-[3px] border-l-serious p-5">
+      <h2 className="flex items-center gap-2 font-display text-h3 text-ink">
         <span aria-hidden className="text-serious">
           ▲
         </span>
         Could not load {what}
       </h2>
-      <p className="mt-2 text-sm text-ink-secondary">{error.message}</p>
+      <p className="mt-2 text-body-sm text-ink-secondary">{error.message}</p>
 
       {isUnreachable ? (
-        <div className="mt-3 space-y-2 text-sm text-ink-secondary">
+        <div className="mt-3 space-y-2 text-body-sm text-ink-secondary">
           <p>
             This app reads the ResearchLanka API at{" "}
-            <code className="rounded bg-wash px-1 py-0.5 text-xs">
+            <code className="data-mono rounded bg-sunk px-1 py-0.5">
               {API_BASE_URL}
             </code>
             . Start it from the repository root:
           </p>
-          <pre className="scroll-x rounded-md bg-wash p-3 text-xs">
-            <code>cd backend{"\n"}python -m src.api.server --port 8080</code>
+          <pre className="scroll-x rounded bg-sunk p-3">
+            <code className="data-mono">
+              cd backend{"\n"}python -m src.api.server --port 8080
+            </code>
           </pre>
-          <p className="text-xs text-muted">
+          <p className="text-body-sm text-muted">
             The API queries PostgreSQL, so the database must be running with the
-            <code className="mx-1 rounded bg-wash px-1 py-0.5">
+            <code className="data-mono mx-1 rounded bg-sunk px-1 py-0.5">
               final_publications
             </code>
             table loaded.
           </p>
         </div>
       ) : (
-        <p className="mt-3 text-xs text-muted">
-          Error code: <code className="rounded bg-wash px-1 py-0.5">{error.code}</code>
+        <p className="mt-3 text-body-sm text-muted">
+          Error code:{" "}
+          <code className="data-mono rounded bg-sunk px-1 py-0.5">{error.code}</code>
           {error.status ? ` (HTTP ${error.status})` : null}
         </p>
       )}
@@ -69,9 +72,9 @@ export function EmptyState({
 }) {
   return (
     <div className="panel flex flex-col items-center gap-2 px-6 py-12 text-center">
-      <p className="text-base font-medium text-ink">{title}</p>
+      <p className="font-display text-h3 text-ink">{title}</p>
       {description ? (
-        <p className="max-w-prose text-sm text-ink-secondary">{description}</p>
+        <p className="max-w-prose text-body-sm text-ink-secondary">{description}</p>
       ) : null}
       {action}
     </div>
@@ -88,11 +91,11 @@ export function SectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        <h2 className="font-display text-h2 text-ink">{title}</h2>
         {description ? (
-          <p className="mt-0.5 text-sm text-ink-secondary">{description}</p>
+          <p className="mt-1 text-body-sm text-ink-secondary">{description}</p>
         ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -103,7 +106,7 @@ export function SectionHeading({
 export function Skeleton({ className = "h-40" }: { className?: string }) {
   return (
     <div
-      className={`panel animate-pulse bg-wash ${className}`}
+      className={`animate-pulse rounded border border-rule bg-sunk ${className}`}
       aria-hidden
       role="presentation"
     />

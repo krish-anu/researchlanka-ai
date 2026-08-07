@@ -305,7 +305,7 @@ async function NetworkSection() {
       title="Institutional collaboration network"
       description="Institutions that co-publish, with at least two shared publications."
       action={
-        <Link href="/institutions" className="text-sm text-series-1 hover:underline">
+        <Link href="/institutions" className="text-sm text-primary hover:underline">
           Browse institutions →
         </Link>
       }
@@ -359,19 +359,19 @@ function PageIntro() {
       <p className="mt-1 max-w-prose text-sm text-ink-secondary">
         A public, read-only view of the consolidated national publication
         corpus. Browse{" "}
-        <Link href="/publications" className="text-series-1 hover:underline">
+        <Link href="/publications" className="text-primary hover:underline">
           publications
         </Link>
         ,{" "}
-        <Link href="/researchers" className="text-series-1 hover:underline">
+        <Link href="/researchers" className="text-primary hover:underline">
           researchers
         </Link>
         , and{" "}
-        <Link href="/institutions" className="text-series-1 hover:underline">
+        <Link href="/institutions" className="text-primary hover:underline">
           institutions
         </Link>
         , or review the{" "}
-        <Link href="/data-quality" className="text-series-1 hover:underline">
+        <Link href="/data-quality" className="text-primary hover:underline">
           data quality notes
         </Link>{" "}
         behind these figures.

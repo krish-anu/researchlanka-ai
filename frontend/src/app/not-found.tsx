@@ -12,13 +12,13 @@ export default function NotFound() {
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
           href="/publications"
-          className="rounded-md border border-hairline bg-wash px-3 py-1.5 text-sm font-medium text-ink hover:bg-page"
+          className="rounded-md border border-rule bg-wash px-3 py-1.5 text-sm font-medium text-ink hover:bg-page"
         >
           Search publications
         </Link>
         <Link
           href="/"
-          className="rounded-md border border-hairline px-3 py-1.5 text-sm text-ink-secondary hover:bg-wash"
+          className="rounded-md border border-rule px-3 py-1.5 text-sm text-ink-secondary hover:bg-wash"
         >
           National dashboard
         </Link>

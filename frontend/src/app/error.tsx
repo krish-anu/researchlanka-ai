@@ -32,7 +32,7 @@ export default function GlobalError({
       <button
         type="button"
         onClick={reset}
-        className="mt-4 rounded-md border border-hairline bg-wash px-3 py-1.5 text-sm font-medium text-ink hover:bg-page"
+        className="mt-4 rounded-md border border-rule bg-wash px-3 py-1.5 text-sm font-medium text-ink hover:bg-page"
       >
         Try again
       </button>

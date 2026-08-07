@@ -46,7 +46,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-b border-hairline py-2 last:border-0">
+    <div className="border-b border-rule py-2 last:border-0">
       <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
       <dd className="mt-0.5 text-sm text-ink-secondary">{children}</dd>
     </div>
@@ -67,7 +67,7 @@ function LinkedList({
         <li key={`${item}-${index}`}>
           <Link
             href={href(item)}
-            className="rounded border border-hairline px-1.5 py-0.5 text-xs hover:bg-wash"
+            className="rounded border border-rule px-1.5 py-0.5 text-xs hover:bg-wash"
           >
             {item}
           </Link>
@@ -195,7 +195,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={`https://doi.org/${publication.doi}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-hairline px-3 py-1.5 text-sm hover:bg-wash"
+              className="rounded-md border border-rule px-3 py-1.5 text-sm hover:bg-wash"
             >
               View at DOI ↗
             </a>
@@ -205,7 +205,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={publication.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-hairline px-3 py-1.5 text-sm hover:bg-wash"
+              className="rounded-md border border-rule px-3 py-1.5 text-sm hover:bg-wash"
             >
               Source record ↗
             </a>
@@ -215,7 +215,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={publication.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-hairline px-3 py-1.5 text-sm hover:bg-wash"
+              className="rounded-md border border-rule px-3 py-1.5 text-sm hover:bg-wash"
             >
               PDF ↗
             </a>
@@ -223,7 +223,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
         </div>
 
         {publication.quality_flags.length > 0 ? (
-          <ul className="flex flex-col gap-1.5 rounded-md border border-hairline bg-wash p-3">
+          <ul className="flex flex-col gap-1.5 rounded-md border border-rule bg-wash p-3">
             {publication.quality_flags.map((flag) => (
               <li key={flag} className="flex flex-wrap items-center gap-2">
                 <QualityFlagBadge flag={flag} />
@@ -282,7 +282,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
                     href={publication.access.license_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-series-1 hover:underline"
+                    className="text-primary hover:underline"
                   >
                     {publication.access.license} ↗
                   </a>
@@ -358,7 +358,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
                   href={publication.openalex_id}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-series-1 hover:underline"
+                  className="text-primary hover:underline"
                 >
                   {publication.openalex_id} ↗
                 </a>
@@ -417,7 +417,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
                       href={`https://doi.org/${row.reference_doi}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-series-1 hover:underline"
+                      className="text-primary hover:underline"
                     >
                       link ↗
                     </a>
@@ -444,7 +444,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             action={
               <Link
                 href={publicationSearchHref(topic ? { topic } : { field: field ?? "" })}
-                className="text-sm text-series-1 hover:underline"
+                className="text-sm text-primary hover:underline"
               >
                 See all →
               </Link>

@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { QualityFlagList } from "@/components/ui/QualityFlags";
-import { ProvenanceList } from "@/components/ui/Provenance";
-import { formatAuthorList, formatNumber } from "@/services/format";
+import { ProvenanceList, ProvenanceStripe } from "@/components/ui/Provenance";
+import { formatNumber } from "@/services/format";
 import { publicationHref, researcherHref } from "@/services/links";
 import type { PublicationSummary } from "@/types/api";
 
@@ -21,7 +21,7 @@ function AuthorLine({ authors }: { authors: string[] }) {
         <span key={`${author}-${index}`}>
           <Link
             href={researcherHref(author)}
-            className="hover:text-ink hover:underline"
+            className="hover:text-primary hover:underline"
           >
             {author}
           </Link>
@@ -57,71 +57,77 @@ export function PublicationCard({
   } = publication;
 
   return (
-    <article className="panel p-4">
-      <h3 className="text-base font-medium leading-snug">
-        <Link href={publicationHref(key)} className="hover:underline">
-          {title ?? "Untitled record"}
-        </Link>
-      </h3>
+    <article className="panel overflow-hidden">
+      {/* Signature stripe: which datasets this record was seen in. */}
+      <ProvenanceStripe sources={sources} />
 
-      <p className="mt-1 text-sm text-ink-secondary">
-        <AuthorLine authors={authors} />
-      </p>
+      <div className="p-4">
+        <h3 className="font-display text-h3 leading-snug text-ink">
+          <Link href={publicationHref(key)} className="hover:text-primary hover:underline">
+            {title ?? "Untitled record"}
+          </Link>
+        </h3>
 
-      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-secondary">
-        {year ? <span className="tabular">{year}</span> : null}
-        {journal ? (
-          <>
-            <span aria-hidden className="text-muted">
-              ·
-            </span>
-            <span className="italic">{journal}</span>
-          </>
-        ) : null}
-        {type ? (
-          <>
-            <span aria-hidden className="text-muted">
-              ·
-            </span>
-            <span>{type}</span>
-          </>
-        ) : null}
-      </p>
+        <p className="mt-2 text-body-sm text-ink-secondary">
+          <AuthorLine authors={authors} />
+        </p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <span className="text-ink-secondary">
-          <span className="tabular font-medium text-ink">
-            {formatNumber(citations)}
-          </span>{" "}
-          citations
-        </span>
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink-secondary">
+          {year ? <span className="tabular">{year}</span> : null}
+          {journal ? (
+            <>
+              <span aria-hidden className="text-muted">
+                ·
+              </span>
+              <span className="italic">{journal}</span>
+            </>
+          ) : null}
+          {type ? (
+            <>
+              <span aria-hidden className="text-muted">
+                ·
+              </span>
+              <span>{type}</span>
+            </>
+          ) : null}
+        </p>
 
-        {isOa ? (
-          <span className="inline-flex items-center gap-1 text-success-text">
-            <span aria-hidden>●</span>
-            Open access{oaStatus ? ` (${oaStatus})` : ""}
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-body-sm">
+          <span className="text-ink-secondary">
+            <span className="tabular font-medium text-ink">
+              {formatNumber(citations)}
+            </span>{" "}
+            citations
           </span>
-        ) : null}
 
-        {field ? (
-          <span className="text-ink-secondary">{field}</span>
-        ) : null}
+          {isOa ? (
+            <span className="inline-flex items-center gap-1 text-success-text">
+              <span aria-hidden>●</span>
+              Open access{oaStatus ? ` (${oaStatus})` : ""}
+            </span>
+          ) : null}
 
+          {field ? <span className="text-ink-secondary">{field}</span> : null}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <QualityFlagList flags={flags} max={3} />
+          <ProvenanceList sources={sources} />
+        </div>
+
+        {/* Machine identifier sits last, in the mono data face. */}
         {doi ? (
-          <a
-            href={`https://doi.org/${doi}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-series-1 hover:underline"
-          >
-            DOI
-          </a>
+          <div className="mt-3 border-t border-rule pt-3">
+            <a
+              href={`https://doi.org/${doi}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="data-mono text-muted hover:text-primary hover:underline"
+            >
+              doi:{doi}
+            </a>
+          </div>
         ) : null}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <QualityFlagList flags={flags} max={3} />
-        <ProvenanceList sources={sources} />
       </div>
     </article>
   );
@@ -133,7 +139,7 @@ export function PublicationCardList({
   publications: PublicationSummary[];
 }) {
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-4">
       {publications.map((publication) => (
         <li key={publication.publication_key}>
           <PublicationCard publication={publication} />

@@ -43,7 +43,7 @@ export default async function CompareInstitutionsPage({
   ]);
 
   const inputClass =
-    "w-full rounded-md border border-hairline bg-page px-2 py-1.5 text-sm text-ink";
+    "w-full rounded-md border border-rule bg-page px-2 py-1.5 text-sm text-ink";
 
   return (
     <div className="flex flex-col gap-5">
@@ -91,13 +91,13 @@ export default async function CompareInstitutionsPage({
         <div className="flex gap-2">
           <button
             type="submit"
-            className="rounded-md border border-hairline bg-wash px-4 py-1.5 text-sm font-medium text-ink hover:bg-page"
+            className="rounded-md border border-rule bg-wash px-4 py-1.5 text-sm font-medium text-ink hover:bg-page"
           >
             Compare
           </button>
           <Link
             href="/institutions"
-            className="rounded-md border border-hairline px-4 py-1.5 text-sm text-ink-secondary hover:bg-wash"
+            className="rounded-md border border-rule px-4 py-1.5 text-sm text-ink-secondary hover:bg-wash"
           >
             Back to directory
           </Link>
