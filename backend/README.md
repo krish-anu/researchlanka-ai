@@ -265,6 +265,29 @@ python scripts/analysis/columns/analyze_final_26_columns.py --report-dir data/re
 
 ## Model Training
 
+Create reproducible supervised train/validation/test CSVs:
+
+```bash
+make model-splits PYTHON=python
+```
+
+The default split uses
+`data/processed/common/common_publications_final_2016_2026_analysis_ready.csv`,
+keeps rows with a non-empty `primary_domain` and non-empty configured text,
+stratifies by `primary_domain`, and writes a 70/15/15 split to
+`data/processed/modeling/publication_classifier/`:
+
+- `train.csv`
+- `validation.csv`
+- `test.csv`
+- `split_summary.csv`
+- `split_manifest.json`
+
+Each split row includes a `source_row` column for traceability back to the input
+CSV. Override `MODEL_SPLIT_LABEL_COLUMN`, `MODEL_SPLIT_TEXT_COLUMNS`, the split
+ratio variables, or `MODEL_SPLIT_EXTRA_ARGS` to create a different supervised
+dataset.
+
 Train the reusable publication text-classifier pipeline:
 
 ```bash
