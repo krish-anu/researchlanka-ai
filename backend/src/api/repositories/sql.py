@@ -18,6 +18,19 @@ MULTIVALUE_FILTER_COLUMNS = {
     "source_dataset": ("source_dataset",),
 }
 
+PUBLICATION_SEARCH_VECTOR_SQL = (
+    "to_tsvector('english', "
+    "coalesce(title, '') || ' ' || "
+    "coalesce(abstract, '') || ' ' || "
+    "coalesce(authors, '') || ' ' || "
+    "coalesce(keywords, '') || ' ' || "
+    "coalesce(journal, '') || ' ' || "
+    "coalesce(publisher, '') || ' ' || "
+    "coalesce(doi, '') || ' ' || "
+    "coalesce(openalex_id, '')"
+    ")"
+)
+
 SORT_SQL = {
     "relevance": "publication_year DESC NULLS LAST, title ASC NULLS LAST",
     "year_desc": "publication_year DESC NULLS LAST, title ASC NULLS LAST",
@@ -95,8 +108,7 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
     params: list[Any] = []
     if filters.get("q"):
         clauses.append(
-            "to_tsvector('english', concat_ws(' ', title, abstract, authors, keywords, journal, publisher, doi, openalex_id)) "
-            "@@ plainto_tsquery('english', %s)"
+            f"{PUBLICATION_SEARCH_VECTOR_SQL} @@ plainto_tsquery('english', %s)"
         )
         params.append(filters["q"])
     if filters.get("year_min") is not None:

@@ -8,7 +8,14 @@ from typing import Any, Callable
 
 from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.core.serializers import quality_flags, split_semicolon_value
-from src.api.repositories.sql import BASE_COLUMNS, SORT_SQL, build_where, quote_identifier, select_columns
+from src.api.repositories.sql import (
+    BASE_COLUMNS,
+    PUBLICATION_SEARCH_VECTOR_SQL,
+    SORT_SQL,
+    build_where,
+    quote_identifier,
+    select_columns,
+)
 from src.database.connection import get_connection
 from src.database.final_schema import FINAL_PUBLICATION_TABLE
 
@@ -60,11 +67,11 @@ class PostgresPublicationRepository:
         if sort == "relevance" and filters.get("q"):
             order_sql = """
                 ts_rank_cd(
-                    to_tsvector('english', concat_ws(' ', title, abstract, authors, keywords, journal, publisher, doi, openalex_id)),
+                    {search_vector},
                     plainto_tsquery('english', %s)
                 ) DESC,
                 publication_year DESC NULLS LAST
-            """
+            """.format(search_vector=PUBLICATION_SEARCH_VECTOR_SQL)
             where_clause_for_select, select_params = build_where(filters)
             # WHERE parameters appear before the ORDER BY rank parameter.
             rows = self._fetch_all(
