@@ -105,6 +105,74 @@ def test_create_dataset_splits_writes_stratified_outputs(tmp_path: Path):
     assert (output_dir / "split_summary.csv").exists()
 
 
+def test_create_dataset_splits_keeps_duplicate_publications_in_one_split(tmp_path: Path):
+    input_csv = tmp_path / "publications.csv"
+    output_dir = tmp_path / "splits"
+    write_split_source_csv(input_csv)
+
+    with input_csv.open("a", newline="", encoding="utf-8") as output_file:
+        writer = csv.DictWriter(output_file, fieldnames=FIELDNAMES)
+        writer.writerows(
+            [
+                {
+                    "title": "Health Sciences publication 0",
+                    "abstract": "Duplicate DOI variant",
+                    "keywords": "health; sri lanka",
+                    "primary_domain": "Health Sciences",
+                    "doi": "https://doi.org/10.1000/HEA0",
+                },
+                {
+                    "title": "Shared coconut genome study",
+                    "abstract": "Duplicate title variant one",
+                    "keywords": "coconut; genome",
+                    "primary_domain": "Physical Sciences",
+                    "doi": "",
+                },
+                {
+                    "title": "Shared coconut genome study",
+                    "abstract": "Duplicate title variant two",
+                    "keywords": "coconut; genome",
+                    "primary_domain": "Physical Sciences",
+                    "doi": "",
+                },
+            ]
+        )
+
+    result = create_dataset_splits(
+        DatasetSplitConfig(
+            input_path=input_csv,
+            output_dir=output_dir,
+            train_ratio=0.5,
+            validation_ratio=0.25,
+            test_ratio=0.25,
+            min_class_count=4,
+            random_state=7,
+        )
+    )
+
+    combined = pd.concat(
+        [
+            pd.read_csv(result.train_output),
+            pd.read_csv(result.validation_output),
+            pd.read_csv(result.test_output),
+        ],
+        ignore_index=True,
+    )
+    manifest = json.loads(result.manifest_output.read_text(encoding="utf-8"))
+
+    doi_duplicates = combined[
+        combined["doi"].astype(str).str.casefold().str.contains("10.1000/hea0")
+    ]
+    title_duplicates = combined[combined["title"] == "Shared coconut genome study"]
+
+    assert len(doi_duplicates) == 2
+    assert doi_duplicates["split"].nunique() == 1
+    assert len(title_duplicates) == 2
+    assert title_duplicates["split"].nunique() == 1
+    assert manifest["publication_grouping"]["duplicate_publication_groups"] == 2
+    assert manifest["publication_grouping"]["duplicate_publication_rows"] == 4
+
+
 def test_create_dataset_splits_drops_small_classes(tmp_path: Path):
     input_csv = tmp_path / "publications.csv"
     output_dir = tmp_path / "splits"
