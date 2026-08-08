@@ -237,9 +237,17 @@ work:
 - Ask repository administrators to rebuild stale OAI indexes where public OAI is
   live but returns no records.
 - Add or improve title/year/type matching for no-DOI local records.
-- Expand institution alias coverage and review unresolved affiliations.
+- Expand institution alias coverage and review unresolved affiliations. Rules
+  and a ranked review queue are implemented — see
+  [12_disambiguation_rules.md](12_disambiguation_rules.md) — but the queue still
+  has to be worked, and every alias added to
+  `configurations/<country>/institutions.csv` raises resolution coverage.
 - Add stronger author disambiguation using ORCID, affiliation, and coauthor
-  evidence where available.
+  evidence where available. Implemented in `src/disambiguation`, with the caveat
+  that ORCID resolves only a small minority of the corpus: 12.7% of records
+  carry any ORCID, and it can be attributed to a specific author on roughly a
+  tenth of those. The rest is name-and-context resolution and must not be
+  reported as identity resolution.
 - Enrich abstracts and keywords from official local sources when permission and
   access allow.
 - Re-run source snapshots on a documented schedule and publish change logs for
