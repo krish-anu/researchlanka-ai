@@ -296,6 +296,8 @@ By default this predicts `primary_domain` from `title`, `abstract`, and
 - `logistic_regression_<label>_metrics.txt` - accuracy, F1, class distribution, and classification report
 - `logistic_regression_<label>_labels.csv` - label counts after filtering small classes
 - `logistic_regression_<label>_predictions.csv` - held-out predictions for review
+- `logistic_regression_<label>_confusion_matrix.csv` - true label against predicted label, with per-row support and accuracy
+- `logistic_regression_<label>_per_class.csv` - precision, recall, F1 and support per class, with the class each one is most confused with
 - `logistic_regression_<label>_manifest.json` - run configuration, metrics, artifact paths, byte sizes, and SHA-256 checksums
 
 Use `LOGREG_LABEL_COLUMN=primary_field` or `LOGREG_LABEL_COLUMN=type` to train a
@@ -303,6 +305,27 @@ different target. Tune the reusable pipeline with `LOGREG_TEXT_COLUMNS`,
 `LOGREG_MIN_CLASS_COUNT`, `LOGREG_TEST_SIZE`, `LOGREG_MAX_FEATURES`,
 `LOGREG_MIN_DF`, `LOGREG_MAX_DF`, `LOGREG_NGRAM_MAX`, `LOGREG_MAX_ITER`, and
 `LOGREG_EXTRA_ARGS`.
+
+Train the Multinomial Naive Bayes baseline the same way:
+
+```bash
+make train-nb PYTHON=python
+```
+
+It shares the training pipeline and the TF-IDF stage with the run above, so the
+two are directly comparable, and writes the same artifact set under
+`multinomial_nb_<label>_*`. Tune it with `NB_ALPHA`, `NB_MIN_CLASS_COUNT`,
+`NB_TEST_SIZE`, and `NB_EXTRA_ARGS` (for example `NB_EXTRA_ARGS=--no-fit-prior`).
+
+Score and compare saved runs:
+
+```bash
+make evaluate-models PYTHON=python
+```
+
+This writes `<run>_confusion_matrix.csv`, `<run>_per_class.csv` and
+`<run>_evaluation.json` per run, plus `model_comparison.csv` when more than one
+run is passed. Details: [16_model_evaluation_and_baselines.md](16_model_evaluation_and_baselines.md).
 
 Model artifacts are saved through a temp-file-and-atomic-replace process. This
 keeps partially written `.joblib`, CSV, text, and manifest files out of normal
@@ -424,7 +447,10 @@ python scripts/quality/validate_repositories.py --ids kln,pgim  # force-check bl
 python scripts/quality/validate_harvested_data.py               # coverage per institution (takes no arguments)
 python scripts/quality/compare_dois.py                          # OpenAlex vs Crossref DOI overlap (takes no arguments)
 make publication-counts PYTHON=python                           # per-source record counts
+make validate-dataset PYTHON=python                             # author, institution, citation, collaboration fields
 ```
+
+Field validation reads the most-normalized dataset present and writes a summary, a gate table and an issue sample per check into `data/reports/validation/`. Add `--strict` to exit non-zero on a failed gate. Details: [15_dataset_field_validation.md](15_dataset_field_validation.md).
 
 Reports land in `data/reports/` with a UTC timestamp in the filename.
 
