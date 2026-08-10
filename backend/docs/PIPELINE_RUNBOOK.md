@@ -359,6 +359,30 @@ Details: [10_institution_and_affiliation_standardization.md](10_institution_and_
 
 ---
 
+## 5a. Disambiguate authors
+
+Reads the institution-normalized dataset, so run section 5 first.
+
+```bash
+make author-disambiguate PYTHON=python
+make author-review PYTHON=python        # what the rules could not settle
+```
+
+Without `make`:
+
+```bash
+python -m src.pipeline.build_author_disambiguated_dataset
+python -m src.quality.review_ambiguous_authors
+```
+
+Adds `author_ids`, `author_match_methods`, `author_disambiguation_level` and `ambiguous_author_flag` to the dataset, and writes `author_registry.csv`, a summary, and `author_review_candidates.csv`.
+
+To act on the review queue: fill in `decision` / `reviewer` / `note` in `author_review_candidates.csv`, run `make author-decisions PYTHON=python` to promote and validate them, then re-run `make author-disambiguate PYTHON=python`. Verdicts live in `configurations/sri_lanka/author_decisions.csv` and are keyed on name-variant keys, so they survive between runs.
+
+Details: [14_author_disambiguation.md](14_author_disambiguation.md).
+
+---
+
 ## 6. Database
 
 ```bash
