@@ -15,6 +15,7 @@ This report set documents metadata quality, cleaning decisions, and interpretati
 | Publication type and venue standardization | [11_publication_type_and_venue_standardization.md](11_publication_type_and_venue_standardization.md) | `src/pipeline/build_type_journal_normalized_dataset.py` | `data/processed/common/` |
 | False duplicate match analysis | [12_false_duplicate_match_analysis.md](12_false_duplicate_match_analysis.md) | `src/quality/analyze_false_duplicate_matches.py` | `data/processed/common/duplicate_match_analysis/` |
 | Missed duplicate record analysis | [13_missed_duplicate_record_analysis.md](13_missed_duplicate_record_analysis.md) | `src/quality/analyze_missed_duplicate_records.py` | `data/processed/common/missed_duplicate_analysis/` |
+| Author disambiguation and review | [14_author_disambiguation.md](14_author_disambiguation.md) | `src/pipeline/build_author_disambiguated_dataset.py`, `src/quality/review_ambiguous_authors.py` | `data/processed/common/` |
 
 ## Running the pipeline
 

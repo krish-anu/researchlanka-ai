@@ -91,9 +91,13 @@ verification.
 
 ### People and Institutions
 
-- `authors`: Author-name presence is strong, but names are not fully
-  disambiguated. Similar names, initials, spelling variants, name-order
-  differences, and missing ORCIDs can affect author-level counts.
+- `authors`: Author names are resolved onto `author_ids` using ORCID,
+  affiliation and coauthor evidence
+  ([14_author_disambiguation.md](14_author_disambiguation.md)), but resolution
+  is not complete. Two people sharing one exact spelling remain one identity,
+  and identities built from the name alone carry a `low` confidence and a review
+  flag. Use `author_disambiguation_level` and `ambiguous_author_flag` when
+  author-level counts matter.
 - `author_orcids`: ORCID coverage is sparse and mostly comes from Crossref when
   deposited. Missing ORCID does not mean the author lacks an ORCID.
 - `institutions`: Institution extraction depends on source affiliation metadata,
@@ -191,7 +195,7 @@ every value against publisher pages or institutional records.
 |---|---|---|
 | Publication counts | Trends and comparisons within the harvested corpus. | National totals, recent-year completeness, and institutions with blocked or incomplete repositories. |
 | Institution productivity | DOI-backed global-index output plus reachable local repository evidence. | No-DOI works, missing affiliations, repository deposit practices, and unresolved institution names. |
-| Author productivity | Broad descriptive counts where author strings are present. | Precise author disambiguation, name changes, initials, and ORCID-limited workflows. |
+| Author productivity | Counts over `author_ids` where the identity is ORCID- or evidence-backed. | Identities merged on the name alone, shared exact spellings, and pairs still sitting in the review queue. |
 | Collaboration networks | Stronger when affiliation metadata is present and resolved. | Under-counting from missing affiliations and ambiguous institutional labels. |
 | Citation impact | Relative analysis within a stated source and snapshot. | Cross-source count comparisons, recent works, and fields with different citation cultures. |
 | Topic/field analysis | OpenAlex topic/concept summaries and keyword/abstract search where text exists. | Official classification claims, topic modeling over sparse abstracts, and keyword comparisons across sources. |
@@ -238,8 +242,8 @@ work:
   live but returns no records.
 - Add or improve title/year/type matching for no-DOI local records.
 - Expand institution alias coverage and review unresolved affiliations.
-- Add stronger author disambiguation using ORCID, affiliation, and coauthor
-  evidence where available.
+- Work the ambiguous-author review queue so name-only identities are confirmed
+  or split by a reviewer rather than left at `low` confidence.
 - Enrich abstracts and keywords from official local sources when permission and
   access allow.
 - Re-run source snapshots on a documented schedule and publish change logs for

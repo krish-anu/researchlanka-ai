@@ -9,6 +9,10 @@ PIP ?= .venv/bin/pip
 NATIONAL_CONFIG ?= configurations/sri_lanka/config.json
 NATIONAL_SAMPLE_SIZE ?= 5
 
+# Reviewed author merge/split verdicts, applied by author-disambiguate.
+AUTHOR_DECISIONS ?= configurations/sri_lanka/author_decisions.csv
+AUTHOR_REVIEW_LIMIT ?= 20
+
 # Default OpenAlex output folder.
 # JSONL is raw API data. CSV/Parquet and DOI conflicts are cleaned outputs.
 OPENALEX_DIR ?= data/raw/openalex
@@ -101,7 +105,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize model-text model-titles model-abstracts model-keywords model-tfidf model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions model-text model-titles model-abstracts model-keywords model-tfidf model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -116,6 +120,9 @@ help:
 	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
 	@echo "  make openalex-doi-conflicts  Rebuild only the DOI conflict CSV from existing JSONL"
 	@echo "  make openalex-report         Print the quality report from existing JSONL"
+	@echo "  make author-disambiguate     Resolve author mentions onto stable author identities"
+	@echo "  make author-review           Show the ambiguous-author review queue"
+	@echo "  make author-decisions        Promote reviewed verdicts into the decisions file"
 	@echo "  make model-text              Export text and TF-IDF CSVs for model pipelines"
 	@echo "  make model-titles            Export publication titles for model pipelines"
 	@echo "  make model-abstracts         Export publication abstracts for model pipelines"
@@ -211,6 +218,26 @@ institution-normalize:
 # dataset, so run institution-normalize first.
 type-journal-normalize:
 	$(PYTHON) -m src.pipeline.build_type_journal_normalized_dataset
+
+# Resolve author mentions onto stable author identities using ORCID, affiliation
+# and coauthor evidence. Reads the institution-normalized dataset, so run
+# institution-normalize first. Writes the dataset, an author registry, a summary
+# and a review queue of the pairs the rules could not settle.
+author-disambiguate:
+	$(PYTHON) -m src.pipeline.build_author_disambiguated_dataset \
+	--decisions-csv $(AUTHOR_DECISIONS)
+
+# Show what is waiting in the ambiguous-author review queue.
+author-review:
+	$(PYTHON) -m src.quality.review_ambiguous_authors --limit $(AUTHOR_REVIEW_LIMIT)
+
+# Promote decisions filled into the review queue, then validate the result.
+# Re-run author-disambiguate afterwards to apply them.
+author-decisions:
+	$(PYTHON) -m src.quality.review_ambiguous_authors --extract-decisions \
+	--decisions-csv $(AUTHOR_DECISIONS)
+	$(PYTHON) -m src.quality.review_ambiguous_authors --validate \
+	--decisions-csv $(AUTHOR_DECISIONS)
 
 # Print a quality summary from existing raw JSONL.
 openalex-report:
