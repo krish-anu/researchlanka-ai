@@ -189,6 +189,16 @@ missed merge takes. Two were flagged and both are correct as separate entries:
 
 Nesting pairs are reported, never merged automatically.
 
+### Ambiguous registry aliases
+
+An alias claimed by two institutions is a registry defect: the same string would
+resolve to whichever row was read first. `build_institution_normalized_dataset` reports
+every one of them — as `ambiguous_registry_aliases` in the summary, one
+`ambiguous_registry_alias:<alias>` row per conflict listing the competing identifiers,
+and on stdout at the end of the run. The first claim still wins, so resolution stays
+deterministic while the conflict waits for a human; settle it by removing or
+narrowing the alias on one of the rows.
+
 ## Running
 
 ```bash

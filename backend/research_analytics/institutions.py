@@ -167,6 +167,11 @@ class NationalInstitutionRegistry:
         self.institutions = institutions
         self.alias_index: dict[str, str] = {}
         self.source_id_index: dict[str, str] = {}
+        # Aliases claimed by more than one institution. The first claim still
+        # wins, so resolution stays deterministic, but an alias that two
+        # institutions both answer to is a registry defect a human has to
+        # settle -- silently keeping the first would hide it.
+        self.alias_conflicts: dict[str, list[str]] = {}
         for institution in institutions.values():
             self._index_alias(institution.preferred_name, institution.institution_id)
             for alias in institution.alternative_names:
@@ -176,8 +181,21 @@ class NationalInstitutionRegistry:
 
     def _index_alias(self, alias: str, institution_id: str) -> None:
         key = normalize_lookup_key(alias)
-        if key:
-            self.alias_index.setdefault(key, institution_id)
+        if not key:
+            return
+        existing = self.alias_index.setdefault(key, institution_id)
+        if existing != institution_id:
+            claims = self.alias_conflicts.setdefault(key, [existing])
+            if institution_id not in claims:
+                claims.append(institution_id)
+
+    def ambiguous_aliases(self) -> list[tuple[str, list[str]]]:
+        """Registry aliases needing review, most contested first."""
+
+        return sorted(
+            ((alias, sorted(ids)) for alias, ids in self.alias_conflicts.items()),
+            key=lambda item: (-len(item[1]), item[0]),
+        )
 
     @classmethod
     def from_csv(
