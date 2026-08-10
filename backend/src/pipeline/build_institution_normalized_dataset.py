@@ -114,6 +114,7 @@ class NormalizationStats:
         self.institution_sources: Counter[str] = Counter()
         self.unresolved: Counter[str] = Counter()
         self.unrecognised_countries: Counter[str] = Counter()
+        self.ambiguous_registry_aliases: list[tuple[str, list[str]]] = []
 
 
 def normalize_row(
@@ -268,6 +269,7 @@ def write_summary(
     national_resolution_threshold: float = NATIONAL_RESOLUTION_RATE_THRESHOLD,
     institution_coverage_threshold: float = INSTITUTION_COVERAGE_AFTER_THRESHOLD,
     unresolved_review_threshold: int = UNRESOLVED_INSTITUTION_REVIEW_THRESHOLD,
+    ambiguous_aliases: list[tuple[str, list[str]]] | None = None,
 ) -> None:
     def rate(part: int, whole: int) -> float:
         return part / whole if whole else 0.0
@@ -349,7 +351,14 @@ def write_summary(
             "value": unresolved_review_count,
         },
         {"metric": "distinct_unrecognised_countries", "value": len(stats.unrecognised_countries)},
+        {"metric": "ambiguous_registry_aliases", "value": len(ambiguous_aliases or [])},
     ]
+    # One row per contested alias, so registry review can start from the summary
+    # rather than from a diff of the registry file.
+    rows.extend(
+        {"metric": f"ambiguous_registry_alias:{alias}", "value": "; ".join(institution_ids)}
+        for alias, institution_ids in (ambiguous_aliases or [])
+    )
     rows.extend(
         {"metric": f"collaboration_type:{name}", "value": count}
         for name, count in sorted(stats.collaboration_types.items())
@@ -407,6 +416,7 @@ def build_institution_normalized_dataset(
         registry_csv, country_code=national_country_code
     )
     stats = NormalizationStats()
+    stats.ambiguous_registry_aliases = registry.ambiguous_aliases()
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     wrote_header = False
@@ -429,6 +439,7 @@ def build_institution_normalized_dataset(
         national_resolution_threshold=national_resolution_threshold,
         institution_coverage_threshold=institution_coverage_threshold,
         unresolved_review_threshold=unresolved_review_threshold,
+        ambiguous_aliases=stats.ambiguous_registry_aliases,
     )
     write_unresolved(
         unresolved_csv,
@@ -509,6 +520,13 @@ def main() -> None:
     print("  Collaboration scope:")
     for name, count in stats.collaboration_scopes.most_common():
         print(f"    {name:14} {count:>8,}  ({percentage(count, stats.rows)})")
+    if stats.ambiguous_registry_aliases:
+        print(
+            f"  Ambiguous registry aliases needing review: "
+            f"{len(stats.ambiguous_registry_aliases):,}"
+        )
+        for alias, institution_ids in stats.ambiguous_registry_aliases[:10]:
+            print(f"    {alias} -> {', '.join(institution_ids)}")
     print(f"  Dataset: {args.output_csv}")
     print(f"  Summary: {args.summary_csv}")
     print(f"  Unresolved institutions: {args.unresolved_csv}")
