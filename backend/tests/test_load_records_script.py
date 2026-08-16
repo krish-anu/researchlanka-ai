@@ -163,32 +163,121 @@ def test_iter_csv_records_handles_large_fields(tmp_path):
     assert list(iter_record_file(path))[0]["title"] == large_value
 
 
-def test_load_database_records_accepts_dataset_override(tmp_path, monkeypatch):
+def test_load_database_records_populates_full_normalized_database(
+    tmp_path, monkeypatch
+):
     dataset_path = tmp_path / "final_dataset.csv"
     dataset_path.write_text(
-        "source_dataset,source_record_id,title\n"
-        "sample,pub-1,First paper\n"
-        "sample,pub-2,Second paper\n",
+        "source_dataset,source_record_id,title,authors,keywords,countries,institutions\n"
+        "sample,pub-1,First paper,A. Author; B. Author,AI; ML,US; LK,University of Colombo\n"
+        "sample,pub-2,Second paper,C. Author,ML,US,University of Peradeniya\n",
         encoding="utf-8",
     )
 
     captured = {}
 
-    def fake_load_record_file(path, **kwargs):
+    def fake_load_full_database_dataset(path, **kwargs):
         captured["path"] = path
         captured["kwargs"] = kwargs
-        return 2
+        return {"final_publications": 2, "source_records": 2, "authors": 3}
 
     monkeypatch.setattr(
-        "src.database.load_records.load_record_file", fake_load_record_file
+        "src.database.load_records.load_record_file",
+        lambda *args, **kwargs: 2,
+    )
+    monkeypatch.setattr(
+        "src.database.load_records.load_full_database_dataset",
+        fake_load_full_database_dataset,
     )
 
     loaded = load_database_records(
         config={"dummy": True},
         dataset_path=dataset_path,
         batch_size=7,
+        full_database=True,
     )
 
-    assert loaded == 2
+    assert loaded == {"final_publications": 2, "source_records": 2, "authors": 3}
     assert captured["path"] == dataset_path
     assert captured["kwargs"]["batch_size"] == 7
+
+
+def test_build_final_publication_row_rejects_year_only_dates():
+    row = {
+        "title": "Sample paper",
+        "publication_year": 2016,
+        "publication_date": "2016",
+        "source_dataset": "sample",
+        "source_record_id": "pub-1",
+    }
+
+    normalized = __import__(
+        "src.database.loader", fromlist=["build_final_publication_row"]
+    ).build_final_publication_row(row, 1)
+
+    assert normalized["publication_year"] == 2016
+    assert normalized["publication_date"] is None
+
+
+def test_upsert_publication_coerces_year_only_dates_to_none():
+    class Cursor:
+        def __init__(self):
+            self.args = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, query, args):
+            self.args = args
+
+    class Connection:
+        def __init__(self):
+            self.cursor_obj = Cursor()
+
+        def cursor(self):
+            return self.cursor_obj
+
+    connection = Connection()
+    from src.database.load_records import _upsert_publication
+
+    _upsert_publication(
+        connection,
+        "source:sample:pub-1",
+        {
+            "title": "Sample paper",
+            "publication_year": 2016,
+            "publication_date": "2016",
+            "source_dataset": "sample",
+            "source_record_id": "pub-1",
+        },
+    )
+
+    assert connection.cursor_obj.args[6] is None
+
+
+def test_resolve_source_institution_id_rejects_empty_parentheses_and_empty_collections():
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, query, args):
+            return None
+
+        def fetchone(self):
+            return None
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+    from src.database.load_records import _resolve_source_institution_id
+
+    assert _resolve_source_institution_id(Connection(), ()) is None
+    assert _resolve_source_institution_id(Connection(), "()") is None
+    assert _resolve_source_institution_id(Connection(), []) is None
