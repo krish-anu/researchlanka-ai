@@ -12,7 +12,6 @@ from typing import Any
 from research_analytics.config import load_config
 from research_analytics.pipeline import ResearchPipeline
 
-
 STAGES = (
     "collect",
     "transform",
@@ -25,6 +24,42 @@ STAGES = (
     "export",
     "all",
 )
+
+
+def load_database_records(
+    config: Any,
+    *,
+    dataset_path: Path | None = None,
+    batch_size: int = 1000,
+    limit: int | None = None,
+) -> int:
+    """Load either the configured pipeline output or an explicit final dataset file.
+
+    The default pipeline path is intentionally kept for backward compatibility, but
+    a concrete dataset file is preferred when the user wants to load the final
+    cleaned/deduplicated export (for example the 2016-2026 final CSV).
+    """
+
+    if dataset_path is not None:
+        from src.database.load_records import load_record_file
+
+        if not dataset_path.exists():
+            raise FileNotFoundError(f"Dataset file does not exist: {dataset_path}")
+
+        return load_record_file(
+            dataset_path,
+            batch_size=batch_size,
+            limit=limit,
+        )
+
+    pipeline = ResearchPipeline(config)
+    pipeline.collect()
+    pipeline.transform()
+    pipeline.validate()
+    pipeline.clean()
+    pipeline.resolve_entities()
+    pipeline.deduplicate()
+    return pipeline.load_database()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -51,6 +86,18 @@ def main(argv: list[str] | None = None) -> None:
         command_parser.add_argument("--config", required=True, type=Path)
         command_parser.add_argument("--sample-size", type=int, default=100)
         command_parser.add_argument(
+            "--dataset",
+            type=Path,
+            default=None,
+            help="Optional final CSV/JSON/JSONL dataset to load directly into PostgreSQL.",
+        )
+        command_parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=1000,
+            help="Batch size for direct dataset loading when --dataset is provided.",
+        )
+        command_parser.add_argument(
             "--log-level",
             default="INFO",
             choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
@@ -68,7 +115,11 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.command == "preview":
-        print(json.dumps(pipeline.preview(limit=args.sample_size), indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                pipeline.preview(limit=args.sample_size), indent=2, ensure_ascii=False
+            )
+        )
         return
 
     if args.command == "validate":
@@ -81,7 +132,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "import":
         pipeline.collect()
         pipeline.transform()
-        print(f"Imported {len(pipeline.result.transformed_records)} transformed records.")
+        print(
+            f"Imported {len(pipeline.result.transformed_records)} transformed records."
+        )
         return
 
     if args.command == "clean":
@@ -98,7 +151,9 @@ def main(argv: list[str] | None = None) -> None:
         pipeline.validate()
         pipeline.clean()
         pipeline.deduplicate()
-        print(f"Found {len(pipeline.result.duplicate_candidates)} duplicate candidates.")
+        print(
+            f"Found {len(pipeline.result.duplicate_candidates)} duplicate candidates."
+        )
         return
 
     if args.command == "analyze":
@@ -112,14 +167,15 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.command == "load_database":
-        pipeline.collect()
-        pipeline.transform()
-        pipeline.validate()
-        pipeline.clean()
-        pipeline.resolve_entities()
-        pipeline.deduplicate()
-        loaded = pipeline.load_database()
-        print(f"Loaded {loaded} records into PostgreSQL.")
+        loaded = load_database_records(
+            config,
+            dataset_path=args.dataset,
+            batch_size=args.batch_size,
+        )
+        if args.dataset is not None:
+            print(f"Loaded {loaded} records from {args.dataset} into PostgreSQL.")
+        else:
+            print(f"Loaded {loaded} records into PostgreSQL.")
         return
 
     result = pipeline.run_all()
@@ -155,7 +211,9 @@ def run_stage_cli(argv: list[str] | None = None) -> None:
     print(output)
 
 
-def run_stage(pipeline: ResearchPipeline, stage: str, *, sample_size: int = 100) -> str | dict[str, Any]:
+def run_stage(
+    pipeline: ResearchPipeline, stage: str, *, sample_size: int = 100
+) -> str | dict[str, Any]:
     """Run one practical pipeline stage, including its prerequisites."""
 
     if stage == "collect":
@@ -194,7 +252,9 @@ def run_stage(pipeline: ResearchPipeline, stage: str, *, sample_size: int = 100)
         pipeline.clean()
         pipeline.resolve_entities()
         pipeline.deduplicate()
-        return f"Found {len(pipeline.result.duplicate_candidates)} duplicate candidates."
+        return (
+            f"Found {len(pipeline.result.duplicate_candidates)} duplicate candidates."
+        )
 
     if stage == "analyze":
         pipeline.collect()
