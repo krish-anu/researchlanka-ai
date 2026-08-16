@@ -472,8 +472,10 @@ def _upsert_publication_location(
                 license,
                 version
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (publication_id) DO NOTHING
+            SELECT %s, %s, %s, %s, %s, %s, %s
+            WHERE NOT EXISTS (
+                SELECT 1 FROM publication_locations WHERE publication_id = %s
+            )
             """,
             (
                 publication_id,
@@ -483,6 +485,7 @@ def _upsert_publication_location(
                 source_type,
                 license_value,
                 version_value,
+                publication_id,
             ),
         )
 

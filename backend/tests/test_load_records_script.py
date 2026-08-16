@@ -281,3 +281,36 @@ def test_resolve_source_institution_id_rejects_empty_parentheses_and_empty_colle
     assert _resolve_source_institution_id(Connection(), ()) is None
     assert _resolve_source_institution_id(Connection(), "()") is None
     assert _resolve_source_institution_id(Connection(), []) is None
+
+
+def test_upsert_publication_location_uses_not_exists_instead_of_conflict_target():
+    seen = {}
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, query, args):
+            seen["query"] = query
+            seen["args"] = args
+
+    class Connection:
+        def __init__(self):
+            self.cursor_obj = Cursor()
+
+        def cursor(self):
+            return self.cursor_obj
+
+    from src.database.load_records import _upsert_publication_location
+
+    _upsert_publication_location(
+        Connection(),
+        "pub-123",
+        {"url": "https://example.org", "pdf_url": "https://example.org/p.pdf"},
+    )
+
+    assert "WHERE NOT EXISTS" in seen["query"]
+    assert seen["args"][-1] == "pub-123"
