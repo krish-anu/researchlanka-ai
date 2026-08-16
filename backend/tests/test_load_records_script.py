@@ -1,5 +1,6 @@
 import json
 
+from research_analytics.cli import load_database_records
 from src.database.load_records import (
     detect_format,
     iter_record_file,
@@ -89,7 +90,9 @@ def test_iter_record_file_reads_jsonl_and_skips_blank_lines(tmp_path):
     ]
 
 
-def test_load_record_file_batches_records_and_ensures_schema_once(tmp_path, monkeypatch):
+def test_load_record_file_batches_records_and_ensures_schema_once(
+    tmp_path, monkeypatch
+):
     path = tmp_path / "records.jsonl"
     path.write_text(
         "\n".join(
@@ -124,10 +127,7 @@ def test_load_record_file_batches_records_and_ensures_schema_once(tmp_path, monk
     assert [len(records) for records, _ in calls] == [2, 2, 1]
     assert [kwargs["ensure_schema"] for _, kwargs in calls] == [True, False, False]
     assert all(kwargs["connection"] is connection for _, kwargs in calls)
-    assert all(
-        "database_url" not in kwargs
-        for _, kwargs in calls
-    )
+    assert all("database_url" not in kwargs for _, kwargs in calls)
     assert connection.commits == 3
     assert connection.rollbacks == 0
     assert connection.closed is True
@@ -150,3 +150,34 @@ def test_load_record_file_limit_applies_before_batching(tmp_path, monkeypatch):
     )
 
     assert load_record_file(path, batch_size=2, limit=1) == 1
+
+
+def test_load_database_records_accepts_dataset_override(tmp_path, monkeypatch):
+    dataset_path = tmp_path / "final_dataset.csv"
+    dataset_path.write_text(
+        "source_dataset,source_record_id,title\n"
+        "sample,pub-1,First paper\n"
+        "sample,pub-2,Second paper\n",
+        encoding="utf-8",
+    )
+
+    captured = {}
+
+    def fake_load_record_file(path, **kwargs):
+        captured["path"] = path
+        captured["kwargs"] = kwargs
+        return 2
+
+    monkeypatch.setattr(
+        "src.database.load_records.load_record_file", fake_load_record_file
+    )
+
+    loaded = load_database_records(
+        config={"dummy": True},
+        dataset_path=dataset_path,
+        batch_size=7,
+    )
+
+    assert loaded == 2
+    assert captured["path"] == dataset_path
+    assert captured["kwargs"]["batch_size"] == 7
