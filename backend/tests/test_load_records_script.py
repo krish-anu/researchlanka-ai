@@ -152,6 +152,17 @@ def test_load_record_file_limit_applies_before_batching(tmp_path, monkeypatch):
     assert load_record_file(path, batch_size=2, limit=1) == 1
 
 
+def test_iter_csv_records_handles_large_fields(tmp_path):
+    path = tmp_path / "large_field.csv"
+    large_value = "A" * 200_000
+    path.write_text(
+        f"source_dataset,source_record_id,title\n" f"sample,pub-1,{large_value}\n",
+        encoding="utf-8",
+    )
+
+    assert list(iter_record_file(path))[0]["title"] == large_value
+
+
 def test_load_database_records_accepts_dataset_override(tmp_path, monkeypatch):
     dataset_path = tmp_path / "final_dataset.csv"
     dataset_path.write_text(
