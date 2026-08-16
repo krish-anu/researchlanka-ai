@@ -32,7 +32,8 @@ def load_database_records(
     dataset_path: Path | None = None,
     batch_size: int = 1000,
     limit: int | None = None,
-) -> int:
+    full_database: bool = False,
+) -> int | dict[str, int]:
     """Load either the configured pipeline output or an explicit final dataset file.
 
     The default pipeline path is intentionally kept for backward compatibility, but
@@ -41,10 +42,20 @@ def load_database_records(
     """
 
     if dataset_path is not None:
-        from src.database.load_records import load_record_file
+        from src.database.load_records import (
+            load_full_database_dataset,
+            load_record_file,
+        )
 
         if not dataset_path.exists():
             raise FileNotFoundError(f"Dataset file does not exist: {dataset_path}")
+
+        if full_database:
+            return load_full_database_dataset(
+                dataset_path,
+                batch_size=batch_size,
+                limit=limit,
+            )
 
         return load_record_file(
             dataset_path,
@@ -96,6 +107,11 @@ def main(argv: list[str] | None = None) -> None:
             type=int,
             default=1000,
             help="Batch size for direct dataset loading when --dataset is provided.",
+        )
+        command_parser.add_argument(
+            "--full-database",
+            action="store_true",
+            help="Populate normalized relational tables as well as final_publications.",
         )
         command_parser.add_argument(
             "--log-level",
@@ -171,9 +187,17 @@ def main(argv: list[str] | None = None) -> None:
             config,
             dataset_path=args.dataset,
             batch_size=args.batch_size,
+            full_database=args.full_database,
         )
         if args.dataset is not None:
-            print(f"Loaded {loaded} records from {args.dataset} into PostgreSQL.")
+            if isinstance(loaded, dict):
+                print(
+                    "Loaded "
+                    + ", ".join(f"{table}={count}" for table, count in loaded.items())
+                    + f" from {args.dataset} into PostgreSQL."
+                )
+            else:
+                print(f"Loaded {loaded} records from {args.dataset} into PostgreSQL.")
         else:
             print(f"Loaded {loaded} records into PostgreSQL.")
         return
