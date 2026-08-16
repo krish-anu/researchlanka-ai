@@ -14,12 +14,13 @@ from typing import Any
 from src.database.connection import get_connection
 from src.database.loader import load_final_publications
 
-
 SUPPORTED_FORMATS = ("auto", "csv", "json", "jsonl")
 DEFAULT_BATCH_SIZE = 1_000
 
 
-def iter_record_file(path: Path, *, file_format: str = "auto") -> Iterator[dict[str, Any]]:
+def iter_record_file(
+    path: Path, *, file_format: str = "auto"
+) -> Iterator[dict[str, Any]]:
     """Yield publication records from a CSV, JSON array, or JSON Lines file."""
 
     selected_format = detect_format(path, file_format)
@@ -57,6 +58,11 @@ def detect_format(path: Path, requested_format: str = "auto") -> str:
 
 
 def iter_csv_records(path: Path) -> Iterator[dict[str, Any]]:
+    # Some publication exports can include very large metadata fields; the
+    # default csv module limit is too low for those rows and raises before we
+    # can load any records into PostgreSQL.
+    csv.field_size_limit(sys.maxsize)
+
     with path.open(newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
         if reader.fieldnames is None:
@@ -79,7 +85,9 @@ def iter_json_records(path: Path) -> Iterator[dict[str, Any]]:
             yield ensure_record(item, record_label=f"records[{index - 1}]")
         return
 
-    raise ValueError("JSON input must be a list of records or an object with a records list.")
+    raise ValueError(
+        "JSON input must be a list of records or an object with a records list."
+    )
 
 
 def iter_jsonl_records(path: Path) -> Iterator[dict[str, Any]]:
@@ -97,7 +105,9 @@ def ensure_record(value: Any, *, record_label: str) -> dict[str, Any]:
     return value
 
 
-def chunked(records: Iterable[dict[str, Any]], batch_size: int) -> Iterator[list[dict[str, Any]]]:
+def chunked(
+    records: Iterable[dict[str, Any]], batch_size: int
+) -> Iterator[list[dict[str, Any]]]:
     """Yield records in fixed-size batches."""
 
     if batch_size < 1:
