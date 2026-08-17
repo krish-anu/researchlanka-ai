@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from collections import Counter
 from contextlib import closing
+from pathlib import Path
 from typing import Any, Callable
 
 from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
@@ -18,13 +20,53 @@ from src.api.repositories.sql import (
 )
 from src.database.connection import get_connection
 from src.database.final_schema import FINAL_PUBLICATION_TABLE
+from src.modeling.embeddings import (
+    EMBEDDING_MODEL_PATH_ENV,
+    EMBEDDINGS_PATH_ENV,
+    SemanticSearchIndex,
+    default_semantic_embeddings_path,
+    default_semantic_model_path,
+    load_semantic_search_index,
+)
+
+
+def configured_semantic_path(
+    explicit_path: Path | None,
+    *,
+    env_name: str,
+    default_path: Path,
+) -> Path:
+    if explicit_path is not None:
+        return explicit_path
+    configured = os.environ.get(env_name)
+    if configured:
+        return Path(configured)
+    return default_path
 
 
 class PostgresPublicationRepository:
     """Query publication API data from PostgreSQL."""
 
-    def __init__(self, connection_factory: Callable[[str | None], Any] = get_connection) -> None:
+    def __init__(
+        self,
+        connection_factory: Callable[[str | None], Any] = get_connection,
+        *,
+        semantic_index: SemanticSearchIndex | None = None,
+        semantic_embeddings_path: Path | None = None,
+        semantic_model_path: Path | None = None,
+    ) -> None:
         self.connection_factory = connection_factory
+        self._semantic_index = semantic_index
+        self.semantic_embeddings_path = configured_semantic_path(
+            semantic_embeddings_path,
+            env_name=EMBEDDINGS_PATH_ENV,
+            default_path=default_semantic_embeddings_path(),
+        )
+        self.semantic_model_path = configured_semantic_path(
+            semantic_model_path,
+            env_name=EMBEDDING_MODEL_PATH_ENV,
+            default_path=default_semantic_model_path(self.semantic_embeddings_path),
+        )
 
     def health(self) -> bool:
         with closing(self.connection_factory(None)) as connection:
@@ -167,6 +209,36 @@ class PostgresPublicationRepository:
             seen.add(value)
             suggestions.append(row)
         return suggestions[:limit]
+
+    def semantic_search(
+        self,
+        query: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        return self._semantic_search_index().search(
+            query,
+            filters=filters,
+            limit=limit,
+            min_score=min_score,
+        )
+
+    def related_publications(
+        self,
+        publication_key: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        return self._semantic_search_index().related_publications(
+            publication_key,
+            filters=filters,
+            limit=limit,
+            min_score=min_score,
+        )
 
     def researcher_profile(self, researcher_key: str) -> dict[str, Any] | None:
         rows = self._rows_for_multivalue("authors", researcher_key)
@@ -446,6 +518,14 @@ class PostgresPublicationRepository:
     def _fetch_one(self, sql: str, params: list[Any]) -> dict[str, Any] | None:
         rows = self._fetch_all(sql, params)
         return rows[0] if rows else None
+
+    def _semantic_search_index(self) -> SemanticSearchIndex:
+        if self._semantic_index is None:
+            self._semantic_index = load_semantic_search_index(
+                embeddings_path=self.semantic_embeddings_path,
+                model_path=self.semantic_model_path,
+            )
+        return self._semantic_index
 
     def _fetch_all(self, sql: str, params: list[Any]) -> list[dict[str, Any]]:
         with closing(self.connection_factory(None)) as connection:

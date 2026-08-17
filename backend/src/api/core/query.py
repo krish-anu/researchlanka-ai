@@ -51,11 +51,25 @@ def parse_positive_int(query: dict[str, list[str]], key: str, *, default: int) -
     return parsed
 
 
+def parse_optional_float(query: dict[str, list[str]], key: str) -> float | None:
+    value = first(query, key)
+    if value is None or value == "":
+        return None
+    return parse_float(value, key)
+
+
 def parse_int(value: str, field: str) -> int:
     try:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise APIError("invalid_filter", f"{field} must be an integer.", details={"field": field}) from exc
+
+
+def parse_float(value: str, field: str) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise APIError("invalid_filter", f"{field} must be a number.", details={"field": field}) from exc
 
 
 def parse_bool(value: str | None, *, default: bool | None = None) -> bool | None:

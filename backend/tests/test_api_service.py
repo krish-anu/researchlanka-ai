@@ -1,6 +1,7 @@
 import pytest
 
 from src.api.repository import build_where
+from src.api.routes import route_get
 from src.api.service import APIError, ResearchLankaAPI
 
 
@@ -102,6 +103,24 @@ class FakeRepository:
 
     def suggest(self, query, *, limit):
         return [{"type": "publication", "value": PUBLICATIONS[0]["title"], "key": PUBLICATIONS[0]["publication_key"]}][:limit]
+
+    def semantic_search(self, query, *, filters, limit, min_score):
+        row = {
+            **PUBLICATIONS[0],
+            "semantic_score": 0.925432,
+            "semantic_rank": 1,
+        }
+        return [row][:limit]
+
+    def related_publications(self, publication_key, *, filters, limit, min_score):
+        if publication_key == "missing":
+            raise KeyError(publication_key)
+        row = {
+            **PUBLICATIONS[1],
+            "semantic_score": 0.812345,
+            "semantic_rank": 1,
+        }
+        return [row][:limit]
 
     def researcher_profile(self, researcher_key):
         return {"key": "a-author", "label": researcher_key, "publication_count": 1}
@@ -220,6 +239,41 @@ def test_publication_exports_use_filtered_summary_contract():
     assert "Repository-only thesis" not in csv_payload.decode("utf-8")
     assert jsonl_content_type == "application/x-ndjson; charset=utf-8"
     assert jsonl_payload.decode("utf-8").count("\n") == 1
+
+
+def test_semantic_search_endpoint_shapes_scores_and_filters():
+    payload = api().semantic_search(
+        {
+            "q": ["vector borne disease surveillance"],
+            "year_min": ["2020"],
+            "limit": ["5"],
+            "min_score": ["0.5"],
+        }
+    )
+
+    assert payload["data"][0]["title"] == "Malaria surveillance in Sri Lanka"
+    assert payload["data"][0]["semantic_score"] == 0.925432
+    assert payload["data"][0]["semantic_rank"] == 1
+    assert payload["filters"]["applied"]["q"] == "vector borne disease surveillance"
+    assert payload["filters"]["applied"]["year_min"] == 2020
+    assert payload["meta"]["search"]["mode"] == "semantic"
+
+
+def test_related_publications_route_and_missing_embedding():
+    payload = route_get(
+        api(),
+        "/api/v1/publications/doi%3A10.1000%2Ftest/related",
+        {"limit": ["3"]},
+    )
+
+    assert payload["data"][0]["title"] == "Repository-only thesis"
+    assert payload["data"][0]["semantic_rank"] == 1
+
+    with pytest.raises(APIError) as exc_info:
+        api().related_publications("missing", {})
+
+    assert exc_info.value.code == "not_found"
+    assert exc_info.value.status == 404
 
 
 def test_analytics_export_and_disabled_raw_payload():

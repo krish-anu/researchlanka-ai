@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import TruncatedSVD
@@ -39,6 +42,37 @@ DEFAULT_MANIFEST_OUTPUT_PATH = (
 )
 DEFAULT_SUMMARY_OUTPUT_PATH = (
     DEFAULT_MODEL_DIR / "publication_text_embeddings_summary.txt"
+)
+EMBEDDINGS_PATH_ENV = "RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH"
+EMBEDDING_MODEL_PATH_ENV = "RESEARCHLANKA_SEMANTIC_MODEL_PATH"
+EMBEDDING_COLUMN_PREFIX = "embedding_"
+SEMANTIC_SCORE_FIELD = "semantic_score"
+SEMANTIC_RANK_FIELD = "semantic_rank"
+
+SEMANTIC_TEXT_FILTER_COLUMNS = {
+    "type": "type",
+    "journal": "journal",
+    "field": "primary_field",
+    "subfield": "primary_subfield",
+}
+
+SEMANTIC_MULTIVALUE_FILTER_COLUMNS = {
+    "institution": (
+        "institutions",
+        "sri_lankan_institutions",
+        "source_institution_id",
+    ),
+    "country": ("countries",),
+    "topic": ("topics", "concepts", "primary_topic"),
+    "source_dataset": ("source_dataset",),
+}
+
+SEMANTIC_LOOKUP_COLUMNS = (
+    "publication_key",
+    "doi",
+    "openalex_id",
+    "source_record_id",
+    "record_number",
 )
 
 
@@ -81,6 +115,131 @@ class EmbeddingResult:
     explained_variance_ratio: float | None
     output_sha256: str
     model_sha256: str
+
+
+class SemanticSearchIndex:
+    """In-memory semantic search over saved publication embedding artifacts."""
+
+    def __init__(
+        self,
+        *,
+        metadata: pd.DataFrame,
+        embeddings: np.ndarray,
+        embedder: Mapping[str, Any],
+        embedding_columns: Sequence[str],
+    ) -> None:
+        if embeddings.ndim != 2:
+            raise ValueError("embeddings must be a 2D matrix")
+        if len(metadata) != embeddings.shape[0]:
+            raise ValueError(
+                "metadata row count must match embedding row count: "
+                f"{len(metadata)} != {embeddings.shape[0]}"
+            )
+        if embeddings.shape[1] == 0:
+            raise ValueError("embeddings must include at least one dimension")
+
+        self.metadata = metadata.reset_index(drop=True).copy()
+        self.embeddings = l2_normalized_matrix(embeddings)
+        self.embedder = dict(embedder)
+        self.embedding_columns = tuple(embedding_columns)
+
+    @classmethod
+    def from_artifacts(
+        cls,
+        *,
+        embeddings_path: Path = DEFAULT_OUTPUT_PATH,
+        model_path: Path = DEFAULT_MODEL_OUTPUT_PATH,
+    ) -> "SemanticSearchIndex":
+        return load_semantic_search_index(
+            embeddings_path=embeddings_path,
+            model_path=model_path,
+        )
+
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 10,
+        min_score: float | None = None,
+        filters: Mapping[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return nearest publication rows for a natural-language query."""
+
+        query_vector = encode_semantic_query(query, self.embedder)
+        if is_zero_vector(query_vector):
+            return []
+        return self.search_by_vector(
+            query_vector,
+            limit=limit,
+            min_score=min_score,
+            filters=filters,
+        )
+
+    def related_publications(
+        self,
+        publication_key: str,
+        *,
+        limit: int = 10,
+        min_score: float | None = None,
+        filters: Mapping[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return nearest rows to an existing publication embedding."""
+
+        row_index = find_publication_index(self.metadata, publication_key)
+        return self.search_by_vector(
+            self.embeddings[row_index],
+            limit=limit,
+            min_score=min_score,
+            filters=filters,
+            exclude_indices={row_index},
+        )
+
+    def search_by_vector(
+        self,
+        vector: np.ndarray,
+        *,
+        limit: int = 10,
+        min_score: float | None = None,
+        filters: Mapping[str, Any] | None = None,
+        exclude_indices: set[int] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return nearest rows to a dense vector using cosine similarity."""
+
+        validate_search_limit(limit)
+        query_vector = l2_normalized_vector(vector)
+        if is_zero_vector(query_vector):
+            return []
+        if query_vector.shape[0] != self.embeddings.shape[1]:
+            raise ValueError(
+                "Query embedding dimension does not match index dimension: "
+                f"{query_vector.shape[0]} != {self.embeddings.shape[1]}"
+            )
+
+        candidate_mask = semantic_filter_mask(self.metadata, filters or {})
+        if exclude_indices:
+            for index in exclude_indices:
+                if 0 <= index < len(candidate_mask):
+                    candidate_mask[index] = False
+
+        candidate_indices = np.flatnonzero(candidate_mask)
+        if len(candidate_indices) == 0:
+            return []
+
+        scores = self.embeddings[candidate_indices] @ query_vector
+        if min_score is not None:
+            score_mask = scores >= min_score
+            candidate_indices = candidate_indices[score_mask]
+            scores = scores[score_mask]
+
+        if len(candidate_indices) == 0:
+            return []
+
+        order = np.argsort(scores)[::-1][:limit]
+        return semantic_search_rows(
+            self.metadata,
+            indices=candidate_indices[order],
+            scores=scores[order],
+        )
 
 
 def json_ready_dataclass(
@@ -231,6 +390,275 @@ def build_dense_embeddings(
 
 def embedding_column_names(dimensions: int) -> list[str]:
     return [f"embedding_{index:04d}" for index in range(dimensions)]
+
+
+def default_semantic_embeddings_path() -> Path:
+    """Return the preferred available embeddings artifact for semantic search."""
+
+    if DEFAULT_OUTPUT_PATH.exists():
+        return DEFAULT_OUTPUT_PATH
+    candidates = [
+        path
+        for path in DEFAULT_MODEL_DIR.glob("publication_text_embeddings*.parquet")
+        if path.is_file()
+    ]
+    if not candidates:
+        return DEFAULT_OUTPUT_PATH
+    return max(candidates, key=lambda path: path.stat().st_size)
+
+
+def default_semantic_model_path(embeddings_path: Path | None = None) -> Path:
+    """Return the model artifact that best matches an embeddings parquet."""
+
+    if embeddings_path and embeddings_path != DEFAULT_OUTPUT_PATH:
+        suffix = embeddings_path.stem.removeprefix("publication_text_embeddings")
+        candidate = DEFAULT_MODEL_DIR / f"publication_text_embedding_model{suffix}.joblib"
+        if candidate.exists():
+            return candidate
+    if DEFAULT_MODEL_OUTPUT_PATH.exists():
+        return DEFAULT_MODEL_OUTPUT_PATH
+    candidates = [
+        path
+        for path in DEFAULT_MODEL_DIR.glob("publication_text_embedding_model*.joblib")
+        if path.is_file()
+    ]
+    if not candidates:
+        return DEFAULT_MODEL_OUTPUT_PATH
+    return max(candidates, key=lambda path: path.stat().st_size)
+
+
+def embedding_columns_from_frame(frame: pd.DataFrame) -> list[str]:
+    columns = [
+        column
+        for column in frame.columns
+        if column.startswith(EMBEDDING_COLUMN_PREFIX)
+    ]
+    if not columns:
+        raise ValueError(
+            "Embedding parquet does not contain columns named "
+            f"{EMBEDDING_COLUMN_PREFIX}####"
+        )
+    return sorted(columns)
+
+
+def validate_embedding_model(embedder: Mapping[str, Any]) -> None:
+    missing_keys = [
+        key
+        for key in ("vectorizer", "svd")
+        if key not in embedder or embedder[key] is None
+    ]
+    if missing_keys:
+        raise ValueError(
+            "Embedding model is missing required components: "
+            + ", ".join(missing_keys)
+        )
+    model_family = embedder.get("model_family")
+    if model_family not in {None, DEFAULT_MODEL_FAMILY}:
+        raise ValueError(f"Unsupported embedding model_family: {model_family}")
+
+
+def load_semantic_search_index(
+    *,
+    embeddings_path: Path = DEFAULT_OUTPUT_PATH,
+    model_path: Path = DEFAULT_MODEL_OUTPUT_PATH,
+) -> SemanticSearchIndex:
+    """Load a reusable in-memory semantic-search index from saved artifacts."""
+
+    if not embeddings_path.exists():
+        raise FileNotFoundError(f"Embeddings artifact not found: {embeddings_path}")
+    if not model_path.exists():
+        raise FileNotFoundError(f"Embedding model artifact not found: {model_path}")
+
+    frame = pd.read_parquet(embeddings_path)
+    embedding_columns = embedding_columns_from_frame(frame)
+    embeddings = frame[embedding_columns].to_numpy(dtype=np.float32, copy=True)
+    embeddings = np.nan_to_num(embeddings, nan=0.0, posinf=0.0, neginf=0.0)
+    metadata = frame.drop(columns=embedding_columns)
+    embedder = joblib.load(model_path)
+    if not isinstance(embedder, Mapping):
+        raise ValueError("Embedding model artifact must contain a mapping")
+    validate_embedding_model(embedder)
+    return SemanticSearchIndex(
+        metadata=metadata,
+        embeddings=embeddings,
+        embedder=embedder,
+        embedding_columns=embedding_columns,
+    )
+
+
+def encode_semantic_query(query: str, embedder: Mapping[str, Any]) -> np.ndarray:
+    """Transform query text with the saved TF-IDF + SVD embedding model."""
+
+    text = query.strip()
+    if not text:
+        raise ValueError("Semantic search query must not be blank")
+
+    validate_embedding_model(embedder)
+    tfidf_matrix = embedder["vectorizer"].transform([text])
+    dense = embedder["svd"].transform(tfidf_matrix)
+    return np.asarray(dense[0], dtype=np.float32)
+
+
+def l2_normalized_matrix(values: np.ndarray) -> np.ndarray:
+    values = np.asarray(values, dtype=np.float32)
+    if values.size == 0:
+        return values
+    return normalize(values, norm="l2").astype(np.float32)
+
+
+def l2_normalized_vector(value: np.ndarray) -> np.ndarray:
+    vector = np.asarray(value, dtype=np.float32).reshape(1, -1)
+    if is_zero_vector(vector):
+        return vector.ravel()
+    return normalize(vector, norm="l2").astype(np.float32).ravel()
+
+
+def is_zero_vector(value: np.ndarray) -> bool:
+    return not bool(np.any(np.asarray(value, dtype=np.float32)))
+
+
+def validate_search_limit(limit: int) -> None:
+    if limit < 1:
+        raise ValueError("limit must be at least 1")
+
+
+def semantic_filter_mask(
+    metadata: pd.DataFrame,
+    filters: Mapping[str, Any],
+) -> np.ndarray:
+    """Build a best-effort boolean mask for filters present in embedding metadata."""
+
+    mask = np.ones(len(metadata), dtype=bool)
+    if not filters:
+        return mask
+
+    if filters.get("year_min") is not None and "publication_year" in metadata.columns:
+        years = pd.to_numeric(metadata["publication_year"], errors="coerce")
+        mask &= (years >= filters["year_min"]).fillna(False).to_numpy()
+    if filters.get("year_max") is not None and "publication_year" in metadata.columns:
+        years = pd.to_numeric(metadata["publication_year"], errors="coerce")
+        mask &= (years <= filters["year_max"]).fillna(False).to_numpy()
+
+    for filter_name, column in SEMANTIC_TEXT_FILTER_COLUMNS.items():
+        values = filters.get(filter_name)
+        if values and column in metadata.columns:
+            mask &= text_membership_mask(metadata[column], values)
+
+    for filter_name, columns in SEMANTIC_MULTIVALUE_FILTER_COLUMNS.items():
+        values = filters.get(filter_name)
+        present_columns = [column for column in columns if column in metadata.columns]
+        if values and present_columns:
+            mask &= multivalue_contains_mask(metadata, present_columns, values)
+
+    if filters.get("is_oa") is not None and "is_oa" in metadata.columns:
+        mask &= boolean_mask(metadata["is_oa"], bool(filters["is_oa"]))
+    if filters.get("has_doi") is not None and "doi" in metadata.columns:
+        doi_present = nonblank_mask(metadata["doi"])
+        mask &= doi_present if filters["has_doi"] else ~doi_present
+    if filters.get("has_abstract") is not None and "abstract" in metadata.columns:
+        abstract_present = nonblank_mask(metadata["abstract"])
+        mask &= abstract_present if filters["has_abstract"] else ~abstract_present
+
+    return mask
+
+
+def text_membership_mask(series: pd.Series, values: Sequence[Any]) -> np.ndarray:
+    wanted = {str(value).casefold() for value in values if value not in (None, "")}
+    if not wanted:
+        return np.ones(len(series), dtype=bool)
+    return series.fillna("").astype(str).str.casefold().isin(wanted).to_numpy()
+
+
+def multivalue_contains_mask(
+    frame: pd.DataFrame,
+    columns: Sequence[str],
+    values: Sequence[Any],
+) -> np.ndarray:
+    wanted = [str(value).casefold() for value in values if value not in (None, "")]
+    if not wanted:
+        return np.ones(len(frame), dtype=bool)
+
+    mask = np.zeros(len(frame), dtype=bool)
+    for column in columns:
+        text = frame[column].fillna("").astype(str).str.casefold()
+        column_mask = np.zeros(len(frame), dtype=bool)
+        for value in wanted:
+            column_mask |= text.str.contains(value, regex=False).to_numpy()
+        mask |= column_mask
+    return mask
+
+
+def boolean_mask(series: pd.Series, expected: bool) -> np.ndarray:
+    truthy = {"true", "t", "yes", "y", "1"}
+    falsy = {"false", "f", "no", "n", "0"}
+    normalized = series.fillna("").astype(str).str.casefold()
+    values = normalized.isin(truthy) if expected else normalized.isin(falsy)
+    if series.dtype == bool:
+        values = series.fillna(False).astype(bool) == expected
+    return values.to_numpy()
+
+
+def nonblank_mask(series: pd.Series) -> np.ndarray:
+    return (
+        series.notna()
+        & (series.astype(str).str.strip() != "")
+        & (series.astype(str).str.casefold() != "nan")
+    ).to_numpy()
+
+
+def semantic_search_rows(
+    metadata: pd.DataFrame,
+    *,
+    indices: Sequence[int],
+    scores: Sequence[float],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for rank, (index, score) in enumerate(zip(indices, scores, strict=True), start=1):
+        row = clean_metadata_row(metadata.iloc[int(index)].to_dict())
+        row[SEMANTIC_SCORE_FIELD] = round(float(score), 6)
+        row[SEMANTIC_RANK_FIELD] = rank
+        rows.append(row)
+    return rows
+
+
+def clean_metadata_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: clean_metadata_value(value) for key, value in row.items()}
+
+
+def clean_metadata_value(value: Any) -> Any:
+    if isinstance(value, np.generic):
+        value = value.item()
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return value
+
+
+def find_publication_index(metadata: pd.DataFrame, publication_key: str) -> int:
+    """Find one embedding row by publication_key or common source identifiers."""
+
+    candidates = publication_lookup_candidates(publication_key)
+    for column in SEMANTIC_LOOKUP_COLUMNS:
+        if column not in metadata.columns:
+            continue
+        values = metadata[column].fillna("").astype(str).str.casefold()
+        matches = values[values.isin(candidates)]
+        if not matches.empty:
+            return int(matches.index[0])
+    raise KeyError(f"Publication embedding not found: {publication_key}")
+
+
+def publication_lookup_candidates(publication_key: str) -> set[str]:
+    text = publication_key.strip()
+    candidates = {text.casefold()}
+    for prefix in ("doi:", "openalex:", "source:"):
+        if text.casefold().startswith(prefix):
+            candidates.add(text[len(prefix) :].casefold())
+    if ":" in text:
+        candidates.add(text.rsplit(":", maxsplit=1)[-1].casefold())
+    return {candidate for candidate in candidates if candidate}
 
 
 def write_embeddings_parquet(

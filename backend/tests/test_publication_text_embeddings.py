@@ -11,6 +11,7 @@ from research_analytics.cli import main as cli_main
 from src.modeling.embeddings import (
     PublicationEmbeddingConfig,
     generate_publication_text_embeddings,
+    load_semantic_search_index,
 )
 
 
@@ -129,3 +130,45 @@ def test_generate_embeddings_cli_command(tmp_path: Path, capsys):
     captured = capsys.readouterr()
     assert "Generated publication text embeddings" in captured.out
     assert output_parquet.exists()
+
+
+def test_semantic_search_index_ranks_filters_and_finds_related(tmp_path: Path):
+    input_csv = tmp_path / "publications.csv"
+    output_parquet = tmp_path / "embeddings.parquet"
+    model_output = tmp_path / "embedding_model.joblib"
+    write_publications_csv(input_csv)
+
+    generate_publication_text_embeddings(
+        PublicationEmbeddingConfig(
+            input_path=input_csv,
+            output_path=output_parquet,
+            model_output=model_output,
+            text_columns=("title", "abstract", "keywords"),
+            metadata_columns=("record_number", "publication_year", "title", "doi"),
+            embedding_dim=4,
+            max_features=100,
+            min_df=1,
+            max_df=1.0,
+            ngram_max=2,
+        )
+    )
+    index = load_semantic_search_index(
+        embeddings_path=output_parquet,
+        model_path=model_output,
+    )
+
+    rows = index.search("computer vision tea disease", limit=2)
+
+    assert rows[0]["title"] == "Machine learning for tea disease detection"
+    assert rows[0]["semantic_rank"] == 1
+    assert rows[0]["semantic_score"] >= rows[1]["semantic_score"]
+
+    filtered = index.search(
+        "disease forecasting",
+        limit=5,
+        filters={"year_min": 2025},
+    )
+    assert [row["title"] for row in filtered] == ["Rice disease forecasting in Sri Lanka"]
+
+    related = index.related_publications("doi:10.1000/tea", limit=1)
+    assert related[0]["title"] == "Rice disease forecasting in Sri Lanka"
