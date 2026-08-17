@@ -5,11 +5,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import joblib
+import numpy as np
 import pandas as pd
+import pytest
 from research_analytics.cli import main as cli_main
 
 from src.modeling.embeddings import (
     PublicationEmbeddingConfig,
+    embedding_column_names,
     generate_publication_text_embeddings,
     load_semantic_search_index,
 )
@@ -132,6 +136,73 @@ def test_generate_embeddings_cli_command(tmp_path: Path, capsys):
     assert output_parquet.exists()
 
 
+def test_embedding_storage_persists_reloadable_vectors_and_model(tmp_path: Path):
+    input_csv = tmp_path / "publications.csv"
+    output_parquet = tmp_path / "embeddings.parquet"
+    model_output = tmp_path / "embedding_model.joblib"
+    manifest_output = tmp_path / "embeddings_manifest.json"
+    summary_output = tmp_path / "embeddings_summary.txt"
+    write_publications_csv(input_csv)
+
+    result = generate_publication_text_embeddings(
+        PublicationEmbeddingConfig(
+            input_path=input_csv,
+            output_path=output_parquet,
+            model_output=model_output,
+            manifest_output=manifest_output,
+            summary_output=summary_output,
+            text_columns=("title", "abstract", "keywords"),
+            metadata_columns=(
+                "record_number",
+                "publication_year",
+                "title",
+                "doi",
+                "openalex_id",
+                "source_dataset",
+                "source_institution_id",
+                "source_record_id",
+            ),
+            embedding_dim=4,
+            max_features=100,
+            min_df=1,
+            max_df=1.0,
+            ngram_max=2,
+        )
+    )
+
+    stored = pd.read_parquet(output_parquet)
+    embedding_columns = [
+        column for column in stored.columns if column.startswith("embedding_")
+    ]
+
+    assert "text" not in stored.columns
+    assert stored["source_row"].tolist() == [0, 1]
+    assert stored["record_number"].tolist() == ["1", "2"]
+    assert stored["source_record_id"].tolist() == ["record-1", "record-2"]
+    assert embedding_columns == embedding_column_names(result.embedding_dimensions)
+    assert stored[embedding_columns].isna().sum().sum() == 0
+
+    stored_vectors = stored[embedding_columns].to_numpy(dtype=np.float32)
+    assert stored_vectors.shape == (2, result.embedding_dimensions)
+    assert np.allclose(np.linalg.norm(stored_vectors, axis=1), 1.0)
+
+    saved_model = joblib.load(model_output)
+    assert saved_model["model_family"] == "publication_tfidf_svd"
+    assert saved_model["text_columns"] == ["title", "abstract", "keywords"]
+    assert saved_model["normalize_embeddings"] is True
+    assert hasattr(saved_model["vectorizer"], "transform")
+    assert hasattr(saved_model["svd"], "transform")
+
+    reloaded = load_semantic_search_index(
+        embeddings_path=output_parquet,
+        model_path=model_output,
+    )
+
+    assert reloaded.embedding_columns == tuple(embedding_columns)
+    assert reloaded.metadata["doi"].tolist() == ["10.1000/tea", "10.1000/rice"]
+    assert np.allclose(reloaded.embeddings, stored_vectors)
+
+
 def test_semantic_search_index_ranks_filters_and_finds_related(tmp_path: Path):
     input_csv = tmp_path / "publications.csv"
     output_parquet = tmp_path / "embeddings.parquet"
@@ -144,7 +215,15 @@ def test_semantic_search_index_ranks_filters_and_finds_related(tmp_path: Path):
             output_path=output_parquet,
             model_output=model_output,
             text_columns=("title", "abstract", "keywords"),
-            metadata_columns=("record_number", "publication_year", "title", "doi"),
+            metadata_columns=(
+                "record_number",
+                "publication_year",
+                "title",
+                "doi",
+                "openalex_id",
+                "source_dataset",
+                "source_record_id",
+            ),
             embedding_dim=4,
             max_features=100,
             min_df=1,
@@ -174,3 +253,58 @@ def test_semantic_search_index_ranks_filters_and_finds_related(tmp_path: Path):
 
     related = index.related_publications("doi:10.1000/tea", limit=1)
     assert related[0]["title"] == "Rice disease forecasting in Sri Lanka"
+
+    openalex_related = index.related_publications(
+        "openalex:https://openalex.org/W1",
+        limit=1,
+    )
+    assert openalex_related[0]["title"] == "Rice disease forecasting in Sri Lanka"
+
+    source_related = index.related_publications("source:openalex:record-1", limit=1)
+    assert source_related[0]["title"] == "Rice disease forecasting in Sri Lanka"
+
+
+def test_embedding_retrieval_reports_missing_and_malformed_artifacts(tmp_path: Path):
+    input_csv = tmp_path / "publications.csv"
+    output_parquet = tmp_path / "embeddings.parquet"
+    model_output = tmp_path / "embedding_model.joblib"
+    write_publications_csv(input_csv)
+
+    generate_publication_text_embeddings(
+        PublicationEmbeddingConfig(
+            input_path=input_csv,
+            output_path=output_parquet,
+            model_output=model_output,
+            text_columns=("title", "abstract", "keywords"),
+            metadata_columns=("record_number", "publication_year", "title", "doi"),
+            embedding_dim=4,
+            max_features=100,
+            min_df=1,
+            max_df=1.0,
+            ngram_max=2,
+        )
+    )
+
+    with pytest.raises(FileNotFoundError, match="Embeddings artifact not found"):
+        load_semantic_search_index(
+            embeddings_path=tmp_path / "missing.parquet",
+            model_path=model_output,
+        )
+
+    with pytest.raises(FileNotFoundError, match="Embedding model artifact not found"):
+        load_semantic_search_index(
+            embeddings_path=output_parquet,
+            model_path=tmp_path / "missing.joblib",
+        )
+
+    malformed_parquet = tmp_path / "malformed.parquet"
+    pd.DataFrame([{"title": "No embedding columns"}]).to_parquet(
+        malformed_parquet,
+        index=False,
+    )
+
+    with pytest.raises(ValueError, match="does not contain columns"):
+        load_semantic_search_index(
+            embeddings_path=malformed_parquet,
+            model_path=model_output,
+        )
