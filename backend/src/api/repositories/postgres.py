@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from collections import Counter
 from contextlib import closing
+from pathlib import Path
 from typing import Any, Callable
 
 from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
@@ -18,13 +20,66 @@ from src.api.repositories.sql import (
 )
 from src.database.connection import get_connection
 from src.database.final_schema import FINAL_PUBLICATION_TABLE
+from src.modeling.embeddings import (
+    EMBEDDING_MODEL_PATH_ENV,
+    EMBEDDINGS_PATH_ENV,
+    SEMANTIC_RANK_FIELD,
+    SEMANTIC_SCORE_FIELD,
+    SIMILARITY_RANK_FIELD,
+    SIMILARITY_SCORE_FIELD,
+    SemanticSearchIndex,
+    default_semantic_embeddings_path,
+    default_semantic_model_path,
+    load_semantic_search_index,
+)
+
+
+SIMILARITY_RESULT_FIELDS = (
+    SEMANTIC_SCORE_FIELD,
+    SEMANTIC_RANK_FIELD,
+    SIMILARITY_SCORE_FIELD,
+    SIMILARITY_RANK_FIELD,
+)
+MAX_SEMANTIC_CANDIDATES = 500
+
+
+def configured_semantic_path(
+    explicit_path: Path | None,
+    *,
+    env_name: str,
+    default_path: Path,
+) -> Path:
+    if explicit_path is not None:
+        return explicit_path
+    configured = os.environ.get(env_name)
+    if configured:
+        return Path(configured)
+    return default_path
 
 
 class PostgresPublicationRepository:
     """Query publication API data from PostgreSQL."""
 
-    def __init__(self, connection_factory: Callable[[str | None], Any] = get_connection) -> None:
+    def __init__(
+        self,
+        connection_factory: Callable[[str | None], Any] = get_connection,
+        *,
+        semantic_index: SemanticSearchIndex | None = None,
+        semantic_embeddings_path: Path | None = None,
+        semantic_model_path: Path | None = None,
+    ) -> None:
         self.connection_factory = connection_factory
+        self._semantic_index = semantic_index
+        self.semantic_embeddings_path = configured_semantic_path(
+            semantic_embeddings_path,
+            env_name=EMBEDDINGS_PATH_ENV,
+            default_path=default_semantic_embeddings_path(),
+        )
+        self.semantic_model_path = configured_semantic_path(
+            semantic_model_path,
+            env_name=EMBEDDING_MODEL_PATH_ENV,
+            default_path=default_semantic_model_path(self.semantic_embeddings_path),
+        )
 
     def health(self) -> bool:
         with closing(self.connection_factory(None)) as connection:
@@ -167,6 +222,46 @@ class PostgresPublicationRepository:
             seen.add(value)
             suggestions.append(row)
         return suggestions[:limit]
+
+    def semantic_search(
+        self,
+        query: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        hits = self._semantic_search_index().search(
+            query,
+            filters=filters,
+            limit=semantic_candidate_limit(limit),
+            min_score=min_score,
+        )
+        return self._database_records_for_similarity_hits(
+            hits,
+            filters=filters,
+            limit=limit,
+        )
+
+    def related_publications(
+        self,
+        publication_key: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        hits = self._semantic_search_index().related_publications(
+            publication_key,
+            filters=filters,
+            limit=semantic_candidate_limit(limit),
+            min_score=min_score,
+        )
+        return self._database_records_for_similarity_hits(
+            hits,
+            filters=filters,
+            limit=limit,
+        )
 
     def researcher_profile(self, researcher_key: str) -> dict[str, Any] | None:
         rows = self._rows_for_multivalue("authors", researcher_key)
@@ -447,6 +542,56 @@ class PostgresPublicationRepository:
         rows = self._fetch_all(sql, params)
         return rows[0] if rows else None
 
+    def _semantic_search_index(self) -> SemanticSearchIndex:
+        if self._semantic_index is None:
+            self._semantic_index = load_semantic_search_index(
+                embeddings_path=self.semantic_embeddings_path,
+                model_path=self.semantic_model_path,
+            )
+        return self._semantic_index
+
+    def _database_records_for_similarity_hits(
+        self,
+        hits: list[dict[str, Any]],
+        *,
+        filters: dict[str, Any],
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        if not hits:
+            return []
+        records = self._fetch_similarity_candidate_records(hits, filters=filters)
+        return merge_similarity_hits_with_database_records(
+            hits,
+            records,
+            limit=limit,
+        )
+
+    def _fetch_similarity_candidate_records(
+        self,
+        hits: list[dict[str, Any]],
+        *,
+        filters: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        identifier_sql, identifier_params = similarity_identifier_where(hits)
+        if not identifier_sql:
+            return []
+
+        where_parts = [f"({identifier_sql})"]
+        params = list(identifier_params)
+        filter_sql, filter_params = build_where(filters)
+        if filter_sql:
+            where_parts.append(f"({filter_sql.removeprefix('WHERE ').strip()})")
+            params.extend(filter_params)
+
+        return self._fetch_all(
+            f"""
+            SELECT {select_columns(BASE_COLUMNS)}
+            FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+            WHERE {" AND ".join(where_parts)}
+            """,
+            params,
+        )
+
     def _fetch_all(self, sql: str, params: list[Any]) -> list[dict[str, Any]]:
         with closing(self.connection_factory(None)) as connection:
             try:
@@ -464,3 +609,206 @@ class PostgresPublicationRepository:
                     return [dict(row) for row in rows]
                 columns = [column[0] for column in cursor.description]
                 return [dict(zip(columns, row)) for row in rows]
+
+
+def semantic_candidate_limit(requested_limit: int) -> int:
+    """Fetch extra vector hits so DB-side hydration/filtering can still fill results."""
+
+    if requested_limit < 1:
+        return requested_limit
+    return min(max(requested_limit * 5, requested_limit + 25), MAX_SEMANTIC_CANDIDATES)
+
+
+def similarity_identifier_where(hits: list[dict[str, Any]]) -> tuple[str, list[Any]]:
+    publication_keys = unique_nonblank(hit.get("publication_key") for hit in hits)
+    dois = unique_nonblank(hit.get("doi") for hit in hits)
+    openalex_ids = unique_nonblank(hit.get("openalex_id") for hit in hits)
+    source_record_ids = unique_nonblank(hit.get("source_record_id") for hit in hits)
+    source_pairs = unique_pairs(
+        (source, hit.get("source_record_id"))
+        for hit in hits
+        for source in source_values(hit.get("source_dataset"))
+    )
+    institution_pairs = unique_pairs(
+        (hit.get("source_institution_id"), hit.get("source_record_id"))
+        for hit in hits
+    )
+
+    clauses: list[str] = []
+    params: list[Any] = []
+    if publication_keys:
+        clauses.append("publication_key = ANY(%s)")
+        params.append(publication_keys)
+    if dois:
+        clauses.append("doi = ANY(%s)")
+        params.append(dois)
+    if openalex_ids:
+        clauses.append("openalex_id = ANY(%s)")
+        params.append(openalex_ids)
+    if source_record_ids:
+        clauses.append("source_record_id = ANY(%s)")
+        params.append(source_record_ids)
+    for source_dataset, source_record_id in source_pairs:
+        clauses.append("(source_dataset ILIKE %s AND source_record_id = %s)")
+        params.extend([f"%{source_dataset}%", source_record_id])
+    for source_institution_id, source_record_id in institution_pairs:
+        clauses.append("(source_institution_id = %s AND source_record_id = %s)")
+        params.extend([source_institution_id, source_record_id])
+
+    return " OR ".join(clauses), params
+
+
+def merge_similarity_hits_with_database_records(
+    hits: list[dict[str, Any]],
+    records: list[dict[str, Any]],
+    *,
+    limit: int,
+) -> list[dict[str, Any]]:
+    indexes = database_record_indexes(records)
+    merged: list[dict[str, Any]] = []
+    seen_publication_keys: set[str] = set()
+
+    for hit in hits:
+        record = match_similarity_hit(hit, indexes)
+        if record is None:
+            continue
+        publication_key = nonblank_string(record.get("publication_key"))
+        if publication_key and publication_key.casefold() in seen_publication_keys:
+            continue
+        if publication_key:
+            seen_publication_keys.add(publication_key.casefold())
+
+        row = dict(record)
+        for field in SIMILARITY_RESULT_FIELDS:
+            if field in hit:
+                row[field] = hit[field]
+        merged.append(row)
+        if len(merged) >= limit:
+            break
+
+    return merged
+
+
+def database_record_indexes(records: list[dict[str, Any]]) -> dict[str, dict[Any, dict[str, Any]]]:
+    source_record_counts: Counter[str] = Counter()
+    for record in records:
+        source_record_id = normalized_identifier(record.get("source_record_id"))
+        if source_record_id:
+            source_record_counts[source_record_id] += 1
+
+    indexes: dict[str, dict[Any, dict[str, Any]]] = {
+        "publication_key": {},
+        "doi": {},
+        "openalex_id": {},
+        "source_pair": {},
+        "institution_pair": {},
+        "source_record_id": {},
+    }
+
+    for record in records:
+        add_identifier_index(indexes["publication_key"], record.get("publication_key"), record)
+        add_identifier_index(indexes["doi"], record.get("doi"), record)
+        add_identifier_index(indexes["openalex_id"], record.get("openalex_id"), record)
+
+        source_record_id = normalized_identifier(record.get("source_record_id"))
+        if source_record_id and source_record_counts[source_record_id] == 1:
+            indexes["source_record_id"][source_record_id] = record
+
+        for source_dataset in source_values(record.get("source_dataset")):
+            if source_record_id:
+                indexes["source_pair"][(normalized_identifier(source_dataset), source_record_id)] = record
+
+        source_institution_id = normalized_identifier(record.get("source_institution_id"))
+        if source_institution_id and source_record_id:
+            indexes["institution_pair"][(source_institution_id, source_record_id)] = record
+
+    return indexes
+
+
+def match_similarity_hit(
+    hit: dict[str, Any],
+    indexes: dict[str, dict[Any, dict[str, Any]]],
+) -> dict[str, Any] | None:
+    for field in ("publication_key", "doi", "openalex_id"):
+        key = normalized_identifier(hit.get(field))
+        if key and key in indexes[field]:
+            return indexes[field][key]
+
+    source_record_id = normalized_identifier(hit.get("source_record_id"))
+    if source_record_id:
+        for source_dataset in source_values(hit.get("source_dataset")):
+            key = (normalized_identifier(source_dataset), source_record_id)
+            if key in indexes["source_pair"]:
+                return indexes["source_pair"][key]
+
+        source_institution_id = normalized_identifier(hit.get("source_institution_id"))
+        institution_key = (source_institution_id, source_record_id)
+        if source_institution_id and institution_key in indexes["institution_pair"]:
+            return indexes["institution_pair"][institution_key]
+
+        if source_record_id in indexes["source_record_id"]:
+            return indexes["source_record_id"][source_record_id]
+
+    return None
+
+
+def add_identifier_index(
+    index: dict[Any, dict[str, Any]],
+    value: Any,
+    record: dict[str, Any],
+) -> None:
+    key = normalized_identifier(value)
+    if key:
+        index[key] = record
+
+
+def source_values(value: Any) -> list[str]:
+    values = split_semicolon_value(value)
+    if not values and nonblank_string(value):
+        values = [str(value)]
+    return [str(item) for item in values if nonblank_string(item)]
+
+
+def unique_nonblank(values: Any) -> list[str]:
+    seen: set[str] = set()
+    output: list[str] = []
+    for value in values:
+        text = nonblank_string(value)
+        if text is None:
+            continue
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append(text)
+    return output
+
+
+def unique_pairs(values: Any) -> list[tuple[str, str]]:
+    seen: set[tuple[str, str]] = set()
+    output: list[tuple[str, str]] = []
+    for left, right in values:
+        left_text = nonblank_string(left)
+        right_text = nonblank_string(right)
+        if left_text is None or right_text is None:
+            continue
+        key = (left_text.casefold(), right_text.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append((left_text, right_text))
+    return output
+
+
+def normalized_identifier(value: Any) -> str | None:
+    text = nonblank_string(value)
+    return text.casefold() if text is not None else None
+
+
+def nonblank_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.casefold() == "nan":
+        return None
+    return text

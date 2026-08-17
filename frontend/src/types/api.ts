@@ -21,6 +21,11 @@ export interface ResponseMeta {
   api_version: string;
   dataset_stage: string;
   snapshot_date: string | null;
+  search?: {
+    mode: "semantic" | "similarity" | string;
+    algorithm?: string;
+    min_score?: number | null;
+  };
 }
 
 export interface ListResponse<T> {
@@ -74,6 +79,10 @@ export interface PublicationSummary {
   primary_subfield: string | null;
   source_dataset: string[];
   quality_flags: QualityFlag[];
+  semantic_score?: number;
+  semantic_rank?: number;
+  similarity_score?: number;
+  similarity_rank?: number;
 }
 
 export interface PublicationDetail extends PublicationSummary {

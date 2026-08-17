@@ -37,6 +37,26 @@ class PublicationRepository(Protocol):
     def suggest(self, query: str, *, limit: int) -> list[dict[str, Any]]:
         """Return autocomplete suggestions."""
 
+    def semantic_search(
+        self,
+        query: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        """Return publications ranked by semantic similarity to query text."""
+
+    def related_publications(
+        self,
+        publication_key: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        """Return publications ranked by semantic similarity to a publication."""
+
     def researcher_profile(self, researcher_key: str) -> dict[str, Any] | None:
         """Return an author/researcher aggregate."""
 
