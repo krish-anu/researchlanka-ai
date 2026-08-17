@@ -178,11 +178,22 @@ class ResearchLankaAPI:
         }
 
     def semantic_search(self, query: dict[str, list[str]]) -> dict[str, Any]:
+        return self._query_similarity_response(query, mode="semantic")
+
+    def similarity_search(self, query: dict[str, list[str]]) -> dict[str, Any]:
+        return self._query_similarity_response(query, mode="similarity")
+
+    def _query_similarity_response(
+        self,
+        query: dict[str, list[str]],
+        *,
+        mode: str,
+    ) -> dict[str, Any]:
         text = (first(query, "q") or "").strip()
         if not text:
             raise APIError(
                 "invalid_filter",
-                "Semantic search requires a non-empty q parameter.",
+                "Similarity search requires a non-empty q parameter.",
                 details={"field": "q"},
             )
         filters = parse_filters(query)
@@ -200,9 +211,22 @@ class ResearchLankaAPI:
             filters={"q": text, **filters},
             limit=limit,
             min_score=min_score,
+            mode=mode,
         )
 
     def related_publications(self, publication_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
+        return self._publication_similarity_response(publication_key, query, mode="semantic")
+
+    def similar_publications(self, publication_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
+        return self._publication_similarity_response(publication_key, query, mode="similarity")
+
+    def _publication_similarity_response(
+        self,
+        publication_key: str,
+        query: dict[str, list[str]],
+        *,
+        mode: str,
+    ) -> dict[str, Any]:
         filters = parse_filters(query)
         filters.pop("q", None)
         limit = min(parse_positive_int(query, "limit", default=10), MAX_PAGE_SIZE)
@@ -218,6 +242,7 @@ class ResearchLankaAPI:
             filters={"publication_key": publication_key, **filters},
             limit=limit,
             min_score=min_score,
+            mode=mode,
         )
 
     def researchers(self, query: dict[str, list[str]]) -> dict[str, Any]:
@@ -498,10 +523,15 @@ class ResearchLankaAPI:
         filters: dict[str, Any],
         limit: int,
         min_score: float | None,
+        mode: str = "semantic",
     ) -> dict[str, Any]:
         summaries = [semantic_publication_summary(row) for row in rows]
         meta = self._meta()
-        meta["search"] = {"mode": "semantic", "min_score": min_score}
+        meta["search"] = {
+            "mode": mode,
+            "algorithm": "tfidf_svd_cosine_similarity",
+            "min_score": min_score,
+        }
         return list_response(
             summaries,
             page=1,
@@ -518,6 +548,10 @@ def semantic_publication_summary(row: dict[str, Any]) -> dict[str, Any]:
         summary["semantic_score"] = row.get("semantic_score")
     if row.get("semantic_rank") is not None:
         summary["semantic_rank"] = row.get("semantic_rank")
+    if row.get("similarity_score") is not None:
+        summary["similarity_score"] = row.get("similarity_score")
+    if row.get("similarity_rank") is not None:
+        summary["similarity_rank"] = row.get("similarity_rank")
     return summary
 
 

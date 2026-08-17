@@ -109,6 +109,8 @@ class FakeRepository:
             **PUBLICATIONS[0],
             "semantic_score": 0.925432,
             "semantic_rank": 1,
+            "similarity_score": 0.925432,
+            "similarity_rank": 1,
         }
         return [row][:limit]
 
@@ -119,6 +121,8 @@ class FakeRepository:
             **PUBLICATIONS[1],
             "semantic_score": 0.812345,
             "semantic_rank": 1,
+            "similarity_score": 0.812345,
+            "similarity_rank": 1,
         }
         return [row][:limit]
 
@@ -254,9 +258,33 @@ def test_semantic_search_endpoint_shapes_scores_and_filters():
     assert payload["data"][0]["title"] == "Malaria surveillance in Sri Lanka"
     assert payload["data"][0]["semantic_score"] == 0.925432
     assert payload["data"][0]["semantic_rank"] == 1
+    assert payload["data"][0]["similarity_score"] == 0.925432
+    assert payload["data"][0]["similarity_rank"] == 1
     assert payload["filters"]["applied"]["q"] == "vector borne disease surveillance"
     assert payload["filters"]["applied"]["year_min"] == 2020
     assert payload["meta"]["search"]["mode"] == "semantic"
+    assert payload["meta"]["search"]["algorithm"] == "tfidf_svd_cosine_similarity"
+
+
+def test_similarity_search_route_shapes_scores_and_filters():
+    payload = route_get(
+        api(),
+        "/api/v1/search/similarity",
+        {
+            "q": ["vector borne disease surveillance"],
+            "year_min": ["2020"],
+            "limit": ["5"],
+            "min_score": ["0.5"],
+        },
+    )
+
+    assert payload["data"][0]["title"] == "Malaria surveillance in Sri Lanka"
+    assert payload["data"][0]["similarity_score"] == 0.925432
+    assert payload["data"][0]["similarity_rank"] == 1
+    assert payload["filters"]["applied"]["q"] == "vector borne disease surveillance"
+    assert payload["filters"]["applied"]["year_min"] == 2020
+    assert payload["meta"]["search"]["mode"] == "similarity"
+    assert payload["meta"]["search"]["algorithm"] == "tfidf_svd_cosine_similarity"
 
 
 def test_related_publications_route_and_missing_embedding():
@@ -268,6 +296,17 @@ def test_related_publications_route_and_missing_embedding():
 
     assert payload["data"][0]["title"] == "Repository-only thesis"
     assert payload["data"][0]["semantic_rank"] == 1
+    assert payload["data"][0]["similarity_rank"] == 1
+
+    similar_payload = route_get(
+        api(),
+        "/api/v1/publications/doi%3A10.1000%2Ftest/similar",
+        {"limit": ["3"]},
+    )
+
+    assert similar_payload["data"][0]["title"] == "Repository-only thesis"
+    assert similar_payload["data"][0]["similarity_score"] == 0.812345
+    assert similar_payload["meta"]["search"]["mode"] == "similarity"
 
     with pytest.raises(APIError) as exc_info:
         api().related_publications("missing", {})
