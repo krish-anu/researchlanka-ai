@@ -120,8 +120,142 @@ def main(argv: list[str] | None = None) -> None:
             help="Console log level. Logs are written to stderr.",
         )
 
+    embeddings_parser = subparsers.add_parser("generate_embeddings")
+    embeddings_parser.add_argument(
+        "--input",
+        required=True,
+        type=Path,
+        help="Input publication CSV used to generate embeddings.",
+    )
+    embeddings_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Output embeddings parquet path.",
+    )
+    embeddings_parser.add_argument(
+        "--model-output",
+        type=Path,
+        default=None,
+        help="Output embedder model (.joblib) path.",
+    )
+    embeddings_parser.add_argument(
+        "--manifest-output",
+        type=Path,
+        default=None,
+        help="Output embeddings manifest (.json) path.",
+    )
+    embeddings_parser.add_argument(
+        "--summary-output",
+        type=Path,
+        default=None,
+        help="Output embeddings summary (.txt) path.",
+    )
+    embeddings_parser.add_argument(
+        "--text-columns",
+        default="title,abstract,keywords",
+        help="Comma-separated text columns to combine.",
+    )
+    embeddings_parser.add_argument(
+        "--metadata-columns",
+        default=(
+            "record_number,publication_year,title,doi,openalex_id,"
+            "source_dataset,source_institution_id,source_record_id"
+        ),
+        help="Comma-separated metadata columns included in the output parquet.",
+    )
+    embeddings_parser.add_argument(
+        "--embedding-dim",
+        type=int,
+        default=384,
+        help="Target embedding dimension. Default: 384",
+    )
+    embeddings_parser.add_argument(
+        "--max-features",
+        type=int,
+        default=50_000,
+        help="Maximum TF-IDF vocabulary size. Default: 50000",
+    )
+    embeddings_parser.add_argument(
+        "--min-df",
+        default="2",
+        help="TF-IDF min_df as count or fraction. Default: 2",
+    )
+    embeddings_parser.add_argument(
+        "--max-df",
+        default="0.95",
+        help="TF-IDF max_df as count or fraction. Default: 0.95",
+    )
+    embeddings_parser.add_argument(
+        "--ngram-max",
+        type=int,
+        default=2,
+        help="Upper bound for word n-grams. Default: 2",
+    )
+    embeddings_parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=None,
+        help="Optional cap on rows read from input CSV.",
+    )
+    embeddings_parser.add_argument(
+        "--keep-stop-words",
+        action="store_true",
+        help="Keep stop words instead of removing English stop words.",
+    )
+    embeddings_parser.add_argument(
+        "--disable-normalize",
+        action="store_true",
+        help="Disable L2 normalization on output embeddings.",
+    )
+    embeddings_parser.add_argument(
+        "--random-state",
+        type=int,
+        default=42,
+        help="Random seed used by SVD. Default: 42",
+    )
+    embeddings_parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+        help="Console log level. Logs are written to stderr.",
+    )
+
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
+
+    if args.command == "generate_embeddings":
+        from src.modeling.embeddings import (
+            PublicationEmbeddingConfig,
+            generate_publication_text_embeddings,
+            result_summary,
+        )
+        from src.modeling.inference import parse_columns
+        from src.modeling.training import parse_document_frequency, parse_text_columns
+
+        result = generate_publication_text_embeddings(
+            PublicationEmbeddingConfig(
+                input_path=args.input,
+                output_path=args.output,
+                model_output=args.model_output,
+                manifest_output=args.manifest_output,
+                summary_output=args.summary_output,
+                text_columns=tuple(parse_text_columns(args.text_columns)),
+                metadata_columns=tuple(parse_columns(args.metadata_columns)),
+                embedding_dim=args.embedding_dim,
+                max_rows=args.max_rows,
+                max_features=args.max_features,
+                min_df=parse_document_frequency(args.min_df),
+                max_df=parse_document_frequency(args.max_df),
+                ngram_max=args.ngram_max,
+                keep_stop_words=args.keep_stop_words,
+                normalize_embeddings=not args.disable_normalize,
+                random_state=args.random_state,
+            )
+        )
+        print(result_summary(result))
+        return
+
     config = load_config(args.config)
     pipeline = ResearchPipeline(config)
 
