@@ -17,7 +17,14 @@ from src.api.core.constants import (
 from src.api.core.errors import APIError
 from src.api.core.exports import csv_bytes, publication_rows_to_csv, publication_rows_to_jsonl
 from src.api.core.protocols import PublicationRepository
-from src.api.core.query import first, parse_bool, parse_filters, parse_positive_int, split_values
+from src.api.core.query import (
+    first,
+    parse_bool,
+    parse_filters,
+    parse_optional_float,
+    parse_positive_int,
+    split_values,
+)
 from src.api.core.serializers import (
     list_response,
     normalize_value,
@@ -169,6 +176,49 @@ class ResearchLankaAPI:
             "filters": {"applied": filters},
             "meta": self._meta(result.get("meta")),
         }
+
+    def semantic_search(self, query: dict[str, list[str]]) -> dict[str, Any]:
+        text = (first(query, "q") or "").strip()
+        if not text:
+            raise APIError(
+                "invalid_filter",
+                "Semantic search requires a non-empty q parameter.",
+                details={"field": "q"},
+            )
+        filters = parse_filters(query)
+        filters.pop("q", None)
+        limit = min(parse_positive_int(query, "limit", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
+        min_score = self._semantic_min_score(query)
+        rows = self._run_semantic_search(
+            text,
+            filters=filters,
+            limit=limit,
+            min_score=min_score,
+        )
+        return self._semantic_list_response(
+            rows,
+            filters={"q": text, **filters},
+            limit=limit,
+            min_score=min_score,
+        )
+
+    def related_publications(self, publication_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
+        filters = parse_filters(query)
+        filters.pop("q", None)
+        limit = min(parse_positive_int(query, "limit", default=10), MAX_PAGE_SIZE)
+        min_score = self._semantic_min_score(query)
+        rows = self._run_related_publications(
+            publication_key,
+            filters=filters,
+            limit=limit,
+            min_score=min_score,
+        )
+        return self._semantic_list_response(
+            rows,
+            filters={"publication_key": publication_key, **filters},
+            limit=limit,
+            min_score=min_score,
+        )
 
     def researchers(self, query: dict[str, list[str]]) -> dict[str, Any]:
         filters = parse_filters(query)
@@ -373,6 +423,102 @@ class ResearchLankaAPI:
             "dataset_stage": DATASET_STAGE,
             "snapshot_date": snapshot_date,
         }
+
+    def _semantic_min_score(self, query: dict[str, list[str]]) -> float | None:
+        min_score = parse_optional_float(query, "min_score")
+        if min_score is not None and not -1.0 <= min_score <= 1.0:
+            raise APIError(
+                "invalid_filter",
+                "min_score must be between -1 and 1.",
+                details={"field": "min_score"},
+            )
+        return min_score
+
+    def _run_semantic_search(
+        self,
+        text: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        try:
+            return self.repository.semantic_search(
+                text,
+                filters=filters,
+                limit=limit,
+                min_score=min_score,
+            )
+        except FileNotFoundError as exc:
+            raise APIError(
+                "semantic_search_unavailable",
+                "Semantic search artifacts are not available.",
+                status=503,
+                details={"artifact": str(exc)},
+            ) from exc
+        except ValueError as exc:
+            raise APIError("invalid_filter", str(exc)) from exc
+
+    def _run_related_publications(
+        self,
+        publication_key: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        try:
+            return self.repository.related_publications(
+                publication_key,
+                filters=filters,
+                limit=limit,
+                min_score=min_score,
+            )
+        except KeyError as exc:
+            raise APIError(
+                "not_found",
+                "Publication embedding not found.",
+                status=404,
+                details={"publication_key": publication_key},
+            ) from exc
+        except FileNotFoundError as exc:
+            raise APIError(
+                "semantic_search_unavailable",
+                "Semantic search artifacts are not available.",
+                status=503,
+                details={"artifact": str(exc)},
+            ) from exc
+        except ValueError as exc:
+            raise APIError("invalid_filter", str(exc)) from exc
+
+    def _semantic_list_response(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> dict[str, Any]:
+        summaries = [semantic_publication_summary(row) for row in rows]
+        meta = self._meta()
+        meta["search"] = {"mode": "semantic", "min_score": min_score}
+        return list_response(
+            summaries,
+            page=1,
+            page_size=limit,
+            total=len(summaries),
+            filters=filters,
+            meta=meta,
+        )
+
+
+def semantic_publication_summary(row: dict[str, Any]) -> dict[str, Any]:
+    summary = publication_summary(row)
+    if row.get("semantic_score") is not None:
+        summary["semantic_score"] = row.get("semantic_score")
+    if row.get("semantic_rank") is not None:
+        summary["semantic_rank"] = row.get("semantic_rank")
+    return summary
 
 
 __all__ = ["APIError", "ResearchLankaAPI"]
