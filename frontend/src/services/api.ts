@@ -173,9 +173,23 @@ export const listPublications = (params: QueryParams) =>
     revalidate: 0,
   });
 
+export const searchSimilarPublications = (params: QueryParams) =>
+  request<ListResponse<PublicationSummary>>("/search/similarity", params, {
+    revalidate: 0,
+  });
+
 export const getPublication = (publicationKey: string) =>
   request<DetailResponse<PublicationDetail>>(
     `/publications/${encodeURIComponent(publicationKey)}`,
+  );
+
+export const getSimilarPublications = (
+  publicationKey: string,
+  params: QueryParams = {},
+) =>
+  request<ListResponse<PublicationSummary>>(
+    `/publications/${encodeURIComponent(publicationKey)}/similar`,
+    params,
   );
 
 export const getPublicationReferences = (

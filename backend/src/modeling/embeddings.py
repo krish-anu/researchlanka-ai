@@ -48,6 +48,8 @@ EMBEDDING_MODEL_PATH_ENV = "RESEARCHLANKA_SEMANTIC_MODEL_PATH"
 EMBEDDING_COLUMN_PREFIX = "embedding_"
 SEMANTIC_SCORE_FIELD = "semantic_score"
 SEMANTIC_RANK_FIELD = "semantic_rank"
+SIMILARITY_SCORE_FIELD = "similarity_score"
+SIMILARITY_RANK_FIELD = "similarity_rank"
 
 SEMANTIC_TEXT_FILTER_COLUMNS = {
     "type": "type",
@@ -615,8 +617,11 @@ def semantic_search_rows(
     rows: list[dict[str, Any]] = []
     for rank, (index, score) in enumerate(zip(indices, scores, strict=True), start=1):
         row = clean_metadata_row(metadata.iloc[int(index)].to_dict())
-        row[SEMANTIC_SCORE_FIELD] = round(float(score), 6)
+        rounded_score = round(float(score), 6)
+        row[SEMANTIC_SCORE_FIELD] = rounded_score
         row[SEMANTIC_RANK_FIELD] = rank
+        row[SIMILARITY_SCORE_FIELD] = rounded_score
+        row[SIMILARITY_RANK_FIELD] = rank
         rows.append(row)
     return rows
 

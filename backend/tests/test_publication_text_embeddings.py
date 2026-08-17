@@ -161,7 +161,9 @@ def test_semantic_search_index_ranks_filters_and_finds_related(tmp_path: Path):
 
     assert rows[0]["title"] == "Machine learning for tea disease detection"
     assert rows[0]["semantic_rank"] == 1
+    assert rows[0]["similarity_rank"] == 1
     assert rows[0]["semantic_score"] >= rows[1]["semantic_score"]
+    assert rows[0]["similarity_score"] == rows[0]["semantic_score"]
 
     filtered = index.search(
         "disease forecasting",
