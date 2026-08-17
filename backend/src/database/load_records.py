@@ -6,6 +6,7 @@ import argparse
 import csv
 import hashlib
 import json
+import logging
 import re
 import sys
 from collections.abc import Iterable, Iterator
@@ -20,6 +21,8 @@ from src.database.loader import (
     ensure_database_schema,
     load_final_publications,
 )
+
+logger = logging.getLogger(__name__)
 
 SUPPORTED_FORMATS = ("auto", "csv", "json", "jsonl")
 DEFAULT_BATCH_SIZE = 1_000
@@ -862,11 +865,16 @@ def load_full_database_dataset(
 ) -> dict[str, int]:
     """Populate the normalized PostgreSQL schema from a final dataset file."""
 
+    logger.info(
+        "Starting full database load from %s with batch_size=%s", path, batch_size
+    )
+
     records: Iterable[dict[str, Any]] = iter_record_file(path, file_format=file_format)
     if limit is not None:
         if limit < 0:
             raise ValueError("limit must be zero or greater.")
         records = islice(records, limit)
+        logger.info("Applying limit=%s before loading", limit)
 
     connection = get_connection(database_url)
     counts = {
@@ -892,9 +900,11 @@ def load_full_database_dataset(
     }
     try:
         if ensure_schema:
+            logger.info("Ensuring database schema is present before loading")
             ensure_database_schema(connection)
         total_records = 0
         for batch_number, batch in enumerate(chunked(records, batch_size), start=1):
+            logger.info("Processing batch %s with %s records", batch_number, len(batch))
             loaded = load_final_publications(
                 batch,
                 connection=connection,
@@ -907,54 +917,48 @@ def load_full_database_dataset(
                     record, (batch_number - 1) * batch_size + row_index
                 )["publication_key"]
                 _populate_relational_tables(connection, record, publication_key)
+
+                if row_index % 100 == 0 or row_index == len(batch):
+                    logger.info(
+                        "Batch %s progress: %s/%s records processed",
+                        batch_number,
+                        row_index,
+                        len(batch),
+                    )
+
+                countries = {
+                    code
+                    for value in _split_text_values(record.get("countries"))
+                    if (code := _normalize_code(value))
+                }
+                institutions = [
+                    value
+                    for value in _split_text_values(record.get("institutions"))
+                    if value
+                ]
+                authors = [
+                    value
+                    for value in _split_text_values(record.get("authors"))
+                    if value
+                ]
+                keywords = [
+                    value
+                    for value in _split_text_values(record.get("keywords"))
+                    if value
+                ]
+
                 counts["source_records"] += 1
-                counts["countries"] += len(
-                    {
-                        code
-                        for value in _split_text_values(record.get("countries"))
-                        if (code := _normalize_code(value))
-                    }
-                )
-                counts["institutions"] += len(
-                    {
-                        _upsert_institution(connection, value, "LK")
-                        for value in _split_text_values(record.get("institutions"))
-                        if value
-                    }
-                )
-                counts["authors"] += len(
-                    {
-                        _upsert_author(connection, value)
-                        for value in _split_text_values(record.get("authors"))
-                        if value
-                    }
-                )
-                counts["keywords"] += len(
-                    {
-                        _upsert_keyword(connection, value)
-                        for value in _split_text_values(record.get("keywords"))
-                        if value
-                    }
-                )
-                counts["publication_authors"] += len(
-                    _split_text_values(record.get("authors"))
-                )
-                counts["publication_keywords"] += len(
-                    _split_text_values(record.get("keywords"))
-                )
-                counts["publication_countries"] += len(
-                    {
-                        code
-                        for value in _split_text_values(record.get("countries"))
-                        if (code := _normalize_code(value))
-                    }
-                )
+                counts["countries"] += len(countries)
+                counts["institutions"] += len(set(institutions))
+                counts["authors"] += len(set(authors))
+                counts["keywords"] += len(set(keywords))
+                counts["publication_authors"] += len(authors)
+                counts["publication_keywords"] += len(keywords)
+                counts["publication_countries"] += len(countries)
                 if record.get("journal") or record.get("publisher"):
                     counts["venues"] += 1
-                if record.get("institutions"):
-                    counts["institution_aliases"] += len(
-                        _split_text_values(record.get("institutions"))
-                    )
+                if institutions:
+                    counts["institution_aliases"] += len(institutions)
                 if (
                     record.get("primary_topic")
                     or record.get("primary_field")
@@ -1027,8 +1031,19 @@ def load_full_database_dataset(
                 ):
                     counts["publication_locations"] += 1
             connection.commit()
+            logger.info(
+                "Batch %s complete: total_processed=%s final_publications=%s source_records=%s authors=%s keywords=%s",
+                batch_number,
+                total_records,
+                counts["final_publications"],
+                counts["source_records"],
+                counts["authors"],
+                counts["keywords"],
+            )
+        logger.info("Completed full database load. Final counts: %s", counts)
         return counts
     except Exception:
+        logger.exception("Full database load failed while processing records")
         connection.rollback()
         raise
     finally:

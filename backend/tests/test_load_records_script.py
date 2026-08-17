@@ -314,3 +314,58 @@ def test_upsert_publication_location_uses_not_exists_instead_of_conflict_target(
 
     assert "WHERE NOT EXISTS" in seen["query"]
     assert seen["args"][-1] == "pub-123"
+
+
+def test_load_full_database_dataset_logs_batch_progress(caplog, monkeypatch):
+    class FakeConnection:
+        def __init__(self):
+            self.closed = False
+            self.commits = 0
+
+        def commit(self):
+            self.commits += 1
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            self.closed = True
+
+    fake_connection = FakeConnection()
+
+    def fake_get_connection(database_url=None):
+        return fake_connection
+
+    monkeypatch.setattr("src.database.load_records.get_connection", fake_get_connection)
+    monkeypatch.setattr(
+        "src.database.load_records.ensure_database_schema", lambda connection: None
+    )
+    monkeypatch.setattr(
+        "src.database.load_records.iter_record_file",
+        lambda path, file_format="auto": [
+            {"title": "Paper 1", "source_record_id": "1"},
+            {"title": "Paper 2", "source_record_id": "2"},
+        ],
+    )
+    monkeypatch.setattr(
+        "src.database.load_records.load_final_publications",
+        lambda records, **kwargs: len(records),
+    )
+    monkeypatch.setattr(
+        "src.database.load_records._populate_relational_tables",
+        lambda connection, record, publication_key: None,
+    )
+
+    with caplog.at_level("INFO"):
+        loaded = __import__(
+            "src.database.load_records", fromlist=["load_full_database_dataset"]
+        ).load_full_database_dataset(
+            __import__("pathlib").Path("/tmp/sample.csv"),
+            batch_size=2,
+            ensure_schema=True,
+        )
+
+    assert loaded["final_publications"] == 2
+    assert "Starting full database load" in caplog.text
+    assert "Processing batch 1 with 2 records" in caplog.text
+    assert "Batch 1 complete" in caplog.text
