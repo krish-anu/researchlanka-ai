@@ -1,6 +1,8 @@
 import pytest
 
+from src.api.repositories.postgres import PostgresPublicationRepository
 from src.api.repository import build_where
+from src.api.routes import route_get
 from src.api.service import APIError, ResearchLankaAPI
 
 
@@ -26,6 +28,7 @@ PUBLICATIONS = [
         "topics": "Epidemiology; Malaria",
         "concepts": "public health",
         "source_dataset": "openalex; crossref",
+        "source_record_id": "W1",
         "abstract": "A study abstract.",
         "citation_count_divergence_flag": False,
         "reference_count_divergence_flag": True,
@@ -52,6 +55,7 @@ PUBLICATIONS = [
         "topics": None,
         "concepts": None,
         "source_dataset": "repositories_combined",
+        "source_record_id": "thesis-1",
         "abstract": None,
         "citation_count_divergence_flag": False,
         "reference_count_divergence_flag": False,
@@ -103,6 +107,28 @@ class FakeRepository:
     def suggest(self, query, *, limit):
         return [{"type": "publication", "value": PUBLICATIONS[0]["title"], "key": PUBLICATIONS[0]["publication_key"]}][:limit]
 
+    def semantic_search(self, query, *, filters, limit, min_score):
+        row = {
+            **PUBLICATIONS[0],
+            "semantic_score": 0.925432,
+            "semantic_rank": 1,
+            "similarity_score": 0.925432,
+            "similarity_rank": 1,
+        }
+        return [row][:limit]
+
+    def related_publications(self, publication_key, *, filters, limit, min_score):
+        if publication_key == "missing":
+            raise KeyError(publication_key)
+        row = {
+            **PUBLICATIONS[1],
+            "semantic_score": 0.812345,
+            "semantic_rank": 1,
+            "similarity_score": 0.812345,
+            "similarity_rank": 1,
+        }
+        return [row][:limit]
+
     def researcher_profile(self, researcher_key):
         return {"key": "a-author", "label": researcher_key, "publication_count": 1}
 
@@ -148,6 +174,61 @@ class FakeRepository:
 
 def api():
     return ResearchLankaAPI(FakeRepository())
+
+
+class FakeSemanticIndex:
+    def __init__(self):
+        self.search_calls = []
+        self.related_calls = []
+
+    def search(self, query, *, filters, limit, min_score):
+        self.search_calls.append(
+            {
+                "query": query,
+                "filters": filters,
+                "limit": limit,
+                "min_score": min_score,
+            }
+        )
+        return [
+            {
+                "doi": "10.1000/test",
+                "title": "Stale embedding title",
+                "semantic_score": 0.925432,
+                "semantic_rank": 1,
+                "similarity_score": 0.925432,
+                "similarity_rank": 1,
+            },
+            {
+                "source_dataset": "repositories_combined",
+                "source_record_id": "thesis-1",
+                "title": "Stale repository title",
+                "semantic_score": 0.812345,
+                "semantic_rank": 2,
+                "similarity_score": 0.812345,
+                "similarity_rank": 2,
+            },
+        ]
+
+    def related_publications(self, publication_key, *, filters, limit, min_score):
+        self.related_calls.append(
+            {
+                "publication_key": publication_key,
+                "filters": filters,
+                "limit": limit,
+                "min_score": min_score,
+            }
+        )
+        return [
+            {
+                "source_dataset": "repositories_combined",
+                "source_record_id": "thesis-1",
+                "semantic_score": 0.812345,
+                "semantic_rank": 1,
+                "similarity_score": 0.812345,
+                "similarity_rank": 1,
+            }
+        ]
 
 
 def test_publication_list_maps_arrays_quality_flags_and_pagination():
@@ -220,6 +301,136 @@ def test_publication_exports_use_filtered_summary_contract():
     assert "Repository-only thesis" not in csv_payload.decode("utf-8")
     assert jsonl_content_type == "application/x-ndjson; charset=utf-8"
     assert jsonl_payload.decode("utf-8").count("\n") == 1
+
+
+def test_semantic_search_endpoint_shapes_scores_and_filters():
+    payload = api().semantic_search(
+        {
+            "q": ["vector borne disease surveillance"],
+            "year_min": ["2020"],
+            "limit": ["5"],
+            "min_score": ["0.5"],
+        }
+    )
+
+    assert payload["data"][0]["title"] == "Malaria surveillance in Sri Lanka"
+    assert payload["data"][0]["semantic_score"] == 0.925432
+    assert payload["data"][0]["semantic_rank"] == 1
+    assert payload["data"][0]["similarity_score"] == 0.925432
+    assert payload["data"][0]["similarity_rank"] == 1
+    assert payload["filters"]["applied"]["q"] == "vector borne disease surveillance"
+    assert payload["filters"]["applied"]["year_min"] == 2020
+    assert payload["meta"]["search"]["mode"] == "semantic"
+    assert payload["meta"]["search"]["algorithm"] == "tfidf_svd_cosine_similarity"
+
+
+def test_similarity_search_route_shapes_scores_and_filters():
+    payload = route_get(
+        api(),
+        "/api/v1/search/similarity",
+        {
+            "q": ["vector borne disease surveillance"],
+            "year_min": ["2020"],
+            "limit": ["5"],
+            "min_score": ["0.5"],
+        },
+    )
+
+    assert payload["data"][0]["title"] == "Malaria surveillance in Sri Lanka"
+    assert payload["data"][0]["similarity_score"] == 0.925432
+    assert payload["data"][0]["similarity_rank"] == 1
+    assert payload["filters"]["applied"]["q"] == "vector borne disease surveillance"
+    assert payload["filters"]["applied"]["year_min"] == 2020
+    assert payload["meta"]["search"]["mode"] == "similarity"
+    assert payload["meta"]["search"]["algorithm"] == "tfidf_svd_cosine_similarity"
+
+
+def test_related_publications_route_and_missing_embedding():
+    payload = route_get(
+        api(),
+        "/api/v1/publications/doi%3A10.1000%2Ftest/related",
+        {"limit": ["3"]},
+    )
+
+    assert payload["data"][0]["title"] == "Repository-only thesis"
+    assert payload["data"][0]["semantic_rank"] == 1
+    assert payload["data"][0]["similarity_rank"] == 1
+
+    similar_payload = route_get(
+        api(),
+        "/api/v1/publications/doi%3A10.1000%2Ftest/similar",
+        {"limit": ["3"]},
+    )
+
+    assert similar_payload["data"][0]["title"] == "Repository-only thesis"
+    assert similar_payload["data"][0]["similarity_score"] == 0.812345
+    assert similar_payload["meta"]["search"]["mode"] == "similarity"
+
+    with pytest.raises(APIError) as exc_info:
+        api().related_publications("missing", {})
+
+    assert exc_info.value.code == "not_found"
+    assert exc_info.value.status == 404
+
+
+def test_postgres_semantic_search_hydrates_embedding_hits_from_database(monkeypatch):
+    semantic_index = FakeSemanticIndex()
+    repository = PostgresPublicationRepository(
+        connection_factory=lambda _database_url: None,
+        semantic_index=semantic_index,
+    )
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        calls.append({"sql": sql, "params": params})
+        return [PUBLICATIONS[1], PUBLICATIONS[0]]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    rows = repository.semantic_search(
+        "vector borne disease surveillance",
+        filters={"year_min": 2020},
+        limit=2,
+        min_score=0.5,
+    )
+
+    assert semantic_index.search_calls[0]["limit"] > 2
+    assert rows[0]["title"] == "Malaria surveillance in Sri Lanka"
+    assert rows[0]["title"] != "Stale embedding title"
+    assert rows[0]["publication_key"] == "doi:10.1000/test"
+    assert rows[0]["similarity_score"] == 0.925432
+    assert rows[1]["publication_key"] == "source:repositories:thesis-1"
+    assert rows[1]["similarity_rank"] == 2
+    assert "publication_year >= %s" in calls[0]["sql"]
+    assert 2020 in calls[0]["params"]
+
+
+def test_postgres_related_publications_hydrates_database_records(monkeypatch):
+    semantic_index = FakeSemanticIndex()
+    repository = PostgresPublicationRepository(
+        connection_factory=lambda _database_url: None,
+        semantic_index=semantic_index,
+    )
+
+    monkeypatch.setattr(repository, "_fetch_all", lambda _sql, _params: PUBLICATIONS)
+
+    rows = repository.related_publications(
+        "doi:10.1000/test",
+        filters={},
+        limit=1,
+        min_score=None,
+    )
+
+    assert semantic_index.related_calls[0]["limit"] > 1
+    assert rows == [
+        {
+            **PUBLICATIONS[1],
+            "semantic_score": 0.812345,
+            "semantic_rank": 1,
+            "similarity_score": 0.812345,
+            "similarity_rank": 1,
+        }
+    ]
 
 
 def test_analytics_export_and_disabled_raw_payload():

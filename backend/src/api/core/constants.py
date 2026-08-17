@@ -60,4 +60,8 @@ PUBLICATION_SUMMARY_FIELDS = [
     "primary_subfield",
     "source_dataset",
     "quality_flags",
+    "semantic_score",
+    "semantic_rank",
+    "similarity_score",
+    "similarity_rank",
 ]

@@ -28,6 +28,10 @@ def route_get(
         return service.list_publications(query)
     if path == f"{API_PREFIX}/search/suggest":
         return service.suggestions(query)
+    if path == f"{API_PREFIX}/search/semantic":
+        return service.semantic_search(query)
+    if path in {f"{API_PREFIX}/search/similarity", f"{API_PREFIX}/search/similar"}:
+        return service.similarity_search(query)
     if path == f"{API_PREFIX}/search/facets":
         return service.facets(query)
     if path == f"{API_PREFIX}/researchers":
@@ -61,12 +65,16 @@ def route_get(
     if match:
         return service.export_analytics(query, name=match.group(1))
 
-    match = re.fullmatch(rf"{API_PREFIX}/publications/(.+)/(references|count-audit)", path)
+    match = re.fullmatch(rf"{API_PREFIX}/publications/(.+)/(references|count-audit|related|similar)", path)
     if match:
         publication_key = unquote(match.group(1))
         child = match.group(2)
         if child == "references":
             return service.publication_references(publication_key, query)
+        if child == "related":
+            return service.related_publications(publication_key, query)
+        if child == "similar":
+            return service.similar_publications(publication_key, query)
         return service.publication_count_audit(publication_key)
 
     match = re.fullmatch(rf"{API_PREFIX}/publications/(.+)/raw", path)
