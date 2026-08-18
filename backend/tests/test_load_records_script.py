@@ -7,9 +7,11 @@ from research_analytics.cli import load_database_records
 from src.database.load_records import (
     DatabaseLoadValidationError,
     detect_format,
+    filter_records_by_publication_year,
     iter_record_file,
     load_record_file,
     publication_required_title,
+    reset_database_tables,
     validate_loaded_database_tables,
 )
 
@@ -28,6 +30,29 @@ class FakeConnection:
 
     def close(self):
         self.closed = True
+
+
+class RecordingCursor:
+    def __init__(self, connection):
+        self.connection = connection
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+    def execute(self, sql, params=None):
+        self.connection.queries.append((sql, params))
+
+
+class RecordingConnection(FakeConnection):
+    def __init__(self):
+        super().__init__()
+        self.queries = []
+
+    def cursor(self):
+        return RecordingCursor(self)
 
 
 def test_detect_format_from_supported_suffixes(tmp_path):
@@ -158,6 +183,114 @@ def test_load_record_file_limit_applies_before_batching(tmp_path, monkeypatch):
     assert load_record_file(path, batch_size=2, limit=1) == 1
 
 
+def test_filter_records_by_publication_year_keeps_only_requested_range():
+    records = [
+        {"title": "Too old", "publication_year": 2015},
+        {"title": "Start", "publication_year": "2016"},
+        {"title": "From date", "publication_date": "2020-05-01"},
+        {"title": "End", "publication_year": 2026},
+        {"title": "Future", "publication_year": 2027},
+        {"title": "Missing year"},
+    ]
+
+    filtered = list(
+        filter_records_by_publication_year(records, year_min=2016, year_max=2026)
+    )
+
+    assert [record["title"] for record in filtered] == ["Start", "From date", "End"]
+
+
+def test_load_record_file_applies_year_filter_before_batching(tmp_path, monkeypatch):
+    path = tmp_path / "records.json"
+    path.write_text(
+        json.dumps(
+            [
+                {"title": "Too old", "publication_year": 2015},
+                {"title": "In range", "publication_year": 2024},
+                {"title": "Too new", "publication_year": 2027},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    captured_batches = []
+
+    monkeypatch.setattr(
+        "src.database.load_records.get_connection",
+        lambda database_url=None: FakeConnection(),
+    )
+
+    def fake_load_final_publications(records, **kwargs):
+        captured_batches.append(records)
+        return len(records)
+
+    monkeypatch.setattr(
+        "src.database.load_records.load_final_publications",
+        fake_load_final_publications,
+    )
+
+    assert load_record_file(path, batch_size=2, year_min=2016, year_max=2026) == 1
+    assert captured_batches == [[{"title": "In range", "publication_year": 2024}]]
+
+
+def test_reset_database_tables_truncates_publication_data():
+    connection = RecordingConnection()
+
+    reset_database_tables(connection, tables=("final_publications",))
+
+    assert connection.queries == [
+        ('TRUNCATE TABLE "final_publications" RESTART IDENTITY CASCADE', None)
+    ]
+
+
+def test_load_record_file_can_reset_before_loading(tmp_path, monkeypatch):
+    path = tmp_path / "records.json"
+    path.write_text(
+        json.dumps([{"title": "In range", "publication_year": 2024}]),
+        encoding="utf-8",
+    )
+    connection = RecordingConnection()
+    events = []
+
+    def fake_ensure_database_schema(active_connection):
+        assert active_connection is connection
+        events.append("ensure_schema")
+
+    def fake_load_final_publications(records, **kwargs):
+        events.append("load")
+        assert kwargs["connection"] is connection
+        assert kwargs["ensure_schema"] is False
+        return len(records)
+
+    monkeypatch.setattr(
+        "src.database.load_records.get_connection",
+        lambda database_url=None: connection,
+    )
+    monkeypatch.setattr(
+        "src.database.load_records.ensure_database_schema",
+        fake_ensure_database_schema,
+    )
+    monkeypatch.setattr(
+        "src.database.load_records.load_final_publications",
+        fake_load_final_publications,
+    )
+
+    loaded = load_record_file(
+        path,
+        batch_size=2,
+        reset=True,
+        year_min=2016,
+        year_max=2026,
+    )
+
+    assert loaded == 1
+    assert events == ["ensure_schema", "load"]
+    assert connection.queries == [
+        ('TRUNCATE TABLE "final_publications" RESTART IDENTITY CASCADE', None)
+    ]
+    assert connection.commits == 3
+    assert connection.closed is True
+
+
 def test_iter_csv_records_handles_large_fields(tmp_path):
     path = tmp_path / "large_field.csv"
     large_value = "A" * 200_000
@@ -197,7 +330,7 @@ def test_load_database_records_populates_full_normalized_database(
     )
 
     loaded = load_database_records(
-        config={"dummy": True},
+        config={"coverage": {"start_year": 2016, "end_year": 2026}},
         dataset_path=dataset_path,
         batch_size=7,
         full_database=True,
@@ -206,6 +339,8 @@ def test_load_database_records_populates_full_normalized_database(
     assert loaded == {"final_publications": 2, "source_records": 2, "authors": 3}
     assert captured["path"] == dataset_path
     assert captured["kwargs"]["batch_size"] == 7
+    assert captured["kwargs"]["year_min"] == 2016
+    assert captured["kwargs"]["year_max"] == 2026
 
 
 def test_build_final_publication_row_rejects_year_only_dates():

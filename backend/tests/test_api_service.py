@@ -1,5 +1,10 @@
 import pytest
 
+from src.api.core.constants import (
+    PUBLICATION_COVERAGE_END_YEAR,
+    PUBLICATION_COVERAGE_START_YEAR,
+)
+from src.api.core.query import parse_filters
 from src.api.repositories.postgres import PostgresPublicationRepository
 from src.api.repository import build_where
 from src.api.routes import route_get
@@ -78,6 +83,8 @@ class FakeRepository:
         rows = PUBLICATIONS
         if filters.get("year_min"):
             rows = [row for row in rows if row["publication_year"] >= filters["year_min"]]
+        if filters.get("year_max"):
+            rows = [row for row in rows if row["publication_year"] <= filters["year_max"]]
         if filters.get("has_doi") is True:
             rows = [row for row in rows if row.get("doi")]
         if filters.get("has_doi") is False:
@@ -269,6 +276,20 @@ def test_invalid_year_filter_raises_api_error():
     assert exc_info.value.code == "invalid_filter"
 
 
+def test_parse_filters_defaults_to_public_dataset_coverage():
+    filters = parse_filters({})
+
+    assert filters["year_min"] == PUBLICATION_COVERAGE_START_YEAR
+    assert filters["year_max"] == PUBLICATION_COVERAGE_END_YEAR
+
+
+def test_parse_filters_clamps_to_public_dataset_coverage():
+    filters = parse_filters({"year_min": ["1950"], "year_max": ["2035"]})
+
+    assert filters["year_min"] == PUBLICATION_COVERAGE_START_YEAR
+    assert filters["year_max"] == PUBLICATION_COVERAGE_END_YEAR
+
+
 def test_compare_institutions_requires_two_or_three_values():
     with pytest.raises(APIError):
         api().compare_institutions({"institution": ["University of Colombo"]})
@@ -431,6 +452,28 @@ def test_postgres_related_publications_hydrates_database_records(monkeypatch):
             "similarity_rank": 1,
         }
     ]
+
+
+def test_postgres_metadata_counts_public_dataset_coverage(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_one(sql, params):
+        calls.append({"sql": sql, "params": params})
+        return {
+            "publication_count": 1,
+            "min_publication_year": PUBLICATION_COVERAGE_START_YEAR,
+            "max_publication_year": PUBLICATION_COVERAGE_END_YEAR,
+        }
+
+    monkeypatch.setattr(repository, "_fetch_one", fake_fetch_one)
+
+    metadata = repository.metadata()
+
+    assert metadata["publication_count"] == 1
+    assert "publication_year >= %s" in calls[0]["sql"]
+    assert "publication_year <= %s" in calls[0]["sql"]
+    assert calls[0]["params"] == [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR]
 
 
 def test_postgres_analytics_and_facets_do_not_fetch_full_publication_rows(monkeypatch):

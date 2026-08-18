@@ -33,6 +33,9 @@ def load_database_records(
     batch_size: int = 1000,
     limit: int | None = None,
     full_database: bool = False,
+    year_min: int | None = None,
+    year_max: int | None = None,
+    reset: bool = False,
 ) -> int | dict[str, int]:
     """Load either the configured pipeline output or an explicit final dataset file.
 
@@ -40,6 +43,8 @@ def load_database_records(
     a concrete dataset file is preferred when the user wants to load the final
     cleaned/deduplicated export (for example the 2016-2026 final CSV).
     """
+
+    year_min, year_max = configured_year_range(config, year_min=year_min, year_max=year_max)
 
     if dataset_path is not None:
         from src.database.load_records import (
@@ -55,12 +60,18 @@ def load_database_records(
                 dataset_path,
                 batch_size=batch_size,
                 limit=limit,
+                year_min=year_min,
+                year_max=year_max,
+                reset=reset,
             )
 
         return load_record_file(
             dataset_path,
             batch_size=batch_size,
             limit=limit,
+            year_min=year_min,
+            year_max=year_max,
+            reset=reset,
         )
 
     pipeline = ResearchPipeline(config)
@@ -70,7 +81,33 @@ def load_database_records(
     pipeline.clean()
     pipeline.resolve_entities()
     pipeline.deduplicate()
-    return pipeline.load_database()
+    return pipeline.load_database(year_min=year_min, year_max=year_max)
+
+
+def configured_year_range(
+    config: Any,
+    *,
+    year_min: int | None = None,
+    year_max: int | None = None,
+) -> tuple[int | None, int | None]:
+    """Resolve explicit year filters, falling back to config coverage."""
+
+    if year_min is not None or year_max is not None:
+        return year_min, year_max
+
+    collection = getattr(config, "collection", None)
+    if collection is not None:
+        return getattr(collection, "start_year", None), getattr(collection, "end_year", None)
+
+    if isinstance(config, dict):
+        collection_data = config.get("collection") if isinstance(config.get("collection"), dict) else {}
+        coverage_data = config.get("coverage") if isinstance(config.get("coverage"), dict) else {}
+        return (
+            collection_data.get("start_year") or coverage_data.get("start_year"),
+            collection_data.get("end_year") or coverage_data.get("end_year"),
+        )
+
+    return None, None
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -112,6 +149,23 @@ def main(argv: list[str] | None = None) -> None:
             "--full-database",
             action="store_true",
             help="Populate normalized relational tables as well as final_publications.",
+        )
+        command_parser.add_argument(
+            "--year-min",
+            type=int,
+            default=None,
+            help="Load only records with publication_year greater than or equal to this year.",
+        )
+        command_parser.add_argument(
+            "--year-max",
+            type=int,
+            default=None,
+            help="Load only records with publication_year less than or equal to this year.",
+        )
+        command_parser.add_argument(
+            "--reset",
+            action="store_true",
+            help="Delete existing loaded database rows before direct dataset loading.",
         )
         command_parser.add_argument(
             "--log-level",
@@ -322,6 +376,9 @@ def main(argv: list[str] | None = None) -> None:
             dataset_path=args.dataset,
             batch_size=args.batch_size,
             full_database=args.full_database,
+            year_min=args.year_min,
+            year_max=args.year_max,
+            reset=args.reset,
         )
         if args.dataset is not None:
             if isinstance(loaded, dict):

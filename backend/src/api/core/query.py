@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.api.core.constants import LIST_FILTERS
+from src.api.core.constants import (
+    LIST_FILTERS,
+    PUBLICATION_COVERAGE_END_YEAR,
+    PUBLICATION_COVERAGE_START_YEAR,
+)
 from src.api.core.errors import APIError
 
 
@@ -23,6 +27,7 @@ def parse_filters(query: dict[str, list[str]]) -> dict[str, Any]:
         else:
             filters[key] = values[-1].strip()
 
+    filters = apply_publication_coverage(filters)
     year_min = filters.get("year_min")
     year_max = filters.get("year_max")
     if year_min is not None and year_max is not None and year_min > year_max:
@@ -31,6 +36,21 @@ def parse_filters(query: dict[str, list[str]]) -> dict[str, Any]:
             "year_min must be less than or equal to year_max.",
             details={"field": "year_min"},
         )
+    return filters
+
+
+def apply_publication_coverage(filters: dict[str, Any]) -> dict[str, Any]:
+    """Constrain public API publication queries to the prepared dataset range."""
+
+    filters = dict(filters)
+    filters["year_min"] = max(
+        filters.get("year_min", PUBLICATION_COVERAGE_START_YEAR),
+        PUBLICATION_COVERAGE_START_YEAR,
+    )
+    filters["year_max"] = min(
+        filters.get("year_max", PUBLICATION_COVERAGE_END_YEAR),
+        PUBLICATION_COVERAGE_END_YEAR,
+    )
     return filters
 
 

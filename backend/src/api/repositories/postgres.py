@@ -8,8 +8,12 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any, Callable
 
-from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
+from src.api.core.constants import (
+    PUBLICATION_COVERAGE_END_YEAR,
+    PUBLICATION_COVERAGE_START_YEAR,
+)
 from src.api.core.serializers import quality_flags, split_semicolon_value
+from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.repositories.sql import (
     BASE_COLUMNS,
     PUBLICATION_SEARCH_VECTOR_SQL,
@@ -130,8 +134,10 @@ class PostgresPublicationRepository:
                 max(loaded_at) AS max_loaded_at,
                 max(updated_at) AS max_updated_at
             FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+            WHERE publication_year >= %s
+              AND publication_year <= %s
             """,
-            [],
+            [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR],
         )
         return row or {}
 
@@ -237,13 +243,25 @@ class PostgresPublicationRepository:
             SELECT title AS value, 'publication' AS type, publication_key AS key
             FROM final_publications
             WHERE title ILIKE %s
+              AND publication_year >= %s
+              AND publication_year <= %s
             UNION ALL
             SELECT journal AS value, 'journal' AS type, journal AS key
             FROM final_publications
             WHERE journal ILIKE %s
+              AND publication_year >= %s
+              AND publication_year <= %s
             LIMIT %s
             """,
-            [pattern, pattern, limit],
+            [
+                pattern,
+                PUBLICATION_COVERAGE_START_YEAR,
+                PUBLICATION_COVERAGE_END_YEAR,
+                pattern,
+                PUBLICATION_COVERAGE_START_YEAR,
+                PUBLICATION_COVERAGE_END_YEAR,
+                limit,
+            ],
         )
         seen = set()
         suggestions = []
@@ -921,10 +939,12 @@ class PostgresPublicationRepository:
             f"""
             SELECT {select_columns(BASE_COLUMNS)}
             FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
-            WHERE {" OR ".join(clauses)}
+            WHERE ({" OR ".join(clauses)})
+              AND publication_year >= %s
+              AND publication_year <= %s
             ORDER BY publication_year DESC NULLS LAST, title ASC NULLS LAST
             """,
-            params,
+            [*params, PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR],
         )
 
     def _fetch_one(self, sql: str, params: list[Any]) -> dict[str, Any] | None:
