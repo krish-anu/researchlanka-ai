@@ -22,6 +22,7 @@ from src.database.loader import (
     coerce_boolean,
     coerce_integer,
     ensure_database_schema,
+    first_available_value,
     load_final_publications,
     make_json_safe,
     quote_identifier,
@@ -208,6 +209,49 @@ def chunked(
         yield batch
 
 
+def publication_year_from_record(record: dict[str, Any]) -> int | None:
+    """Return a normalized publication year from a raw or final record."""
+
+    year = coerce_integer(first_available_value(record, "publication_year"))
+    if year is not None:
+        return year
+
+    date_value = first_available_value(record, "publication_date")
+    if is_blank(date_value):
+        return None
+    match = re.search(r"\b((?:18|19|20)\d{2})\b", str(date_value))
+    return int(match.group(1)) if match else None
+
+
+def validate_year_range(year_min: int | None, year_max: int | None) -> None:
+    if year_min is not None and year_max is not None and year_min > year_max:
+        raise ValueError("year_min must be less than or equal to year_max.")
+
+
+def filter_records_by_publication_year(
+    records: Iterable[dict[str, Any]],
+    *,
+    year_min: int | None = None,
+    year_max: int | None = None,
+) -> Iterator[dict[str, Any]]:
+    """Yield only records with a publication year inside the requested range."""
+
+    validate_year_range(year_min, year_max)
+    if year_min is None and year_max is None:
+        yield from records
+        return
+
+    for record in records:
+        year = publication_year_from_record(record)
+        if year is None:
+            continue
+        if year_min is not None and year < year_min:
+            continue
+        if year_max is not None and year > year_max:
+            continue
+        yield record
+
+
 def load_record_file(
     path: Path,
     *,
@@ -216,10 +260,18 @@ def load_record_file(
     batch_size: int = DEFAULT_BATCH_SIZE,
     ensure_schema: bool = True,
     limit: int | None = None,
+    year_min: int | None = None,
+    year_max: int | None = None,
+    reset: bool = False,
 ) -> int:
     """Load a record file into PostgreSQL in batches and return loaded row count."""
 
     records: Iterable[dict[str, Any]] = iter_record_file(path, file_format=file_format)
+    records = filter_records_by_publication_year(
+        records,
+        year_min=year_min,
+        year_max=year_max,
+    )
     if limit is not None:
         if limit < 0:
             raise ValueError("limit must be zero or greater.")
@@ -227,12 +279,19 @@ def load_record_file(
 
     connection = get_connection(database_url)
     try:
+        if reset:
+            if ensure_schema:
+                ensure_database_schema(connection)
+                connection.commit()
+            logger.info("Resetting final_publications before loading %s", path)
+            reset_database_tables(connection, tables=("final_publications",))
+            connection.commit()
         total = 0
         for batch_number, batch in enumerate(chunked(records, batch_size), start=1):
             loaded = load_final_publications(
                 batch,
                 connection=connection,
-                ensure_schema=ensure_schema and batch_number == 1,
+                ensure_schema=ensure_schema and not reset and batch_number == 1,
             )
             connection.commit()
             total += loaded
@@ -332,6 +391,20 @@ def validate_loaded_database_tables(
         )
 
     return actual_counts
+
+
+def reset_database_tables(
+    connection: Any,
+    tables: Iterable[str] = DATABASE_LOAD_TABLES,
+) -> None:
+    """Remove loaded publication data while keeping schema and migrations."""
+
+    table_names = list(tables)
+    if not table_names:
+        return
+    quoted_tables = ", ".join(quote_identifier(table) for table in table_names)
+    with connection.cursor() as cursor:
+        cursor.execute(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE")
 
 
 def _upsert_country(
@@ -1674,6 +1747,9 @@ def load_full_database_dataset(
     batch_size: int = DEFAULT_BATCH_SIZE,
     ensure_schema: bool = True,
     limit: int | None = None,
+    year_min: int | None = None,
+    year_max: int | None = None,
+    reset: bool = False,
 ) -> dict[str, int]:
     """Populate the normalized PostgreSQL schema from a final dataset file."""
 
@@ -1684,6 +1760,17 @@ def load_full_database_dataset(
     records: Iterable[dict[str, Any]] = iter_record_file(
         path, file_format=file_format
     )
+    records = filter_records_by_publication_year(
+        records,
+        year_min=year_min,
+        year_max=year_max,
+    )
+    if year_min is not None or year_max is not None:
+        logger.info(
+            "Applying publication_year filter before loading: min=%s max=%s",
+            year_min,
+            year_max,
+        )
     if limit is not None:
         if limit < 0:
             raise ValueError("limit must be zero or greater.")
@@ -1697,6 +1784,11 @@ def load_full_database_dataset(
         if ensure_schema:
             logger.info("Ensuring database schema is present before loading")
             ensure_database_schema(connection)
+            connection.commit()
+        if reset:
+            logger.info("Resetting publication database tables before loading")
+            reset_database_tables(connection)
+            connection.commit()
         total_records = 0
         for batch_number, batch in enumerate(chunked(records, batch_size), start=1):
             logger.info(
@@ -1809,6 +1901,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Load only the first N records, useful for smoke tests.",
     )
     parser.add_argument(
+        "--year-min",
+        type=int,
+        help="Load only records with publication_year greater than or equal to this year.",
+    )
+    parser.add_argument(
+        "--year-max",
+        type=int,
+        help="Load only records with publication_year less than or equal to this year.",
+    )
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Delete existing final_publications rows before loading.",
+    )
+    parser.add_argument(
         "--no-ensure-schema",
         action="store_true",
         help="Skip applying pending database migrations before loading.",
@@ -1828,6 +1935,9 @@ def main(argv: list[str] | None = None) -> None:
             batch_size=args.batch_size,
             ensure_schema=not args.no_ensure_schema,
             limit=args.limit,
+            year_min=args.year_min,
+            year_max=args.year_max,
+            reset=args.reset,
         )
     except Exception as exc:
         raise SystemExit(f"Failed to load records: {exc}") from exc

@@ -18,13 +18,15 @@ FRONTEND_NODE_MAX_OLD_SPACE_MB ?= 1536
 DEV_SEMANTIC_EMBEDDINGS ?= data/models/publication_text_embeddings_cli_sample.parquet
 DEV_SEMANTIC_MODEL ?= data/models/publication_text_embedding_model_cli_sample.joblib
 
-.PHONY: help install install-backend install-frontend backend api frontend dev test check check-backend check-frontend
+.PHONY: help install install-backend install-frontend backend api frontend dev load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now test check check-backend check-frontend
 
 help:
 	@echo "ResearchLanka development shortcuts"
 	@echo ""
 	@echo "  make install            Install backend and frontend dependencies"
 	@echo "  make dev                Run backend API and frontend together"
+	@echo "  make load-db-2016-now   Load only 2016-2026 records into PostgreSQL"
+	@echo "  make reset-db-2016-now  Clear PostgreSQL records, then load 2016-2026"
 	@echo "  make backend            Run the backend API on http://$(BACKEND_HOST):$(BACKEND_PORT)/api/v1"
 	@echo "  make frontend           Run the frontend on http://$(FRONTEND_HOST):$(FRONTEND_PORT)"
 	@echo "  make test               Run backend tests and frontend checks"
@@ -51,6 +53,18 @@ backend: $(BACKEND_DIR)/.venv/bin/python
 	cd $(BACKEND_DIR) && RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=$(DEV_SEMANTIC_EMBEDDINGS) RESEARCHLANKA_SEMANTIC_MODEL_PATH=$(DEV_SEMANTIC_MODEL) $(BACKEND_PYTHON) scripts/api/serve_api.py --host $(BACKEND_HOST) --port $(BACKEND_PORT) $(BACKEND_API_EXTRA_ARGS)
 
 api: backend
+
+load-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) load-db-2016-now
+
+reset-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) reset-db-2016-now
+
+load-full-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) load-full-db-2016-now
+
+reset-full-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) reset-full-db-2016-now
 
 frontend:
 	NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL=$(API_BASE_URL) $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $(FRONTEND_PORT)

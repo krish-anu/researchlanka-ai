@@ -161,7 +161,7 @@ export const getHealth = () =>
   request<DetailResponse<HealthStatus>>("/health", {}, { revalidate: 0 });
 
 export const getDatasetMeta = () =>
-  request<DetailResponse<DatasetMeta>>("/meta", {}, { revalidate: 600 });
+  request<DetailResponse<DatasetMeta>>("/meta", {}, { revalidate: 0 });
 
 export const getLimitations = () =>
   request<DetailResponse<Limitations>>("/limitations", {}, { revalidate: 3600 });
@@ -296,20 +296,29 @@ export const listFields = (
 /* ---------------------------------------------------------------- analytics */
 
 export const getAnalyticsOverview = (params: QueryParams = {}) =>
-  request<DetailResponse<AnalyticsOverview>>("/analytics/overview", params);
+  request<DetailResponse<AnalyticsOverview>>("/analytics/overview", params, {
+    revalidate: 0,
+  });
 
 export const getAnalyticsTrends = (
   params: QueryParams & {
     group_by?: "year" | "type" | "field" | "institution";
     metric?: "publications" | "citations";
   } = {},
-) => request<DetailResponse<TrendPoint[]>>("/analytics/trends", params);
+) =>
+  request<DetailResponse<TrendPoint[]>>("/analytics/trends", params, {
+    revalidate: 0,
+  });
 
 export const getAnalyticsInstitutions = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/analytics/institutions", params);
+  request<DetailResponse<RankingEntry[]>>("/analytics/institutions", params, {
+    revalidate: 0,
+  });
 
 export const getAnalyticsFields = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/analytics/fields", params);
+  request<DetailResponse<RankingEntry[]>>("/analytics/fields", params, {
+    revalidate: 0,
+  });
 
 export const getCollaborationNetwork = (
   params: QueryParams & {
@@ -321,13 +330,17 @@ export const getCollaborationNetwork = (
   request<DetailResponse<CollaborationNetwork>>(
     "/analytics/collaboration-network",
     params,
+    { revalidate: 0 },
   );
 
 export const getDataQuality = (
   params: QueryParams & {
     group_by?: "source_dataset" | "type" | "institution" | "year";
   } = {},
-) => request<DetailResponse<DataQualitySummary>>("/analytics/data-quality", params);
+) =>
+  request<DetailResponse<DataQualitySummary>>("/analytics/data-quality", params, {
+    revalidate: 0,
+  });
 
 /* ------------------------------------------------------------------ exports */
 
