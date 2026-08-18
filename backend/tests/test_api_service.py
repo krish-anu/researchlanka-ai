@@ -433,6 +433,63 @@ def test_postgres_related_publications_hydrates_database_records(monkeypatch):
     ]
 
 
+def test_postgres_analytics_and_facets_do_not_fetch_full_publication_rows(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+
+    def fail_list_publications(*_args, **_kwargs):
+        raise AssertionError("aggregate endpoints must not fetch full publication rows")
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        if "open_access_count" in normalized_sql:
+            return [
+                {
+                    "publication_count": 2,
+                    "citation_total": 12,
+                    "open_access_count": 1,
+                    "doi_count": 1,
+                    "abstract_count": 1,
+                }
+            ]
+        if "count(DISTINCT btrim(split.value))" in normalized_sql:
+            return [{"total": 2}]
+        if "missing_institutions_count" in normalized_sql:
+            return [
+                {
+                    "record_count": 2,
+                    "missing_doi_count": 1,
+                    "missing_abstract_count": 1,
+                    "missing_institutions_count": 0,
+                    "citation_divergence_count": 0,
+                    "reference_divergence_count": 1,
+                }
+            ]
+        if "source.label AS source_label" in normalized_sql:
+            return [{"source_label": "University of Colombo", "target_label": "University of Ruhuna", "weight": 2}]
+        if "WHERE label = ANY(%s::text[])" in normalized_sql:
+            return [
+                {"label": "University of Colombo", "publication_count": 2},
+                {"label": "University of Ruhuna", "publication_count": 2},
+            ]
+        if " AS label," in normalized_sql:
+            return [{"label": "Medicine", "publication_count": 1, "citation_total": 12}]
+        if " AS key," in normalized_sql:
+            return [{"key": 2024, "publication_count": 1, "citation_total": 12}]
+        if " AS value," in normalized_sql or "SELECT value, count(*) AS count" in normalized_sql:
+            return [{"value": "2024", "count": 1}]
+        return []
+
+    monkeypatch.setattr(repository, "list_publications", fail_list_publications)
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    assert repository.analytics_overview({})["publication_count"] == 2
+    assert repository.analytics_trends({}, group_by="year", metric="publications")[0]["key"] == 2024
+    assert repository.analytics_rankings({}, dimension="primary_field", metric="publications", limit=10)[0]["label"] == "Medicine"
+    assert repository.collaboration_network({}, scope="institution", min_weight=2, limit=10)["edges"][0]["weight"] == 2
+    assert repository.data_quality({}, group_by=None)["missing_doi_percentage"] == 50.0
+    assert repository._facets({})["publication_year"]["2024"] == 1
+
+
 def test_analytics_export_and_disabled_raw_payload():
     analytics_payload, content_type = api().export_analytics({}, name="overview")
 
