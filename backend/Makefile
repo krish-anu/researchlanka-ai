@@ -83,6 +83,9 @@ MODEL_SPLIT_TEST_RATIO ?= 0.15
 MODEL_SPLIT_RANDOM_STATE ?= 42
 MODEL_SPLIT_MIN_CLASS_COUNT ?= 20
 MODEL_SPLIT_EXTRA_ARGS ?=
+API_HOST ?= 127.0.0.1
+API_PORT ?= 8080
+API_EXTRA_ARGS ?=
 MODEL_API_HOST ?= 127.0.0.1
 MODEL_API_PORT ?= 8081
 MODEL_API_EXTRA_ARGS ?=
@@ -118,7 +121,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -126,6 +129,7 @@ help:
 	@echo ""
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
+	@echo "  make api                     Serve the read-only ResearchLanka API"
 	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
 	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
@@ -166,6 +170,10 @@ test:
 # Compare raw and estimated unique publication counts for each source file.
 publication-counts:
 	$(PYTHON) scripts/quality/compare_publication_counts.py
+
+# Serve the read-only dashboard/search/profile API.
+api:
+	$(PYTHON) scripts/api/serve_api.py --host $(API_HOST) --port $(API_PORT) $(API_EXTRA_ARGS)
 
 # Export model-ready text and TF-IDF features from the final dataset.
 model-text: model-titles model-abstracts model-keywords model-tfidf
