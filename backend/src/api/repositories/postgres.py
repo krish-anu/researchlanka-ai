@@ -81,6 +81,13 @@ def nonempty_text_condition(expression: str) -> str:
     return f"NULLIF(btrim(coalesce({expression}::text, '')), '') IS NOT NULL"
 
 
+def _network_node_id(node_key: Any, label: Any) -> str:
+    key = str(node_key or "").strip()
+    if key and key != str(label or "").strip():
+        return key
+    return normalized_key(str(label or key))
+
+
 def split_value_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     return {
         str(row["value"]): int(row.get("count") or 0)
@@ -496,23 +503,42 @@ class PostgresPublicationRepository:
         min_weight: int,
         limit: int,
     ) -> dict[str, Any]:
-        field = {"institution": "institutions", "country": "countries", "researcher": "authors"}[scope]
-        cte_sql, params = self._filtered_cte(filters, ["publication_key", field])
-        field_ref = column_ref(field)
+        if scope == "researcher":
+            return self._author_collaboration_network(filters, min_weight=min_weight, limit=limit)
+
+        fields = {
+            "institution": ["institutions", "sri_lankan_institutions"],
+            "country": ["countries"],
+        }[scope]
+        cte_sql, params = self._filtered_cte(
+            filters,
+            ["publication_key", "publication_year", *fields],
+        )
+        value_sources = "\nUNION ALL\n".join(
+            f"""
+                SELECT publication_key, btrim(split.value) AS label, publication_year
+                FROM filtered
+                CROSS JOIN LATERAL regexp_split_to_table(coalesce({column_ref(field)}::text, ''), ';') AS split(value)
+                WHERE publication_key IS NOT NULL AND btrim(split.value) <> ''
+            """
+            for field in fields
+        )
         edge_rows = self._fetch_all(
             f"""
             {cte_sql},
             publication_values AS (
-                SELECT publication_key, btrim(split.value) AS label
-                FROM filtered
-                CROSS JOIN LATERAL regexp_split_to_table(coalesce({field_ref}::text, ''), ';') AS split(value)
-                WHERE publication_key IS NOT NULL AND btrim(split.value) <> ''
-                GROUP BY publication_key, btrim(split.value)
+                SELECT publication_key, label, publication_year
+                FROM (
+                    {value_sources}
+                ) values_union
+                GROUP BY publication_key, label, publication_year
             )
             SELECT
                 source.label AS source_label,
                 target.label AS target_label,
-                count(*) AS weight
+                count(*) AS weight,
+                min(source.publication_year) AS first_year,
+                max(source.publication_year) AS last_year
             FROM publication_values source
             JOIN publication_values target
                 ON source.publication_key = target.publication_key
@@ -528,7 +554,12 @@ class PostgresPublicationRepository:
             {
                 "source": normalized_key(row["source_label"]),
                 "target": normalized_key(row["target_label"]),
+                "source_label": row["source_label"],
+                "target_label": row["target_label"],
                 "weight": metric_count(row.get("weight")),
+                "edge_type": f"{scope}_collaboration",
+                "first_year": row.get("first_year"),
+                "last_year": row.get("last_year"),
             }
             for row in edge_rows
         ]
@@ -546,13 +577,17 @@ class PostgresPublicationRepository:
             f"""
             {cte_sql},
             publication_values AS (
-                SELECT publication_key, btrim(split.value) AS label
-                FROM filtered
-                CROSS JOIN LATERAL regexp_split_to_table(coalesce({field_ref}::text, ''), ';') AS split(value)
-                WHERE publication_key IS NOT NULL AND btrim(split.value) <> ''
-                GROUP BY publication_key, btrim(split.value)
+                SELECT publication_key, label, publication_year
+                FROM (
+                    {value_sources}
+                ) values_union
+                GROUP BY publication_key, label, publication_year
             )
-            SELECT label, count(*) AS publication_count
+            SELECT
+                label,
+                count(*) AS publication_count,
+                min(publication_year) AS first_year,
+                max(publication_year) AS last_year
             FROM publication_values
             WHERE label = ANY(%s::text[])
             GROUP BY label
@@ -566,6 +601,139 @@ class PostgresPublicationRepository:
                 "label": row["label"],
                 "type": scope,
                 "publication_count": metric_count(row.get("publication_count")),
+                "first_year": row.get("first_year"),
+                "last_year": row.get("last_year"),
+            }
+            for row in node_rows
+        ]
+        return {"nodes": nodes, "edges": edges}
+
+    def _author_collaboration_network(
+        self,
+        filters: dict[str, Any],
+        *,
+        min_weight: int,
+        limit: int,
+    ) -> dict[str, Any]:
+        cte_sql, params = self._filtered_cte(
+            filters,
+            ["publication_key", "authors", "author_ids", "publication_year"],
+        )
+        edge_rows = self._fetch_all(
+            f"""
+            {cte_sql},
+            author_values AS (
+                SELECT
+                    publication_key,
+                    coalesce(nullif(btrim(author_id.value), ''), btrim(author_name.value)) AS node_key,
+                    btrim(author_name.value) AS label,
+                    publication_year
+                FROM filtered
+                CROSS JOIN LATERAL unnest(string_to_array(coalesce(authors::text, ''), ';'))
+                    WITH ORDINALITY AS author_name(value, position)
+                LEFT JOIN LATERAL unnest(string_to_array(coalesce(author_ids::text, ''), ';'))
+                    WITH ORDINALITY AS author_id(value, position)
+                    ON author_id.position = author_name.position
+                WHERE publication_key IS NOT NULL AND btrim(author_name.value) <> ''
+            ),
+            publication_author_values AS (
+                SELECT
+                    publication_key,
+                    node_key,
+                    min(label) AS label,
+                    publication_year
+                FROM author_values
+                GROUP BY publication_key, node_key, publication_year
+            )
+            SELECT
+                source.node_key AS source_key,
+                target.node_key AS target_key,
+                source.label AS source_label,
+                target.label AS target_label,
+                count(*) AS weight,
+                min(source.publication_year) AS first_year,
+                max(source.publication_year) AS last_year
+            FROM publication_author_values source
+            JOIN publication_author_values target
+                ON source.publication_key = target.publication_key
+                AND source.node_key < target.node_key
+            GROUP BY source.node_key, target.node_key, source.label, target.label
+            HAVING count(*) >= %s
+            ORDER BY weight DESC, source.label ASC, target.label ASC
+            LIMIT %s
+            """,
+            [*params, min_weight, limit],
+        )
+        edges = [
+            {
+                "source": _network_node_id(row["source_key"], row["source_label"]),
+                "target": _network_node_id(row["target_key"], row["target_label"]),
+                "source_label": row["source_label"],
+                "target_label": row["target_label"],
+                "weight": metric_count(row.get("weight")),
+                "edge_type": "author_collaboration",
+                "first_year": row.get("first_year"),
+                "last_year": row.get("last_year"),
+            }
+            for row in edge_rows
+        ]
+        active_keys = sorted(
+            {
+                str(key)
+                for row in edge_rows
+                for key in (row.get("source_key"), row.get("target_key"))
+                if key not in (None, "")
+            }
+        )
+        if not active_keys:
+            return {"nodes": [], "edges": edges}
+        node_rows = self._fetch_all(
+            f"""
+            {cte_sql},
+            author_values AS (
+                SELECT
+                    publication_key,
+                    coalesce(nullif(btrim(author_id.value), ''), btrim(author_name.value)) AS node_key,
+                    btrim(author_name.value) AS label,
+                    publication_year
+                FROM filtered
+                CROSS JOIN LATERAL unnest(string_to_array(coalesce(authors::text, ''), ';'))
+                    WITH ORDINALITY AS author_name(value, position)
+                LEFT JOIN LATERAL unnest(string_to_array(coalesce(author_ids::text, ''), ';'))
+                    WITH ORDINALITY AS author_id(value, position)
+                    ON author_id.position = author_name.position
+                WHERE publication_key IS NOT NULL AND btrim(author_name.value) <> ''
+            ),
+            publication_author_values AS (
+                SELECT
+                    publication_key,
+                    node_key,
+                    min(label) AS label,
+                    publication_year
+                FROM author_values
+                GROUP BY publication_key, node_key, publication_year
+            )
+            SELECT
+                node_key,
+                min(label) AS label,
+                count(*) AS publication_count,
+                min(publication_year) AS first_year,
+                max(publication_year) AS last_year
+            FROM publication_author_values
+            WHERE node_key = ANY(%s::text[])
+            GROUP BY node_key
+            ORDER BY publication_count DESC, label ASC
+            """,
+            [*params, active_keys],
+        )
+        nodes = [
+            {
+                "id": _network_node_id(row["node_key"], row["label"]),
+                "label": row["label"],
+                "type": "researcher",
+                "publication_count": metric_count(row.get("publication_count")),
+                "first_year": row.get("first_year"),
+                "last_year": row.get("last_year"),
             }
             for row in node_rows
         ]

@@ -478,12 +478,14 @@ def test_postgres_metadata_counts_public_dataset_coverage(monkeypatch):
 
 def test_postgres_analytics_and_facets_do_not_fetch_full_publication_rows(monkeypatch):
     repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
 
     def fail_list_publications(*_args, **_kwargs):
         raise AssertionError("aggregate endpoints must not fetch full publication rows")
 
     def fake_fetch_all(sql, params):
         normalized_sql = " ".join(sql.split())
+        calls.append({"sql": normalized_sql, "params": params})
         if "open_access_count" in normalized_sql:
             return [
                 {
@@ -529,8 +531,79 @@ def test_postgres_analytics_and_facets_do_not_fetch_full_publication_rows(monkey
     assert repository.analytics_trends({}, group_by="year", metric="publications")[0]["key"] == 2024
     assert repository.analytics_rankings({}, dimension="primary_field", metric="publications", limit=10)[0]["label"] == "Medicine"
     assert repository.collaboration_network({}, scope="institution", min_weight=2, limit=10)["edges"][0]["weight"] == 2
+    assert any("sri_lankan_institutions" in call["sql"] for call in calls)
     assert repository.data_quality({}, group_by=None)["missing_doi_percentage"] == 50.0
     assert repository._facets({})["publication_year"]["2024"] == 1
+
+
+def test_postgres_researcher_collaboration_network_uses_author_ids(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        calls.append({"sql": normalized_sql, "params": params})
+        if "source.node_key AS source_key" in normalized_sql:
+            return [
+                {
+                    "source_key": "author-perera",
+                    "target_key": "author-silva",
+                    "source_label": "Perera, K.",
+                    "target_label": "Silva, A.",
+                    "weight": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                }
+            ]
+        if "WHERE node_key = ANY(%s::text[])" in normalized_sql:
+            return [
+                {
+                    "node_key": "author-perera",
+                    "label": "Perera, K.",
+                    "publication_count": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                },
+                {
+                    "node_key": "author-silva",
+                    "label": "Silva, A.",
+                    "publication_count": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                },
+            ]
+        return []
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    network = repository.collaboration_network(
+        {"researcher": ["Perera"]},
+        scope="researcher",
+        min_weight=2,
+        limit=10,
+    )
+
+    assert "author_ids" in calls[0]["sql"]
+    assert network["edges"] == [
+        {
+            "source": "author-perera",
+            "target": "author-silva",
+            "source_label": "Perera, K.",
+            "target_label": "Silva, A.",
+            "weight": 2,
+            "edge_type": "author_collaboration",
+            "first_year": 2022,
+            "last_year": 2024,
+        }
+    ]
+    assert network["nodes"][0] == {
+        "id": "author-perera",
+        "label": "Perera, K.",
+        "type": "researcher",
+        "publication_count": 2,
+        "first_year": 2022,
+        "last_year": 2024,
+    }
 
 
 def test_analytics_export_and_disabled_raw_payload():

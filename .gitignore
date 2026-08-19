@@ -28,7 +28,9 @@ pip-wheel-metadata/
 # Node and frontend build outputs
 node_modules/
 .next/
+.next.stale/
 out/
+next-env.d.ts
 *.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
@@ -60,6 +62,7 @@ data/external/
 data/models/
 data/reports/*.json
 outputs/
+pipeline/
 backend/data/raw/
 backend/data/processed/
 backend/data/interim/
@@ -67,6 +70,11 @@ backend/data/external/
 backend/data/models/
 backend/data/reports/
 backend/outputs/
+backend/pipeline/
+
+# Local Dagster runtime state
+.tmp_dagster_home_*/
+backend/dagster-quickstart/.tmp_dagster_home_*/
 
 # Large local data exports and databases
 *.xlsx
