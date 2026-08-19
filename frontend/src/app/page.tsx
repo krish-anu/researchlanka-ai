@@ -4,6 +4,10 @@ import { Suspense } from "react";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
+import {
+  NetworkBrokersTable,
+  NetworkSummaryPanel,
+} from "@/components/network/NetworkMetrics";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable, TableDisclosure, type Column } from "@/components/ui/DataTable";
 import { ApiErrorPanel, Skeleton } from "@/components/ui/Feedback";
@@ -333,7 +337,22 @@ async function NetworkSection() {
       {!network.ok ? (
         <ApiErrorPanel error={network.error} what="the collaboration network" />
       ) : (
-        <CollaborationNetwork network={network.value.data} scope="institution" />
+        <div className="flex flex-col gap-5">
+          <CollaborationNetwork network={network.value.data} scope="institution" />
+          <NetworkSummaryPanel summary={network.value.data.summary} />
+          <div>
+            <h3 className="mb-2 font-display text-h3 text-ink">
+              Bridging institutions
+            </h3>
+            <p className="mb-3 max-w-prose text-body-sm text-ink-secondary">
+              Institutions carrying the most shortest paths between others. A
+              different ranking from the most prolific: an institution that only
+              co-publishes inside its own cluster brokers nothing, however much
+              it publishes.
+            </p>
+            <NetworkBrokersTable nodes={network.value.data.nodes} />
+          </div>
+        </div>
       )}
     </ChartPanel>
   );

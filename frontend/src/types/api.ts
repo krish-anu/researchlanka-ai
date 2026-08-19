@@ -268,6 +268,31 @@ export interface NetworkNode {
   label: string;
   type: "institution" | "country" | "researcher" | string;
   publication_count: number;
+  /**
+   * Structural measures from `src/analytics/network.py`, computed over the
+   * graph as returned — after `min_weight` and `limit` — so they describe the
+   * picture on screen rather than the full corpus graph.
+   */
+  degree_centrality: number;
+  /** Weighted degree: total co-publications, not distinct partners. */
+  strength: number;
+  /** Share of shortest paths through this node. High = bridging partner. */
+  betweenness_centrality: number;
+  closeness_centrality: number;
+  /** Community id, 0-based and ordered by descending community size. */
+  community: number;
+}
+
+/** Graph-level context needed to read the per-node measures honestly. */
+export interface NetworkSummary {
+  node_count: number;
+  edge_count: number;
+  density: number;
+  component_count: number;
+  largest_component_size: number;
+  community_count: number;
+  /** Newman-Girvan Q. Above ~0.3 the community split is meaningful. */
+  modularity: number;
 }
 
 export interface NetworkEdge {
@@ -281,6 +306,7 @@ export interface NetworkEdge {
 export interface CollaborationNetwork {
   nodes: NetworkNode[];
   edges: NetworkEdge[];
+  summary: NetworkSummary;
 }
 
 export interface DataQualitySummary {
