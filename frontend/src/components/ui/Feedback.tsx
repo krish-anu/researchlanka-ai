@@ -91,7 +91,7 @@ export function SectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-5 flex flex-col gap-2 border-b border-rule pb-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h2 className="font-display text-h2 text-ink">{title}</h2>
         {description ? (

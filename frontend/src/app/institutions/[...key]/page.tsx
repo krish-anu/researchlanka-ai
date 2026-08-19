@@ -91,8 +91,8 @@ export default async function InstitutionProfilePage({
   const topFields = topValues(sample, (item) => [item.primary_field], 10);
 
   return (
-    <div className="flex flex-col gap-5">
-      <nav className="text-sm text-muted">
+    <div className="flex flex-col gap-10 md:gap-12">
+      <nav className="text-body-sm text-muted">
         <Link href="/institutions" className="hover:text-ink hover:underline">
           Institutions
         </Link>
@@ -102,14 +102,14 @@ export default async function InstitutionProfilePage({
 
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">{data.label}</h1>
-          <p className="mt-1 text-sm text-ink-secondary">
+          <h1 className="title-page text-ink">{data.label}</h1>
+          <p className="mt-1 text-body-sm text-ink-secondary">
             Records span {formatYearRange(data.year_min, data.year_max)}
           </p>
         </div>
         <Link
           href={`/institutions/compare?institution=${encodeURIComponent(data.label)}`}
-          className="shrink-0 rounded-md border border-rule px-3 py-1.5 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
+          className="shrink-0 rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
         >
           Compare with another →
         </Link>
@@ -193,7 +193,7 @@ export default async function InstitutionProfilePage({
               height={240}
             />
           ) : (
-            <p className="p-4 text-sm text-muted">
+            <p className="p-4 text-body-sm text-muted">
               No records with a publication year.
             </p>
           )}
@@ -207,7 +207,7 @@ export default async function InstitutionProfilePage({
           {!collaborators.ok ? (
             <ApiErrorPanel error={collaborators.error} what="collaborators" />
           ) : collaborators.value.data.length === 0 ? (
-            <p className="p-4 text-sm text-muted">
+            <p className="p-4 text-body-sm text-muted">
               No co-publishing partners recorded.
             </p>
           ) : (
@@ -269,15 +269,15 @@ export default async function InstitutionProfilePage({
                     field: entry.label,
                     institution: data.label,
                   })}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded border border-rule px-2.5 py-1 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
                 >
                   {entry.label}
-                  <span className="tabular text-xs text-muted">{entry.count}</span>
+                  <span className="tabular text-body-sm text-muted">{entry.count}</span>
                 </Link>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-muted">
+          <p className="mt-3 text-body-sm text-muted">
             Department and faculty breakdowns are not available: the consolidated
             dataset records institution-level affiliations only, with no
             sub-unit field to group by.

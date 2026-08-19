@@ -22,7 +22,7 @@ export default async function ForbiddenPage({ searchParams }: PageProps) {
 
   return (
     <div className="panel mx-auto max-w-2xl border-l-[3px] border-l-serious p-6 md:p-8">
-      <h1 className="font-display text-h1 text-ink">Not permitted</h1>
+      <h1 className="title-page text-ink">Not permitted</h1>
       <p className="mt-2 text-body-md text-ink-secondary">
         Your account does not have access to that area.
       </p>

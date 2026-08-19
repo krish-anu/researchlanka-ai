@@ -111,7 +111,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
         <ul
           id={listId}
           role="listbox"
-          className="panel absolute z-20 mt-1 max-h-80 w-full overflow-y-auto p-1 shadow-[0_2px_8px_rgba(13,30,37,0.1)]"
+          className="overlay absolute z-20 mt-1 max-h-80 w-full overflow-y-auto p-1"
         >
           {suggestions.map((suggestion, index) => (
             <li key={`${suggestion.type}-${suggestion.key}-${index}`}>

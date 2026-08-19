@@ -91,7 +91,7 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
       {open ? (
         <div
           role="menu"
-          className="panel absolute right-0 z-50 mt-2 w-72 p-4 text-left"
+          className="overlay absolute right-0 z-50 mt-2 w-72 p-4 text-left"
         >
           <p className="truncate font-display text-body-md font-semibold text-ink">
             {user.name}

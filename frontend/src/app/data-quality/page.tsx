@@ -58,10 +58,10 @@ export default async function DataQualityPage() {
     .sort((a, b) => b.record_count - a.record_count);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-10 md:gap-12">
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Data quality</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+        <h1 className="title-page text-ink">Data quality</h1>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
           What this dataset does and does not support. Read this before citing
           any figure from the dashboard or profile pages.
         </p>
@@ -108,13 +108,13 @@ export default async function DataQualityPage() {
           <ul className="flex flex-col gap-2">
             {limitations.value.data.limitations.map((code) => (
               <li key={code} className="panel p-4">
-                <h3 className="flex items-center gap-2 text-sm font-medium text-ink">
+                <h3 className="flex items-center gap-2 text-body-sm font-medium text-ink">
                   <span aria-hidden className="text-warning">
                     ▲
                   </span>
                   {code.replace(/_/g, " ")}
                 </h3>
-                <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+                <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
                   {LIMITATION_TEXT[code] ??
                     "See the metadata quality documentation for details."}
                 </p>
@@ -184,7 +184,7 @@ export default async function DataQualityPage() {
                 ]}
                 rowKey={(row) => row.kind}
               />
-              <p className="mt-3 text-xs text-muted">
+              <p className="mt-3 text-body-sm text-muted">
                 Conflicting records are shown with a flag on the publication page
                 rather than being silently resolved to one source.
               </p>
@@ -196,7 +196,7 @@ export default async function DataQualityPage() {
                 description="How many records each source contributes."
                 table={
                   <details className="mt-3 border-t border-rule pt-3">
-                    <summary className="cursor-pointer text-sm text-ink-secondary hover:text-ink">
+                    <summary className="cursor-pointer text-body-sm text-ink-secondary hover:text-ink">
                       View completeness by source
                     </summary>
                     <div className="mt-2">
@@ -254,16 +254,16 @@ export default async function DataQualityPage() {
           <dl className="flex flex-col gap-2">
             {limitations.value.data.required_disclosures.map((code) => (
               <div key={code} className="border-b border-rule pb-2 last:border-0">
-                <dt className="text-sm font-medium text-ink">
+                <dt className="text-body-sm font-medium text-ink">
                   {code.replace(/_/g, " ")}
                 </dt>
-                <dd className="text-sm text-ink-secondary">
+                <dd className="text-body-sm text-ink-secondary">
                   {DISCLOSURE_TEXT[code] ?? "See the metadata quality documentation."}
                 </dd>
               </div>
             ))}
           </dl>
-          <p className="mt-3 text-xs text-muted">
+          <p className="mt-3 text-body-sm text-muted">
             Full documentation:{" "}
             <code className="rounded bg-wash px-1 py-0.5">
               {limitations.value.data.document}
@@ -272,7 +272,7 @@ export default async function DataQualityPage() {
         </section>
       ) : null}
 
-      <p className="text-sm text-ink-secondary">
+      <p className="text-body-sm text-ink-secondary">
         Back to the{" "}
         <Link href="/" className="text-primary hover:underline">
           national dashboard

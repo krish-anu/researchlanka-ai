@@ -61,7 +61,7 @@ export function PlotlyChart({ build, height = 280, ariaLabel }: PlotlyChartProps
 
   if (failed) {
     return (
-      <p className="p-4 text-sm text-muted">
+      <p className="p-4 text-body-sm text-muted">
         The chart library could not be loaded. The underlying numbers are
         available in the table below.
       </p>

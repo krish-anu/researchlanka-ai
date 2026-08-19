@@ -50,8 +50,8 @@ function Field({
 }) {
   return (
     <div className="border-b border-rule py-2 last:border-0">
-      <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
-      <dd className="mt-0.5 text-sm text-ink-secondary">{children}</dd>
+      <dt className="text-body-sm uppercase tracking-wide text-muted">{label}</dt>
+      <dd className="mt-0.5 text-body-sm text-ink-secondary">{children}</dd>
     </div>
   );
 }
@@ -70,7 +70,7 @@ function LinkedList({
         <li key={`${item}-${index}`}>
           <Link
             href={href(item)}
-            className="rounded border border-rule px-1.5 py-0.5 text-xs hover:bg-wash"
+            className="rounded border border-rule px-1.5 py-0.5 text-body-sm hover:bg-wash"
           >
             {item}
           </Link>
@@ -88,7 +88,7 @@ function ImpactPanel({ publication }: { publication: PublicationDetail }) {
 
   return (
     <section className="panel p-4">
-      <h2 className="text-base font-semibold text-ink">Impact</h2>
+      <h2 className="text-body-md font-semibold text-ink">Impact</h2>
       <dl className="mt-2">
         <Field label="Citations">{formatNumber(impact.citation_count)}</Field>
         <Field label="References">{formatNumber(impact.reference_count)}</Field>
@@ -104,7 +104,7 @@ function ImpactPanel({ publication }: { publication: PublicationDetail }) {
         ) : null}
       </dl>
       {diverges ? (
-        <p className="mt-3 flex gap-2 rounded-md border border-serious/40 bg-wash p-2 text-xs text-ink-secondary">
+        <p className="mt-3 flex gap-2 rounded border border-serious/40 bg-wash p-2 text-body-sm text-ink-secondary">
           <span aria-hidden className="text-serious">
             ≠
           </span>
@@ -159,8 +159,8 @@ export default async function PublicationDetailPage({ params }: PageProps) {
       : [];
 
   return (
-    <article className="flex flex-col gap-4">
-      <nav className="text-sm text-muted">
+    <article className="flex flex-col gap-10 md:gap-12">
+      <nav className="text-body-sm text-muted">
         <Link href="/publications" className="hover:text-ink hover:underline">
           Publications
         </Link>
@@ -169,18 +169,18 @@ export default async function PublicationDetailPage({ params }: PageProps) {
       </nav>
 
       <header className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold leading-snug text-ink">
+        <h1 className="title-page text-ink">
           {publication.title ?? "Untitled record"}
         </h1>
 
         {/* A div, not a p: LinkedList renders a <ul>, and a list inside a
             paragraph is invalid HTML that browsers re-parent — which desyncs
             the server and client trees and triggers a hydration error. */}
-        <div className="text-sm text-ink-secondary">
+        <div className="text-body-sm text-ink-secondary">
           <LinkedList items={publication.authors} href={researcherHref} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink-secondary">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm text-ink-secondary">
           {publication.publication_year ? (
             <span className="tabular">{publication.publication_year}</span>
           ) : null}
@@ -203,7 +203,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={`https://doi.org/${publication.doi}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-sm hover:bg-wash"
+              className="rounded border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               View at DOI ↗
             </a>
@@ -213,7 +213,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={publication.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-sm hover:bg-wash"
+              className="rounded border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               Source record ↗
             </a>
@@ -223,7 +223,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={publication.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-sm hover:bg-wash"
+              className="rounded border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               PDF ↗
             </a>
@@ -238,11 +238,11 @@ export default async function PublicationDetailPage({ params }: PageProps) {
         />
 
         {publication.quality_flags.length > 0 ? (
-          <ul className="flex flex-col gap-1.5 rounded-md border border-rule bg-wash p-3">
+          <ul className="flex flex-col gap-1.5 rounded border border-rule bg-wash p-3">
             {publication.quality_flags.map((flag) => (
               <li key={flag} className="flex flex-wrap items-center gap-2">
                 <QualityFlagBadge flag={flag} />
-                <span className="text-xs text-ink-secondary">
+                <span className="text-body-sm text-ink-secondary">
                   {describeFlag(flag)}
                 </span>
               </li>
@@ -253,8 +253,8 @@ export default async function PublicationDetailPage({ params }: PageProps) {
 
       {publication.abstract ? (
         <section className="panel p-4">
-          <h2 className="text-base font-semibold text-ink">Abstract</h2>
-          <p className="mt-2 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink-secondary">
+          <h2 className="text-body-md font-semibold text-ink">Abstract</h2>
+          <p className="mt-2 max-w-prose whitespace-pre-line text-body-sm leading-relaxed text-ink-secondary">
             {publication.abstract}
           </p>
         </section>
@@ -262,7 +262,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="panel p-4">
-          <h2 className="text-base font-semibold text-ink">Venue &amp; access</h2>
+          <h2 className="text-body-md font-semibold text-ink">Venue &amp; access</h2>
           <dl className="mt-2">
             <Field label="Journal">
               {publication.venue.journal ?? <span className="text-muted">Not recorded</span>}
@@ -315,7 +315,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
         <ImpactPanel publication={publication} />
 
         <section className="panel p-4">
-          <h2 className="text-base font-semibold text-ink">
+          <h2 className="text-body-md font-semibold text-ink">
             Affiliations &amp; classification
           </h2>
           <dl className="mt-2">
@@ -354,7 +354,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
         </section>
 
         <section className="panel p-4">
-          <h2 className="text-base font-semibold text-ink">Provenance</h2>
+          <h2 className="text-body-md font-semibold text-ink">Provenance</h2>
           <dl className="mt-2">
             <Field label="Source datasets">
               <ProvenanceList sources={publication.provenance.source_dataset} />
@@ -459,7 +459,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             action={
               <Link
                 href={publicationSearchHref(topic ? { topic } : { field: field ?? "" })}
-                className="text-sm text-primary hover:underline"
+                className="text-body-sm text-primary hover:underline"
               >
                 See all →
               </Link>

@@ -101,7 +101,7 @@ function FlagControl({
           name="reason"
           required
           defaultValue="wrong_metadata"
-          className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+          className="field text-body-sm"
         >
           {Object.entries(FLAG_REASON_LABEL).map(([value, label]) => (
             <option key={value} value={value}>
@@ -120,7 +120,7 @@ function FlagControl({
           maxLength={1000}
           rows={3}
           placeholder="What is wrong, and what should it be? Include a source if you have one."
-          className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink placeholder:text-muted"
+          className="field text-body-sm"
         />
       </label>
 

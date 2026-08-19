@@ -213,7 +213,7 @@ function QueueCard({
       className="panel flex flex-col gap-1 p-4 transition-colors hover:border-primary"
     >
       <span className="label-caps text-muted">{label}</span>
-      <span className="font-display text-h1 tabular text-primary">
+      <span className="font-display text-h2 font-bold tabular text-primary">
         {formatNumber(count)}
       </span>
       <span className="text-body-sm text-ink-secondary">{caption}</span>

@@ -25,7 +25,7 @@ export default async function AccountPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-h1 text-ink">{session.name}</h1>
+        <h1 className="title-page text-ink">{session.name}</h1>
         <p className="data-mono mt-1 text-muted">{session.email}</p>
         <div className="mt-3">
           <RoleBadge role={session.role} />

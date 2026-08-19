@@ -302,4 +302,89 @@
     overflow-x: auto;
     max-width: 100%;
   }
+
+  /*
+   * Page title. The design system specifies h1 at 40px and h1-mobile at 32px;
+   * a single `--text-h1` token cannot express both, because Tailwind resolves
+   * the utility at build time. 40px on a 390px phone wraps a two-word title
+   * onto three lines, so page titles take this class instead of `text-h1`.
+   */
+  .title-page {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  /*
+   * The one place the system permits a shadow: an overlay has to separate
+   * itself from content it floats above, and a hairline alone cannot. Kept
+   * tight and at 10% alpha so it reads as separation, not as elevation.
+   */
+  .overlay {
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgb(13 30 37 / 0.1);
+  }
+
+  /*
+   * Inputs are cut into the page rather than raised off it: a sunk fill and a
+   * single bottom rule, no box. The rule thickens to the brand colour on focus
+   * rather than shifting layout.
+   */
+  .field {
+    background-color: var(--sunk);
+    border: 0;
+    border-bottom: 1px solid var(--rule);
+    border-radius: 4px 4px 0 0;
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 8px 12px;
+    width: 100%;
+    transition: border-color 120ms ease, background-color 120ms ease;
+  }
+
+  .field::placeholder {
+    color: var(--muted);
+  }
+
+  .field:hover {
+    border-bottom-color: var(--muted);
+  }
+
+  .field:focus {
+    outline: none;
+    border-bottom-color: var(--primary);
+    box-shadow: inset 0 -1px 0 0 var(--primary);
+  }
+
+  /* Standard tag: brand tint, brand text, the same 4px radius as everything. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 4px;
+    background-color: var(--primary-muted);
+    color: var(--primary);
+    padding: 4px 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  /* Neutral variant for counts and secondary metadata. */
+  .chip-quiet {
+    background-color: var(--wash);
+    color: var(--ink-secondary);
+  }
+}
+
+/* Desktop half of the h1 / h1-mobile pair. */
+@media (min-width: 768px) {
+  .title-page {
+    font-size: 40px;
+  }
 }

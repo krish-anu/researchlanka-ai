@@ -32,7 +32,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-8 md:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="panel p-6 md:p-8">
-        <h1 className="font-display text-h1 text-ink">Sign in</h1>
+        <h1 className="title-page text-ink">Sign in</h1>
         <p className="mt-2 max-w-prose text-body-sm text-ink-secondary">
           The corpus, dashboards and exports stay open to everyone. An account
           adds a saved library and lets you flag records that look wrong.

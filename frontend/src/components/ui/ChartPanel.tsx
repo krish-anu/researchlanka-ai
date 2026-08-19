@@ -21,7 +21,7 @@ export function ChartPanel({
     <section className="panel p-4">
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="font-display text-h3 text-ink">{title}</h2>
+          <h2 className="font-display text-h2 text-ink">{title}</h2>
           {description ? (
             <p className="mt-1 text-body-sm text-ink-secondary">{description}</p>
           ) : null}

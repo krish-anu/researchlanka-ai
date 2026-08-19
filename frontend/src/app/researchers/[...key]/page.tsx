@@ -78,8 +78,8 @@ export default async function ResearcherProfilePage({
   const topFields = topValues(sample, (item) => [item.primary_field]);
 
   return (
-    <div className="flex flex-col gap-5">
-      <nav className="text-sm text-muted">
+    <div className="flex flex-col gap-10 md:gap-12">
+      <nav className="text-body-sm text-muted">
         <Link href="/researchers" className="hover:text-ink hover:underline">
           Researchers
         </Link>
@@ -88,14 +88,14 @@ export default async function ResearcherProfilePage({
       </nav>
 
       <header>
-        <h1 className="text-2xl font-semibold text-ink">{data.label}</h1>
-        <p className="mt-1 text-sm text-ink-secondary">
+        <h1 className="title-page text-ink">{data.label}</h1>
+        <p className="mt-1 text-body-sm text-ink-secondary">
           Active {formatYearRange(data.year_min, data.year_max)}
         </p>
       </header>
 
       <div className="panel border-warning/40 p-3">
-        <p className="flex gap-2 text-sm text-ink-secondary">
+        <p className="flex gap-2 text-body-sm text-ink-secondary">
           <span aria-hidden className="text-warning">
             ▲
           </span>
@@ -188,7 +188,7 @@ export default async function ResearcherProfilePage({
               height={240}
             />
           ) : (
-            <p className="p-4 text-sm text-muted">
+            <p className="p-4 text-body-sm text-muted">
               No records with a publication year.
             </p>
           )}
@@ -202,7 +202,7 @@ export default async function ResearcherProfilePage({
           {!coauthors.ok ? (
             <ApiErrorPanel error={coauthors.error} what="co-authors" />
           ) : coauthors.value.data.length === 0 ? (
-            <p className="p-4 text-sm text-muted">
+            <p className="p-4 text-body-sm text-muted">
               No co-authors recorded for this researcher.
             </p>
           ) : (
@@ -245,10 +245,10 @@ export default async function ResearcherProfilePage({
               <li key={entry.label}>
                 <Link
                   href={publicationSearchHref({ field: entry.label })}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded border border-rule px-2.5 py-1 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
                 >
                   {entry.label}
-                  <span className="tabular text-xs text-muted">
+                  <span className="tabular text-body-sm text-muted">
                     {entry.count}
                   </span>
                 </Link>

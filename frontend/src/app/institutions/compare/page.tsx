@@ -43,13 +43,13 @@ export default async function CompareInstitutionsPage({
   ]);
 
   const inputClass =
-    "w-full rounded-md border border-rule bg-page px-2 py-1.5 text-sm text-ink";
+    "w-full rounded border border-rule bg-page px-2 py-1.5 text-body-sm text-ink";
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-10 md:gap-12">
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Compare institutions</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+        <h1 className="title-page text-ink">Compare institutions</h1>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
           Benchmark two or three institutions against each other on recorded
           output and citations.
         </p>
@@ -60,13 +60,13 @@ export default async function CompareInstitutionsPage({
         action="/institutions/compare"
         className="panel flex flex-col gap-3 p-4"
       >
-        <p className="text-sm text-ink-secondary">
+        <p className="text-body-sm text-ink-secondary">
           Choose two or three institutions. Names are matched against recorded
           affiliations, so partial names work.
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[0, 1, 2].map((index) => (
-            <label key={index} className="flex flex-col gap-1 text-xs text-muted">
+            <label key={index} className="flex flex-col gap-1 text-body-sm text-muted">
               Institution {index + 1}
               {index === 2 ? " (optional)" : ""}
               <input
@@ -91,20 +91,20 @@ export default async function CompareInstitutionsPage({
         <div className="flex gap-2">
           <button
             type="submit"
-            className="rounded-md border border-rule bg-wash px-4 py-1.5 text-sm font-medium text-ink hover:bg-page"
+            className="rounded border border-rule bg-wash px-4 py-1.5 text-body-sm font-medium text-ink hover:bg-page"
           >
             Compare
           </button>
           <Link
             href="/institutions"
-            className="rounded-md border border-rule px-4 py-1.5 text-sm text-ink-secondary hover:bg-wash"
+            className="rounded border border-rule px-4 py-1.5 text-body-sm text-ink-secondary hover:bg-wash"
           >
             Back to directory
           </Link>
         </div>
 
         {chosen.length > 0 && !isValidSelection ? (
-          <p className="flex gap-2 text-sm text-ink-secondary">
+          <p className="flex gap-2 text-body-sm text-ink-secondary">
             <span aria-hidden className="text-warning">
               ▲
             </span>
@@ -120,7 +120,7 @@ export default async function CompareInstitutionsPage({
       {comparison?.ok && comparison.value.data.length > 0 ? (
         <>
           {comparison.value.data.length < chosen.length ? (
-            <p className="panel border-warning/40 p-3 text-sm text-ink-secondary">
+            <p className="panel border-warning/40 p-3 text-body-sm text-ink-secondary">
               <span aria-hidden className="mr-2 text-warning">
                 ▲
               </span>
@@ -212,7 +212,7 @@ export default async function CompareInstitutionsPage({
       ) : null}
 
       {comparison?.ok && comparison.value.data.length === 0 ? (
-        <p className="panel p-4 text-sm text-ink-secondary">
+        <p className="panel p-4 text-body-sm text-ink-secondary">
           None of those names matched a recorded affiliation. Try a shorter or
           differently spelled name — matching is against the affiliation text
           stored on each publication.

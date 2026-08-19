@@ -25,18 +25,18 @@ export default async function InstitutionsPage({
   const result = await listInstitutions({ ...filters, limit: 100 });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-10 md:gap-12">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Institutions</h1>
-          <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+          <h1 className="title-page text-ink">Institutions</h1>
+          <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
             Research output by institution, drawn from affiliations recorded on
             each publication.
           </p>
         </div>
         <Link
           href="/institutions/compare"
-          className="shrink-0 rounded-md border border-rule px-3 py-1.5 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
+          className="shrink-0 rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
         >
           Compare institutions →
         </Link>

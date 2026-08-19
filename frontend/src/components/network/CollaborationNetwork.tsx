@@ -200,7 +200,7 @@ export function CollaborationNetwork({
 
   if (network.nodes.length === 0) {
     return (
-      <p className="p-4 text-sm text-muted">
+      <p className="p-4 text-body-sm text-muted">
         No collaboration edges met the current filters and minimum weight. Try
         widening the year range or lowering the minimum weight.
       </p>
@@ -209,7 +209,7 @@ export function CollaborationNetwork({
 
   if (failed) {
     return (
-      <p className="p-4 text-sm text-muted">
+      <p className="p-4 text-body-sm text-muted">
         The network graph could not be loaded. Collaboration pairs are listed in
         the table below.
       </p>
@@ -247,10 +247,10 @@ export function CollaborationNetwork({
         <div
           ref={containerRef}
           style={{ height }}
-          className="w-full rounded-md border border-rule bg-surface"
+          className="w-full rounded border border-rule bg-surface"
         />
         {!ready ? (
-          <p className="absolute inset-0 flex items-center justify-center text-sm text-muted">
+          <p className="absolute inset-0 flex items-center justify-center text-body-sm text-muted">
             Laying out network…
           </p>
         ) : null}
@@ -288,7 +288,7 @@ export function CollaborationNetwork({
         </ul>
       ) : null}
 
-      <p className="mt-2 text-xs text-muted">
+      <p className="mt-2 text-body-sm text-muted">
         Node size is {selected?.label.toLowerCase() ?? "publication count"}; edge
         thickness is the number of shared publications; colour marks the
         {communityCount > COLOURED_COMMUNITIES ? " three largest" : ""} detected

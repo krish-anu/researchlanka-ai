@@ -76,7 +76,7 @@ export function FlagCard({ flag }: { flag: RecordFlag }) {
               type="text"
               maxLength={300}
               placeholder="What you checked, and what happens next"
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink placeholder:text-muted"
+              className="field text-body-sm"
             />
           </label>
           <div className="flex flex-wrap gap-2">

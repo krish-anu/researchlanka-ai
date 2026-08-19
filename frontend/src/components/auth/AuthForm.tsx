@@ -48,9 +48,9 @@ function Field({
         autoComplete={autoComplete}
         aria-invalid={invalid || undefined}
         aria-describedby={hintId}
-        className={`rounded border bg-surface px-3 py-2 text-body-md text-ink placeholder:text-muted ${
-          invalid ? "border-critical" : "border-rule"
-        }`}
+        // An invalid field recolours its rule rather than gaining a box, so the
+        // error reads without the control changing shape mid-form.
+        className={`field ${invalid ? "border-b-critical" : ""}`}
       />
       {hint ? (
         <p id={hintId} className="text-body-sm text-muted">
