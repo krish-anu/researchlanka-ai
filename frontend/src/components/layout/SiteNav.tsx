@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType } from "react";
 
+import { AccountMenu } from "@/components/auth/AccountMenu";
+import { RoleBadge } from "@/components/auth/RoleBadge";
 import {
+  AdminIcon,
   CloseIcon,
   DashboardIcon,
   DataQualityIcon,
@@ -16,11 +19,14 @@ import {
   TopicsIcon,
 } from "@/components/layout/NavIcons";
 import { SearchBox } from "@/components/search/SearchBox";
+import type { Viewer } from "@/types/auth";
 
 interface NavLink {
   href: string;
   label: string;
   Icon: ComponentType<{ className?: string }>;
+  /** Present only for administrators; the public sections have no requirement. */
+  adminOnly?: boolean;
 }
 
 const NAV_LINKS: NavLink[] = [
@@ -30,7 +36,18 @@ const NAV_LINKS: NavLink[] = [
   { href: "/institutions", label: "Institutions", Icon: InstitutionsIcon },
   { href: "/topics", label: "Topics", Icon: TopicsIcon },
   { href: "/data-quality", label: "Data quality", Icon: DataQualityIcon },
+  { href: "/admin", label: "Administration", Icon: AdminIcon, adminOnly: true },
 ];
+
+/**
+ * The rail only lists what the viewer can actually open.
+ *
+ * Hiding the admin entry is presentation, not protection — `middleware.ts` and
+ * the admin layout are what stop a visitor typing the URL.
+ */
+function visibleLinks(viewer: Viewer): NavLink[] {
+  return NAV_LINKS.filter((link) => !link.adminOnly || viewer.role === "admin");
+}
 
 /** "/" only matches itself; every other entry also owns its detail routes. */
 function isActive(pathname: string, href: string): boolean {
@@ -83,11 +100,17 @@ function Wordmark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function NavList({
+  viewer,
+  onNavigate,
+}: {
+  viewer: Viewer;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname() ?? "/";
   return (
     <ul className="flex flex-col gap-1">
-      {NAV_LINKS.map((link) => (
+      {visibleLinks(viewer).map((link) => (
         <li key={link.href}>
           <NavItem
             link={link}
@@ -108,7 +131,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
  * stay reachable on a phone, so the hamburger opens a focusable panel that
  * closes on route change, on Escape, and on backdrop click.
  */
-export function SiteNav() {
+export function SiteNav({ viewer }: { viewer: Viewer }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -134,11 +157,14 @@ export function SiteNav() {
           <Wordmark />
         </div>
         <div className="flex-1 overflow-y-auto">
-          <NavList />
+          <NavList viewer={viewer} />
         </div>
-        <div className="mt-auto border-t border-rule px-5 pt-5">
+        <div className="mt-auto flex flex-col gap-2 border-t border-rule px-5 pt-5">
+          <RoleBadge role={viewer.role} className="self-start" />
           <p className="text-body-sm text-muted">
-            Read-only public view of the consolidated national research corpus.
+            {viewer.user
+              ? "Signed in. Public figures are unchanged by your account — it adds a library and flagging."
+              : "Read-only public view of the consolidated national research corpus."}
           </p>
         </div>
       </nav>
@@ -195,7 +221,10 @@ export function SiteNav() {
               <SearchBox />
             </div>
             <div className="flex-1 overflow-y-auto">
-              <NavList onNavigate={() => setOpen(false)} />
+              <NavList viewer={viewer} onNavigate={() => setOpen(false)} />
+            </div>
+            <div className="mt-4 border-t border-rule px-4 pt-4">
+              <AccountMenu viewer={viewer} />
             </div>
           </nav>
         </div>
@@ -208,13 +237,14 @@ export function SiteNav() {
  * Desktop search bar. Sits above the content column rather than in the rail,
  * matching the docked top bar on the Stitch content screens.
  */
-export function SiteSearchBar() {
+export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
   return (
     <div className="sticky top-0 z-30 hidden border-b border-rule bg-surface md:block">
-      <div className="mx-auto flex h-16 max-w-[1140px] items-center justify-end px-8 lg:px-16">
+      <div className="mx-auto flex h-16 max-w-[1140px] items-center justify-end gap-4 px-8 lg:px-16">
         <div className="w-full max-w-md">
           <SearchBox />
         </div>
+        <AccountMenu viewer={viewer} />
       </div>
     </div>
   );
