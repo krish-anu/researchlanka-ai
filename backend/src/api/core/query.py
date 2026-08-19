@@ -18,7 +18,18 @@ def parse_filters(query: dict[str, list[str]]) -> dict[str, Any]:
         values = query.get(key)
         if not values:
             continue
-        if key in {"type", "institution", "country", "field", "subfield", "topic", "journal", "source_dataset", "quality_flag"}:
+        if key in {
+            "type",
+            "institution",
+            "country",
+            "field",
+            "researcher",
+            "subfield",
+            "topic",
+            "journal",
+            "source_dataset",
+            "quality_flag",
+        }:
             filters[key] = [item for value in values for item in split_values(value)]
         elif key in {"is_oa", "has_doi", "has_abstract"}:
             filters[key] = parse_bool(values[-1])

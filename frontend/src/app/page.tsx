@@ -296,14 +296,14 @@ async function RankingsSection() {
 async function NetworkSection() {
   const network = await getCollaborationNetwork({
     scope: "institution",
-    limit: 60,
-    min_weight: 2,
+    limit: 120,
+    min_weight: 1,
   });
 
   return (
     <ChartPanel
       title="Institutional collaboration network"
-      description="Institutions that co-publish, with at least two shared publications."
+      description="Institutions that co-publish in the national corpus."
       action={
         <Link href="/institutions" className="text-sm text-primary hover:underline">
           Browse institutions →
@@ -314,8 +314,16 @@ async function NetworkSection() {
           <TableDisclosure label="View collaboration pairs as table">
             <DataTable
               columns={[
-                { key: "source", header: "Institution", render: (row) => row.source },
-                { key: "target", header: "Collaborator", render: (row) => row.target },
+                {
+                  key: "source",
+                  header: "Institution",
+                  render: (row) => row.source_label ?? row.source,
+                },
+                {
+                  key: "target",
+                  header: "Collaborator",
+                  render: (row) => row.target_label ?? row.target,
+                },
                 {
                   key: "weight",
                   header: "Shared publications",

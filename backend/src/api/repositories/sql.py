@@ -14,6 +14,7 @@ TEXT_FILTER_COLUMNS = {
 MULTIVALUE_FILTER_COLUMNS = {
     "institution": ("institutions", "sri_lankan_institutions"),
     "country": ("countries",),
+    "researcher": ("authors", "sri_lankan_authors"),
     "topic": ("topics", "concepts", "primary_topic"),
     "source_dataset": ("source_dataset",),
 }
@@ -56,9 +57,11 @@ BASE_COLUMNS = [
     "publication_date",
     "type",
     "authors",
+    "author_ids",
     "author_count",
     "author_affiliations",
     "author_orcids",
+    "author_disambiguation_level",
     "sri_lankan_authors",
     "contributors",
     "institutions",

@@ -10,7 +10,7 @@ from src.pipeline.build_final_common_dataset import FINAL_MAIN_COLUMNS
 
 def test_final_publication_columns_use_latest_final_dataset_contract():
     assert list(FINAL_PUBLICATION_COLUMNS) == FINAL_MAIN_COLUMNS
-    assert len(FINAL_PUBLICATION_COLUMNS) == 56
+    assert len(FINAL_PUBLICATION_COLUMNS) == 58
 
 
 def test_build_final_publication_row_maps_aliases_and_coerces_values():

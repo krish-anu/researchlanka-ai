@@ -16,6 +16,7 @@ LIST_FILTERS = {
     "institution",
     "country",
     "field",
+    "researcher",
     "subfield",
     "topic",
     "journal",
