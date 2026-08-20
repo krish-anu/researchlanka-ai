@@ -13,6 +13,7 @@ from fastapi import FastAPI
 
 from src.api.fastapi_app import create_app
 from src.api.model_service import ModelServingConfig, PublicationClassifierService
+from src.api.service import ResearchLankaAPI
 
 
 class FakePublicationClassifier:
@@ -29,6 +30,101 @@ class FakePublicationClassifier:
             [0.91, 0.09] if "health" in text.casefold() else [0.12, 0.88]
             for text in texts
         ]
+
+
+class FakePublicationRepository:
+    publication = {
+        "publication_key": "doi:10.1000/test",
+        "title": "Malaria surveillance in Sri Lanka",
+        "doi": "10.1000/test",
+        "publication_year": 2024,
+        "type": "journal-article",
+        "authors": "A. Author; B. Author",
+        "institutions": "University of Colombo",
+        "journal": "Ceylon Medical Journal",
+        "publisher": "Example Publisher",
+        "citation_count": 12,
+        "reference_count": 30,
+        "is_oa": True,
+        "oa_status": "gold",
+        "primary_field": "Medicine",
+        "primary_subfield": "Public Health",
+        "source_dataset": "openalex; crossref",
+        "abstract": "A study abstract.",
+    }
+
+    def health(self) -> bool:
+        return True
+
+    def metadata(self) -> dict[str, Any]:
+        return {"publication_count": 1, "snapshot_date": "2026-07-20"}
+
+    def list_publications(self, filters, *, page, page_size, sort, include_facets):
+        return {
+            "records": [self.publication],
+            "total": 1,
+            "facets": {"publication_year": {"2024": 1}} if include_facets else None,
+            "meta": self.metadata(),
+        }
+
+    def get_publication(self, publication_key):
+        if publication_key == self.publication["publication_key"]:
+            return self.publication
+        return None
+
+    def get_references(self, publication_key):
+        return [{"publication_key": publication_key, "reference_index": 1, "reference_title": "Ref"}]
+
+    def get_count_audit(self, publication_key):
+        return {"publication_key": publication_key, "citation_count": 12}
+
+    def suggest(self, query, *, limit):
+        return [{"type": "publication", "value": self.publication["title"], "key": self.publication["publication_key"]}]
+
+    def semantic_search(self, query, *, filters, limit, min_score):
+        return [{**self.publication, "semantic_score": 0.9, "semantic_rank": 1}]
+
+    def related_publications(self, publication_key, *, filters, limit, min_score):
+        return [{**self.publication, "semantic_score": 0.8, "semantic_rank": 1}]
+
+    def researcher_profile(self, researcher_key):
+        return {"key": researcher_key, "label": researcher_key, "publication_count": 1}
+
+    def researcher_publications(self, researcher_key, *, page, page_size):
+        return {"records": [self.publication], "total": 1}
+
+    def researcher_coauthors(self, researcher_key, *, limit):
+        return []
+
+    def institution_profile(self, institution_key):
+        return {"key": institution_key, "label": institution_key, "publication_count": 1}
+
+    def institution_publications(self, institution_key, *, page, page_size):
+        return {"records": [self.publication], "total": 1}
+
+    def institution_collaborators(self, institution_key, *, limit):
+        return []
+
+    def compare_institutions(self, institution_keys):
+        return [{"label": key, "publication_count": 1} for key in institution_keys]
+
+    def topic_publications(self, topic_key, *, page, page_size):
+        return {"records": [self.publication], "total": 1}
+
+    def analytics_overview(self, filters):
+        return {"publication_count": 1}
+
+    def analytics_trends(self, filters, *, group_by, metric):
+        return [{"key": 2024, "publication_count": 1}]
+
+    def analytics_rankings(self, filters, *, dimension, metric, limit):
+        return [{"key": "medicine", "label": "Medicine", "publication_count": 1}]
+
+    def collaboration_network(self, filters, *, scope, min_weight, limit):
+        return {"nodes": [], "edges": [], "summary": {"node_count": 0, "edge_count": 0}}
+
+    def data_quality(self, filters, *, group_by):
+        return {"record_count": 1}
 
 
 def write_manifest(path: Path) -> None:
@@ -76,6 +172,10 @@ def app_for_model(tmp_path: Path) -> FastAPI:
         ),
     )
     return create_app(model_service=service)
+
+
+def app_for_publications() -> FastAPI:
+    return create_app(publication_service=ResearchLankaAPI(FakePublicationRepository()))
 
 
 async def asgi_request(app: FastAPI, method: str, path: str, **kwargs: Any) -> httpx.Response:
@@ -190,3 +290,21 @@ def test_unknown_model_returns_not_found(tmp_path: Path) -> None:
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
+
+
+def test_fastapi_publication_endpoints_share_service_contract() -> None:
+    app = app_for_publications()
+
+    list_response = request(app, "GET", "/api/v1/publications?include_facets=true&page_size=1")
+    detail_response = request(app, "GET", "/api/v1/publications/doi%3A10.1000%2Ftest")
+    references_response = request(app, "GET", "/api/v1/publications/doi%3A10.1000%2Ftest/references")
+    export_response = request(app, "GET", "/api/v1/exports/publications.csv?has_doi=true")
+
+    assert list_response.status_code == 200
+    assert list_response.json()["facets"]["publication_year"]["2024"] == 1
+    assert detail_response.status_code == 200
+    assert detail_response.json()["data"]["publication_key"] == "doi:10.1000/test"
+    assert references_response.status_code == 200
+    assert references_response.json()["data"][0]["reference_title"] == "Ref"
+    assert export_response.status_code == 200
+    assert "Malaria surveillance in Sri Lanka" in export_response.text
