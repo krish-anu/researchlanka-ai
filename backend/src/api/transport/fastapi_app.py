@@ -7,9 +7,11 @@ import sys
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.api.core.constants import API_PREFIX, API_VERSION
 from src.api.core.errors import APIError
@@ -32,6 +34,18 @@ def query_dict(request: Request) -> dict[str, list[str]]:
 def bytes_payload(payload: tuple[bytes, str]) -> Response:
     body, content_type = payload
     return Response(content=body, media_type=content_type)
+
+
+def error_payload(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
+    return normalize_value(
+        {
+            "error": {
+                "code": code,
+                "message": message,
+                "details": details or {},
+            }
+        }
+    )
 
 
 def create_publication_router(
@@ -242,29 +256,37 @@ def create_app(
     async def api_error_handler(_request: Request, exc: APIError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status,
-            content=normalize_value(
-                {
-                    "error": {
-                        "code": exc.code,
-                        "message": exc.message,
-                        "details": exc.details,
-                    }
-                }
-            ),
+            content=error_payload(exc.code, exc.message, exc.details),
         )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
             status_code=422,
-            content=normalize_value(
-                {
-                    "error": {
-                        "code": "invalid_request",
-                        "message": "Request validation failed.",
-                        "details": {"errors": exc.errors()},
-                    }
-                }
+            content=error_payload(
+                "invalid_request",
+                "Request validation failed.",
+                {"errors": jsonable_encoder(exc.errors())},
+            ),
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error_handler(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        code = "not_found" if exc.status_code == 404 else "http_error"
+        message = "Endpoint not found." if exc.status_code == 404 else str(exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_payload(code, message),
+        )
+
+    @app.exception_handler(Exception)
+    async def unexpected_error_handler(_request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(
+            status_code=500,
+            content=error_payload(
+                "internal_error",
+                "An unexpected error occurred.",
+                {"error": str(exc)},
             ),
         )
 

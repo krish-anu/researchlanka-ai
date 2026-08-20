@@ -12,6 +12,7 @@ import pytest
 from fastapi import FastAPI
 
 from src.api.fastapi_app import create_app
+from src.api.core.errors import APIError
 from src.api.model_service import ModelServingConfig, PublicationClassifierService
 from src.api.service import ResearchLankaAPI
 
@@ -30,6 +31,13 @@ class FakePublicationClassifier:
             [0.91, 0.09] if "health" in text.casefold() else [0.12, 0.88]
             for text in texts
         ]
+
+
+class BrokenPublicationClassifier:
+    classes_ = ["Health Sciences"]
+
+    def predict(self, texts: Sequence[str]) -> list[str]:
+        return []
 
 
 class FakePublicationRepository:
@@ -127,6 +135,11 @@ class FakePublicationRepository:
         return {"record_count": 1}
 
 
+class BrokenPublicationRepository(FakePublicationRepository):
+    def list_publications(self, filters, *, page, page_size, sort, include_facets):
+        raise RuntimeError("database unavailable")
+
+
 def write_manifest(path: Path) -> None:
     path.write_text(
         json.dumps(
@@ -178,14 +191,36 @@ def app_for_publications() -> FastAPI:
     return create_app(publication_service=ResearchLankaAPI(FakePublicationRepository()))
 
 
-async def asgi_request(app: FastAPI, method: str, path: str, **kwargs: Any) -> httpx.Response:
-    transport = httpx.ASGITransport(app=app)
+async def asgi_request(
+    app: FastAPI,
+    method: str,
+    path: str,
+    *,
+    raise_app_exceptions: bool = True,
+    **kwargs: Any,
+) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=raise_app_exceptions)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         return await client.request(method, path, **kwargs)
 
 
-def request(app: FastAPI, method: str, path: str, **kwargs: Any) -> httpx.Response:
-    return asyncio.run(asgi_request(app, method, path, **kwargs))
+def request(
+    app: FastAPI,
+    method: str,
+    path: str,
+    *,
+    raise_app_exceptions: bool = True,
+    **kwargs: Any,
+) -> httpx.Response:
+    return asyncio.run(
+        asgi_request(
+            app,
+            method,
+            path,
+            raise_app_exceptions=raise_app_exceptions,
+            **kwargs,
+        )
+    )
 
 
 def test_model_inventory_and_detail_endpoint(tmp_path: Path) -> None:
@@ -308,3 +343,76 @@ def test_fastapi_publication_endpoints_share_service_contract() -> None:
     assert references_response.json()["data"][0]["reference_title"] == "Ref"
     assert export_response.status_code == 200
     assert "Malaria surveillance in Sri Lanka" in export_response.text
+
+
+def test_fastapi_rejects_unsupported_query_parameters() -> None:
+    app = app_for_publications()
+
+    response = request(app, "GET", "/api/v1/publications?unknown=value")
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_query_parameter"
+    assert response.json()["error"]["details"]["fields"] == ["unknown"]
+
+
+def test_fastapi_uses_error_envelope_for_unknown_routes() -> None:
+    app = app_for_publications()
+
+    response = request(app, "GET", "/api/v1/missing-endpoint")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "not_found",
+            "message": "Endpoint not found.",
+            "details": {},
+        }
+    }
+
+
+def test_fastapi_uses_error_envelope_for_unexpected_errors() -> None:
+    app = create_app(publication_service=ResearchLankaAPI(BrokenPublicationRepository()))
+
+    response = request(
+        app,
+        "GET",
+        "/api/v1/publications",
+        raise_app_exceptions=False,
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "internal_error"
+    assert response.json()["error"]["message"] == "An unexpected error occurred."
+
+
+def test_model_service_validates_configuration(tmp_path: Path) -> None:
+    with pytest.raises(APIError) as exc_info:
+        PublicationClassifierService(
+            ModelServingConfig(
+                model_path=tmp_path / "classifier.joblib",
+                text_columns=(),
+            )
+        )
+
+    assert exc_info.value.code == "invalid_model_configuration"
+
+
+def test_model_prediction_shape_errors_use_api_error(tmp_path: Path) -> None:
+    model_path = tmp_path / "classifier.joblib"
+    model_path.write_text("fake model artifact", encoding="utf-8")
+    service = PublicationClassifierService(
+        ModelServingConfig(
+            model_path=model_path,
+            model_manifest_path=None,
+            verify_checksum=False,
+        ),
+        model_loader=lambda _model_path, _manifest_path, _verify: (
+            BrokenPublicationClassifier(),
+            "loaded-sha256",
+        ),
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        service.predict_one("publication-classifier", {"title": "Health systems"})
+
+    assert exc_info.value.code == "model_prediction_failed"
