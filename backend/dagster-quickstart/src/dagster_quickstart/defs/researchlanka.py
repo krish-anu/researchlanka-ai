@@ -1610,27 +1610,27 @@ def researchlanka_database_loaded_records(
 
 researchlanka_export_job = define_asset_job(
     name="researchlanka_export_job",
-    selection="*researchlanka_export_files",
+    selection=AssetSelection.keys("researchlanka_export_files").upstream(),
 )
 
 researchlanka_database_job = define_asset_job(
     name="researchlanka_database_job",
-    selection="*researchlanka_database_loaded_records",
+    selection=AssetSelection.keys("researchlanka_database_loaded_records").upstream(),
 )
 
 researchlanka_source_check_job = define_asset_job(
     name="researchlanka_source_check_job",
-    selection="*researchlanka_source_validation",
+    selection=AssetSelection.keys("researchlanka_source_validation").upstream(),
 )
 
 researchlanka_common_preprocessing_job = define_asset_job(
     name="researchlanka_common_preprocessing_job",
-    selection="*researchlanka_common_analysis_ready_dataset",
+    selection=AssetSelection.keys("researchlanka_common_analysis_ready_dataset").upstream(),
 )
 
 researchlanka_no_collection_preprocessing_job = define_asset_job(
     name="researchlanka_no_collection_preprocessing_job",
-    selection="*researchlanka_common_analysis_ready_dataset",
+    selection=AssetSelection.keys("researchlanka_common_analysis_ready_dataset").upstream(),
 )
 
 researchlanka_all_assets_job = define_asset_job(
