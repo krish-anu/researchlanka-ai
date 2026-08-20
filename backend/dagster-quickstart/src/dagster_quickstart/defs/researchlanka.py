@@ -107,6 +107,7 @@ from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
     default_progress_output as default_openalex_progress_output,
     collect_quality_report as collect_openalex_quality_report,
     main as collect_openalex_main,
+    rebuild_csv_from_jsonl as rebuild_openalex_csv_from_jsonl,
 )
 from src.processing.convert_repositories_jsonl_to_csv import (  # noqa: E402
     DEFAULT_OUTPUT_PATH as REPOSITORIES_CSV_OUTPUT,
@@ -114,7 +115,7 @@ from src.processing.convert_repositories_jsonl_to_csv import (  # noqa: E402
     iter_input_files as iter_repository_input_files,
 )
 from src.processing.jsonl_to_csv import convert_to_csv  # noqa: E402
-from src.processing.map_to_common_schema import map_one  # noqa: E402
+from src.processing.map_to_common_schema import discover_raw_institution_ids, map_one  # noqa: E402
 
 
 @contextmanager
@@ -331,6 +332,65 @@ def available_common_source_csvs(
         input_paths[source_dataset] = path
 
     return input_paths, skipped_sources
+
+
+def prepare_existing_common_source_files(context) -> dict[str, Any]:
+    """Prepare source CSVs from already-collected files without API harvesting."""
+
+    metadata: dict[str, Any] = {"status": "prepared_existing_files"}
+
+    if not OPENALEX_CSV_OUTPUT.exists() and OPENALEX_JSONL_OUTPUT.exists():
+        context.log.info(
+            f"OpenAlex CSV is missing; rebuilding from existing JSONL: {OPENALEX_JSONL_OUTPUT}."
+        )
+        rebuild_openalex_csv_from_jsonl(OPENALEX_JSONL_OUTPUT, OPENALEX_CSV_OUTPUT)
+    metadata["openalex_csv_rows"] = count_csv_rows(OPENALEX_CSV_OUTPUT)
+    metadata["openalex_csv_output"] = str(OPENALEX_CSV_OUTPUT)
+
+    if not CROSSREF_CSV_OUTPUT.exists() and CROSSREF_JSONL_OUTPUT.exists():
+        context.log.info(
+            f"Crossref CSV is missing; converting existing JSONL: {CROSSREF_JSONL_OUTPUT}."
+        )
+        convert_to_csv(CROSSREF_JSONL_OUTPUT, CROSSREF_CSV_OUTPUT)
+    metadata["crossref_csv_rows"] = count_csv_rows(CROSSREF_CSV_OUTPUT)
+    metadata["crossref_csv_output"] = str(CROSSREF_CSV_OUTPUT)
+
+    if SLJOL_JSONL_OUTPUT.exists():
+        context.log.info(f"Converting existing SLJOL JSONL to CSV: {SLJOL_CSV_OUTPUT}.")
+        convert_to_csv(SLJOL_JSONL_OUTPUT, SLJOL_CSV_OUTPUT)
+    metadata["sljol_csv_rows"] = count_csv_rows(SLJOL_CSV_OUTPUT)
+    metadata["sljol_csv_output"] = str(SLJOL_CSV_OUTPUT)
+
+    raw_ids = discover_raw_institution_ids(RAW_DIR)
+    mapped_total = 0
+    if raw_ids:
+        context.log.info(
+            f"Mapping {len(raw_ids)} repository raw folders to common-schema JSONL files."
+        )
+        with backend_working_directory():
+            for institution_id in raw_ids:
+                mapped_total += map_one(institution_id)
+
+    input_files = list(iter_repository_input_files(None))
+    if input_files:
+        context.log.info(
+            f"Converting {len(input_files)} repository JSONL files to CSV: "
+            f"{REPOSITORIES_CSV_OUTPUT}."
+        )
+        repository_rows = convert_repositories_to_csv(input_files, REPOSITORIES_CSV_OUTPUT)
+    else:
+        context.log.warning("No repository JSONL files found for CSV conversion.")
+        repository_rows = 0
+
+    metadata.update(
+        {
+            "repository_raw_ids": len(raw_ids),
+            "repository_mapped_records": mapped_total,
+            "repository_csv_rows": repository_rows,
+            "repository_csv_output": str(REPOSITORIES_CSV_OUTPUT),
+        }
+    )
+    return metadata
 
 
 def run_collect_openalex_cli(args: list[str]) -> None:
@@ -840,21 +900,13 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
 @asset(group_name="researchlanka")
 def researchlanka_all_sources_collected(
     context,
-    researchlanka_openalex_api_collection: dict[str, Any],
-    researchlanka_crossref_api_collection: dict[str, Any],
-    researchlanka_sljol_api_collection: dict[str, Any],
-    researchlanka_repository_collection: dict[str, Any],
 ) -> dict[str, Any]:
-    """Gate downstream processing until every enabled source has been collected."""
+    """Gate downstream processing using already-collected source files."""
 
-    _ = (
-        researchlanka_openalex_api_collection,
-        researchlanka_crossref_api_collection,
-        researchlanka_sljol_api_collection,
-        researchlanka_repository_collection,
-    )
+    prepared_metadata = prepare_existing_common_source_files(context)
     metadata = {
-        "status": "ready",
+        **prepared_metadata,
+        "status": "ready_without_collection",
         "openalex_records": count_jsonl(OPENALEX_JSONL_OUTPUT),
         "crossref_records": count_jsonl(CROSSREF_JSONL_OUTPUT),
         "sljol_records": count_jsonl(SLJOL_JSONL_OUTPUT),
@@ -1573,6 +1625,11 @@ researchlanka_source_check_job = define_asset_job(
 
 researchlanka_common_preprocessing_job = define_asset_job(
     name="researchlanka_common_preprocessing_job",
+    selection="*researchlanka_common_analysis_ready_dataset",
+)
+
+researchlanka_no_collection_preprocessing_job = define_asset_job(
+    name="researchlanka_no_collection_preprocessing_job",
     selection="*researchlanka_common_analysis_ready_dataset",
 )
 
