@@ -169,6 +169,7 @@ export interface AppliedFilters {
   institution?: string[];
   country?: string[];
   field?: string[];
+  researcher?: string[];
   subfield?: string[];
   topic?: string[];
   journal?: string[];
@@ -268,6 +269,8 @@ export interface NetworkNode {
   label: string;
   type: "institution" | "country" | "researcher" | string;
   publication_count: number;
+  first_year?: number | null;
+  last_year?: number | null;
   /**
    * Structural measures from `src/analytics/network.py`, computed over the
    * graph as returned — after `min_weight` and `limit` — so they describe the
@@ -298,9 +301,12 @@ export interface NetworkSummary {
 export interface NetworkEdge {
   source: string;
   target: string;
+  source_label?: string;
+  target_label?: string;
   weight: number;
-  // NOTE: API_DESIGN.md shows `collaboration_type`; the implementation does not
-  // emit it. Absent by design rather than optional-and-usually-present.
+  edge_type?: string;
+  first_year?: number | null;
+  last_year?: number | null;
 }
 
 export interface CollaborationNetwork {

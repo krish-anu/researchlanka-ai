@@ -547,15 +547,21 @@ The API should derive and expose these flags:
         "id": "university-of-colombo",
         "label": "University of Colombo",
         "type": "institution",
-        "publication_count": 1200
+        "publication_count": 1200,
+        "first_year": 2016,
+        "last_year": 2026
       }
     ],
     "edges": [
       {
         "source": "university-of-colombo",
         "target": "university-of-peradeniya",
+        "source_label": "University of Colombo",
+        "target_label": "University of Peradeniya",
         "weight": 42,
-        "collaboration_type": "domestic_multi_institution"
+        "edge_type": "institution_collaboration",
+        "first_year": 2018,
+        "last_year": 2025
       }
     ]
   }
