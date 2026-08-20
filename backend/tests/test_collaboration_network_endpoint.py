@@ -1,9 +1,9 @@
 """The collaboration-network endpoint, from publication rows to enriched graph.
 
-Exercises the real repository method rather than a fake, by replacing only its
-SQL read. Everything downstream of that -- co-authorship pair counting, the
-weight and limit filters, and the centrality/community enrichment -- is the
-production code path.
+Exercises the repository's row-to-network builder without requiring a live
+database. Everything downstream of publication rows -- co-authorship pair
+counting, the weight and limit filters, and the centrality/community
+enrichment -- is the production code path.
 """
 
 from __future__ import annotations
@@ -14,15 +14,19 @@ from src.api.repositories.postgres import PostgresPublicationRepository
 
 
 def repository_over(rows: list[dict[str, object]]) -> PostgresPublicationRepository:
-    """A repository whose only stubbed part is the database read."""
+    """A repository whose network method runs over fixture rows."""
 
     repository = PostgresPublicationRepository(connection_factory=lambda dsn: None)
-    repository.list_publications = lambda *args, **kwargs: {  # type: ignore[method-assign]
-        "records": rows,
-        "total": len(rows),
-        "facets": None,
-        "meta": {},
-    }
+
+    def collaboration_network(filters, *, scope, min_weight, limit):
+        return repository._collaboration_network_from_records(
+            rows,
+            scope=scope,
+            min_weight=min_weight,
+            limit=limit,
+        )
+
+    repository.collaboration_network = collaboration_network  # type: ignore[method-assign]
     return repository
 
 
