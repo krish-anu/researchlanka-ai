@@ -99,11 +99,6 @@ from src.pipeline.kaggle_merge_common_dataset import (  # noqa: E402
     write_summary as write_merge_summary,
 )
 from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
-    DEFAULT_CSV_OUTPUT as OPENALEX_CSV_OUTPUT,
-    DEFAULT_DOI_CONFLICTS_OUTPUT as OPENALEX_DOI_CONFLICTS_OUTPUT,
-    DEFAULT_JSONL_OUTPUT as OPENALEX_JSONL_OUTPUT,
-    DEFAULT_PAGINATION_OUTPUT as OPENALEX_PAGINATION_OUTPUT,
-    DEFAULT_PARQUET_OUTPUT as OPENALEX_PARQUET_OUTPUT,
     default_progress_output as default_openalex_progress_output,
     collect_quality_report as collect_openalex_quality_report,
     main as collect_openalex_main,
@@ -116,6 +111,13 @@ from src.processing.convert_repositories_jsonl_to_csv import (  # noqa: E402
 )
 from src.processing.jsonl_to_csv import convert_to_csv  # noqa: E402
 from src.processing.map_to_common_schema import discover_raw_institution_ids, map_one  # noqa: E402
+
+
+OPENALEX_JSONL_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_works.jsonl"
+OPENALEX_CSV_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_works.csv"
+OPENALEX_PARQUET_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_works.parquet"
+OPENALEX_DOI_CONFLICTS_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_doi_conflicts.csv"
+OPENALEX_PAGINATION_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_pagination_audit.json"
 
 
 @contextmanager
