@@ -3,6 +3,7 @@ import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteNav, SiteSearchBar } from "@/components/layout/SiteNav";
+import { getViewer } from "@/services/auth/server";
 
 import "./globals.css";
 
@@ -40,9 +41,18 @@ export const metadata: Metadata = {
     "Public read-only analytics over the consolidated Sri Lankan research publication corpus: national dashboards, publication search, researcher and institution profiles.",
 };
 
-export default function RootLayout({
+/**
+ * The viewer is resolved once here and handed down, so the nav and the account
+ * control agree on who is signed in without each re-reading the cookie. Reading
+ * cookies opts every route into dynamic rendering; that is the right trade for
+ * a shell whose contents differ per role, and the API data below it is still
+ * cached by the `revalidate` settings in `services/api.ts`.
+ */
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const viewer = await getViewer();
+
   return (
     <html
       lang="en"
@@ -56,11 +66,11 @@ export default function RootLayout({
           Skip to content
         </a>
 
-        <SiteNav />
+        <SiteNav viewer={viewer} />
 
         {/* Content canvas offset by the fixed rail; 1140px fixed grid inside. */}
         <div className="flex min-h-screen flex-col md:ml-72">
-          <SiteSearchBar />
+          <SiteSearchBar viewer={viewer} />
           <main id="main" className="mx-auto w-full max-w-[1140px] px-4 py-6 md:px-8 md:py-12 lg:px-16">
             {children}
           </main>

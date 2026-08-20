@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
+import { NetworkSummaryPanel } from "@/components/network/NetworkMetrics";
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
@@ -243,11 +244,14 @@ export default async function InstitutionProfilePage({
           title="Collaboration network"
           description="Co-publishing structure around this institution."
         >
-          <CollaborationNetwork
-            network={network.value.data}
-            scope="institution"
-            height={380}
-          />
+          <div className="flex flex-col gap-5">
+            <CollaborationNetwork
+              network={network.value.data}
+              scope="institution"
+              height={380}
+            />
+            <NetworkSummaryPanel summary={network.value.data.summary} />
+          </div>
         </ChartPanel>
       ) : null}
 

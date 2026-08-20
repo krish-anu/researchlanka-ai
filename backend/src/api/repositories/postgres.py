@@ -12,6 +12,8 @@ from src.api.core.constants import (
     PUBLICATION_COVERAGE_END_YEAR,
     PUBLICATION_COVERAGE_START_YEAR,
 )
+from src.analytics import network
+from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.core.serializers import quality_flags, split_semicolon_value
 from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.repositories.sql import (
@@ -737,7 +739,16 @@ class PostgresPublicationRepository:
             }
             for row in node_rows
         ]
-        return {"nodes": nodes, "edges": edges}
+
+        # Structure is computed on the graph the caller actually receives, not
+        # on the full co-authorship graph: centrality that described edges the
+        # response omitted would not match the picture drawn from it.
+        graph = network.Graph.from_edge_dicts(edges, nodes=[node["id"] for node in nodes])
+        metrics = network.analyse(graph)
+        for node in nodes:
+            node.update(metrics.for_node(node["id"]))
+
+        return {"nodes": nodes, "edges": edges, "summary": metrics.summary()}
 
     def data_quality(self, filters: dict[str, Any], *, group_by: str | None) -> dict[str, Any]:
         cte_sql, params = self._filtered_cte(
