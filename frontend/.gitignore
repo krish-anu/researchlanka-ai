@@ -14,3 +14,6 @@ next-env.d.ts
 *.pem
 npm-debug.log*
 yarn-error.log*
+
+# Local application state (accounts, saved libraries, flags, review queue).
+.data/

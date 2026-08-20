@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { DataTable } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
+import { RecordActions } from "@/components/workspace/RecordActions";
 import { ProvenanceList } from "@/components/ui/Provenance";
 import { QualityFlagBadge, describeFlag } from "@/components/ui/QualityFlags";
 import {
@@ -13,6 +14,8 @@ import {
   listPublications,
 } from "@/services/api";
 import { formatDate, formatNumber, truncate } from "@/services/format";
+import { getViewer } from "@/services/auth/server";
+import { isSaved } from "@/services/workspace/store";
 import {
   decodeKeySegments,
   institutionHref,
@@ -132,7 +135,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
   // The API has no recommendation endpoint — semantic search is explicitly out
   // of scope for the MVP — so "related" is an honest topic/field match, and is
   // labelled as such rather than presented as a recommender.
-  const [references, related] = await Promise.all([
+  const viewer = await getViewer();
+
+  const [references, related, saved] = await Promise.all([
     getPublicationReferences(publicationKey, { page_size: 100 }),
     topic || field
       ? listPublications({
@@ -141,6 +146,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
           sort: "citations_desc",
         })
       : Promise.resolve(null),
+    viewer.user
+      ? isSaved(viewer.user.id, publicationKey)
+      : Promise.resolve(false),
   ]);
 
   const relatedPublications =
@@ -221,6 +229,13 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             </a>
           ) : null}
         </div>
+
+        <RecordActions
+          publicationKey={publicationKey}
+          title={publication.title ?? "Untitled record"}
+          signedIn={Boolean(viewer.user)}
+          initiallySaved={saved}
+        />
 
         {publication.quality_flags.length > 0 ? (
           <ul className="flex flex-col gap-1.5 rounded-md border border-rule bg-wash p-3">

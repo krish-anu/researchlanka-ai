@@ -123,7 +123,12 @@ class PublicationRepository(Protocol):
         min_weight: int,
         limit: int,
     ) -> dict[str, Any]:
-        """Return graph nodes and edges."""
+        """Return graph nodes, edges, and a structural summary.
+
+        Nodes carry centrality and community labels; the summary carries the
+        graph-level context needed to read them (density, components,
+        modularity). See :mod:`src.analytics.network`.
+        """
 
     def data_quality(self, filters: dict[str, Any], *, group_by: str | None) -> dict[str, Any]:
         """Return data-quality metrics."""
