@@ -71,12 +71,17 @@ backend/data/models/
 backend/data/reports/
 backend/outputs/
 backend/pipeline/
+backend/researchlanka-kaggle-outputs/
+backend/researchlanka-kaggle-outputs*.zip
+kaggle-output/
 
 # Local Dagster runtime state
 .tmp_dagster_home_*/
 backend/dagster-quickstart/.tmp_dagster_home_*/
 
 # Large local data exports and databases
+image.png
+*.part
 *.xlsx
 *.parquet
 *.jsonl

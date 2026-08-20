@@ -19,3 +19,7 @@ __all__ = [
     "create_model_router",
     "main",
 ]
+
+
+if __name__ == "__main__":
+    main()
