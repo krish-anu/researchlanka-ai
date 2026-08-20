@@ -83,9 +83,16 @@ MODEL_SPLIT_TEST_RATIO ?= 0.15
 MODEL_SPLIT_RANDOM_STATE ?= 42
 MODEL_SPLIT_MIN_CLASS_COUNT ?= 20
 MODEL_SPLIT_EXTRA_ARGS ?=
+API_HOST ?= 127.0.0.1
+API_PORT ?= 8080
+API_EXTRA_ARGS ?=
 MODEL_API_HOST ?= 127.0.0.1
 MODEL_API_PORT ?= 8081
 MODEL_API_EXTRA_ARGS ?=
+DB_LOAD_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
+DB_LOAD_BATCH_SIZE ?= 1000
+DB_LOAD_YEAR_MIN ?= 2016
+DB_LOAD_YEAR_MAX ?= 2026
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
 LOGREG_MAX_DF ?= 0.95
@@ -118,7 +125,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -126,6 +133,11 @@ help:
 	@echo ""
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
+	@echo "  make api                     Serve the read-only ResearchLanka API"
+	@echo "  make load-db-2016-now        Load only 2016-2026 records into final_publications"
+	@echo "  make reset-db-2016-now       Clear final_publications, then load 2016-2026 records"
+	@echo "  make load-full-db-2016-now   Load only 2016-2026 records into all database tables"
+	@echo "  make reset-full-db-2016-now  Clear database tables, then load 2016-2026 records"
 	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
 	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
@@ -166,6 +178,22 @@ test:
 # Compare raw and estimated unique publication counts for each source file.
 publication-counts:
 	$(PYTHON) scripts/quality/compare_publication_counts.py
+
+# Serve the read-only dashboard/search/profile API.
+api:
+	$(PYTHON) scripts/api/serve_api.py --host $(API_HOST) --port $(API_PORT) $(API_EXTRA_ARGS)
+
+load-db-2016-now:
+	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
+
+reset-db-2016-now:
+	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
+
+load-full-db-2016-now:
+	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
+
+reset-full-db-2016-now:
+	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
 
 # Export model-ready text and TF-IDF features from the final dataset.
 model-text: model-titles model-abstracts model-keywords model-tfidf

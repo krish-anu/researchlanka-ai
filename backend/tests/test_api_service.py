@@ -1,5 +1,10 @@
 import pytest
 
+from src.api.core.constants import (
+    PUBLICATION_COVERAGE_END_YEAR,
+    PUBLICATION_COVERAGE_START_YEAR,
+)
+from src.api.core.query import parse_filters
 from src.api.repositories.postgres import PostgresPublicationRepository
 from src.api.repository import build_where
 from src.api.routes import route_get
@@ -78,6 +83,8 @@ class FakeRepository:
         rows = PUBLICATIONS
         if filters.get("year_min"):
             rows = [row for row in rows if row["publication_year"] >= filters["year_min"]]
+        if filters.get("year_max"):
+            rows = [row for row in rows if row["publication_year"] <= filters["year_max"]]
         if filters.get("has_doi") is True:
             rows = [row for row in rows if row.get("doi")]
         if filters.get("has_doi") is False:
@@ -269,6 +276,20 @@ def test_invalid_year_filter_raises_api_error():
     assert exc_info.value.code == "invalid_filter"
 
 
+def test_parse_filters_defaults_to_public_dataset_coverage():
+    filters = parse_filters({})
+
+    assert filters["year_min"] == PUBLICATION_COVERAGE_START_YEAR
+    assert filters["year_max"] == PUBLICATION_COVERAGE_END_YEAR
+
+
+def test_parse_filters_clamps_to_public_dataset_coverage():
+    filters = parse_filters({"year_min": ["1950"], "year_max": ["2035"]})
+
+    assert filters["year_min"] == PUBLICATION_COVERAGE_START_YEAR
+    assert filters["year_max"] == PUBLICATION_COVERAGE_END_YEAR
+
+
 def test_compare_institutions_requires_two_or_three_values():
     with pytest.raises(APIError):
         api().compare_institutions({"institution": ["University of Colombo"]})
@@ -431,6 +452,158 @@ def test_postgres_related_publications_hydrates_database_records(monkeypatch):
             "similarity_rank": 1,
         }
     ]
+
+
+def test_postgres_metadata_counts_public_dataset_coverage(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_one(sql, params):
+        calls.append({"sql": sql, "params": params})
+        return {
+            "publication_count": 1,
+            "min_publication_year": PUBLICATION_COVERAGE_START_YEAR,
+            "max_publication_year": PUBLICATION_COVERAGE_END_YEAR,
+        }
+
+    monkeypatch.setattr(repository, "_fetch_one", fake_fetch_one)
+
+    metadata = repository.metadata()
+
+    assert metadata["publication_count"] == 1
+    assert "publication_year >= %s" in calls[0]["sql"]
+    assert "publication_year <= %s" in calls[0]["sql"]
+    assert calls[0]["params"] == [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR]
+
+
+def test_postgres_analytics_and_facets_do_not_fetch_full_publication_rows(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fail_list_publications(*_args, **_kwargs):
+        raise AssertionError("aggregate endpoints must not fetch full publication rows")
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        calls.append({"sql": normalized_sql, "params": params})
+        if "open_access_count" in normalized_sql:
+            return [
+                {
+                    "publication_count": 2,
+                    "citation_total": 12,
+                    "open_access_count": 1,
+                    "doi_count": 1,
+                    "abstract_count": 1,
+                }
+            ]
+        if "count(DISTINCT btrim(split.value))" in normalized_sql:
+            return [{"total": 2}]
+        if "missing_institutions_count" in normalized_sql:
+            return [
+                {
+                    "record_count": 2,
+                    "missing_doi_count": 1,
+                    "missing_abstract_count": 1,
+                    "missing_institutions_count": 0,
+                    "citation_divergence_count": 0,
+                    "reference_divergence_count": 1,
+                }
+            ]
+        if "source.label AS source_label" in normalized_sql:
+            return [{"source_label": "University of Colombo", "target_label": "University of Ruhuna", "weight": 2}]
+        if "WHERE label = ANY(%s::text[])" in normalized_sql:
+            return [
+                {"label": "University of Colombo", "publication_count": 2},
+                {"label": "University of Ruhuna", "publication_count": 2},
+            ]
+        if " AS label," in normalized_sql:
+            return [{"label": "Medicine", "publication_count": 1, "citation_total": 12}]
+        if " AS key," in normalized_sql:
+            return [{"key": 2024, "publication_count": 1, "citation_total": 12}]
+        if " AS value," in normalized_sql or "SELECT value, count(*) AS count" in normalized_sql:
+            return [{"value": "2024", "count": 1}]
+        return []
+
+    monkeypatch.setattr(repository, "list_publications", fail_list_publications)
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    assert repository.analytics_overview({})["publication_count"] == 2
+    assert repository.analytics_trends({}, group_by="year", metric="publications")[0]["key"] == 2024
+    assert repository.analytics_rankings({}, dimension="primary_field", metric="publications", limit=10)[0]["label"] == "Medicine"
+    assert repository.collaboration_network({}, scope="institution", min_weight=2, limit=10)["edges"][0]["weight"] == 2
+    assert any("sri_lankan_institutions" in call["sql"] for call in calls)
+    assert repository.data_quality({}, group_by=None)["missing_doi_percentage"] == 50.0
+    assert repository._facets({})["publication_year"]["2024"] == 1
+
+
+def test_postgres_researcher_collaboration_network_uses_author_ids(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        calls.append({"sql": normalized_sql, "params": params})
+        if "source.node_key AS source_key" in normalized_sql:
+            return [
+                {
+                    "source_key": "author-perera",
+                    "target_key": "author-silva",
+                    "source_label": "Perera, K.",
+                    "target_label": "Silva, A.",
+                    "weight": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                }
+            ]
+        if "WHERE node_key = ANY(%s::text[])" in normalized_sql:
+            return [
+                {
+                    "node_key": "author-perera",
+                    "label": "Perera, K.",
+                    "publication_count": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                },
+                {
+                    "node_key": "author-silva",
+                    "label": "Silva, A.",
+                    "publication_count": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                },
+            ]
+        return []
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    network = repository.collaboration_network(
+        {"researcher": ["Perera"]},
+        scope="researcher",
+        min_weight=2,
+        limit=10,
+    )
+
+    assert "author_ids" in calls[0]["sql"]
+    assert network["edges"] == [
+        {
+            "source": "author-perera",
+            "target": "author-silva",
+            "source_label": "Perera, K.",
+            "target_label": "Silva, A.",
+            "weight": 2,
+            "edge_type": "author_collaboration",
+            "first_year": 2022,
+            "last_year": 2024,
+        }
+    ]
+    assert network["nodes"][0] == {
+        "id": "author-perera",
+        "label": "Perera, K.",
+        "type": "researcher",
+        "publication_count": 2,
+        "first_year": 2022,
+        "last_year": 2024,
+    }
 
 
 def test_analytics_export_and_disabled_raw_payload():

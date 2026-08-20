@@ -8,9 +8,14 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any, Callable
 
+from src.api.core.constants import (
+    PUBLICATION_COVERAGE_END_YEAR,
+    PUBLICATION_COVERAGE_START_YEAR,
+)
 from src.analytics import network
 from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.core.serializers import quality_flags, split_semicolon_value
+from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.repositories.sql import (
     BASE_COLUMNS,
     PUBLICATION_SEARCH_VECTOR_SQL,
@@ -42,6 +47,17 @@ SIMILARITY_RESULT_FIELDS = (
     SIMILARITY_RANK_FIELD,
 )
 MAX_SEMANTIC_CANDIDATES = 500
+LOCAL_SOURCE_DATASETS = ["local", "repositories", "repositories_combined", "sljol"]
+GLOBAL_SOURCE_DATASETS = ["openalex", "crossref"]
+MULTIVALUE_ANALYTICS_COLUMNS = {
+    "authors",
+    "institutions",
+    "sri_lankan_institutions",
+    "countries",
+    "topics",
+    "concepts",
+    "source_dataset",
+}
 
 
 def configured_semantic_path(
@@ -56,6 +72,34 @@ def configured_semantic_path(
     if configured:
         return Path(configured)
     return default_path
+
+
+def column_ref(column: str, *, alias: str | None = None) -> str:
+    reference = quote_identifier(column)
+    return f"{alias}.{reference}" if alias else reference
+
+
+def nonempty_text_condition(expression: str) -> str:
+    return f"NULLIF(btrim(coalesce({expression}::text, '')), '') IS NOT NULL"
+
+
+def _network_node_id(node_key: Any, label: Any) -> str:
+    key = str(node_key or "").strip()
+    if key and key != str(label or "").strip():
+        return key
+    return normalized_key(str(label or key))
+
+
+def split_value_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        str(row["value"]): int(row.get("count") or 0)
+        for row in rows
+        if row.get("value") not in (None, "")
+    }
+
+
+def metric_count(value: Any) -> int:
+    return int(value or 0)
 
 
 class PostgresPublicationRepository:
@@ -99,8 +143,10 @@ class PostgresPublicationRepository:
                 max(loaded_at) AS max_loaded_at,
                 max(updated_at) AS max_updated_at
             FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+            WHERE publication_year >= %s
+              AND publication_year <= %s
             """,
-            [],
+            [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR],
         )
         return row or {}
 
@@ -206,13 +252,25 @@ class PostgresPublicationRepository:
             SELECT title AS value, 'publication' AS type, publication_key AS key
             FROM final_publications
             WHERE title ILIKE %s
+              AND publication_year >= %s
+              AND publication_year <= %s
             UNION ALL
             SELECT journal AS value, 'journal' AS type, journal AS key
             FROM final_publications
             WHERE journal ILIKE %s
+              AND publication_year >= %s
+              AND publication_year <= %s
             LIMIT %s
             """,
-            [pattern, pattern, limit],
+            [
+                pattern,
+                PUBLICATION_COVERAGE_START_YEAR,
+                PUBLICATION_COVERAGE_END_YEAR,
+                pattern,
+                PUBLICATION_COVERAGE_START_YEAR,
+                PUBLICATION_COVERAGE_END_YEAR,
+                limit,
+            ],
         )
         seen = set()
         suggestions = []
@@ -337,18 +395,33 @@ class PostgresPublicationRepository:
         return self._list_by_multivalue("topics", topic_key, page=page, page_size=page_size, extra_column="concepts")
 
     def analytics_overview(self, filters: dict[str, Any]) -> dict[str, Any]:
-        result = self.list_publications(filters, page=1, page_size=1_000_000, sort="year_desc", include_facets=False)
-        rows = result["records"]
-        total = result["total"]
-        citation_values = [row.get("citation_count") or 0 for row in rows]
+        cte_sql, params = self._filtered_cte(
+            filters,
+            ["citation_count", "is_oa", "doi", "abstract", "source_dataset"],
+        )
+        row = self._fetch_one(
+            f"""
+            {cte_sql}
+            SELECT
+                count(*) AS publication_count,
+                coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total,
+                count(*) FILTER (WHERE is_oa IS TRUE) AS open_access_count,
+                count(*) FILTER (WHERE {nonempty_text_condition(column_ref('doi'))}) AS doi_count,
+                count(*) FILTER (WHERE {nonempty_text_condition(column_ref('abstract'))}) AS abstract_count
+            FROM filtered
+            """,
+            params,
+        ) or {}
+        total = metric_count(row.get("publication_count"))
+        citation_total = metric_count(row.get("citation_total"))
         return {
             "publication_count": total,
-            "citation_total": sum(citation_values),
-            "average_citations": round(sum(citation_values) / len(citation_values), 2) if citation_values else 0,
-            "open_access_share": ratio(sum(1 for row in rows if row.get("is_oa")), len(rows)),
-            "doi_coverage": ratio(sum(1 for row in rows if row.get("doi")), len(rows)),
-            "abstract_coverage": ratio(sum(1 for row in rows if row.get("abstract")), len(rows)),
-            "source_count": len({source for row in rows for source in split_semicolon_value(row.get("source_dataset"))}),
+            "citation_total": citation_total,
+            "average_citations": round(citation_total / total, 2) if total else 0,
+            "open_access_share": ratio(metric_count(row.get("open_access_count")), total),
+            "doi_coverage": ratio(metric_count(row.get("doi_count")), total),
+            "abstract_coverage": ratio(metric_count(row.get("abstract_count")), total),
+            "source_count": self._count_distinct_multivalue(filters, "source_dataset"),
             "limitations": ["observed_records_not_national_totals"],
         }
 
@@ -361,18 +434,12 @@ class PostgresPublicationRepository:
         }.get(group_by)
         if dimension is None:
             dimension = "publication_year"
-        rows = self.list_publications(filters, page=1, page_size=1_000_000, sort="year_asc", include_facets=False)["records"]
-        counter: dict[str, dict[str, Any]] = {}
-        for row in rows:
-            values = split_semicolon_value(row.get(dimension)) if dimension in {"institutions"} else [row.get(dimension)]
-            for value in values:
-                if value in (None, ""):
-                    continue
-                key = str(value)
-                counter.setdefault(key, {"key": value, "publication_count": 0, "citation_total": 0})
-                counter[key]["publication_count"] += 1
-                counter[key]["citation_total"] += row.get("citation_count") or 0
-        return list(counter.values())
+        return self._grouped_metrics(
+            filters,
+            dimension,
+            multivalue=dimension == "institutions",
+            order_by_key=True,
+        )
 
     def analytics_rankings(
         self,
@@ -382,29 +449,53 @@ class PostgresPublicationRepository:
         metric: str,
         limit: int,
     ) -> list[dict[str, Any]]:
-        rows = self.list_publications(filters, page=1, page_size=1_000_000, sort="year_desc", include_facets=False)["records"]
-        counter: Counter[str] = Counter()
-        citations: Counter[str] = Counter()
-        for row in rows:
-            values = split_semicolon_value(row.get(dimension))
-            if not values and dimension in row:
-                values = [row.get(dimension)]
-            for value in values:
-                if value in (None, ""):
-                    continue
-                counter[str(value)] += 1
-                citations[str(value)] += row.get("citation_count") or 0
-        ranked = []
-        for key, publication_count in counter.most_common(limit):
-            ranked.append(
-                {
-                    "key": normalized_key(key),
-                    "label": key,
-                    "publication_count": publication_count,
-                    "citation_total": citations[key],
-                }
+        if dimension not in BASE_COLUMNS:
+            return []
+        label_ref = column_ref(dimension)
+        cte_sql, params = self._filtered_cte(filters, [dimension, "citation_count"])
+        order_metric = "citation_total" if metric == "citations" else "publication_count"
+        if dimension in MULTIVALUE_ANALYTICS_COLUMNS:
+            rows = self._fetch_all(
+                f"""
+                {cte_sql}
+                SELECT
+                    btrim(split.value) AS label,
+                    count(*) AS publication_count,
+                    coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
+                FROM filtered
+                CROSS JOIN LATERAL regexp_split_to_table(coalesce({label_ref}::text, ''), ';') AS split(value)
+                WHERE btrim(split.value) <> ''
+                GROUP BY 1
+                ORDER BY {order_metric} DESC, label ASC
+                LIMIT %s
+                """,
+                [*params, limit],
             )
-        return ranked
+        else:
+            rows = self._fetch_all(
+                f"""
+                {cte_sql}
+                SELECT
+                    {label_ref}::text AS label,
+                    count(*) AS publication_count,
+                    coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
+                FROM filtered
+                WHERE {nonempty_text_condition(label_ref)}
+                GROUP BY 1
+                ORDER BY {order_metric} DESC, label ASC
+                LIMIT %s
+                """,
+                [*params, limit],
+            )
+        return [
+            {
+                "key": normalized_key(row["label"]),
+                "label": row["label"],
+                "publication_count": metric_count(row.get("publication_count")),
+                "citation_total": metric_count(row.get("citation_total")),
+            }
+            for row in rows
+        ]
 
     def collaboration_network(
         self,
@@ -414,32 +505,239 @@ class PostgresPublicationRepository:
         min_weight: int,
         limit: int,
     ) -> dict[str, Any]:
-        field = {"institution": "institutions", "country": "countries", "researcher": "authors"}[scope]
-        rows = self.list_publications(filters, page=1, page_size=1_000_000, sort="year_desc", include_facets=False)["records"]
-        node_counts: Counter[str] = Counter()
-        edge_counts: Counter[tuple[str, str]] = Counter()
-        for row in rows:
-            values = sorted(set(split_semicolon_value(row.get(field))))
-            for value in values:
-                node_counts[value] += 1
-            for index, source in enumerate(values):
-                for target in values[index + 1 :]:
-                    edge_counts[(source, target)] += 1
+        if scope == "researcher":
+            return self._author_collaboration_network(filters, min_weight=min_weight, limit=limit)
+
+        fields = {
+            "institution": ["institutions", "sri_lankan_institutions"],
+            "country": ["countries"],
+        }[scope]
+        cte_sql, params = self._filtered_cte(
+            filters,
+            ["publication_key", "publication_year", *fields],
+        )
+        value_sources = "\nUNION ALL\n".join(
+            f"""
+                SELECT publication_key, btrim(split.value) AS label, publication_year
+                FROM filtered
+                CROSS JOIN LATERAL regexp_split_to_table(coalesce({column_ref(field)}::text, ''), ';') AS split(value)
+                WHERE publication_key IS NOT NULL AND btrim(split.value) <> ''
+            """
+            for field in fields
+        )
+        edge_rows = self._fetch_all(
+            f"""
+            {cte_sql},
+            publication_values AS (
+                SELECT publication_key, label, publication_year
+                FROM (
+                    {value_sources}
+                ) values_union
+                GROUP BY publication_key, label, publication_year
+            )
+            SELECT
+                source.label AS source_label,
+                target.label AS target_label,
+                count(*) AS weight,
+                min(source.publication_year) AS first_year,
+                max(source.publication_year) AS last_year
+            FROM publication_values source
+            JOIN publication_values target
+                ON source.publication_key = target.publication_key
+                AND source.label < target.label
+            GROUP BY source.label, target.label
+            HAVING count(*) >= %s
+            ORDER BY weight DESC, source.label ASC, target.label ASC
+            LIMIT %s
+            """,
+            [*params, min_weight, limit],
+        )
         edges = [
-            {"source": normalized_key(source), "target": normalized_key(target), "weight": weight}
-            for (source, target), weight in edge_counts.most_common(limit)
-            if weight >= min_weight
+            {
+                "source": normalized_key(row["source_label"]),
+                "target": normalized_key(row["target_label"]),
+                "source_label": row["source_label"],
+                "target_label": row["target_label"],
+                "weight": metric_count(row.get("weight")),
+                "edge_type": f"{scope}_collaboration",
+                "first_year": row.get("first_year"),
+                "last_year": row.get("last_year"),
+            }
+            for row in edge_rows
         ]
-        active_node_ids = {edge["source"] for edge in edges} | {edge["target"] for edge in edges}
+        active_labels = sorted(
+            {
+                str(label)
+                for row in edge_rows
+                for label in (row.get("source_label"), row.get("target_label"))
+                if label not in (None, "")
+            }
+        )
+        if not active_labels:
+            return {"nodes": [], "edges": edges}
+        node_rows = self._fetch_all(
+            f"""
+            {cte_sql},
+            publication_values AS (
+                SELECT publication_key, label, publication_year
+                FROM (
+                    {value_sources}
+                ) values_union
+                GROUP BY publication_key, label, publication_year
+            )
+            SELECT
+                label,
+                count(*) AS publication_count,
+                min(publication_year) AS first_year,
+                max(publication_year) AS last_year
+            FROM publication_values
+            WHERE label = ANY(%s::text[])
+            GROUP BY label
+            ORDER BY publication_count DESC, label ASC
+            """,
+            [*params, active_labels],
+        )
         nodes = [
             {
-                "id": normalized_key(label),
-                "label": label,
+                "id": normalized_key(row["label"]),
+                "label": row["label"],
                 "type": scope,
-                "publication_count": count,
+                "publication_count": metric_count(row.get("publication_count")),
+                "first_year": row.get("first_year"),
+                "last_year": row.get("last_year"),
             }
-            for label, count in node_counts.most_common(limit)
-            if normalized_key(label) in active_node_ids
+            for row in node_rows
+        ]
+        return {"nodes": nodes, "edges": edges}
+
+    def _author_collaboration_network(
+        self,
+        filters: dict[str, Any],
+        *,
+        min_weight: int,
+        limit: int,
+    ) -> dict[str, Any]:
+        cte_sql, params = self._filtered_cte(
+            filters,
+            ["publication_key", "authors", "author_ids", "publication_year"],
+        )
+        edge_rows = self._fetch_all(
+            f"""
+            {cte_sql},
+            author_values AS (
+                SELECT
+                    publication_key,
+                    coalesce(nullif(btrim(author_id.value), ''), btrim(author_name.value)) AS node_key,
+                    btrim(author_name.value) AS label,
+                    publication_year
+                FROM filtered
+                CROSS JOIN LATERAL unnest(string_to_array(coalesce(authors::text, ''), ';'))
+                    WITH ORDINALITY AS author_name(value, position)
+                LEFT JOIN LATERAL unnest(string_to_array(coalesce(author_ids::text, ''), ';'))
+                    WITH ORDINALITY AS author_id(value, position)
+                    ON author_id.position = author_name.position
+                WHERE publication_key IS NOT NULL AND btrim(author_name.value) <> ''
+            ),
+            publication_author_values AS (
+                SELECT
+                    publication_key,
+                    node_key,
+                    min(label) AS label,
+                    publication_year
+                FROM author_values
+                GROUP BY publication_key, node_key, publication_year
+            )
+            SELECT
+                source.node_key AS source_key,
+                target.node_key AS target_key,
+                source.label AS source_label,
+                target.label AS target_label,
+                count(*) AS weight,
+                min(source.publication_year) AS first_year,
+                max(source.publication_year) AS last_year
+            FROM publication_author_values source
+            JOIN publication_author_values target
+                ON source.publication_key = target.publication_key
+                AND source.node_key < target.node_key
+            GROUP BY source.node_key, target.node_key, source.label, target.label
+            HAVING count(*) >= %s
+            ORDER BY weight DESC, source.label ASC, target.label ASC
+            LIMIT %s
+            """,
+            [*params, min_weight, limit],
+        )
+        edges = [
+            {
+                "source": _network_node_id(row["source_key"], row["source_label"]),
+                "target": _network_node_id(row["target_key"], row["target_label"]),
+                "source_label": row["source_label"],
+                "target_label": row["target_label"],
+                "weight": metric_count(row.get("weight")),
+                "edge_type": "author_collaboration",
+                "first_year": row.get("first_year"),
+                "last_year": row.get("last_year"),
+            }
+            for row in edge_rows
+        ]
+        active_keys = sorted(
+            {
+                str(key)
+                for row in edge_rows
+                for key in (row.get("source_key"), row.get("target_key"))
+                if key not in (None, "")
+            }
+        )
+        if not active_keys:
+            return {"nodes": [], "edges": edges}
+        node_rows = self._fetch_all(
+            f"""
+            {cte_sql},
+            author_values AS (
+                SELECT
+                    publication_key,
+                    coalesce(nullif(btrim(author_id.value), ''), btrim(author_name.value)) AS node_key,
+                    btrim(author_name.value) AS label,
+                    publication_year
+                FROM filtered
+                CROSS JOIN LATERAL unnest(string_to_array(coalesce(authors::text, ''), ';'))
+                    WITH ORDINALITY AS author_name(value, position)
+                LEFT JOIN LATERAL unnest(string_to_array(coalesce(author_ids::text, ''), ';'))
+                    WITH ORDINALITY AS author_id(value, position)
+                    ON author_id.position = author_name.position
+                WHERE publication_key IS NOT NULL AND btrim(author_name.value) <> ''
+            ),
+            publication_author_values AS (
+                SELECT
+                    publication_key,
+                    node_key,
+                    min(label) AS label,
+                    publication_year
+                FROM author_values
+                GROUP BY publication_key, node_key, publication_year
+            )
+            SELECT
+                node_key,
+                min(label) AS label,
+                count(*) AS publication_count,
+                min(publication_year) AS first_year,
+                max(publication_year) AS last_year
+            FROM publication_author_values
+            WHERE node_key = ANY(%s::text[])
+            GROUP BY node_key
+            ORDER BY publication_count DESC, label ASC
+            """,
+            [*params, active_keys],
+        )
+        nodes = [
+            {
+                "id": _network_node_id(row["node_key"], row["label"]),
+                "label": row["label"],
+                "type": "researcher",
+                "publication_count": metric_count(row.get("publication_count")),
+                "first_year": row.get("first_year"),
+                "last_year": row.get("last_year"),
+            }
+            for row in node_rows
         ]
 
         # Structure is computed on the graph the caller actually receives, not
@@ -453,40 +751,59 @@ class PostgresPublicationRepository:
         return {"nodes": nodes, "edges": edges, "summary": metrics.summary()}
 
     def data_quality(self, filters: dict[str, Any], *, group_by: str | None) -> dict[str, Any]:
-        rows = self.list_publications(filters, page=1, page_size=1_000_000, sort="year_desc", include_facets=False)["records"]
-        total = len(rows)
+        cte_sql, params = self._filtered_cte(
+            filters,
+            [
+                "doi",
+                "abstract",
+                "institutions",
+                "sri_lankan_institutions",
+                "citation_count_divergence_flag",
+                "reference_count_divergence_flag",
+            ],
+        )
+        empty_doi = f"NOT ({nonempty_text_condition(column_ref('doi'))})"
+        empty_abstract = f"NOT ({nonempty_text_condition(column_ref('abstract'))})"
+        missing_institutions = (
+            f"NOT ({nonempty_text_condition(column_ref('institutions'))}) "
+            f"AND NOT ({nonempty_text_condition(column_ref('sri_lankan_institutions'))})"
+        )
+        row = self._fetch_one(
+            f"""
+            {cte_sql}
+            SELECT
+                count(*) AS record_count,
+                count(*) FILTER (WHERE {empty_doi}) AS missing_doi_count,
+                count(*) FILTER (WHERE {empty_abstract}) AS missing_abstract_count,
+                count(*) FILTER (WHERE {missing_institutions}) AS missing_institutions_count,
+                count(*) FILTER (WHERE citation_count_divergence_flag IS TRUE) AS citation_divergence_count,
+                count(*) FILTER (WHERE reference_count_divergence_flag IS TRUE) AS reference_divergence_count
+            FROM filtered
+            """,
+            params,
+        ) or {}
+        total = metric_count(row.get("record_count"))
         summary = {
             "record_count": total,
-            "missing_doi_percentage": percentage(sum(1 for row in rows if not row.get("doi")), total),
-            "missing_abstract_percentage": percentage(sum(1 for row in rows if not row.get("abstract")), total),
-            "missing_institutions_percentage": percentage(
-                sum(1 for row in rows if not row.get("institutions") and not row.get("sri_lankan_institutions")),
-                total,
-            ),
-            "citation_divergence_count": sum(1 for row in rows if row.get("citation_count_divergence_flag")),
-            "reference_divergence_count": sum(1 for row in rows if row.get("reference_count_divergence_flag")),
+            "missing_doi_percentage": percentage(metric_count(row.get("missing_doi_count")), total),
+            "missing_abstract_percentage": percentage(metric_count(row.get("missing_abstract_count")), total),
+            "missing_institutions_percentage": percentage(metric_count(row.get("missing_institutions_count")), total),
+            "citation_divergence_count": metric_count(row.get("citation_divergence_count")),
+            "reference_divergence_count": metric_count(row.get("reference_divergence_count")),
         }
         if not group_by:
             return summary
-        grouped: dict[str, dict[str, Any]] = {}
         dimension = {"source_dataset": "source_dataset", "type": "type", "institution": "institutions", "year": "publication_year"}.get(group_by)
         if not dimension:
             return summary
-        for row in rows:
-            values = split_semicolon_value(row.get(dimension)) if dimension in {"source_dataset", "institutions"} else [row.get(dimension)]
-            for value in values:
-                if value in (None, ""):
-                    continue
-                key = str(value)
-                grouped.setdefault(key, {"record_count": 0, "missing_doi_count": 0, "missing_abstract_count": 0})
-                grouped[key]["record_count"] += 1
-                grouped[key]["missing_doi_count"] += 0 if row.get("doi") else 1
-                grouped[key]["missing_abstract_count"] += 0 if row.get("abstract") else 1
-        summary["groups"] = grouped
+        summary["groups"] = self._data_quality_groups(
+            filters,
+            dimension,
+            multivalue=dimension in {"source_dataset", "institutions"},
+        )
         return summary
 
     def _facets(self, filters: dict[str, Any]) -> dict[str, Any]:
-        rows = self.list_publications(filters, page=1, page_size=1_000_000, sort="year_desc", include_facets=False)["records"]
         facets: dict[str, dict[str, int]] = {}
         for name, column in {
             "publication_year": "publication_year",
@@ -500,18 +817,277 @@ class PostgresPublicationRepository:
             "journal": "journal",
             "is_oa": "is_oa",
         }.items():
-            counter: Counter[str] = Counter()
-            for row in rows:
-                values = split_semicolon_value(row.get(column)) if column in {"source_dataset", "sri_lankan_institutions", "countries", "topics"} else [row.get(column)]
-                for value in values:
-                    if value not in (None, ""):
-                        counter[str(value)] += 1
-            facets[name] = dict(counter.most_common(25))
-        quality_counter: Counter[str] = Counter()
-        for row in rows:
-            quality_counter.update(quality_flags(row))
-        facets["quality_flags"] = dict(quality_counter.most_common(25))
+            if column in {"source_dataset", "sri_lankan_institutions", "countries", "topics"}:
+                facets[name] = self._multivalue_counts(filters, column, limit=25)
+            else:
+                facets[name] = self._single_value_counts(filters, column, limit=25)
+        facets["quality_flags"] = self._quality_flag_counts(filters, limit=25)
         return facets
+
+    def _filtered_cte(self, filters: dict[str, Any], columns: list[str]) -> tuple[str, list[Any]]:
+        where_sql, params = build_where(filters)
+        selected_columns = select_columns(list(dict.fromkeys(columns)))
+        return (
+            f"""
+            WITH filtered AS (
+                SELECT {selected_columns}
+                FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+                {where_sql}
+            )
+            """,
+            list(params),
+        )
+
+    def _single_value_counts(
+        self,
+        filters: dict[str, Any],
+        column: str,
+        *,
+        limit: int,
+    ) -> dict[str, int]:
+        value_ref = column_ref(column)
+        if column == "is_oa":
+            value_expression = (
+                "CASE "
+                "WHEN is_oa IS TRUE THEN 'True' "
+                "WHEN is_oa IS FALSE THEN 'False' "
+                "ELSE NULL END"
+            )
+            value_filter = f"{value_expression} IS NOT NULL"
+        else:
+            value_expression = f"{value_ref}::text"
+            value_filter = nonempty_text_condition(value_ref)
+        cte_sql, params = self._filtered_cte(filters, [column])
+        rows = self._fetch_all(
+            f"""
+            {cte_sql}
+            SELECT {value_expression} AS value, count(*) AS count
+            FROM filtered
+            WHERE {value_filter}
+            GROUP BY 1
+            ORDER BY count DESC, value ASC
+            LIMIT %s
+            """,
+            [*params, limit],
+        )
+        return split_value_counts(rows)
+
+    def _multivalue_counts(
+        self,
+        filters: dict[str, Any],
+        column: str,
+        *,
+        limit: int,
+    ) -> dict[str, int]:
+        value_ref = column_ref(column)
+        cte_sql, params = self._filtered_cte(filters, [column])
+        rows = self._fetch_all(
+            f"""
+            {cte_sql}
+            SELECT btrim(split.value) AS value, count(*) AS count
+            FROM filtered
+            CROSS JOIN LATERAL regexp_split_to_table(coalesce({value_ref}::text, ''), ';') AS split(value)
+            WHERE btrim(split.value) <> ''
+            GROUP BY 1
+            ORDER BY count DESC, value ASC
+            LIMIT %s
+            """,
+            [*params, limit],
+        )
+        return split_value_counts(rows)
+
+    def _count_distinct_multivalue(self, filters: dict[str, Any], column: str) -> int:
+        value_ref = column_ref(column)
+        cte_sql, params = self._filtered_cte(filters, [column])
+        row = self._fetch_one(
+            f"""
+            {cte_sql}
+            SELECT count(DISTINCT btrim(split.value)) AS total
+            FROM filtered
+            CROSS JOIN LATERAL regexp_split_to_table(coalesce({value_ref}::text, ''), ';') AS split(value)
+            WHERE btrim(split.value) <> ''
+            """,
+            params,
+        )
+        return metric_count((row or {}).get("total"))
+
+    def _grouped_metrics(
+        self,
+        filters: dict[str, Any],
+        column: str,
+        *,
+        multivalue: bool,
+        order_by_key: bool,
+    ) -> list[dict[str, Any]]:
+        value_ref = column_ref(column)
+        cte_sql, params = self._filtered_cte(filters, [column, "citation_count"])
+        order_sql = "key ASC" if order_by_key else "publication_count DESC, key ASC"
+        if multivalue:
+            rows = self._fetch_all(
+                f"""
+                {cte_sql}
+                SELECT
+                    btrim(split.value) AS key,
+                    count(*) AS publication_count,
+                    coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
+                FROM filtered
+                CROSS JOIN LATERAL regexp_split_to_table(coalesce({value_ref}::text, ''), ';') AS split(value)
+                WHERE btrim(split.value) <> ''
+                GROUP BY 1
+                ORDER BY {order_sql}
+                """,
+                params,
+            )
+        else:
+            rows = self._fetch_all(
+                f"""
+                {cte_sql}
+                SELECT
+                    {value_ref} AS key,
+                    count(*) AS publication_count,
+                    coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
+                FROM filtered
+                WHERE {nonempty_text_condition(value_ref)}
+                GROUP BY 1
+                ORDER BY {order_sql}
+                """,
+                params,
+            )
+        return [
+            {
+                "key": row["key"],
+                "publication_count": metric_count(row.get("publication_count")),
+                "citation_total": metric_count(row.get("citation_total")),
+            }
+            for row in rows
+        ]
+
+    def _data_quality_groups(
+        self,
+        filters: dict[str, Any],
+        column: str,
+        *,
+        multivalue: bool,
+    ) -> dict[str, dict[str, int]]:
+        value_ref = column_ref(column)
+        cte_sql, params = self._filtered_cte(filters, [column, "doi", "abstract"])
+        empty_doi = f"NOT ({nonempty_text_condition(column_ref('doi'))})"
+        empty_abstract = f"NOT ({nonempty_text_condition(column_ref('abstract'))})"
+        if multivalue:
+            rows = self._fetch_all(
+                f"""
+                {cte_sql}
+                SELECT
+                    btrim(split.value) AS key,
+                    count(*) AS record_count,
+                    count(*) FILTER (WHERE {empty_doi}) AS missing_doi_count,
+                    count(*) FILTER (WHERE {empty_abstract}) AS missing_abstract_count
+                FROM filtered
+                CROSS JOIN LATERAL regexp_split_to_table(coalesce({value_ref}::text, ''), ';') AS split(value)
+                WHERE btrim(split.value) <> ''
+                GROUP BY 1
+                ORDER BY record_count DESC, key ASC
+                """,
+                params,
+            )
+        else:
+            rows = self._fetch_all(
+                f"""
+                {cte_sql}
+                SELECT
+                    {value_ref}::text AS key,
+                    count(*) AS record_count,
+                    count(*) FILTER (WHERE {empty_doi}) AS missing_doi_count,
+                    count(*) FILTER (WHERE {empty_abstract}) AS missing_abstract_count
+                FROM filtered
+                WHERE {nonempty_text_condition(value_ref)}
+                GROUP BY 1
+                ORDER BY record_count DESC, key ASC
+                """,
+                params,
+            )
+        return {
+            str(row["key"]): {
+                "record_count": metric_count(row.get("record_count")),
+                "missing_doi_count": metric_count(row.get("missing_doi_count")),
+                "missing_abstract_count": metric_count(row.get("missing_abstract_count")),
+            }
+            for row in rows
+        }
+
+    def _quality_flag_counts(self, filters: dict[str, Any], *, limit: int) -> dict[str, int]:
+        cte_sql, params = self._filtered_cte(
+            filters,
+            [
+                "doi",
+                "abstract",
+                "institutions",
+                "sri_lankan_institutions",
+                "citation_count_divergence_flag",
+                "reference_count_divergence_flag",
+                "source_dataset",
+                "topics",
+                "concepts",
+            ],
+        )
+        source_ref = column_ref("source_dataset")
+        has_local_source = (
+            "EXISTS ("
+            f"SELECT 1 FROM regexp_split_to_table(coalesce({source_ref}::text, ''), ';') AS source(value) "
+            "WHERE lower(btrim(source.value)) = ANY(%s::text[])"
+            ")"
+        )
+        has_global_source = (
+            "EXISTS ("
+            f"SELECT 1 FROM regexp_split_to_table(coalesce({source_ref}::text, ''), ';') AS source(value) "
+            "WHERE lower(btrim(source.value)) = ANY(%s::text[])"
+            ")"
+        )
+        missing_doi = f"NOT ({nonempty_text_condition(column_ref('doi'))})"
+        missing_abstract = f"NOT ({nonempty_text_condition(column_ref('abstract'))})"
+        missing_institutions = (
+            f"NOT ({nonempty_text_condition(column_ref('institutions'))}) "
+            f"AND NOT ({nonempty_text_condition(column_ref('sri_lankan_institutions'))})"
+        )
+        has_topics = (
+            f"{nonempty_text_condition(column_ref('topics'))} "
+            f"OR {nonempty_text_condition(column_ref('concepts'))}"
+        )
+        rows = self._fetch_all(
+            f"""
+            {cte_sql},
+            flagged AS (
+                SELECT 'missing_doi' AS value FROM filtered WHERE {missing_doi}
+                UNION ALL
+                SELECT 'missing_abstract' AS value FROM filtered WHERE {missing_abstract}
+                UNION ALL
+                SELECT 'missing_institutions' AS value FROM filtered WHERE {missing_institutions}
+                UNION ALL
+                SELECT 'citation_count_divergence' AS value FROM filtered WHERE citation_count_divergence_flag IS TRUE
+                UNION ALL
+                SELECT 'reference_count_divergence' AS value FROM filtered WHERE reference_count_divergence_flag IS TRUE
+                UNION ALL
+                SELECT 'repository_only' AS value FROM filtered WHERE {has_local_source} AND NOT ({has_global_source})
+                UNION ALL
+                SELECT 'no_doi_local_record' AS value FROM filtered WHERE {missing_doi} AND {has_local_source}
+                UNION ALL
+                SELECT 'topic_model_source' AS value FROM filtered WHERE {has_topics}
+            )
+            SELECT value, count(*) AS count
+            FROM flagged
+            GROUP BY 1
+            ORDER BY count DESC, value ASC
+            LIMIT %s
+            """,
+            [
+                *params,
+                LOCAL_SOURCE_DATASETS,
+                GLOBAL_SOURCE_DATASETS,
+                LOCAL_SOURCE_DATASETS,
+                limit,
+            ],
+        )
+        return split_value_counts(rows)
 
     def _list_by_multivalue(
         self,
@@ -542,10 +1118,12 @@ class PostgresPublicationRepository:
             f"""
             SELECT {select_columns(BASE_COLUMNS)}
             FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
-            WHERE {" OR ".join(clauses)}
+            WHERE ({" OR ".join(clauses)})
+              AND publication_year >= %s
+              AND publication_year <= %s
             ORDER BY publication_year DESC NULLS LAST, title ASC NULLS LAST
             """,
-            params,
+            [*params, PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR],
         )
 
     def _fetch_one(self, sql: str, params: list[Any]) -> dict[str, Any] | None:

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
+import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
@@ -11,6 +12,7 @@ import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import {
   exportUrl,
+  getCollaborationNetwork,
   getResearcher,
   getResearcherCoauthors,
   getResearcherPublications,
@@ -64,13 +66,19 @@ export default async function ResearcherProfilePage({
     return <ApiErrorPanel error={profile.error} what="this researcher profile" />;
   }
 
-  const [publications, coauthors, trendSample] = await Promise.all([
+  const data = profile.value.data;
+  const [publications, coauthors, trendSample, network] = await Promise.all([
     getResearcherPublications(researcherKey, { page, page_size: PAGE_SIZE }),
     getResearcherCoauthors(researcherKey, { limit: 25 }),
     getResearcherPublications(researcherKey, { page: 1, page_size: TREND_SAMPLE }),
+    getCollaborationNetwork({
+      scope: "researcher",
+      researcher: [data.label],
+      limit: 40,
+      min_weight: 1,
+    }),
   ]);
 
-  const data = profile.value.data;
   const sample = trendSample.ok ? trendSample.value.data : [];
   const sampleTotal = trendSample.ok ? trendSample.value.pagination.total : 0;
   const trend = yearHistogram(sample);
@@ -257,6 +265,21 @@ export default async function ResearcherProfilePage({
           </ul>
         </section>
       ) : null}
+
+      <ChartPanel
+        title="Author collaboration network"
+        description="Co-author links across publications attributed to this researcher."
+      >
+        {!network.ok ? (
+          <ApiErrorPanel error={network.error} what="the author collaboration network" />
+        ) : (
+          <CollaborationNetwork
+            network={network.value.data}
+            scope="researcher"
+            height={380}
+          />
+        )}
+      </ChartPanel>
 
       <section>
         <SectionHeading
