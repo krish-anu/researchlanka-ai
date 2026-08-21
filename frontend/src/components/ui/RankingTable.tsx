@@ -16,12 +16,14 @@ export function RankingTable({
   labelHeader,
   href,
   caption,
+  rankOffset = 0,
 }: {
   entries: RankingEntry[];
   labelHeader: string;
   /** Profile lookups match on `label`, never the slugified `key`. */
   href?: (label: string) => string;
   caption?: string;
+  rankOffset?: number;
 }) {
   return (
     <DataTable
@@ -32,7 +34,7 @@ export function RankingTable({
           header: "#",
           numeric: true,
           render: (_row, index) => (
-            <span className="text-muted">{index + 1}</span>
+            <span className="text-muted">{rankOffset + index + 1}</span>
           ),
         },
         {

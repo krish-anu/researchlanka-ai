@@ -1,8 +1,9 @@
 import { ApiErrorPanel, EmptyState } from "@/components/ui/Feedback";
+import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { listResearchers } from "@/services/api";
-import { extractFilters, type SearchParams } from "@/services/filters";
+import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
 import { researcherHref } from "@/services/links";
 
 export const metadata = {
@@ -18,7 +19,8 @@ export default async function ResearchersPage({
 }) {
   const params = await searchParams;
   const filters = extractFilters(params);
-  const result = await listResearchers({ ...filters, limit: 100 });
+  const page = extractPage(params);
+  const result = await listResearchers({ ...filters, page, page_size: 25 });
 
   return (
     <div className="flex flex-col gap-4">
@@ -60,8 +62,17 @@ export default async function ResearchersPage({
               entries={result.value.data}
               labelHeader="Researcher"
               href={researcherHref}
+              rankOffset={
+                (result.value.pagination.page - 1) *
+                result.value.pagination.page_size
+              }
             />
           </div>
+          <Pagination
+            pagination={result.value.pagination}
+            basePath="/researchers"
+            searchParams={params}
+          />
           <SnapshotNote
             snapshotDate={result.value.meta.snapshot_date}
             datasetStage={result.value.meta.dataset_stage}
