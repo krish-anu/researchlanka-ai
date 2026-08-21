@@ -68,7 +68,14 @@ INSTITUTION_LIKE_AUTHOR_PATTERN = re.compile(
     r")\b",
     re.IGNORECASE,
 )
-INSTITUTION_LIKE_AUTHOR_SQL_PATTERN = INSTITUTION_LIKE_AUTHOR_PATTERN.pattern
+INSTITUTION_LIKE_AUTHOR_SQL_PATTERN = (
+    r"(^|[^[:alnum:]])("
+    r"university|department|faculty|institute|institution|college|centre|center|"
+    r"school|hospital|ministry|laborator(y|ies)|academy|council|society|"
+    r"association|foundation|division|office|unit|programme|program|project|"
+    r"library|museum|corporation|company|ltd|pvt|inc"
+    r")([^[:alnum:]]|$)"
+)
 
 
 def configured_semantic_path(
@@ -486,30 +493,57 @@ class PostgresPublicationRepository:
         metric: str,
         limit: int,
     ) -> list[dict[str, Any]]:
+        return self.paginated_analytics_rankings(
+            filters,
+            dimension=dimension,
+            metric=metric,
+            page=1,
+            page_size=limit,
+        )["records"]
+
+    def paginated_analytics_rankings(
+        self,
+        filters: dict[str, Any],
+        *,
+        dimension: str,
+        metric: str,
+        page: int,
+        page_size: int,
+    ) -> dict[str, Any]:
         if dimension not in BASE_COLUMNS:
-            return []
+            return {"records": [], "total": 0}
         label_ref = column_ref(dimension)
         cte_sql, params = self._filtered_cte(filters, [dimension, "citation_count"])
         order_metric = "citation_total" if metric == "citations" else "publication_count"
+        offset = (page - 1) * page_size
         if dimension in MULTIVALUE_ANALYTICS_COLUMNS:
             value_filter = "btrim(split.value) <> ''"
-            query_params = [*params, limit]
+            query_params = [*params, page_size, offset]
             if dimension == "authors":
                 value_filter = author_value_sql_filter("split.value")
-                query_params = [*params, INSTITUTION_LIKE_AUTHOR_SQL_PATTERN, limit]
+                query_params = [
+                    *params,
+                    INSTITUTION_LIKE_AUTHOR_SQL_PATTERN,
+                    page_size,
+                    offset,
+                ]
             rows = self._fetch_all(
                 f"""
                 {cte_sql}
-                SELECT
-                    btrim(split.value) AS label,
-                    count(*) AS publication_count,
-                    coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
-                FROM filtered
-                CROSS JOIN LATERAL regexp_split_to_table(coalesce({label_ref}::text, ''), ';') AS split(value)
-                WHERE {value_filter}
-                GROUP BY 1
+                SELECT *, count(*) OVER () AS total
+                FROM (
+                    SELECT
+                        btrim(split.value) AS label,
+                        count(*) AS publication_count,
+                        coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
+                    FROM filtered
+                    CROSS JOIN LATERAL regexp_split_to_table(coalesce({label_ref}::text, ''), ';') AS split(value)
+                    WHERE {value_filter}
+                    GROUP BY 1
+                ) ranked
                 ORDER BY {order_metric} DESC, label ASC
                 LIMIT %s
+                OFFSET %s
                 """,
                 query_params,
             )
@@ -517,19 +551,23 @@ class PostgresPublicationRepository:
             rows = self._fetch_all(
                 f"""
                 {cte_sql}
-                SELECT
-                    {label_ref}::text AS label,
-                    count(*) AS publication_count,
-                    coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
-                FROM filtered
-                WHERE {nonempty_text_condition(label_ref)}
-                GROUP BY 1
+                SELECT *, count(*) OVER () AS total
+                FROM (
+                    SELECT
+                        {label_ref}::text AS label,
+                        count(*) AS publication_count,
+                        coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
+                    FROM filtered
+                    WHERE {nonempty_text_condition(label_ref)}
+                    GROUP BY 1
+                ) ranked
                 ORDER BY {order_metric} DESC, label ASC
                 LIMIT %s
+                OFFSET %s
                 """,
-                [*params, limit],
+                [*params, page_size, offset],
             )
-        return [
+        records = [
             {
                 "key": normalized_key(row["label"]),
                 "label": row["label"],
@@ -538,6 +576,8 @@ class PostgresPublicationRepository:
             }
             for row in rows
         ]
+        total = metric_count(rows[0].get("total")) if rows else 0
+        return {"records": records, "total": total}
 
     def collaboration_network(
         self,
