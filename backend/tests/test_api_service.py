@@ -596,14 +596,21 @@ def test_postgres_researcher_collaboration_network_uses_author_ids(monkeypatch):
             "last_year": 2024,
         }
     ]
-    assert network["nodes"][0] == {
+    assert {
         "id": "author-perera",
         "label": "Perera, K.",
         "type": "researcher",
         "publication_count": 2,
         "first_year": 2022,
         "last_year": 2024,
-    }
+    }.items() <= network["nodes"][0].items()
+    assert {
+        "degree_centrality": 1.0,
+        "strength": 2.0,
+        "betweenness_centrality": 0.0,
+        "community": 0,
+    }.items() <= network["nodes"][0].items()
+    assert network["summary"]["node_count"] == 2
 
 
 def test_analytics_export_and_disabled_raw_payload():
