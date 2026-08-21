@@ -216,7 +216,9 @@ export const getFacets = (params: QueryParams = {}) =>
 /* -------------------------------------------------------------- researchers */
 
 export const listResearchers = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/researchers", params);
+  request<DetailResponse<RankingEntry[]>>("/researchers", params, {
+    revalidate: 0,
+  });
 
 export const getResearcher = (researcherKey: string) =>
   request<DetailResponse<ProfileAggregate>>(

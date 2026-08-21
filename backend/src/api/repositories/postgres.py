@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections import Counter
 from contextlib import closing
 from itertools import combinations
@@ -14,7 +15,6 @@ from src.api.core.constants import (
     PUBLICATION_COVERAGE_START_YEAR,
 )
 from src.analytics import network
-from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.core.serializers import quality_flags, split_semicolon_value
 from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.repositories.sql import (
@@ -59,6 +59,16 @@ MULTIVALUE_ANALYTICS_COLUMNS = {
     "concepts",
     "source_dataset",
 }
+INSTITUTION_LIKE_AUTHOR_PATTERN = re.compile(
+    r"\b("
+    r"university|department|faculty|institute|institution|college|centre|center|"
+    r"school|hospital|ministry|laborator(?:y|ies)|academy|council|society|"
+    r"association|foundation|division|office|unit|programme|program|project|"
+    r"library|museum|corporation|company|ltd|pvt|inc"
+    r")\b",
+    re.IGNORECASE,
+)
+INSTITUTION_LIKE_AUTHOR_SQL_PATTERN = INSTITUTION_LIKE_AUTHOR_PATTERN.pattern
 
 
 def configured_semantic_path(
@@ -101,6 +111,18 @@ def split_value_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
 
 def metric_count(value: Any) -> int:
     return int(value or 0)
+
+
+def is_institution_like_author(value: Any) -> bool:
+    text = str(value or "").strip()
+    return bool(text and INSTITUTION_LIKE_AUTHOR_PATTERN.search(text))
+
+
+def author_value_sql_filter(expression: str) -> str:
+    return (
+        f"btrim({expression}) <> '' "
+        f"AND NOT (btrim({expression}) ~* %s)"
+    )
 
 
 def _network_publication_year(value: Any) -> int | None:
@@ -353,7 +375,11 @@ class PostgresPublicationRepository:
         counter: Counter[str] = Counter()
         for row in rows:
             for author in split_semicolon_value(row.get("authors")):
-                if author and normalized_key(author) != normalized_key(researcher_key):
+                if (
+                    author
+                    and not is_institution_like_author(author)
+                    and normalized_key(author) != normalized_key(researcher_key)
+                ):
                     counter[author] += 1
         return [{"name": name, "publication_count": count} for name, count in counter.most_common(limit)]
 
@@ -466,6 +492,11 @@ class PostgresPublicationRepository:
         cte_sql, params = self._filtered_cte(filters, [dimension, "citation_count"])
         order_metric = "citation_total" if metric == "citations" else "publication_count"
         if dimension in MULTIVALUE_ANALYTICS_COLUMNS:
+            value_filter = "btrim(split.value) <> ''"
+            query_params = [*params, limit]
+            if dimension == "authors":
+                value_filter = author_value_sql_filter("split.value")
+                query_params = [*params, INSTITUTION_LIKE_AUTHOR_SQL_PATTERN, limit]
             rows = self._fetch_all(
                 f"""
                 {cte_sql}
@@ -475,12 +506,12 @@ class PostgresPublicationRepository:
                     coalesce(sum(coalesce(citation_count, 0)), 0) AS citation_total
                 FROM filtered
                 CROSS JOIN LATERAL regexp_split_to_table(coalesce({label_ref}::text, ''), ';') AS split(value)
-                WHERE btrim(split.value) <> ''
+                WHERE {value_filter}
                 GROUP BY 1
                 ORDER BY {order_metric} DESC, label ASC
                 LIMIT %s
                 """,
-                [*params, limit],
+                query_params,
             )
         else:
             rows = self._fetch_all(
@@ -647,7 +678,8 @@ class PostgresPublicationRepository:
                 LEFT JOIN LATERAL unnest(string_to_array(coalesce(author_ids::text, ''), ';'))
                     WITH ORDINALITY AS author_id(value, position)
                     ON author_id.position = author_name.position
-                WHERE publication_key IS NOT NULL AND btrim(author_name.value) <> ''
+                WHERE publication_key IS NOT NULL
+                  AND {author_value_sql_filter("author_name.value")}
             ),
             publication_author_values AS (
                 SELECT
@@ -675,7 +707,7 @@ class PostgresPublicationRepository:
             ORDER BY weight DESC, source.label ASC, target.label ASC
             LIMIT %s
             """,
-            [*params, min_weight, limit],
+            [*params, INSTITUTION_LIKE_AUTHOR_SQL_PATTERN, min_weight, limit],
         )
         edges = [
             {
@@ -715,7 +747,8 @@ class PostgresPublicationRepository:
                 LEFT JOIN LATERAL unnest(string_to_array(coalesce(author_ids::text, ''), ';'))
                     WITH ORDINALITY AS author_id(value, position)
                     ON author_id.position = author_name.position
-                WHERE publication_key IS NOT NULL AND btrim(author_name.value) <> ''
+                WHERE publication_key IS NOT NULL
+                  AND {author_value_sql_filter("author_name.value")}
             ),
             publication_author_values AS (
                 SELECT
@@ -737,7 +770,7 @@ class PostgresPublicationRepository:
             GROUP BY node_key
             ORDER BY publication_count DESC, label ASC
             """,
-            [*params, active_keys],
+            [*params, INSTITUTION_LIKE_AUTHOR_SQL_PATTERN, active_keys],
         )
         nodes = [
             {
@@ -793,6 +826,12 @@ class PostgresPublicationRepository:
             for field in fields:
                 labels.update(split_semicolon_value(record.get(field)))
             labels = {label for label in labels if label}
+            if scope == "researcher":
+                labels = {
+                    label
+                    for label in labels
+                    if not is_institution_like_author(label)
+                }
             if not labels:
                 continue
 
@@ -1222,6 +1261,31 @@ class PostgresPublicationRepository:
         *,
         extra_column: str | None = None,
     ) -> list[dict[str, Any]]:
+        if column == "authors" and is_institution_like_author(value):
+            return []
+        if column == "authors":
+            return self._fetch_all(
+                f"""
+                SELECT {select_columns(BASE_COLUMNS)}
+                FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM regexp_split_to_table(coalesce({quote_identifier(column)}::text, ''), ';') AS split(value)
+                    WHERE btrim(split.value) ILIKE %s
+                      AND {author_value_sql_filter("split.value")}
+                )
+                  AND publication_year >= %s
+                  AND publication_year <= %s
+                ORDER BY publication_year DESC NULLS LAST, title ASC NULLS LAST
+                """,
+                [
+                    f"%{value}%",
+                    INSTITUTION_LIKE_AUTHOR_SQL_PATTERN,
+                    PUBLICATION_COVERAGE_START_YEAR,
+                    PUBLICATION_COVERAGE_END_YEAR,
+                ],
+            )
+
         columns = [column]
         if extra_column:
             columns.append(extra_column)

@@ -31,6 +31,7 @@ from src.api.core.serializers import (
     publication_detail,
     publication_summary,
 )
+from src.api.repositories.postgres import is_institution_like_author
 from src.database.final_schema import FINAL_PUBLICATION_COLUMNS
 
 
@@ -270,11 +271,24 @@ class ResearchLankaAPI:
         filters = parse_filters(query)
         filters["dimension"] = "authors"
         limit = min(parse_positive_int(query, "limit", default=50), 100)
-        rows = self.repository.analytics_rankings(filters, dimension="authors", metric="publications", limit=limit)
+        overfetch_limit = max(limit * 3, limit + 25)
+        rows = self.repository.analytics_rankings(
+            filters,
+            dimension="authors",
+            metric="publications",
+            limit=overfetch_limit,
+        )
+        rows = [
+            row
+            for row in rows
+            if not is_institution_like_author(row.get("label"))
+        ][:limit]
         return {"data": rows, "meta": self._meta()}
 
     def researcher_profile(self, researcher_key: str) -> dict[str, Any]:
         validate_resource_key(researcher_key, field="researcher_key")
+        if is_institution_like_author(researcher_key):
+            raise APIError("not_found", "Researcher not found.", status=404)
         row = self.repository.researcher_profile(researcher_key)
         if row is None:
             raise APIError("not_found", "Researcher not found.", status=404)
@@ -284,6 +298,8 @@ class ResearchLankaAPI:
 
     def researcher_publications(self, researcher_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_resource_key(researcher_key, field="researcher_key")
+        if is_institution_like_author(researcher_key):
+            raise APIError("not_found", "Researcher not found.", status=404)
         validate_query_params(query, PAGINATION_QUERY_PARAMS)
         page = parse_positive_int(query, "page", default=1)
         page_size = min(parse_positive_int(query, "page_size", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
@@ -298,9 +314,21 @@ class ResearchLankaAPI:
 
     def researcher_coauthors(self, researcher_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_resource_key(researcher_key, field="researcher_key")
+        if is_institution_like_author(researcher_key):
+            raise APIError("not_found", "Researcher not found.", status=404)
         validate_query_params(query, {"limit"})
         limit = min(parse_positive_int(query, "limit", default=50), 100)
-        return {"data": self.repository.researcher_coauthors(researcher_key, limit=limit), "meta": self._meta()}
+        overfetch_limit = max(limit * 3, limit + 25)
+        rows = self.repository.researcher_coauthors(
+            researcher_key,
+            limit=overfetch_limit,
+        )
+        rows = [
+            row
+            for row in rows
+            if not is_institution_like_author(row.get("name"))
+        ][:limit]
+        return {"data": rows, "meta": self._meta()}
 
     def institutions(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, RANKING_QUERY_PARAMS)
