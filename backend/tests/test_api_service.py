@@ -590,18 +590,31 @@ def test_postgres_researcher_profile_rejects_institution_like_keys(monkeypatch):
 
 def test_postgres_researcher_coauthors_filter_institution_like_values(monkeypatch):
     repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
-    monkeypatch.setattr(
-        repository,
-        "_rows_for_multivalue",
-        lambda column, value: [
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        assert "regexp_split_to_table" in normalized_sql
+        assert "count(DISTINCT publication_key)" in normalized_sql
+        assert "%Meththika Vithanage%" in params
+        return [
             {
-                "authors": (
-                    "Meththika Vithanage; University of Jaffna; "
-                    "Department of Pharmacy; Suneth Agampodi"
-                )
-            }
-        ],
-    )
+                "node_key": "meththika-vithanage",
+                "label": "Meththika Vithanage",
+                "publication_count": 3,
+            },
+            {
+                "node_key": "university-of-jaffna",
+                "label": "University of Jaffna",
+                "publication_count": 3,
+            },
+            {
+                "node_key": "suneth-agampodi",
+                "label": "Suneth Agampodi",
+                "publication_count": 1,
+            },
+        ]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
 
     assert repository.researcher_coauthors("Meththika Vithanage", limit=10) == [
         {"name": "Suneth Agampodi", "publication_count": 1}
@@ -741,7 +754,7 @@ def test_postgres_researcher_collaboration_network_uses_author_ids(monkeypatch):
     monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
 
     network = repository.collaboration_network(
-        {"researcher": ["Perera"]},
+        {"researcher": ["Perera"], "field": ["Medicine"]},
         scope="researcher",
         min_weight=2,
         limit=10,
@@ -774,6 +787,65 @@ def test_postgres_researcher_collaboration_network_uses_author_ids(monkeypatch):
         "betweenness_centrality": 0.0,
         "community": 0,
     }.items() <= network["nodes"][0].items()
+    assert network["summary"]["node_count"] == 2
+
+
+def test_single_researcher_collaboration_network_uses_coauthor_aggregate(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        calls.append({"sql": normalized_sql, "params": params})
+        return [
+            {
+                "node_key": "author-perera",
+                "label": "Perera, K.",
+                "publication_count": 4,
+                "first_year": 2020,
+                "last_year": 2024,
+            },
+            {
+                "node_key": "author-silva",
+                "label": "Silva, A.",
+                "publication_count": 2,
+                "first_year": 2022,
+                "last_year": 2024,
+            },
+            {
+                "node_key": "university-of-jaffna",
+                "label": "University of Jaffna",
+                "publication_count": 2,
+                "first_year": 2022,
+                "last_year": 2024,
+            },
+        ]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    network = repository.collaboration_network(
+        {"researcher": ["Perera, K."]},
+        scope="researcher",
+        min_weight=1,
+        limit=10,
+    )
+
+    assert len(calls) == 1
+    assert "regexp_split_to_table" in calls[0]["sql"]
+    assert "source.node_key AS source_key" not in calls[0]["sql"]
+    assert "%Perera, K.%" in calls[0]["params"]
+    assert network["edges"] == [
+        {
+            "source": "author-perera",
+            "target": "author-silva",
+            "source_label": "Perera, K.",
+            "target_label": "Silva, A.",
+            "weight": 2,
+            "edge_type": "author_collaboration",
+            "first_year": 2022,
+            "last_year": 2024,
+        }
+    ]
     assert network["summary"]["node_count"] == 2
 
 

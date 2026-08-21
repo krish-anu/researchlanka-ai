@@ -378,17 +378,21 @@ class PostgresPublicationRepository:
         return self._list_by_multivalue("authors", researcher_key, page=page, page_size=page_size)
 
     def researcher_coauthors(self, researcher_key: str, *, limit: int) -> list[dict[str, Any]]:
-        rows = self._rows_for_multivalue("authors", researcher_key)
-        counter: Counter[str] = Counter()
-        for row in rows:
-            for author in split_semicolon_value(row.get("authors")):
-                if (
-                    author
-                    and not is_institution_like_author(author)
-                    and normalized_key(author) != normalized_key(researcher_key)
-                ):
-                    counter[author] += 1
-        return [{"name": name, "publication_count": count} for name, count in counter.most_common(limit)]
+        if is_institution_like_author(researcher_key):
+            return []
+        rows = self._researcher_coauthor_rows(researcher_key, limit=max(limit * 3, limit + 10))
+        target_key = normalized_key(researcher_key)
+        coauthors = [
+            {
+                "name": row["label"],
+                "publication_count": metric_count(row.get("publication_count")),
+            }
+            for row in rows
+            if row.get("label")
+            and normalized_key(str(row["label"])) != target_key
+            and not is_institution_like_author(str(row["label"]))
+        ]
+        return coauthors[:limit]
 
     def institution_profile(self, institution_key: str) -> dict[str, Any] | None:
         rows = self._rows_for_multivalue("institutions", institution_key, extra_column="sri_lankan_institutions")
@@ -588,6 +592,13 @@ class PostgresPublicationRepository:
         limit: int,
     ) -> dict[str, Any]:
         if scope == "researcher":
+            researcher_key = self._single_researcher_network_filter(filters)
+            if researcher_key:
+                return self._single_researcher_collaboration_network(
+                    researcher_key,
+                    min_weight=min_weight,
+                    limit=limit,
+                )
             return self._author_collaboration_network(filters, min_weight=min_weight, limit=limit)
 
         fields = {
@@ -824,6 +835,134 @@ class PostgresPublicationRepository:
             for row in node_rows
         ]
 
+        return self._enriched_collaboration_network(nodes, edges)
+
+    def _single_researcher_network_filter(self, filters: dict[str, Any]) -> str | None:
+        researchers = filters.get("researcher")
+        if not isinstance(researchers, list) or len(researchers) != 1:
+            return None
+        allowed_filter_keys = {"researcher", "year_min", "year_max"}
+        if set(filters) - allowed_filter_keys:
+            return None
+        researcher_key = str(researchers[0]).strip()
+        if not researcher_key or is_institution_like_author(researcher_key):
+            return None
+        return researcher_key
+
+    def _researcher_coauthor_rows(self, researcher_key: str, *, limit: int) -> list[dict[str, Any]]:
+        return self._fetch_all(
+            f"""
+            WITH matched_publications AS (
+                SELECT publication_key, authors, author_ids, publication_year
+                FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+                WHERE publication_year >= %s
+                  AND publication_year <= %s
+                  AND authors ILIKE %s
+                  AND EXISTS (
+                      SELECT 1
+                      FROM regexp_split_to_table(coalesce(authors::text, ''), ';') AS matched_author(value)
+                      WHERE btrim(matched_author.value) ILIKE %s
+                        AND {author_value_sql_filter("matched_author.value")}
+                  )
+            ),
+            coauthor_values AS (
+                SELECT
+                    publication_key,
+                    coalesce(nullif(btrim(coauthor_id.value), ''), btrim(coauthor_name.value)) AS node_key,
+                    btrim(coauthor_name.value) AS label,
+                    publication_year
+                FROM matched_publications
+                CROSS JOIN LATERAL unnest(string_to_array(coalesce(authors::text, ''), ';'))
+                    WITH ORDINALITY AS coauthor_name(value, position)
+                LEFT JOIN LATERAL unnest(string_to_array(coalesce(author_ids::text, ''), ';'))
+                    WITH ORDINALITY AS coauthor_id(value, position)
+                    ON coauthor_id.position = coauthor_name.position
+                WHERE {author_value_sql_filter("coauthor_name.value")}
+            )
+            SELECT
+                node_key,
+                min(label) AS label,
+                count(DISTINCT publication_key) AS publication_count,
+                min(publication_year) AS first_year,
+                max(publication_year) AS last_year
+            FROM coauthor_values
+            GROUP BY node_key
+            ORDER BY publication_count DESC, label ASC
+            LIMIT %s
+            """,
+            [
+                PUBLICATION_COVERAGE_START_YEAR,
+                PUBLICATION_COVERAGE_END_YEAR,
+                f"%{researcher_key}%",
+                f"%{researcher_key}%",
+                INSTITUTION_LIKE_AUTHOR_SQL_PATTERN,
+                INSTITUTION_LIKE_AUTHOR_SQL_PATTERN,
+                limit,
+            ],
+        )
+
+    def _single_researcher_collaboration_network(
+        self,
+        researcher_key: str,
+        *,
+        min_weight: int,
+        limit: int,
+    ) -> dict[str, Any]:
+        rows = self._researcher_coauthor_rows(researcher_key, limit=max(limit * 3, limit + 10))
+        target_key = normalized_key(researcher_key)
+        center_row = next(
+            (row for row in rows if normalized_key(str(row.get("label") or "")) == target_key),
+            None,
+        )
+        coauthor_rows = [
+            row
+            for row in rows
+            if row.get("label")
+            and normalized_key(str(row["label"])) != target_key
+            and not is_institution_like_author(str(row["label"]))
+            and metric_count(row.get("publication_count")) >= min_weight
+        ][:limit]
+        if not coauthor_rows:
+            return self._enriched_collaboration_network([], [])
+
+        center_label = str((center_row or {}).get("label") or researcher_key)
+        center_id = _network_node_id((center_row or {}).get("node_key"), center_label)
+        nodes = [
+            {
+                "id": center_id,
+                "label": center_label,
+                "type": "researcher",
+                "publication_count": metric_count((center_row or {}).get("publication_count")),
+                "first_year": (center_row or {}).get("first_year"),
+                "last_year": (center_row or {}).get("last_year"),
+            }
+        ]
+        edges = []
+        for row in coauthor_rows:
+            label = str(row["label"])
+            node_id = _network_node_id(row.get("node_key"), label)
+            nodes.append(
+                {
+                    "id": node_id,
+                    "label": label,
+                    "type": "researcher",
+                    "publication_count": metric_count(row.get("publication_count")),
+                    "first_year": row.get("first_year"),
+                    "last_year": row.get("last_year"),
+                }
+            )
+            edges.append(
+                {
+                    "source": center_id,
+                    "target": node_id,
+                    "source_label": center_label,
+                    "target_label": label,
+                    "weight": metric_count(row.get("publication_count")),
+                    "edge_type": "author_collaboration",
+                    "first_year": row.get("first_year"),
+                    "last_year": row.get("last_year"),
+                }
+            )
         return self._enriched_collaboration_network(nodes, edges)
 
     def _enriched_collaboration_network(
