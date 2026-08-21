@@ -1,4 +1,4 @@
-"""Compatibility exports for the FastAPI model-serving app."""
+"""Compatibility exports for the FastAPI app."""
 
 from src.api.transport.fastapi_app import (
     PublicationBatchPredictionRequest,
@@ -7,6 +7,7 @@ from src.api.transport.fastapi_app import (
     build_parser,
     create_app,
     create_model_router,
+    create_publication_router,
     main,
 )
 
@@ -17,6 +18,7 @@ __all__ = [
     "build_parser",
     "create_app",
     "create_model_router",
+    "create_publication_router",
     "main",
 ]
 

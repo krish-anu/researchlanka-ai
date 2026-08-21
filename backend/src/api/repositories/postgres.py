@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections import Counter
 from contextlib import closing
+from itertools import combinations
 from pathlib import Path
 from typing import Any, Callable
 
@@ -100,6 +101,16 @@ def split_value_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
 
 def metric_count(value: Any) -> int:
     return int(value or 0)
+
+
+def _network_publication_year(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        year = int(float(str(value)))
+    except ValueError:
+        return None
+    return year if 1500 <= year <= 2100 else None
 
 
 class PostgresPublicationRepository:
@@ -574,7 +585,7 @@ class PostgresPublicationRepository:
             }
         )
         if not active_labels:
-            return {"nodes": [], "edges": edges}
+            return self._enriched_collaboration_network([], edges)
         node_rows = self._fetch_all(
             f"""
             {cte_sql},
@@ -608,7 +619,7 @@ class PostgresPublicationRepository:
             }
             for row in node_rows
         ]
-        return {"nodes": nodes, "edges": edges}
+        return self._enriched_collaboration_network(nodes, edges)
 
     def _author_collaboration_network(
         self,
@@ -688,7 +699,7 @@ class PostgresPublicationRepository:
             }
         )
         if not active_keys:
-            return {"nodes": [], "edges": edges}
+            return self._enriched_collaboration_network([], edges)
         node_rows = self._fetch_all(
             f"""
             {cte_sql},
@@ -740,15 +751,117 @@ class PostgresPublicationRepository:
             for row in node_rows
         ]
 
+        return self._enriched_collaboration_network(nodes, edges)
+
+    def _enriched_collaboration_network(
+        self,
+        nodes: list[dict[str, Any]],
+        edges: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         # Structure is computed on the graph the caller actually receives, not
         # on the full co-authorship graph: centrality that described edges the
         # response omitted would not match the picture drawn from it.
-        graph = network.Graph.from_edge_dicts(edges, nodes=[node["id"] for node in nodes])
+        graph = network.Graph.from_edge_dicts(
+            edges,
+            nodes=[str(node["id"]) for node in nodes],
+        )
         metrics = network.analyse(graph)
         for node in nodes:
-            node.update(metrics.for_node(node["id"]))
-
+            node.update(metrics.for_node(str(node["id"])))
         return {"nodes": nodes, "edges": edges, "summary": metrics.summary()}
+
+    def _collaboration_network_from_records(
+        self,
+        records: list[dict[str, Any]],
+        *,
+        scope: str,
+        min_weight: int,
+        limit: int,
+    ) -> dict[str, Any]:
+        fields = {
+            "institution": ["institutions", "sri_lankan_institutions"],
+            "country": ["countries"],
+            "researcher": ["authors"],
+        }[scope]
+        edge_weights: Counter[tuple[str, str]] = Counter()
+        edge_years: dict[tuple[str, str], set[int]] = {}
+        node_publications: Counter[str] = Counter()
+        node_years: dict[str, set[int]] = {}
+
+        for record in records:
+            labels: set[str] = set()
+            for field in fields:
+                labels.update(split_semicolon_value(record.get(field)))
+            labels = {label for label in labels if label}
+            if not labels:
+                continue
+
+            publication_year = _network_publication_year(record.get("publication_year"))
+            for label in labels:
+                node_publications[label] += 1
+                if publication_year is not None:
+                    node_years.setdefault(label, set()).add(publication_year)
+
+            for source_label, target_label in combinations(sorted(labels), 2):
+                edge_key = (source_label, target_label)
+                edge_weights[edge_key] += 1
+                if publication_year is not None:
+                    edge_years.setdefault(edge_key, set()).add(publication_year)
+
+        edges = []
+        for (source_label, target_label), weight in edge_weights.items():
+            if weight < min_weight:
+                continue
+            years = edge_years.get((source_label, target_label), set())
+            edges.append(
+                {
+                    "source": normalized_key(source_label),
+                    "target": normalized_key(target_label),
+                    "source_label": source_label,
+                    "target_label": target_label,
+                    "weight": weight,
+                    "edge_type": (
+                        "author_collaboration"
+                        if scope == "researcher"
+                        else f"{scope}_collaboration"
+                    ),
+                    "first_year": min(years) if years else None,
+                    "last_year": max(years) if years else None,
+                }
+            )
+        edges.sort(
+            key=lambda row: (
+                -int(row["weight"]),
+                str(row["source_label"]).casefold(),
+                str(row["target_label"]).casefold(),
+            )
+        )
+        edges = edges[:limit]
+
+        active_labels = {
+            str(label)
+            for edge in edges
+            for label in (edge.get("source_label"), edge.get("target_label"))
+            if label not in (None, "")
+        }
+        nodes = [
+            {
+                "id": normalized_key(label),
+                "label": label,
+                "type": scope,
+                "publication_count": metric_count(node_publications[label]),
+                "first_year": min(node_years.get(label, set())) if node_years.get(label) else None,
+                "last_year": max(node_years.get(label, set())) if node_years.get(label) else None,
+            }
+            for label in active_labels
+        ]
+        nodes.sort(
+            key=lambda row: (
+                -int(row["publication_count"]),
+                str(row["label"]).casefold(),
+            )
+        )
+        return self._enriched_collaboration_network(nodes, edges)
 
     def data_quality(self, filters: dict[str, Any], *, group_by: str | None) -> dict[str, Any]:
         cte_sql, params = self._filtered_cte(
