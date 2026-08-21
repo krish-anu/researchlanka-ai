@@ -10,7 +10,7 @@ Sweeps:
 Selection metric: macro F1, since the publication taxonomy is class
 imbalanced and macro F1 weights rare classes fairly.
 
-Run via: scripts/modeling/run_linear_svm_experiments.py
+Run via: scripts/modeling/compare_linear_svc_configs.py
 """
 
 from __future__ import annotations
@@ -31,8 +31,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.modeling.evaluation import save_experiment_result
-from src.modeling.linear_svm_hierarchical import combined_text
+from src.modeling.linear_svc_evaluation import save_experiment_result
+from src.modeling.hierarchical_linear_svm import combined_text
 
 # ============================================================================
 # CONFIG

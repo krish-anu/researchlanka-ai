@@ -115,6 +115,17 @@ class PublicationRepository(Protocol):
     ) -> list[dict[str, Any]]:
         """Return ranked aggregate rows."""
 
+    def paginated_analytics_rankings(
+        self,
+        filters: dict[str, Any],
+        *,
+        dimension: str,
+        metric: str,
+        page: int,
+        page_size: int,
+    ) -> dict[str, Any]:
+        """Return ranked aggregate rows with total count metadata."""
+
     def collaboration_network(
         self,
         filters: dict[str, Any],

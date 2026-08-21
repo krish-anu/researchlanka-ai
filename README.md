@@ -44,6 +44,23 @@ pytest
 
 The full backend README is in `backend/README.md`.
 
+## Kaggle Run
+
+For a complete Kaggle guide from uploading the dataset to downloading the final
+outputs, see `KAGGLE_README.md`.
+
+Recommended Kaggle notebook:
+
+```text
+dse-project.ipynb
+```
+
+Alternative copy:
+
+```text
+notebooks/kaggle_run_main_full_pipeline.ipynb
+```
+
 ## Frontend
 
 Frontend code should be added inside `frontend/`.

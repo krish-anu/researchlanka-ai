@@ -31,6 +31,7 @@ from src.api.core.serializers import (
     publication_detail,
     publication_summary,
 )
+from src.api.repositories.postgres import is_institution_like_author
 from src.database.final_schema import FINAL_PUBLICATION_COLUMNS
 
 
@@ -38,6 +39,12 @@ FILTER_QUERY_PARAMS = set(LIST_FILTERS)
 PAGINATION_QUERY_PARAMS = {"page", "page_size"}
 RANKING_QUERY_PARAMS = FILTER_QUERY_PARAMS | {"limit", "metric"}
 SIMILARITY_QUERY_PARAMS = FILTER_QUERY_PARAMS | {"limit", "min_score"}
+RANKING_PAGINATION_QUERY_PARAMS = FILTER_QUERY_PARAMS | {
+    "limit",
+    "metric",
+    "page",
+    "page_size",
+}
 
 
 class ResearchLankaAPI:
@@ -266,15 +273,36 @@ class ResearchLankaAPI:
         )
 
     def researchers(self, query: dict[str, list[str]]) -> dict[str, Any]:
-        validate_query_params(query, FILTER_QUERY_PARAMS | {"limit"})
+        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
         filters = parse_filters(query)
         filters["dimension"] = "authors"
-        limit = min(parse_positive_int(query, "limit", default=50), 100)
-        rows = self.repository.analytics_rankings(filters, dimension="authors", metric="publications", limit=limit)
-        return {"data": rows, "meta": self._meta()}
+        page = parse_positive_int(query, "page", default=1)
+        page_size = ranking_page_size(query)
+        result = paginated_rankings(
+            self.repository,
+            filters,
+            dimension="authors",
+            metric="publications",
+            page=page,
+            page_size=page_size,
+        )
+        rows = [
+            row
+            for row in result.get("records", [])
+            if not is_institution_like_author(row.get("label"))
+        ][:page_size]
+        return list_response(
+            rows,
+            page=page,
+            page_size=page_size,
+            total=int(result.get("total", len(rows))),
+            meta=self._meta(),
+        )
 
     def researcher_profile(self, researcher_key: str) -> dict[str, Any]:
         validate_resource_key(researcher_key, field="researcher_key")
+        if is_institution_like_author(researcher_key):
+            raise APIError("not_found", "Researcher not found.", status=404)
         row = self.repository.researcher_profile(researcher_key)
         if row is None:
             raise APIError("not_found", "Researcher not found.", status=404)
@@ -284,6 +312,8 @@ class ResearchLankaAPI:
 
     def researcher_publications(self, researcher_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_resource_key(researcher_key, field="researcher_key")
+        if is_institution_like_author(researcher_key):
+            raise APIError("not_found", "Researcher not found.", status=404)
         validate_query_params(query, PAGINATION_QUERY_PARAMS)
         page = parse_positive_int(query, "page", default=1)
         page_size = min(parse_positive_int(query, "page_size", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
@@ -298,21 +328,40 @@ class ResearchLankaAPI:
 
     def researcher_coauthors(self, researcher_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_resource_key(researcher_key, field="researcher_key")
+        if is_institution_like_author(researcher_key):
+            raise APIError("not_found", "Researcher not found.", status=404)
         validate_query_params(query, {"limit"})
         limit = min(parse_positive_int(query, "limit", default=50), 100)
-        return {"data": self.repository.researcher_coauthors(researcher_key, limit=limit), "meta": self._meta()}
+        overfetch_limit = max(limit * 3, limit + 25)
+        rows = self.repository.researcher_coauthors(
+            researcher_key,
+            limit=overfetch_limit,
+        )
+        rows = [
+            row
+            for row in rows
+            if not is_institution_like_author(row.get("name"))
+        ][:limit]
+        return {"data": rows, "meta": self._meta()}
 
     def institutions(self, query: dict[str, list[str]]) -> dict[str, Any]:
-        validate_query_params(query, RANKING_QUERY_PARAMS)
+        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
         filters = parse_filters(query)
-        limit = min(parse_positive_int(query, "limit", default=50), 100)
-        rows = self.repository.analytics_rankings(
+        page = parse_positive_int(query, "page", default=1)
+        page_size = ranking_page_size(query)
+        result = paginated_rankings(
+            self.repository,
             filters,
             dimension="institutions",
             metric=first(query, "metric") or "publications",
-            limit=limit,
         )
-        return {"data": rows, "meta": self._meta()}
+        return list_response(
+            result.get("records", []),
+            page=page,
+            page_size=page_size,
+            total=int(result.get("total", 0)),
+            meta=self._meta(),
+        )
 
     def institution_profile(self, institution_key: str) -> dict[str, Any]:
         validate_resource_key(institution_key, field="institution_key")
@@ -354,11 +403,25 @@ class ResearchLankaAPI:
         return {"data": self.repository.compare_institutions(keys), "meta": self._meta()}
 
     def topics(self, query: dict[str, list[str]]) -> dict[str, Any]:
-        validate_query_params(query, FILTER_QUERY_PARAMS | {"limit"})
+        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
         filters = parse_filters(query)
-        limit = min(parse_positive_int(query, "limit", default=50), 100)
-        rows = self.repository.analytics_rankings(filters, dimension="topics", metric="publications", limit=limit)
-        return {"data": rows, "meta": self._meta()}
+        page = parse_positive_int(query, "page", default=1)
+        page_size = ranking_page_size(query)
+        result = paginated_rankings(
+            self.repository,
+            filters,
+            dimension="topics",
+            metric="publications",
+            page=page,
+            page_size=page_size,
+        )
+        return list_response(
+            result.get("records", []),
+            page=page,
+            page_size=page_size,
+            total=int(result.get("total", 0)),
+            meta=self._meta(),
+        )
 
     def topic_publications(self, topic_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_resource_key(topic_key, field="topic_key")
@@ -375,7 +438,7 @@ class ResearchLankaAPI:
         )
 
     def fields(self, query: dict[str, list[str]]) -> dict[str, Any]:
-        validate_query_params(query, FILTER_QUERY_PARAMS | {"level", "limit"})
+        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS | {"level"})
         filters = parse_filters(query)
         level = first(query, "level") or "field"
         dimension = {
@@ -386,9 +449,23 @@ class ResearchLankaAPI:
         }.get(level)
         if dimension is None:
             raise APIError("invalid_filter", "Unsupported field level.", details={"field": "level"})
-        limit = min(parse_positive_int(query, "limit", default=50), 100)
-        rows = self.repository.analytics_rankings(filters, dimension=dimension, metric="publications", limit=limit)
-        return {"data": rows, "meta": self._meta()}
+        page = parse_positive_int(query, "page", default=1)
+        page_size = ranking_page_size(query)
+        result = paginated_rankings(
+            self.repository,
+            filters,
+            dimension=dimension,
+            metric="publications",
+            page=page,
+            page_size=page_size,
+        )
+        return list_response(
+            result.get("records", []),
+            page=page,
+            page_size=page_size,
+            total=int(result.get("total", 0)),
+            meta=self._meta(),
+        )
 
     def analytics_overview(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, FILTER_QUERY_PARAMS)
@@ -407,15 +484,27 @@ class ResearchLankaAPI:
         }
 
     def analytics_rankings(self, query: dict[str, list[str]], *, dimension: str) -> dict[str, Any]:
-        validate_query_params(query, RANKING_QUERY_PARAMS)
+        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
         filters = parse_filters(query)
         metric = first(query, "metric") or "publications"
-        limit = min(parse_positive_int(query, "limit", default=50), 100)
-        return {
-            "data": self.repository.analytics_rankings(filters, dimension=dimension, metric=metric, limit=limit),
-            "filters": {"applied": filters},
-            "meta": self._meta(),
-        }
+        page = parse_positive_int(query, "page", default=1)
+        page_size = ranking_page_size(query)
+        result = paginated_rankings(
+            self.repository,
+            filters,
+            dimension=dimension,
+            metric=metric,
+            page=page,
+            page_size=page_size,
+        )
+        return list_response(
+            result.get("records", []),
+            page=page,
+            page_size=page_size,
+            total=int(result.get("total", 0)),
+            filters=filters,
+            meta=self._meta(),
+        )
 
     def collaboration_network(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, FILTER_QUERY_PARAMS | {"scope", "min_weight", "limit"})
@@ -607,6 +696,47 @@ def validate_query_params(query: dict[str, list[str]], allowed: set[str]) -> Non
             "Unsupported query parameter.",
             details={"fields": unsupported, "allowed": sorted(allowed)},
         )
+
+
+def ranking_page_size(query: dict[str, list[str]]) -> int:
+    if first(query, "page_size") is not None:
+        return min(parse_positive_int(query, "page_size", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
+    if first(query, "limit") is not None:
+        return min(parse_positive_int(query, "limit", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
+    return DEFAULT_PAGE_SIZE
+
+
+def paginated_rankings(
+    repository: PublicationRepository,
+    filters: dict[str, Any],
+    *,
+    dimension: str,
+    metric: str,
+    page: int,
+    page_size: int,
+) -> dict[str, Any]:
+    if hasattr(repository, "paginated_analytics_rankings"):
+        return repository.paginated_analytics_rankings(
+            filters,
+            dimension=dimension,
+            metric=metric,
+            page=page,
+            page_size=page_size,
+        )
+
+    requested_rows = page * page_size
+    limit = max(requested_rows * 3, requested_rows + 25)
+    rows = repository.analytics_rankings(
+        filters,
+        dimension=dimension,
+        metric=metric,
+        limit=limit,
+    )
+    start = (page - 1) * page_size
+    return {
+        "records": rows[start:],
+        "total": len(rows),
+    }
 
 
 def validate_resource_key(value: str, *, field: str) -> None:

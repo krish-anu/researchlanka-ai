@@ -3,10 +3,11 @@ import Link from "next/link";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { analyticsExportUrl, listFields, listTopics } from "@/services/api";
-import { extractFilters, type SearchParams } from "@/services/filters";
+import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
 import { publicationSearchHref, topicHref } from "@/services/links";
 
 export const metadata = {
@@ -34,10 +35,12 @@ export default async function TopicsPage({
   const level: Level = LEVELS.some((option) => option.value === rawLevel)
     ? (rawLevel as Level)
     : "field";
+  const fieldsPage = extractPage(params, "fields_page");
+  const topicsPage = extractPage(params, "topics_page");
 
   const [fields, topics] = await Promise.all([
-    listFields({ ...filters, level, limit: 40 }),
-    listTopics({ ...filters, limit: 60 }),
+    listFields({ ...filters, level, page: fieldsPage, page_size: 25 }),
+    listTopics({ ...filters, page: topicsPage, page_size: 25 }),
   ]);
 
   return (
@@ -108,6 +111,10 @@ export default async function TopicsPage({
                   <RankingTable
                     entries={fields.value.data}
                     labelHeader={level}
+                    rankOffset={
+                      (fields.value.pagination.page - 1) *
+                      fields.value.pagination.page_size
+                    }
                     href={(label) =>
                       publicationSearchHref(
                         level === "subfield"
@@ -116,6 +123,14 @@ export default async function TopicsPage({
                       )
                     }
                   />
+                  <div className="mt-3">
+                    <Pagination
+                      pagination={fields.value.pagination}
+                      basePath="/topics"
+                      searchParams={params}
+                      pageParam="fields_page"
+                    />
+                  </div>
                 </div>
               </details>
             }
@@ -142,13 +157,27 @@ export default async function TopicsPage({
         ) : topics.value.data.length === 0 ? (
           <EmptyState title="No topics available" />
         ) : (
-          <div className="panel p-1">
-            <RankingTable
-              entries={topics.value.data}
-              labelHeader="Topic"
-              href={topicHref}
-            />
-          </div>
+          <>
+            <div className="panel p-1">
+              <RankingTable
+                entries={topics.value.data}
+                labelHeader="Topic"
+                href={topicHref}
+                rankOffset={
+                  (topics.value.pagination.page - 1) *
+                  topics.value.pagination.page_size
+                }
+              />
+            </div>
+            <div className="mt-3">
+              <Pagination
+                pagination={topics.value.pagination}
+                basePath="/topics"
+                searchParams={params}
+                pageParam="topics_page"
+              />
+            </div>
+          </>
         )}
       </section>
 

@@ -216,7 +216,9 @@ export const getFacets = (params: QueryParams = {}) =>
 /* -------------------------------------------------------------- researchers */
 
 export const listResearchers = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/researchers", params);
+  request<ListResponse<RankingEntry>>("/researchers", params, {
+    revalidate: 0,
+  });
 
 export const getResearcher = (researcherKey: string) =>
   request<DetailResponse<ProfileAggregate>>(
@@ -244,7 +246,7 @@ export const getResearcherCoauthors = (
 /* ------------------------------------------------------------- institutions */
 
 export const listInstitutions = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/institutions", params);
+  request<ListResponse<RankingEntry>>("/institutions", params);
 
 export const getInstitution = (institutionKey: string) =>
   request<DetailResponse<ProfileAggregate>>(
@@ -278,7 +280,7 @@ export const compareInstitutions = (institutions: string[]) =>
 /* ---------------------------------------------------------- topics & fields */
 
 export const listTopics = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/topics", params);
+  request<ListResponse<RankingEntry>>("/topics", params);
 
 export const getTopicPublications = (
   topicKey: string,
@@ -291,7 +293,7 @@ export const getTopicPublications = (
 
 export const listFields = (
   params: QueryParams & { level?: "domain" | "field" | "subfield" | "topic" } = {},
-) => request<DetailResponse<RankingEntry[]>>("/fields", params);
+) => request<ListResponse<RankingEntry>>("/fields", params);
 
 /* ---------------------------------------------------------------- analytics */
 
@@ -311,12 +313,12 @@ export const getAnalyticsTrends = (
   });
 
 export const getAnalyticsInstitutions = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/analytics/institutions", params, {
+  request<ListResponse<RankingEntry>>("/analytics/institutions", params, {
     revalidate: 0,
   });
 
 export const getAnalyticsFields = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/analytics/fields", params, {
+  request<ListResponse<RankingEntry>>("/analytics/fields", params, {
     revalidate: 0,
   });
 
