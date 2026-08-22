@@ -17,6 +17,16 @@ combined_text() by default - see its `clean=` argument. Row-dropping was
 considered and rejected (~1928 affected rows is too much of the corpus to
 lose), so cleaning happens at the token/phrase level instead.
 
+FIX: tokenize_docs() now optionally tokenizes with the SAME TfidfVectorizer
+analyzer (ngram_range=(1, 3), stop words, accent-stripping) used to build the
+topic-word vocabulary, instead of a bare whitespace .split(). Without this,
+any topic whose top words include a bigram/trigram (very common here, since
+ngram_range=(1, 3)) would hand gensim's CoherenceModel "words" that never
+appear as single whitespace-delimited tokens in its dictionary — silently
+breaking (or erroring on) coherence for those topics. evaluate_k_range() and
+run_final_pipeline() now pass the fitted vectorizer through so this is fixed
+end to end.
+
 Import this from the test notebook or from scripts/run_nmf_pipeline.py — don't duplicate logic
 in both places.
 """
@@ -32,7 +42,11 @@ from scipy import sparse
 from sklearn.decomposition import NMF
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from src.preprocessing.text_cleaning import CUSTOM_STOP_WORDS, clean_text_series, cleaning_report
+from src.preprocessing.text_cleaning import (
+    CUSTOM_STOP_WORDS,
+    clean_text_series,
+    cleaning_report,
+)
 
 try:
     from gensim.corpora import Dictionary
@@ -159,7 +173,26 @@ def build_annotation_template(
 # --------------------------------------------------------------------------
 
 
-def tokenize_docs(texts: pd.Series) -> list[list[str]]:
+def tokenize_docs(
+    texts: pd.Series, vectorizer: Optional[TfidfVectorizer] = None
+) -> list[list[str]]:
+    """Tokenize documents for gensim coherence scoring.
+
+    When `vectorizer` is given, tokens are produced with that vectorizer's
+    OWN analyzer (respects ngram_range, stop_words, lowercase, strip_accents)
+    so multi-word n-gram topic terms — this pipeline uses ngram_range=(1, 3),
+    so topic words are routinely bigrams/trigrams like "machine learning" —
+    actually appear as tokens in the coherence dictionary.
+
+    Falling back to a bare whitespace .split() (vectorizer=None) only
+    produces single-word tokens, which silently breaks coherence scoring for
+    any topic whose top words include an n-gram: those "words" never match
+    anything in a dictionary built from single-word tokens. Always pass the
+    fitted vectorizer when tokenizing for compute_coherence()/evaluate_k*().
+    """
+    if vectorizer is not None:
+        analyze = vectorizer.build_analyzer()
+        return [analyze(t) for t in texts.fillna("")]
     return texts.fillna("").apply(str.split).tolist()
 
 
@@ -246,16 +279,22 @@ def evaluate_k_range(
     feature_names,
     texts: pd.Series,
     k_range: list[int],
+    vectorizer: Optional[TfidfVectorizer] = None,
     n_words: int = 15,
     random_state: int = 42,
 ) -> tuple[pd.DataFrame, dict]:
-    """Runs evaluate_k() for every k in k_range. Returns (summary_df, {k: full_result_dict})."""
+    """Runs evaluate_k() for every k in k_range. Returns (summary_df, {k: full_result_dict}).
+
+    Pass the fitted `vectorizer` (the one used to build X/feature_names) so
+    coherence tokenization matches the n-gram vocabulary the topics are
+    drawn from — see tokenize_docs() for why this matters.
+    """
     if not _GENSIM_AVAILABLE:
         raise ImportError(
             "gensim is required for coherence scoring: pip install gensim"
         )
 
-    tokenized_docs = tokenize_docs(texts)
+    tokenized_docs = tokenize_docs(texts, vectorizer=vectorizer)
     dictionary = Dictionary(tokenized_docs)
 
     results = {}
@@ -386,8 +425,11 @@ def run_final_pipeline(
     topic_words = get_topic_keywords(model, feature_names, n_words=n_words)
     topic_names = name_topics(topic_words, n=naming_words)
 
-    # coherence / diversity / redundancy for the record
-    tokenized_docs = tokenize_docs(texts[has_text])
+    # coherence / diversity / redundancy for the record.
+    # FIX: pass `vectorizer` so n-gram topic words (ngram_range=(1, 3)) are
+    # tokenized the same way for the coherence dictionary — see
+    # tokenize_docs() docstring.
+    tokenized_docs = tokenize_docs(texts[has_text], vectorizer=vectorizer)
     dictionary = Dictionary(tokenized_docs) if _GENSIM_AVAILABLE else None
     coherence = (
         compute_coherence(topic_words, tokenized_docs, dictionary)
