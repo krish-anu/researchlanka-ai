@@ -13,6 +13,13 @@ stripping + expanded stopwords - see src/modeling/text_cleaning.py). Pass --no-c
 to reproduce the original uncleaned baseline, e.g. to compare coherence/diversity
 before and after.
 
+FIX: the sweep branch now passes the fitted `vectorizer` into evaluate_k_range()
+so coherence scoring tokenizes with the same n-gram analyzer used to build the
+topic-word vocabulary (see nmf_topic_modeling.py's tokenize_docs() docstring).
+Previously this branch built the vectorizer but never passed it through, so the
+k-sweep's coherence numbers were computed against a mismatched, single-word
+tokenization while run_final_pipeline()'s fixed-k coherence was fine.
+
 Usage:
     python scripts/run_nmf_pipeline.py \
         --data ../data/processed/common/common_publications_final_with_linearsvm.csv \
@@ -146,8 +153,16 @@ def main() -> None:
         vectorizer, X = build_tfidf(texts[has_text])
         feature_names = vectorizer.get_feature_names_out()
 
+        # FIX: pass vectorizer=vectorizer through so coherence tokenization
+        # during the sweep matches the n-gram vocabulary the topics come
+        # from (see nmf_topic_modeling.tokenize_docs()).
         summary_df, _ = evaluate_k_range(
-            X, feature_names, texts[has_text], args.k_range, n_words=args.n_words
+            X,
+            feature_names,
+            texts[has_text],
+            args.k_range,
+            vectorizer=vectorizer,
+            n_words=args.n_words,
         )
         output_dir.mkdir(parents=True, exist_ok=True)
         summary_df.to_csv(output_dir / "nmf_k_sweep_evaluation.csv", index=False)
@@ -171,3 +186,11 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+# cd researchlanka-ai/backend
+# python scripts/run_nmf_pipeline.py \
+#   --data data/processed/common/common_publications_final_with_linearsvm.csv \
+#   --output-dir data/processed/common/nmf \
+#   --k 20
