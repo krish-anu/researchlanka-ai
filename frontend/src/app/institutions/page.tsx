@@ -3,10 +3,11 @@ import Link from "next/link";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { analyticsExportUrl, listInstitutions } from "@/services/api";
-import { extractFilters, type SearchParams } from "@/services/filters";
+import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
 import { institutionHref } from "@/services/links";
 
 export const metadata = {
@@ -22,21 +23,22 @@ export default async function InstitutionsPage({
 }) {
   const params = await searchParams;
   const filters = extractFilters(params);
-  const result = await listInstitutions({ ...filters, limit: 100 });
+  const page = extractPage(params);
+  const result = await listInstitutions({ ...filters, page, page_size: 25 });
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Institutions</h1>
-          <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+          <h1 className="font-display text-h1 text-ink">Institutions</h1>
+          <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
             Research output by institution, drawn from affiliations recorded on
             each publication.
           </p>
         </div>
         <Link
           href="/institutions/compare"
-          className="shrink-0 rounded-md border border-rule px-3 py-1.5 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
+          className="shrink-0 rounded-md border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
         >
           Compare institutions →
         </Link>
@@ -76,6 +78,17 @@ export default async function InstitutionsPage({
                 entries={result.value.data}
                 labelHeader="Institution"
                 href={institutionHref}
+                rankOffset={
+                  (result.value.pagination.page - 1) *
+                  result.value.pagination.page_size
+                }
+              />
+            </div>
+            <div className="mt-3">
+              <Pagination
+                pagination={result.value.pagination}
+                basePath="/institutions"
+                searchParams={params}
               />
             </div>
           </section>

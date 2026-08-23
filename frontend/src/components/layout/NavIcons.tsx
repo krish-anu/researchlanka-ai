@@ -2,7 +2,7 @@
  * Nav glyphs as inline SVG.
  *
  * The Stitch screens call for Material Symbols, but that is a webfont fetched
- * from a third party on every page load. These are the same six concepts drawn
+ * from a third party on every page load. These are the same concepts drawn
  * locally: no external request, no icon-font flash, and they inherit `stroke`
  * from the link so the active/inactive states need no per-icon styling.
  */
@@ -109,6 +109,68 @@ export function SearchIcon(props: IconProps) {
     <Frame {...props}>
       <circle cx="10.5" cy="10.5" r="6.5" />
       <path d="M15.5 15.5 21 21" />
+    </Frame>
+  );
+}
+
+/** Administration: a shield, the one concept in the set that is about access. */
+export function AdminIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <path d="M12 3l7 3v5.5c0 4.2-2.9 7.7-7 9.5-4.1-1.8-7-5.3-7-9.5V6z" />
+      <path d="M9.5 12l1.8 1.8L15 10" />
+    </Frame>
+  );
+}
+
+/** Queue / review: stacked cards awaiting a decision. */
+export function QueueIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <rect x="3" y="6" width="13" height="4" rx="1" />
+      <rect x="3" y="14" width="13" height="4" rx="1" />
+      <path d="M19 8h2M19 16h2" />
+    </Frame>
+  );
+}
+
+/** Flag: a reported record. */
+export function FlagIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <path d="M6 21V4" />
+      <path d="M6 4h11l-2.5 4L17 12H6z" />
+    </Frame>
+  );
+}
+
+/** People: the account list. */
+export function UsersIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <path d="M16 5.5a3.2 3.2 0 010 5.6M17.5 14.9c2 .6 3.5 2.3 3.5 4.6" />
+    </Frame>
+  );
+}
+
+/** Pipeline: source rows feeding a store. */
+export function PipelineIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <ellipse cx="12" cy="6" rx="7" ry="3" />
+      <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
+      <path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+    </Frame>
+  );
+}
+
+/** Bookmark: the saved library. */
+export function BookmarkIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <path d="M7 4h10v16l-5-3.5L7 20z" />
     </Frame>
   );
 }

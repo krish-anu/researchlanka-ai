@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from research_analytics.networks import build_author_collaboration_network
 from research_analytics.schema import STANDARD_PUBLICATION_FIELDS
 
 
@@ -49,6 +50,10 @@ def export_pipeline_outputs(
     )
     _write_entity_csv(output_dir / "topics.csv", _values(deduplicated_records, "topics"), "topic")
     _write_link_csv(output_dir / "collaboration_edges.csv", _collaboration_edges(deduplicated_records))
+    author_network = build_author_collaboration_network(deduplicated_records)
+    _write_link_csv(output_dir / "author_collaboration_nodes.csv", author_network["nodes"])
+    _write_link_csv(output_dir / "author_collaboration_edges.csv", author_network["edges"])
+    _write_json(output_dir / "author_collaboration_network.json", author_network)
     _write_match_csv(
         output_dir / "automatic_matches.csv",
         [

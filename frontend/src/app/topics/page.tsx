@@ -3,10 +3,11 @@ import Link from "next/link";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { analyticsExportUrl, listFields, listTopics } from "@/services/api";
-import { extractFilters, type SearchParams } from "@/services/filters";
+import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
 import { publicationSearchHref, topicHref } from "@/services/links";
 
 export const metadata = {
@@ -34,17 +35,19 @@ export default async function TopicsPage({
   const level: Level = LEVELS.some((option) => option.value === rawLevel)
     ? (rawLevel as Level)
     : "field";
+  const fieldsPage = extractPage(params, "fields_page");
+  const topicsPage = extractPage(params, "topics_page");
 
   const [fields, topics] = await Promise.all([
-    listFields({ ...filters, level, limit: 40 }),
-    listTopics({ ...filters, limit: 60 }),
+    listFields({ ...filters, level, page: fieldsPage, page_size: 25 }),
+    listTopics({ ...filters, page: topicsPage, page_size: 25 }),
   ]);
 
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Topics and fields</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+        <h1 className="font-display text-h1 text-ink">Topics and fields</h1>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
           Where national research output concentrates. Short bars are the
           under-represented areas — useful for spotting gaps as well as
           strengths.
@@ -52,7 +55,7 @@ export default async function TopicsPage({
       </div>
 
       <div className="panel p-3">
-        <p className="flex gap-2 text-sm text-ink-secondary">
+        <p className="flex gap-2 text-body-sm text-ink-secondary">
           <span aria-hidden className="text-muted">
             ⓘ
           </span>
@@ -76,7 +79,7 @@ export default async function TopicsPage({
                     <Link
                       href={`/topics?level=${option.value}`}
                       aria-current={option.value === level ? "true" : undefined}
-                      className={`inline-block rounded-md border px-2.5 py-1 text-sm ${
+                      className={`inline-block rounded-md border px-2.5 py-1 text-body-sm ${
                         option.value === level
                           ? "border-primary font-medium text-primary"
                           : "border-rule text-ink-secondary hover:bg-wash"
@@ -101,13 +104,17 @@ export default async function TopicsPage({
             action={<DownloadLink href={analyticsExportUrl("fields")} />}
             table={
               <details className="mt-3 border-t border-rule pt-3">
-                <summary className="cursor-pointer text-sm text-ink-secondary hover:text-ink">
+                <summary className="cursor-pointer text-body-sm text-ink-secondary hover:text-ink">
                   View as table
                 </summary>
                 <div className="mt-2">
                   <RankingTable
                     entries={fields.value.data}
                     labelHeader={level}
+                    rankOffset={
+                      (fields.value.pagination.page - 1) *
+                      fields.value.pagination.page_size
+                    }
                     href={(label) =>
                       publicationSearchHref(
                         level === "subfield"
@@ -116,6 +123,14 @@ export default async function TopicsPage({
                       )
                     }
                   />
+                  <div className="mt-3">
+                    <Pagination
+                      pagination={fields.value.pagination}
+                      basePath="/topics"
+                      searchParams={params}
+                      pageParam="fields_page"
+                    />
+                  </div>
                 </div>
               </details>
             }
@@ -142,13 +157,27 @@ export default async function TopicsPage({
         ) : topics.value.data.length === 0 ? (
           <EmptyState title="No topics available" />
         ) : (
-          <div className="panel p-1">
-            <RankingTable
-              entries={topics.value.data}
-              labelHeader="Topic"
-              href={topicHref}
-            />
-          </div>
+          <>
+            <div className="panel p-1">
+              <RankingTable
+                entries={topics.value.data}
+                labelHeader="Topic"
+                href={topicHref}
+                rankOffset={
+                  (topics.value.pagination.page - 1) *
+                  topics.value.pagination.page_size
+                }
+              />
+            </div>
+            <div className="mt-3">
+              <Pagination
+                pagination={topics.value.pagination}
+                basePath="/topics"
+                searchParams={params}
+                pageParam="topics_page"
+              />
+            </div>
+          </>
         )}
       </section>
 

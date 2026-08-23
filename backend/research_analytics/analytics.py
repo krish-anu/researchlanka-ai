@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
+from research_analytics.networks import build_author_collaboration_network
+
 
 def run_field_aware_analytics(records: list[dict[str, Any]]) -> dict[str, Any]:
     """Run available analytics and explain skipped analytics."""
@@ -33,6 +35,12 @@ def run_field_aware_analytics(records: list[dict[str, Any]]) -> dict[str, Any]:
 
     if _field_available(records, "authors"):
         summary["top_authors"] = dict(_counter(records, "authors").most_common(20))
+        author_network = build_author_collaboration_network(records)
+        summary["author_collaboration_network"] = {
+            "node_count": len(author_network["nodes"]),
+            "edge_count": len(author_network["edges"]),
+            "top_edges": author_network["edges"][:20],
+        }
     else:
         summary["skipped"].append(
             "Author analysis could not be generated because author metadata is missing."
