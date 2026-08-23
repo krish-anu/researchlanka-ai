@@ -28,16 +28,31 @@ interface SessionPayload extends SessionUser {
   exp: number;
 }
 
-function secret(): string {
+/**
+ * Why the signing key is unusable, or `null` when it is fine.
+ *
+ * Callers that can put a message in front of the reader ask this first rather
+ * than letting `secret()` throw. A missing key is a deployment mistake, but it
+ * only bites at the moment someone signs in — after their password has already
+ * been checked — so an unexplained 500 there sends people hunting for a bad
+ * password instead of a bad config.
+ */
+export function sessionSecretProblem(): string | null {
   const configured = process.env.AUTH_SECRET;
-  if (configured && configured.length >= 32) return configured;
+  if (configured && configured.length >= 32) return null;
+  if (process.env.NODE_ENV !== "production") return null;
 
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "AUTH_SECRET must be set to at least 32 characters in production.",
-    );
-  }
-  return DEV_SECRET;
+  return configured
+    ? "This server is running in production mode and AUTH_SECRET is shorter than 32 characters, so sessions cannot be signed. Lengthen it and restart the server."
+    : "This server is running in production mode and AUTH_SECRET is not set, so sessions cannot be signed. Set it and restart the server — or use `npm run dev`, which signs with a development key.";
+}
+
+function secret(): string {
+  const problem = sessionSecretProblem();
+  if (problem) throw new Error(problem);
+
+  const configured = process.env.AUTH_SECRET;
+  return configured && configured.length >= 32 ? configured : DEV_SECRET;
 }
 
 async function signingKey(): Promise<CryptoKey> {
