@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { RoleBadge } from "@/components/auth/RoleBadge";
@@ -134,16 +134,34 @@ function NavList({
 export function SiteNav({ viewer }: { viewer: Viewer }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => setOpen(false), [pathname]);
 
   useEffect(() => {
     if (!open) return;
+
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+
+    // The drawer covers the page, so the page behind it must not scroll — on
+    // touch devices that is the difference between a panel and a stuck page.
+    const { overflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+
+    // Move focus into the panel, and hand it back to the control that opened
+    // it on the way out, so keyboard and screen-reader users are not dropped
+    // at the top of the document.
+    closeRef.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = overflow;
+      toggleRef.current?.focus();
+    };
   }, [open]);
 
   return (
@@ -170,8 +188,9 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
       </nav>
 
       {/* Mobile top app bar */}
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-rule bg-surface px-4 md:hidden">
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-rule bg-surface px-4 md:hidden">
         <button
+          ref={toggleRef}
           type="button"
           onClick={() => setOpen(true)}
           aria-expanded={open}
@@ -204,11 +223,12 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
           <nav
             id="mobile-nav"
             aria-label="Primary"
-            className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-rule bg-surface py-6"
+            className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-rule bg-surface py-6"
           >
             <div className="mb-6 flex items-start justify-between gap-2 px-5">
               <Wordmark />
               <button
+                ref={closeRef}
                 type="button"
                 onClick={() => setOpen(false)}
                 className="rounded p-1 text-ink-secondary hover:bg-wash hover:text-ink"
@@ -239,7 +259,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
  */
 export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
   return (
-    <div className="sticky top-0 z-30 hidden border-b border-rule bg-surface md:block">
+    <div className="sticky top-0 z-30 hidden shrink-0 border-b border-rule bg-surface md:block">
       <div className="mx-auto flex h-16 max-w-[1140px] items-center justify-end gap-4 px-8 lg:px-16">
         <div className="w-full max-w-md">
           <SearchBox />

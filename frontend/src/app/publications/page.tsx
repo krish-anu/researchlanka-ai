@@ -46,8 +46,8 @@ export default async function PublicationsPage({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Publications</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+        <h1 className="font-display text-h1 text-ink">Publications</h1>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
           Full-text search across titles, abstracts, authors, journals and DOIs,
           with structured filters. Every record carries its source provenance and
           any data-quality flags.
@@ -72,7 +72,7 @@ export default async function PublicationsPage({
           <section className="flex min-w-0 flex-col gap-4">
             <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-ink-secondary">
+                <p className="text-body-sm text-ink-secondary">
                   <span className="font-medium text-ink">
                     {formatNumber(result.value.pagination.total)}
                   </span>{" "}

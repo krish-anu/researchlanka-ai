@@ -55,11 +55,25 @@ npm install
 npm run dev
 ```
 
-On first run, with no accounts present, one administrator is seeded. Set
-`ADMIN_EMAIL` and `ADMIN_PASSWORD` to choose the credentials; leave them unset in
-development and a dev pair is created with its password printed once to the
-server log. See `.env.example` for every variable, including the `AUTH_SECRET`
-that signs session cookies (required in production).
+### Test accounts
+
+With no `ADMIN_PASSWORD` configured, two fixed accounts are seeded on first
+read, one per signed-in role, so both sides of the role system can be exercised
+without going through sign-up:
+
+| Email | Password | Role |
+|---|---|---|
+| `admin@example.com` | `password123` | `admin` |
+| `user@example.com` | `password123` | `user` |
+
+They are recreated if missing, so deleting one from `.data/users.json` brings it
+back on the next request. **These credentials are public.** Set
+`SEED_TEST_ACCOUNTS=false`, or configure `ADMIN_EMAIL` and `ADMIN_PASSWORD`,
+anywhere that is not a test machine — with `ADMIN_PASSWORD` set, only that one
+administrator is seeded and the test pair is never created.
+
+See `.env.example` for every variable, including the `AUTH_SECRET` that signs
+session cookies (required in production).
 
 The pages fetch the Python API server-side; a cold or unreachable API is a
 normal state when running only the frontend, and every page renders an
