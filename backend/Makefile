@@ -60,6 +60,19 @@ LOGREG_INFERENCE_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN
 LOGREG_INFERENCE_MANIFEST_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_inference_manifest.json
 LOGREG_INFERENCE_METADATA_COLUMNS ?= record_number,publication_year,title,doi,openalex_id,source_dataset,source_institution_id,source_record_id
 LOGREG_INFERENCE_EXTRA_ARGS ?=
+EMBED_INPUT ?= $(MODEL_TEXT_INPUT)
+EMBED_OUTPUT ?= data/models/publication_text_embeddings.parquet
+EMBED_MODEL_OUTPUT ?= data/models/publication_text_embedding_model.joblib
+EMBED_MANIFEST_OUTPUT ?= data/models/publication_text_embeddings_manifest.json
+EMBED_SUMMARY_OUTPUT ?= data/models/publication_text_embeddings_summary.txt
+EMBED_TEXT_COLUMNS ?= title,abstract,keywords
+EMBED_METADATA_COLUMNS ?= record_number,publication_year,title,doi,openalex_id,source_dataset,source_institution_id,source_record_id
+EMBED_DIM ?= 384
+EMBED_MAX_FEATURES ?= 50000
+EMBED_MIN_DF ?= 2
+EMBED_MAX_DF ?= 0.95
+EMBED_NGRAM_MAX ?= 2
+EMBED_EXTRA_ARGS ?=
 MODEL_SPLIT_INPUT ?= data/processed/common/common_publications_final_2016_2026_analysis_ready.csv
 MODEL_SPLIT_OUTPUT_DIR ?= data/processed/modeling/publication_classifier
 MODEL_SPLIT_LABEL_COLUMN ?= primary_domain
@@ -70,9 +83,16 @@ MODEL_SPLIT_TEST_RATIO ?= 0.15
 MODEL_SPLIT_RANDOM_STATE ?= 42
 MODEL_SPLIT_MIN_CLASS_COUNT ?= 20
 MODEL_SPLIT_EXTRA_ARGS ?=
+API_HOST ?= 127.0.0.1
+API_PORT ?= 8080
+API_EXTRA_ARGS ?=
 MODEL_API_HOST ?= 127.0.0.1
 MODEL_API_PORT ?= 8081
 MODEL_API_EXTRA_ARGS ?=
+DB_LOAD_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
+DB_LOAD_BATCH_SIZE ?= 1000
+DB_LOAD_YEAR_MIN ?= 2016
+DB_LOAD_YEAR_MAX ?= 2026
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
 LOGREG_MAX_DF ?= 0.95
@@ -125,7 +145,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -133,6 +153,11 @@ help:
 	@echo ""
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
+	@echo "  make api                     Serve the read-only ResearchLanka API"
+	@echo "  make load-db-2016-now        Load only 2016-2026 records into final_publications"
+	@echo "  make reset-db-2016-now       Clear final_publications, then load 2016-2026 records"
+	@echo "  make load-full-db-2016-now   Load only 2016-2026 records into all database tables"
+	@echo "  make reset-full-db-2016-now  Clear database tables, then load 2016-2026 records"
 	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
 	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
@@ -148,6 +173,7 @@ help:
 	@echo "  make model-abstracts         Export publication abstracts for model pipelines"
 	@echo "  make model-keywords          Export publication keywords for model pipelines"
 	@echo "  make model-tfidf             Export compact TF-IDF feature rows and vocabulary"
+	@echo "  make model-embeddings        Generate dense publication-text embeddings"
 	@echo "  make model-splits            Create train/validation/test CSVs for publication classifier datasets"
 	@echo "  make train-logreg            Train TF-IDF + Logistic Regression classifier"
 	@echo "  make train-nb                Train the TF-IDF + Multinomial Naive Bayes baseline"
@@ -176,6 +202,22 @@ test:
 publication-counts:
 	$(PYTHON) scripts/quality/compare_publication_counts.py
 
+# Serve the read-only dashboard/search/profile API.
+api:
+	$(PYTHON) scripts/api/serve_api.py --host $(API_HOST) --port $(API_PORT) $(API_EXTRA_ARGS)
+
+load-db-2016-now:
+	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
+
+reset-db-2016-now:
+	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
+
+load-full-db-2016-now:
+	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
+
+reset-full-db-2016-now:
+	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
+
 # Export model-ready text and TF-IDF features from the final dataset.
 model-text: model-titles model-abstracts model-keywords model-tfidf
 
@@ -190,6 +232,9 @@ model-keywords:
 
 model-tfidf:
 	$(PYTHON) scripts/extraction/build_publication_tfidf_features.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_TFIDF_OUTPUT) --vocabulary-output $(MODEL_TFIDF_VOCABULARY_OUTPUT) --summary-output $(MODEL_TFIDF_SUMMARY_OUTPUT) --max-features $(MODEL_TFIDF_MAX_FEATURES) --min-df $(MODEL_TFIDF_MIN_DF) --max-df $(MODEL_TFIDF_MAX_DF) --ngram-max $(MODEL_TFIDF_NGRAM_MAX) --top-features-per-record $(MODEL_TFIDF_TOP_FEATURES_PER_RECORD)
+
+model-embeddings:
+	$(PYTHON) scripts/modeling/generate_publication_text_embeddings.py --input $(EMBED_INPUT) --output $(EMBED_OUTPUT) --model-output $(EMBED_MODEL_OUTPUT) --manifest-output $(EMBED_MANIFEST_OUTPUT) --summary-output $(EMBED_SUMMARY_OUTPUT) --text-columns $(EMBED_TEXT_COLUMNS) --metadata-columns $(EMBED_METADATA_COLUMNS) --embedding-dim $(EMBED_DIM) --max-features $(EMBED_MAX_FEATURES) --min-df $(EMBED_MIN_DF) --max-df $(EMBED_MAX_DF) --ngram-max $(EMBED_NGRAM_MAX) $(EMBED_EXTRA_ARGS)
 
 model-splits:
 	$(PYTHON) scripts/modeling/create_dataset_splits.py --input $(MODEL_SPLIT_INPUT) --output-dir $(MODEL_SPLIT_OUTPUT_DIR) --label-column $(MODEL_SPLIT_LABEL_COLUMN) --text-columns $(MODEL_SPLIT_TEXT_COLUMNS) --train-ratio $(MODEL_SPLIT_TRAIN_RATIO) --validation-ratio $(MODEL_SPLIT_VALIDATION_RATIO) --test-ratio $(MODEL_SPLIT_TEST_RATIO) --random-state $(MODEL_SPLIT_RANDOM_STATE) --min-class-count $(MODEL_SPLIT_MIN_CLASS_COUNT) $(MODEL_SPLIT_EXTRA_ARGS)

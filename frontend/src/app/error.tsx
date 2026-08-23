@@ -19,20 +19,20 @@ export default function GlobalError({
 
   return (
     <div className="panel mx-auto max-w-lg p-6">
-      <h1 className="text-lg font-semibold text-ink">Something went wrong</h1>
-      <p className="mt-2 text-sm text-ink-secondary">
+      <h1 className="font-display text-h1 text-ink">Something went wrong</h1>
+      <p className="mt-2 text-body-sm text-ink-secondary">
         This page could not be rendered. The error has been logged to the server
         console.
       </p>
       {error.digest ? (
-        <p className="mt-2 text-xs text-muted">
+        <p className="mt-2 text-body-sm text-muted">
           Reference: <code className="rounded bg-wash px-1 py-0.5">{error.digest}</code>
         </p>
       ) : null}
       <button
         type="button"
         onClick={reset}
-        className="mt-4 rounded-md border border-rule bg-wash px-3 py-1.5 text-sm font-medium text-ink hover:bg-page"
+        className="mt-4 rounded-md border border-rule bg-wash px-3 py-1.5 text-body-sm font-medium text-ink hover:bg-page"
       >
         Try again
       </button>

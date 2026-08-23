@@ -5,6 +5,8 @@ MAX_PAGE_SIZE = 100
 DATASET_STAGE = "final_publications"
 API_VERSION = "v1"
 API_PREFIX = "/api/v1"
+PUBLICATION_COVERAGE_START_YEAR = 2016
+PUBLICATION_COVERAGE_END_YEAR = 2026
 
 LIST_FILTERS = {
     "q",
@@ -14,6 +16,7 @@ LIST_FILTERS = {
     "institution",
     "country",
     "field",
+    "researcher",
     "subfield",
     "topic",
     "journal",
@@ -60,4 +63,8 @@ PUBLICATION_SUMMARY_FIELDS = [
     "primary_subfield",
     "source_dataset",
     "quality_flags",
+    "semantic_score",
+    "semantic_rank",
+    "similarity_score",
+    "similarity_rank",
 ]

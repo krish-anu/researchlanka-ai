@@ -21,6 +21,11 @@ export interface ResponseMeta {
   api_version: string;
   dataset_stage: string;
   snapshot_date: string | null;
+  search?: {
+    mode: "semantic" | "similarity" | string;
+    algorithm?: string;
+    min_score?: number | null;
+  };
 }
 
 export interface ListResponse<T> {
@@ -74,6 +79,10 @@ export interface PublicationSummary {
   primary_subfield: string | null;
   source_dataset: string[];
   quality_flags: QualityFlag[];
+  semantic_score?: number;
+  semantic_rank?: number;
+  similarity_score?: number;
+  similarity_rank?: number;
 }
 
 export interface PublicationDetail extends PublicationSummary {
@@ -160,6 +169,7 @@ export interface AppliedFilters {
   institution?: string[];
   country?: string[];
   field?: string[];
+  researcher?: string[];
   subfield?: string[];
   topic?: string[];
   journal?: string[];
@@ -259,19 +269,50 @@ export interface NetworkNode {
   label: string;
   type: "institution" | "country" | "researcher" | string;
   publication_count: number;
+  first_year?: number | null;
+  last_year?: number | null;
+  /**
+   * Structural measures from `src/analytics/network.py`, computed over the
+   * graph as returned — after `min_weight` and `limit` — so they describe the
+   * picture on screen rather than the full corpus graph.
+   */
+  degree_centrality: number;
+  /** Weighted degree: total co-publications, not distinct partners. */
+  strength: number;
+  /** Share of shortest paths through this node. High = bridging partner. */
+  betweenness_centrality: number;
+  closeness_centrality: number;
+  /** Community id, 0-based and ordered by descending community size. */
+  community: number;
+}
+
+/** Graph-level context needed to read the per-node measures honestly. */
+export interface NetworkSummary {
+  node_count: number;
+  edge_count: number;
+  density: number;
+  component_count: number;
+  largest_component_size: number;
+  community_count: number;
+  /** Newman-Girvan Q. Above ~0.3 the community split is meaningful. */
+  modularity: number;
 }
 
 export interface NetworkEdge {
   source: string;
   target: string;
+  source_label?: string;
+  target_label?: string;
   weight: number;
-  // NOTE: API_DESIGN.md shows `collaboration_type`; the implementation does not
-  // emit it. Absent by design rather than optional-and-usually-present.
+  edge_type?: string;
+  first_year?: number | null;
+  last_year?: number | null;
 }
 
 export interface CollaborationNetwork {
   nodes: NetworkNode[];
   edges: NetworkEdge[];
+  summary: NetworkSummary;
 }
 
 export interface DataQualitySummary {

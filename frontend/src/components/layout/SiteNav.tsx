@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 
+import { AccountMenu } from "@/components/auth/AccountMenu";
+import { RoleBadge } from "@/components/auth/RoleBadge";
 import {
+  AdminIcon,
   CloseIcon,
   DashboardIcon,
   DataQualityIcon,
@@ -16,11 +19,14 @@ import {
   TopicsIcon,
 } from "@/components/layout/NavIcons";
 import { SearchBox } from "@/components/search/SearchBox";
+import type { Viewer } from "@/types/auth";
 
 interface NavLink {
   href: string;
   label: string;
   Icon: ComponentType<{ className?: string }>;
+  /** Present only for administrators; the public sections have no requirement. */
+  adminOnly?: boolean;
 }
 
 const NAV_LINKS: NavLink[] = [
@@ -30,7 +36,18 @@ const NAV_LINKS: NavLink[] = [
   { href: "/institutions", label: "Institutions", Icon: InstitutionsIcon },
   { href: "/topics", label: "Topics", Icon: TopicsIcon },
   { href: "/data-quality", label: "Data quality", Icon: DataQualityIcon },
+  { href: "/admin", label: "Administration", Icon: AdminIcon, adminOnly: true },
 ];
+
+/**
+ * The rail only lists what the viewer can actually open.
+ *
+ * Hiding the admin entry is presentation, not protection — `middleware.ts` and
+ * the admin layout are what stop a visitor typing the URL.
+ */
+function visibleLinks(viewer: Viewer): NavLink[] {
+  return NAV_LINKS.filter((link) => !link.adminOnly || viewer.role === "admin");
+}
 
 /** "/" only matches itself; every other entry also owns its detail routes. */
 function isActive(pathname: string, href: string): boolean {
@@ -83,11 +100,17 @@ function Wordmark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function NavList({
+  viewer,
+  onNavigate,
+}: {
+  viewer: Viewer;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname() ?? "/";
   return (
     <ul className="flex flex-col gap-1">
-      {NAV_LINKS.map((link) => (
+      {visibleLinks(viewer).map((link) => (
         <li key={link.href}>
           <NavItem
             link={link}
@@ -108,19 +131,37 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
  * stay reachable on a phone, so the hamburger opens a focusable panel that
  * closes on route change, on Escape, and on backdrop click.
  */
-export function SiteNav() {
+export function SiteNav({ viewer }: { viewer: Viewer }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => setOpen(false), [pathname]);
 
   useEffect(() => {
     if (!open) return;
+
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+
+    // The drawer covers the page, so the page behind it must not scroll — on
+    // touch devices that is the difference between a panel and a stuck page.
+    const { overflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+
+    // Move focus into the panel, and hand it back to the control that opened
+    // it on the way out, so keyboard and screen-reader users are not dropped
+    // at the top of the document.
+    closeRef.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = overflow;
+      toggleRef.current?.focus();
+    };
   }, [open]);
 
   return (
@@ -134,18 +175,22 @@ export function SiteNav() {
           <Wordmark />
         </div>
         <div className="flex-1 overflow-y-auto">
-          <NavList />
+          <NavList viewer={viewer} />
         </div>
-        <div className="mt-auto border-t border-rule px-5 pt-5">
+        <div className="mt-auto flex flex-col gap-2 border-t border-rule px-5 pt-5">
+          <RoleBadge role={viewer.role} className="self-start" />
           <p className="text-body-sm text-muted">
-            Read-only public view of the consolidated national research corpus.
+            {viewer.user
+              ? "Signed in. Public figures are unchanged by your account — it adds a library and flagging."
+              : "Read-only public view of the consolidated national research corpus."}
           </p>
         </div>
       </nav>
 
       {/* Mobile top app bar */}
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-rule bg-surface px-4 md:hidden">
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-rule bg-surface px-4 md:hidden">
         <button
+          ref={toggleRef}
           type="button"
           onClick={() => setOpen(true)}
           aria-expanded={open}
@@ -178,11 +223,12 @@ export function SiteNav() {
           <nav
             id="mobile-nav"
             aria-label="Primary"
-            className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-rule bg-surface py-6"
+            className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-rule bg-surface py-6"
           >
             <div className="mb-6 flex items-start justify-between gap-2 px-5">
               <Wordmark />
               <button
+                ref={closeRef}
                 type="button"
                 onClick={() => setOpen(false)}
                 className="rounded p-1 text-ink-secondary hover:bg-wash hover:text-ink"
@@ -195,7 +241,10 @@ export function SiteNav() {
               <SearchBox />
             </div>
             <div className="flex-1 overflow-y-auto">
-              <NavList onNavigate={() => setOpen(false)} />
+              <NavList viewer={viewer} onNavigate={() => setOpen(false)} />
+            </div>
+            <div className="mt-4 border-t border-rule px-4 pt-4">
+              <AccountMenu viewer={viewer} />
             </div>
           </nav>
         </div>
@@ -208,13 +257,14 @@ export function SiteNav() {
  * Desktop search bar. Sits above the content column rather than in the rail,
  * matching the docked top bar on the Stitch content screens.
  */
-export function SiteSearchBar() {
+export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
   return (
-    <div className="sticky top-0 z-30 hidden border-b border-rule bg-surface md:block">
-      <div className="mx-auto flex h-16 max-w-[1140px] items-center justify-end px-8 lg:px-16">
+    <div className="sticky top-0 z-30 hidden shrink-0 border-b border-rule bg-surface md:block">
+      <div className="mx-auto flex h-16 max-w-[1140px] items-center justify-end gap-4 px-8 lg:px-16">
         <div className="w-full max-w-md">
           <SearchBox />
         </div>
+        <AccountMenu viewer={viewer} />
       </div>
     </div>
   );

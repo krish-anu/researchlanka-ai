@@ -12,6 +12,12 @@ import type { Suggestion } from "@/types/api";
  * This is the one place the browser calls the API directly. It goes through the
  * same-origin `/api/v1/*` rewrite declared in `next.config.ts`, so no CORS
  * headers are required from the Python service.
+ *
+ * The popup follows the ARIA combobox pattern: the input keeps focus and owns
+ * the keyboard, and the active option is pointed at with `aria-activedescendant`
+ * rather than being focused. Options are therefore plain list items, not
+ * buttons — a focusable control inside a listbox is not a valid option, and it
+ * is what previously made the suggestions unreachable without a mouse.
  */
 export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
   const router = useRouter();
@@ -19,12 +25,14 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 3) {
       setSuggestions([]);
+      setActive(-1);
       return;
     }
 
@@ -38,6 +46,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
         if (!response.ok) return;
         const body = (await response.json()) as { data: Suggestion[] };
         setSuggestions(body.data ?? []);
+        setActive(-1);
       } catch {
         // Suggestions are a convenience; a failure must not block submitting.
       }
@@ -57,12 +66,44 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
+  const expanded = open && suggestions.length > 0;
+
   function submit(value: string) {
     const trimmed = value.trim();
     setOpen(false);
+    setActive(-1);
     router.push(
       trimmed ? `/publications?q=${encodeURIComponent(trimmed)}` : "/publications",
     );
+  }
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setOpen(false);
+      setActive(-1);
+      return;
+    }
+
+    if (!expanded) return;
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      // Wraps through a virtual "no selection" slot, so arrowing back past the
+      // top returns you to what you actually typed.
+      setActive((current) => {
+        const next = current + step;
+        if (next < -1) return suggestions.length - 1;
+        if (next >= suggestions.length) return -1;
+        return next;
+      });
+      return;
+    }
+
+    if (event.key === "Enter" && active >= 0) {
+      event.preventDefault();
+      submit(suggestions[active].value);
+    }
   }
 
   return (
@@ -83,19 +124,22 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
           <input
             id={`${listId}-input`}
             type="search"
+            role="combobox"
             value={query}
             autoComplete="off"
             placeholder="Search titles, authors, journals…"
-            aria-expanded={open && suggestions.length > 0}
+            aria-expanded={expanded}
             aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              active >= 0 ? `${listId}-option-${active}` : undefined
+            }
             onChange={(event) => {
               setQuery(event.target.value);
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setOpen(false);
-            }}
+            onKeyDown={onKeyDown}
             className="w-full border-none bg-transparent p-0 text-body-sm text-ink outline-none placeholder:text-muted"
           />
           <button
@@ -107,28 +151,36 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
         </div>
       </form>
 
-      {open && suggestions.length > 0 ? (
+      {expanded ? (
         <ul
           id={listId}
           role="listbox"
+          aria-label="Search suggestions"
           className="panel absolute z-20 mt-1 max-h-80 w-full overflow-y-auto p-1 shadow-[0_2px_8px_rgba(13,30,37,0.1)]"
         >
           {suggestions.map((suggestion, index) => (
-            <li key={`${suggestion.type}-${suggestion.key}-${index}`}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={false}
-                onClick={() => submit(suggestion.value)}
-                className="flex w-full items-start gap-2 rounded px-2 py-1.5 text-left text-body-sm hover:bg-wash"
-              >
-                <span className="label-caps mt-1 shrink-0 rounded border border-rule px-1 py-0.5 text-muted">
-                  {suggestion.type}
-                </span>
-                <span className="line-clamp-2 text-ink-secondary">
-                  {suggestion.value}
-                </span>
-              </button>
+            <li
+              key={`${suggestion.type}-${suggestion.key}-${index}`}
+              id={`${listId}-option-${index}`}
+              role="option"
+              aria-selected={index === active}
+              // `mousedown` fires before the input's blur, so the click is not
+              // eaten by the dismiss handler.
+              onMouseDown={(event) => {
+                event.preventDefault();
+                submit(suggestion.value);
+              }}
+              onMouseEnter={() => setActive(index)}
+              className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-left text-body-sm ${
+                index === active ? "bg-wash" : ""
+              }`}
+            >
+              <span className="label-caps mt-1 shrink-0 rounded border border-rule px-1 py-0.5 text-muted">
+                {suggestion.type}
+              </span>
+              <span className="line-clamp-2 text-ink-secondary">
+                {suggestion.value}
+              </span>
             </li>
           ))}
         </ul>
