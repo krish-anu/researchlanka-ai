@@ -25,15 +25,15 @@ export default async function ResearchersPage({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Researchers</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+        <h1 className="font-display text-h1 text-ink">Researchers</h1>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
           Author aggregates ranked by publication count. Open a profile for the
           full publication list, co-author network, and output over time.
         </p>
       </div>
 
       <div className="panel border-warning/40 p-3">
-        <p className="flex gap-2 text-sm text-ink-secondary">
+        <p className="flex gap-2 text-body-sm text-ink-secondary">
           <span aria-hidden className="text-warning">
             ▲
           </span>

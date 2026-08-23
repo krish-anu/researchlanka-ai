@@ -1,11 +1,18 @@
 /**
  * The user table.
  *
- * Seeded on first read with one administrator, because a platform whose only
- * privileged screen is unreachable until someone is already an administrator
- * has no way in. The seed credentials come from `ADMIN_EMAIL` /
- * `ADMIN_PASSWORD` when set; otherwise a development pair is created and its
- * password is printed once to the server log.
+ * Seeded on read, because a platform whose only privileged screen is
+ * unreachable until someone is already an administrator has no way in.
+ *
+ * Which accounts get seeded depends on how the app is configured:
+ *
+ *   - `ADMIN_EMAIL` + `ADMIN_PASSWORD` set — the deployment path. Exactly that
+ *     one administrator is created, on first run only.
+ *   - neither set — the development path. Two fixed accounts are kept in
+ *     place, one per signed-in role, so both sides of the role system can be
+ *     exercised without going through sign-up. Their credentials are published
+ *     in the README and are therefore public: set `SEED_TEST_ACCOUNTS=false`
+ *     (or configure `ADMIN_PASSWORD`) anywhere that is not a test machine.
  */
 
 import { hashPassword, verifyPassword } from "@/services/auth/password";
@@ -15,52 +22,118 @@ import type { AccountRole, UserRecord } from "@/types/auth";
 const COLLECTION = "users";
 const EMPTY: UserRecord[] = [];
 
-const DEV_ADMIN_EMAIL = "admin@researchlanka.lk";
-const DEV_ADMIN_PASSWORD = "researchlanka-admin";
+interface SeedAccount {
+  email: string;
+  password: string;
+  name: string;
+  role: AccountRole;
+}
+
+/** Fixed development logins. Known credentials — never enable in production. */
+const TEST_ACCOUNTS: SeedAccount[] = [
+  {
+    email: "admin@example.com",
+    password: "password123",
+    name: "Test administrator",
+    role: "admin",
+  },
+  {
+    email: "user@example.com",
+    password: "password123",
+    name: "Test user",
+    role: "user",
+  },
+];
+
+const CONFIGURED_ADMIN_EMAIL = "admin@researchlanka.lk";
+
+function testAccountsEnabled(): boolean {
+  // A configured administrator means this is a real deployment, so the known
+  // credentials stay out of it whatever `SEED_TEST_ACCOUNTS` says.
+  if (process.env.ADMIN_PASSWORD) return false;
+  return process.env.SEED_TEST_ACCOUNTS !== "false";
+}
 
 export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Which seed accounts are not in the table yet. */
+function missingSeeds(users: UserRecord[]): SeedAccount[] {
+  if (process.env.ADMIN_PASSWORD) {
+    // Configured administrator: first run only, so an operator who later
+    // renames or removes the account does not get it silently recreated.
+    if (users.length > 0) return [];
+    return [
+      {
+        email: normaliseEmail(process.env.ADMIN_EMAIL ?? CONFIGURED_ADMIN_EMAIL),
+        password: process.env.ADMIN_PASSWORD,
+        name: "Platform administrator",
+        role: "admin",
+      },
+    ];
+  }
+
+  if (!testAccountsEnabled()) return [];
+  const present = new Set(users.map((user) => user.email));
+  return TEST_ACCOUNTS.filter((seed) => !present.has(normaliseEmail(seed.email)));
+}
+
 /**
- * Create the first administrator if the table is empty.
+ * Create any seed account that is missing.
  *
- * Runs inside the collection lock so two simultaneous first requests cannot
- * both seed, and is a no-op on every call after the first.
+ * Hashing is the expensive part, so the common case — everything already
+ * seeded — costs one file read and no key derivation. The write runs inside
+ * the collection lock and re-checks there, so two simultaneous first requests
+ * cannot both insert the same account.
  */
 async function ensureSeeded(): Promise<void> {
   const existing = await readCollection<UserRecord[]>(COLLECTION, EMPTY);
-  if (existing.length > 0) return;
+  const pending = missingSeeds(existing);
+  if (pending.length === 0) return;
 
-  const email = normaliseEmail(process.env.ADMIN_EMAIL ?? DEV_ADMIN_EMAIL);
-  const password = process.env.ADMIN_PASSWORD ?? DEV_ADMIN_PASSWORD;
-  const passwordHash = await hashPassword(password);
+  // One timestamp for the whole batch: hashing finishes in an unpredictable
+  // order, and distinct timestamps would let a fresh install list the seeded
+  // accounts in a different order each time.
+  const createdAt = nowIso();
+  const prepared = await Promise.all(
+    pending.map(async (seed) => ({
+      seed,
+      record: {
+        id: newId("usr"),
+        email: normaliseEmail(seed.email),
+        name: seed.name,
+        role: seed.role,
+        password: await hashPassword(seed.password),
+        created_at: createdAt,
+        last_login_at: null,
+        disabled: false,
+      } satisfies UserRecord,
+    })),
+  );
 
-  const created = await updateCollection<UserRecord[], boolean>(
+  const created = await updateCollection<UserRecord[], SeedAccount[]>(
     COLLECTION,
     EMPTY,
     (users) => {
-      if (users.length > 0) return { next: users, result: false };
-      const admin: UserRecord = {
-        id: newId("usr"),
-        email,
-        name: "Platform administrator",
-        role: "admin",
-        password: passwordHash,
-        created_at: nowIso(),
-        last_login_at: null,
-        disabled: false,
+      const present = new Set(users.map((user) => user.email));
+      const fresh = prepared.filter((entry) => !present.has(entry.record.email));
+      return {
+        next: [...users, ...fresh.map((entry) => entry.record)],
+        result: fresh.map((entry) => entry.seed),
       };
-      return { next: [admin], result: true };
     },
   );
 
-  if (created && !process.env.ADMIN_PASSWORD) {
-    console.warn(
-      `[auth] Seeded the first administrator: ${email} / ${DEV_ADMIN_PASSWORD}\n` +
-        "[auth] Set ADMIN_EMAIL and ADMIN_PASSWORD before deploying, and delete .data/users.json to re-seed.",
-    );
+  if (created.length === 0 || process.env.ADMIN_PASSWORD) return;
+
+  console.warn("[auth] Seeded development accounts with published credentials:");
+  for (const seed of created) {
+    console.warn(`[auth]   ${seed.email} / ${seed.password}  (${seed.role})`);
   }
+  console.warn(
+    "[auth] Set ADMIN_EMAIL and ADMIN_PASSWORD, or SEED_TEST_ACCOUNTS=false, before deploying.",
+  );
 }
 
 export async function listUsers(): Promise<UserRecord[]> {

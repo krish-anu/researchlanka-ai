@@ -58,7 +58,13 @@ export default async function RootLayout({
       lang="en"
       className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}
     >
-      <body className="min-h-screen bg-page text-ink antialiased">
+      {/*
+        The shell is one flex column that is at least as tall as the viewport,
+        so the footer sits on the bottom edge even when a page renders almost
+        nothing. `main` is the only element allowed to grow, which keeps that
+        slack inside the content area instead of below the footer.
+      */}
+      <body className="flex min-h-screen flex-col bg-page text-ink antialiased">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:border focus:border-rule focus:bg-surface focus:px-3 focus:py-2 focus:text-body-sm"
@@ -69,9 +75,12 @@ export default async function RootLayout({
         <SiteNav viewer={viewer} />
 
         {/* Content canvas offset by the fixed rail; 1140px fixed grid inside. */}
-        <div className="flex min-h-screen flex-col md:ml-72">
+        <div className="flex grow flex-col md:ml-72">
           <SiteSearchBar viewer={viewer} />
-          <main id="main" className="mx-auto w-full max-w-[1140px] px-4 py-6 md:px-8 md:py-12 lg:px-16">
+          <main
+            id="main"
+            className="mx-auto w-full max-w-[1140px] grow px-4 py-6 md:px-8 md:py-12 lg:px-16"
+          >
             {children}
           </main>
           <SiteFooter />
