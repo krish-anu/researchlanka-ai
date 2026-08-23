@@ -42,6 +42,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
+from src.preprocessing.text_cleaning import clean_text_series, CUSTOM_STOP_WORDS
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = (
@@ -201,9 +203,19 @@ def load_taxonomy(path: Path) -> dict[tuple[str, str], str]:
 # ============================================================================
 
 
-def combined_text(frame: pd.DataFrame, text_columns: Iterable[str]) -> pd.Series:
+def combined_text(
+    frame: pd.DataFrame,
+    text_columns: Iterable[str],
+    *,
+    clean: bool = True,
+) -> pd.Series:
     text = frame[list(text_columns)].fillna("").astype(str).agg(" ".join, axis=1)
-    return text.str.replace(r"\s+", " ", regex=True).str.strip()
+    text = text.str.replace(r"\s+", " ", regex=True).str.strip()
+
+    if clean:
+        text = clean_text_series(text)
+
+    return text
 
 
 # ============================================================================
@@ -232,7 +244,7 @@ def build_pipeline(
                 TfidfVectorizer(
                     strip_accents="unicode",
                     lowercase=True,
-                    stop_words=None,
+                    stop_words=CUSTOM_STOP_WORDS,
                     ngram_range=(1, ngram_max),
                     min_df=min_df,
                     max_df=max_df,
@@ -315,7 +327,7 @@ def load_labeled_frame(
     labeled = frame[
         frame[domain_column].notna() & frame[subfield_column].notna()
     ].copy()
-    labeled["text"] = combined_text(labeled, text_columns)
+    labeled["text"] = combined_text(labeled, text_columns, clean=True)
     labeled = labeled[labeled["text"] != ""]
 
     if labeled.empty:
@@ -713,6 +725,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--c-value", type=float, default=1.0)
     parser.add_argument("--class-weight", type=parse_class_weight, default="balanced")
     parser.add_argument("--max-iter", type=int, default=5000)
+    parser.add_argument(
+        "--predict-output",
+        type=Path,
+        default=None,
+        help="If set, run the trained models over the input CSV and save "
+        "linearsvm_domain/field/subfield predictions here.",
+    )
     return parser.parse_args()
 
 
@@ -767,6 +786,17 @@ def main() -> None:
     )
     result = train_hierarchical_classifier(config)
     print(result_summary(result))
+    if args.predict_output:
+        lookup = load_taxonomy(config.taxonomy_path)
+        run_hierarchical_prediction(
+            input_path=config.input_path,
+            output_path=args.predict_output,
+            domain_model_path=result.domain_model_output,
+            subfield_model_path=result.subfield_model_output,
+            taxonomy_path=config.taxonomy_path,
+            text_columns=config.text_columns,
+        )
+        print(f"Predictions written to: {args.predict_output}")
 
 
 if __name__ == "__main__":
