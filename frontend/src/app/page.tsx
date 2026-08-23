@@ -185,7 +185,7 @@ async function TrendsSection() {
         {!trends.ok ? (
           <ApiErrorPanel error={trends.error} what="publication trends" />
         ) : points.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No trend data available.</p>
+          <p className="p-4 text-body-sm text-muted">No trend data available.</p>
         ) : (
           <TrendLineChart
             points={points.map((point) => ({
@@ -213,7 +213,7 @@ async function TrendsSection() {
             ariaLabel="Line chart of citations per publication year"
           />
         ) : (
-          <p className="p-4 text-sm text-muted">No citation trend available.</p>
+          <p className="p-4 text-body-sm text-muted">No citation trend available.</p>
         )}
       </ChartPanel>
     </div>
@@ -247,7 +247,7 @@ async function RankingsSection() {
         {!institutions.ok ? (
           <ApiErrorPanel error={institutions.error} what="institution rankings" />
         ) : institutions.value.data.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No institution data available.</p>
+          <p className="p-4 text-body-sm text-muted">No institution data available.</p>
         ) : (
           <RankingBarChart
             entries={institutions.value.data.map((entry) => ({
@@ -281,7 +281,7 @@ async function RankingsSection() {
         {!fields.ok ? (
           <ApiErrorPanel error={fields.error} what="the field breakdown" />
         ) : fields.value.data.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No field data available.</p>
+          <p className="p-4 text-body-sm text-muted">No field data available.</p>
         ) : (
           <RankingBarChart
             entries={fields.value.data.map((entry) => ({
@@ -309,7 +309,7 @@ async function NetworkSection() {
       title="Institutional collaboration network"
       description="Institutions that co-publish in the national corpus."
       action={
-        <Link href="/institutions" className="text-sm text-primary hover:underline">
+        <Link href="/institutions" className="text-body-sm text-primary hover:underline">
           Browse institutions →
         </Link>
       }
@@ -380,10 +380,10 @@ function PanelPairSkeleton() {
 function PageIntro() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-ink">
+      <h1 className="font-display text-h1 text-ink">
         Sri Lanka research at a glance
       </h1>
-      <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+      <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
         A public, read-only view of the consolidated national publication
         corpus. Browse{" "}
         <Link href="/publications" className="text-primary hover:underline">
