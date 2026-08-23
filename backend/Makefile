@@ -102,6 +102,26 @@ LOGREG_TEST_SIZE ?= 0.2
 LOGREG_MAX_ITER ?= 1000
 LOGREG_EXTRA_ARGS ?=
 
+# Multinomial Naive Bayes baseline. Shares the training pipeline with the
+# Logistic Regression run above, so the two are directly comparable.
+NB_INPUT ?= $(LOGREG_INPUT)
+NB_LABEL_COLUMN ?= $(LOGREG_LABEL_COLUMN)
+NB_TEXT_COLUMNS ?= $(LOGREG_TEXT_COLUMNS)
+NB_ALPHA ?= 1.0
+NB_MIN_CLASS_COUNT ?= $(LOGREG_MIN_CLASS_COUNT)
+NB_TEST_SIZE ?= $(LOGREG_TEST_SIZE)
+NB_EXTRA_ARGS ?=
+
+# Evaluation. Point EVAL_PREDICTIONS at one or more predictions CSVs.
+EVAL_PREDICTIONS ?= --predictions-csv data/models/multinomial_nb_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_predictions.csv
+EVAL_OUTPUT_DIR ?= data/models
+EVAL_EXTRA_ARGS ?=
+
+# Dataset field validation.
+VALIDATE_CHECKS ?= authors,institutions,citations,collaboration
+VALIDATE_REPORT_DIR ?= data/reports/validation
+VALIDATE_EXTRA_ARGS ?=
+
 # Build optional/email args only when values are provided.
 OPENALEX_EMAIL_ARG = $(if $(OPENALEX_EMAIL),--email $(OPENALEX_EMAIL),)
 
@@ -125,7 +145,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -156,6 +176,9 @@ help:
 	@echo "  make model-embeddings        Generate dense publication-text embeddings"
 	@echo "  make model-splits            Create train/validation/test CSVs for publication classifier datasets"
 	@echo "  make train-logreg            Train TF-IDF + Logistic Regression classifier"
+	@echo "  make train-nb                Train the TF-IDF + Multinomial Naive Bayes baseline"
+	@echo "  make evaluate-models         Score predictions: confusion matrix, per-class, comparison"
+	@echo "  make validate-dataset        Validate author, institution, citation and collaboration fields"
 	@echo "  make predict-logreg          Run saved classifier inference on publication text"
 	@echo "  make model-api               Serve FastAPI model endpoints"
 	@echo ""
@@ -218,6 +241,20 @@ model-splits:
 
 train-logreg:
 	$(PYTHON) scripts/modeling/train_logistic_regression_classifier.py --input $(LOGREG_INPUT) --label-column $(LOGREG_LABEL_COLUMN) --text-columns $(LOGREG_TEXT_COLUMNS) --model-output $(LOGREG_MODEL_OUTPUT) --metrics-output $(LOGREG_METRICS_OUTPUT) --label-counts-output $(LOGREG_LABEL_COUNTS_OUTPUT) --predictions-output $(LOGREG_PREDICTIONS_OUTPUT) --manifest-output $(LOGREG_MANIFEST_OUTPUT) --max-features $(LOGREG_MAX_FEATURES) --min-df $(LOGREG_MIN_DF) --max-df $(LOGREG_MAX_DF) --ngram-max $(LOGREG_NGRAM_MAX) --min-class-count $(LOGREG_MIN_CLASS_COUNT) --test-size $(LOGREG_TEST_SIZE) --max-iter $(LOGREG_MAX_ITER) $(LOGREG_EXTRA_ARGS)
+
+# Train the Multinomial Naive Bayes baseline. Writes the same artifact set as
+# train-logreg, plus its confusion matrix and per-class results.
+train-nb:
+	$(PYTHON) -m src.modeling.training --model-family multinomial_nb --input $(NB_INPUT) --label-column $(NB_LABEL_COLUMN) --text-columns $(NB_TEXT_COLUMNS) --alpha $(NB_ALPHA) --min-class-count $(NB_MIN_CLASS_COUNT) --test-size $(NB_TEST_SIZE) $(NB_EXTRA_ARGS)
+
+# Score saved predictions and write confusion-matrix, per-class and comparison
+# artifacts. Pass several --predictions-csv values to compare runs.
+evaluate-models:
+	$(PYTHON) -m src.modeling.evaluation $(EVAL_PREDICTIONS) --output-dir $(EVAL_OUTPUT_DIR) $(EVAL_EXTRA_ARGS)
+
+# Validate author, institution, citation and collaboration fields.
+validate-dataset:
+	$(PYTHON) -m src.quality.validate_analysis_dataset --checks $(VALIDATE_CHECKS) --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
 
 predict-logreg:
 	$(PYTHON) scripts/modeling/predict_publication_classifier.py --input $(LOGREG_INFERENCE_INPUT) --model $(LOGREG_MODEL_OUTPUT) --model-manifest $(LOGREG_MANIFEST_OUTPUT) --output $(LOGREG_INFERENCE_OUTPUT) --inference-manifest $(LOGREG_INFERENCE_MANIFEST_OUTPUT) --text-columns $(LOGREG_TEXT_COLUMNS) --metadata-columns $(LOGREG_INFERENCE_METADATA_COLUMNS) $(LOGREG_INFERENCE_EXTRA_ARGS)

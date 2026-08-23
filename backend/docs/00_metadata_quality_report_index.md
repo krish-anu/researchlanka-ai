@@ -16,6 +16,8 @@ This report set documents metadata quality, cleaning decisions, and interpretati
 | False duplicate match analysis | [12_false_duplicate_match_analysis.md](12_false_duplicate_match_analysis.md) | `src/quality/analyze_false_duplicate_matches.py` | `data/processed/common/duplicate_match_analysis/` |
 | Missed duplicate record analysis | [13_missed_duplicate_record_analysis.md](13_missed_duplicate_record_analysis.md) | `src/quality/analyze_missed_duplicate_records.py` | `data/processed/common/missed_duplicate_analysis/` |
 | Author disambiguation and review | [14_author_disambiguation.md](14_author_disambiguation.md) | `src/pipeline/build_author_disambiguated_dataset.py`, `src/quality/review_ambiguous_authors.py` | `data/processed/common/` |
+| Author, institution, citation and collaboration validation | [15_dataset_field_validation.md](15_dataset_field_validation.md) | `src/quality/validate_analysis_dataset.py` | `data/reports/validation/` |
+| Model evaluation and the Naive Bayes baseline | [16_model_evaluation_and_baselines.md](16_model_evaluation_and_baselines.md) | `src/modeling/training.py`, `src/modeling/evaluation.py` | `data/models/` |
 
 ## Running the pipeline
 
