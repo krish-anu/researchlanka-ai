@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const DATA_DIR = process.env.APP_DATA_DIR
@@ -46,12 +46,49 @@ export async function readCollection<T>(name: string, fallback: T): Promise<T> {
   }
 }
 
+/**
+ * Windows refuses a rename while anything else holds either file open, and on
+ * a developer machine something usually does — the virus scanner opens each
+ * newly written file, and back-to-back writes (seed an account, then stamp its
+ * sign-in) land inside that window. The failure is transient by nature, so it
+ * is retried rather than surfaced: an unretried rename turns a successful
+ * sign-in into a 500.
+ */
+const RENAME_RETRIES = 5;
+const RENAME_BACKOFF_MS = 10;
+const TRANSIENT_LOCK_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+
+async function renameWithRetry(temp: string, target: string): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await rename(temp, target);
+      return;
+    } catch (cause) {
+      const code = (cause as NodeJS.ErrnoException | null)?.code ?? "";
+      if (attempt >= RENAME_RETRIES - 1 || !TRANSIENT_LOCK_CODES.has(code)) {
+        throw cause;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, RENAME_BACKOFF_MS * 2 ** attempt),
+      );
+    }
+  }
+}
+
 async function writeCollection<T>(name: string, value: T): Promise<void> {
   await mkdir(DATA_DIR, { recursive: true });
   const target = filePath(name);
   const temp = `${target}.${randomUUID()}.tmp`;
   await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-  await rename(temp, target);
+
+  try {
+    await renameWithRetry(temp, target);
+  } catch (cause) {
+    // Otherwise a run of failures litters `.data/` with half-written copies of
+    // the collection, which a later reader could mistake for a real file.
+    await unlink(temp).catch(() => undefined);
+    throw cause;
+  }
 }
 
 /**

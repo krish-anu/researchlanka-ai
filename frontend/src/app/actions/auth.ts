@@ -10,6 +10,7 @@ import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_SECONDS,
   sessionCookieOptions,
+  sessionSecretProblem,
 } from "@/services/auth/session";
 import type { AuthFormState } from "@/services/forms/state";
 import { publicUser } from "@/types/auth";
@@ -48,6 +49,11 @@ export async function signIn(
     return { error: "Enter your email and password.", field: "email" };
   }
 
+  // Checked before the password, not after: there is no point verifying
+  // credentials the server cannot then issue a session for.
+  const misconfigured = sessionSecretProblem();
+  if (misconfigured) return { error: misconfigured };
+
   const check = await checkCredentials(email, password);
 
   if (!check.ok) {
@@ -75,6 +81,9 @@ export async function signUp(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const next = safeNext(formData.get("next"));
+
+  const misconfigured = sessionSecretProblem();
+  if (misconfigured) return { error: misconfigured };
 
   if (!name) return { error: "Enter your name.", field: "name" };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
