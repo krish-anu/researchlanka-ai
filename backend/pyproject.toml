@@ -16,6 +16,8 @@ dependencies = [
     "pyarrow==22.0.0",
     "psycopg[binary]>=3.2,<4",
     "python-dotenv==1.2.2",
+    # Required by research_analytics.duplicate_analysis (fuzzy title matching).
+    "rapidfuzz==3.14.3",
     "requests==2.34.2",
     "scikit-learn==1.8.0",
     "uvicorn[standard]==0.40.0",

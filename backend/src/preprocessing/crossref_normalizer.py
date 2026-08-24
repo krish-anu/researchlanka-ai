@@ -1,3 +1,15 @@
+"""Crossref work normalization.
+
+Flattens a raw Crossref ``/works`` payload down to ``CROSSREF_FIELDS`` -- the
+stable subset the pipeline consumes -- using dotted paths so nested values
+like ``issued.date-parts`` can be pulled without a chain of ``.get()`` calls
+that raise on a missing branch.
+
+Field names are kept in Crossref's own spelling (``DOI``, ``container-title``,
+``is-referenced-by-count``); renaming onto the common schema happens later, in
+``src/processing/map_to_common_schema.py``.
+"""
+
 from __future__ import annotations
 
 from typing import Any

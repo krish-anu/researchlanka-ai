@@ -67,7 +67,14 @@ def describe_artifact(path: Path) -> SavedArtifact:
 
 
 def fsync_directory(path: Path) -> None:
-    """Best-effort directory fsync so atomic replacements survive crashes."""
+    """Best-effort directory fsync so atomic replacements survive crashes.
+
+    Flushing the *directory* entry is what makes a completed ``os.replace``
+    durable across a power loss on POSIX. Windows supports neither opening a
+    directory as a file descriptor nor fsyncing one, so both calls are treated
+    as best-effort and any ``OSError`` is swallowed -- the artifact itself has
+    already been fsynced by the writer at this point.
+    """
 
     try:
         directory_fd = os.open(path, os.O_RDONLY)
@@ -76,6 +83,8 @@ def fsync_directory(path: Path) -> None:
 
     try:
         os.fsync(directory_fd)
+    except OSError:
+        return
     finally:
         os.close(directory_fd)
 
@@ -139,9 +148,18 @@ def write_csv_artifact(
 
 
 def dump_joblib_artifact(path: Path, model: Any) -> SavedArtifact:
+    """Pickle ``model`` to ``path`` durably, via the shared atomic-write helper.
+
+    ``joblib.dump`` closes the file itself, so the bytes must be forced to disk
+    through a second handle. That handle is opened ``"r+b"`` rather than
+    ``"rb"``: Windows rejects ``os.fsync`` on a read-only descriptor with
+    ``OSError(EBADF)``, while ``"r+b"`` is writable, does not truncate, and
+    behaves identically on POSIX.
+    """
+
     def writer(temp_path: Path) -> None:
         joblib.dump(model, temp_path)
-        with temp_path.open("rb") as output_file:
+        with temp_path.open("r+b") as output_file:
             os.fsync(output_file.fileno())
 
     return atomic_write_artifact(path, writer)
