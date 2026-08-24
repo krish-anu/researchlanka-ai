@@ -170,6 +170,13 @@ git push origin feature/openalex-collector
 
 ## Useful Docs
 
+Start here if you are new to the backend:
+
+- [Backend Architecture Map](docs/BACKEND_ARCHITECTURE_MAP.md) - what every package does, how data flows between stages, and which file to open for a given task
+- [Backend Code Audit](docs/BACKEND_CODE_AUDIT.md) - defects found and fixed, plus the open questions that need a team decision
+
+Reference:
+
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
 - [API Design](docs/API_DESIGN.md) - read-only dashboard/search/profile API contract for the PostgreSQL-backed corpus
 - [Metadata Quality Report Index](docs/00_metadata_quality_report_index.md) - missing values, completeness, conflicts, and final column decisions
@@ -180,7 +187,6 @@ git push origin feature/openalex-collector
 - [Migration to Framework Pipeline](docs/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
-- [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
 
 ## Sri Lanka National Framework Mode
 

@@ -1,3 +1,15 @@
+"""Compare DOI coverage and validity between the OpenAlex and Crossref pulls.
+
+Reads the two raw collections, normalizes every DOI to the same form, and
+reports how many are present, valid, shared, and unique to each source. Used
+to sanity-check a collection run before the merge stage, where a DOI gap
+silently becomes a deduplication miss.
+
+Run from the backend folder::
+
+    python -m src.quality.compare_dois
+"""
+
 from pathlib import Path
 import logging
 import pandas as pd
