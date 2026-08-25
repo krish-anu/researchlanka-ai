@@ -30,45 +30,48 @@ export function CompareBarChart({
   height = 240,
 }: CompareBarChartProps) {
   const build = useCallback(
-    (theme: ChartTheme) => ({
-      data: entries.map((entry, index) => ({
-        type: "bar",
-        name: entry.label,
-        x: [entry.label],
-        y: [entry.value],
-        marker: {
-          color: theme.series[index % theme.series.length],
-          cornerradius: 4,
+    (theme: ChartTheme) => {
+      const base = baseLayout(theme);
+      return {
+        data: entries.map((entry, index) => ({
+          type: "bar",
+          name: entry.label,
+          x: [entry.label],
+          y: [entry.value],
+          marker: {
+            color: theme.series[index % theme.series.length],
+            cornerradius: 4,
+          },
+          text: [entry.value.toLocaleString("en-GB")],
+          textposition: "outside",
+          textfont: { color: theme.inkSecondary, size: 12 },
+          cliponaxis: false,
+          hovertemplate: `%{x}<br>${valueLabel}: %{y:,}<extra></extra>`,
+        })),
+        layout: {
+          ...base,
+          bargap: 0.45,
+          // Two or more series always carry a legend; identity is never colour alone.
+          showlegend: true,
+          legend: {
+            orientation: "h",
+            y: -0.2,
+            font: { color: theme.inkSecondary, size: 11 },
+          },
+          margin: { l: 56, r: 16, t: 16, b: 24 },
+          xaxis: {
+            ...(base.xaxis as Record<string, unknown>),
+            showticklabels: false,
+            gridcolor: "rgba(0,0,0,0)",
+          },
+          yaxis: {
+            ...(base.yaxis as Record<string, unknown>),
+            title: { text: valueLabel, font: { color: theme.muted, size: 11 } },
+            rangemode: "tozero",
+          },
         },
-        text: [entry.value.toLocaleString("en-GB")],
-        textposition: "outside",
-        textfont: { color: theme.inkSecondary, size: 12 },
-        cliponaxis: false,
-        hovertemplate: `%{x}<br>${valueLabel}: %{y:,}<extra></extra>`,
-      })),
-      layout: {
-        ...baseLayout(theme),
-        bargap: 0.45,
-        // Two or more series always carry a legend; identity is never colour alone.
-        showlegend: true,
-        legend: {
-          orientation: "h",
-          y: -0.2,
-          font: { color: theme.inkSecondary, size: 11 },
-        },
-        margin: { l: 56, r: 16, t: 16, b: 24 },
-        xaxis: {
-          ...(baseLayout(theme).xaxis as Record<string, unknown>),
-          showticklabels: false,
-          gridcolor: "rgba(0,0,0,0)",
-        },
-        yaxis: {
-          ...(baseLayout(theme).yaxis as Record<string, unknown>),
-          title: { text: valueLabel, font: { color: theme.muted, size: 11 } },
-          rangemode: "tozero",
-        },
-      },
-    }),
+      };
+    },
     [entries, valueLabel],
   );
 

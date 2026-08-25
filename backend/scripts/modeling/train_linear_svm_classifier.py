@@ -12,3 +12,9 @@ from src.modeling.linear_svm_training import main
 
 if __name__ == "__main__":
     main()
+
+
+# cd researchlanka-ai/backend
+# PYTHONPATH=. python scripts/modeling/linear_svm_hierarchical.py \
+#   --input data/processed/common/common_publications_final.csv \
+#   --predict-output data/processed/common/common_publications_final_with_linearsvm.csv
