@@ -36,9 +36,14 @@ from sklearn.pipeline import Pipeline
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
 DEFAULT_MODEL_DIR = PROJECT_ROOT / "data" / "models"
-DEFAULT_LABEL_COLUMN = "primary_domain"
-DEFAULT_TEXT_COLUMNS = ["title", "abstract", "keywords"]
+DEFAULT_LABEL_COLUMN = "primary_field"
+DEFAULT_TEXT_COLUMNS = ["title", "abstract", "topics", "keywords", "concepts"]
 DEFAULT_MODEL_FAMILY = "logistic_regression"
+# Best Logistic Regression defaults (aligned text cols with Linear SVM)
+DEFAULT_NGRAM_MAX = 2
+DEFAULT_TEST_SIZE = 0.15
+DEFAULT_CLASS_WEIGHT: str | None = "balanced"
+DEFAULT_MAX_ITER = 1000
 
 
 @dataclass(frozen=True)
@@ -54,17 +59,17 @@ class TextTrainingConfig:
     label_counts_output: Path | None = None
     predictions_output: Path | None = None
     manifest_output: Path | None = None
-    test_size: float = 0.2
+    test_size: float = DEFAULT_TEST_SIZE
     random_state: int = 42
     max_rows: int | None = None
     min_class_count: int = 20
     max_features: int = 50_000
     min_df: int | float = 2
     max_df: int | float = 0.95
-    ngram_max: int = 2
+    ngram_max: int = DEFAULT_NGRAM_MAX
     keep_stop_words: bool = False
-    class_weight: str | None = "balanced"
-    max_iter: int = 1000
+    class_weight: str | None = DEFAULT_CLASS_WEIGHT
+    max_iter: int = DEFAULT_MAX_ITER
 
 
 @dataclass(frozen=True)
@@ -633,7 +638,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Output run manifest JSON path. Default: data/models/logistic_regression_<label>_manifest.json",
     )
-    parser.add_argument("--test-size", type=float, default=0.2, help="Held-out test fraction.")
+    parser.add_argument("--test-size", type=float, default=DEFAULT_TEST_SIZE, help="Held-out test fraction.")
     parser.add_argument("--random-state", type=int, default=42, help="Random seed.")
     parser.add_argument(
         "--max-rows",
