@@ -1,28 +1,32 @@
 """Compare publication text classification model families.
 
-Runs each supported flat classifier trainer against the same dataset and writes
-a ranked metrics table plus a manifest that points back to each model's normal
-training artifacts.
+Trains Logistic Regression and Linear SVM on the same `primary_field` data,
+each with its **best default hyperparameters**, ranks by macro F1, and copies
+the winner into `data/models/final/` as the final field classifier.
 """
 
 from __future__ import annotations
 
 import argparse
+import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-import pandas as pd
-
 from src.modeling.artifacts import write_csv_artifact, write_json_artifact
 from src.modeling.linear_svm_training import (
+    DEFAULT_C_VALUES as SVM_C_VALUES,
+    DEFAULT_NGRAM_MAX as SVM_NGRAM_MAX,
     LinearSVMTrainingConfig,
     train_linear_svm_classifier,
 )
 from src.modeling.training import (
     DEFAULT_INPUT,
     DEFAULT_LABEL_COLUMN,
+    DEFAULT_MAX_ITER as LOGREG_MAX_ITER,
     DEFAULT_MODEL_DIR,
+    DEFAULT_NGRAM_MAX as LOGREG_NGRAM_MAX,
+    DEFAULT_TEST_SIZE as SHARED_TEST_SIZE,
     DEFAULT_TEXT_COLUMNS,
     TextTrainingConfig,
     parse_class_weight,
@@ -36,7 +40,24 @@ from src.modeling.training import (
 DEFAULT_MODEL_FAMILIES = ("logistic_regression", "linear_svm")
 DEFAULT_COMPARISON_DIR = DEFAULT_MODEL_DIR / "classification_comparison"
 DEFAULT_COMPARISON_OUTPUT = DEFAULT_COMPARISON_DIR / "model_comparison.csv"
-DEFAULT_COMPARISON_MANIFEST_OUTPUT = DEFAULT_COMPARISON_DIR / "model_comparison_manifest.json"
+DEFAULT_COMPARISON_MANIFEST_OUTPUT = (
+    DEFAULT_COMPARISON_DIR / "model_comparison_manifest.json"
+)
+DEFAULT_FINAL_DIR = DEFAULT_MODEL_DIR / "final"
+DEFAULT_FINAL_MODEL = DEFAULT_FINAL_DIR / "publication_field_classifier.joblib"
+DEFAULT_FINAL_MANIFEST = DEFAULT_FINAL_DIR / "publication_field_classifier_manifest.json"
+
+FAMILY_BEST_DEFAULTS: dict[str, dict[str, Any]] = {
+    "logistic_regression": {
+        "ngram_max": LOGREG_NGRAM_MAX,
+        "max_iter": LOGREG_MAX_ITER,
+    },
+    "linear_svm": {
+        "ngram_max": SVM_NGRAM_MAX,
+        "max_iter": 5000,
+        "c_values": SVM_C_VALUES,
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -50,18 +71,21 @@ class ClassificationComparisonConfig:
     output_dir: Path = DEFAULT_COMPARISON_DIR
     comparison_output: Path | None = None
     manifest_output: Path | None = None
-    test_size: float = 0.2
+    final_model_output: Path | None = None
+    final_manifest_output: Path | None = None
+    promote_final: bool = True
+    test_size: float = SHARED_TEST_SIZE
     random_state: int = 42
     max_rows: int | None = None
     min_class_count: int = 20
     max_features: int = 50_000
     min_df: int | float = 2
     max_df: int | float = 0.95
-    ngram_max: int = 2
+    ngram_max: int | None = None  # None → each family's best
     keep_stop_words: bool = False
     class_weight: str | None = "balanced"
-    max_iter: int = 1000
-    c_values: tuple[float, ...] = (0.1, 1.0, 10.0)
+    max_iter: int | None = None
+    c_values: tuple[float, ...] = SVM_C_VALUES
     cv_folds: int = 3
     scoring: str = "f1_macro"
     ranking_metric: str = "macro_f1"
@@ -77,6 +101,8 @@ class ClassificationComparisonResult:
     best_model_family: str
     ranking_metric: str
     rows: tuple[dict[str, Any], ...]
+    final_model_output: Path | None = None
+    final_manifest_output: Path | None = None
 
 
 def parse_model_families(value: str) -> tuple[str, ...]:
@@ -109,6 +135,20 @@ def parse_c_values(value: str) -> tuple[float, ...]:
 
 
 def resolved_config(config: ClassificationComparisonConfig) -> ClassificationComparisonConfig:
+    if config.final_model_output is not None:
+        final_model = config.final_model_output
+    elif config.output_dir == DEFAULT_COMPARISON_DIR:
+        final_model = DEFAULT_FINAL_MODEL
+    else:
+        final_model = config.output_dir / "final" / "publication_field_classifier.joblib"
+
+    if config.final_manifest_output is not None:
+        final_manifest = config.final_manifest_output
+    else:
+        final_manifest = final_model.with_name(
+            final_model.stem + "_manifest.json"
+        )
+
     return ClassificationComparisonConfig(
         input_path=config.input_path,
         label_column=config.label_column,
@@ -121,6 +161,9 @@ def resolved_config(config: ClassificationComparisonConfig) -> ClassificationCom
         manifest_output=config.manifest_output
         or config.output_dir
         / DEFAULT_COMPARISON_MANIFEST_OUTPUT.name,
+        final_model_output=final_model,
+        final_manifest_output=final_manifest,
+        promote_final=config.promote_final,
         test_size=config.test_size,
         random_state=config.random_state,
         max_rows=config.max_rows,
@@ -220,7 +263,7 @@ def validate_config(config: ClassificationComparisonConfig) -> None:
         raise ValueError("test_size must be between 0 and 1")
     if config.min_class_count < 2:
         raise ValueError("min_class_count must be at least 2 for stratified splitting")
-    if config.ngram_max < 1:
+    if config.ngram_max is not None and config.ngram_max < 1:
         raise ValueError("ngram_max must be at least 1")
     if not config.c_values:
         raise ValueError("at least one C value is required")
@@ -233,6 +276,16 @@ def train_model_family(
     config: ClassificationComparisonConfig,
 ) -> Any:
     paths = model_artifact_paths(config.output_dir, model_family, config.label_column)
+    family_best = FAMILY_BEST_DEFAULTS[model_family]
+    ngram_max = (
+        config.ngram_max
+        if config.ngram_max is not None
+        else int(family_best["ngram_max"])
+    )
+    max_iter = (
+        config.max_iter if config.max_iter is not None else int(family_best["max_iter"])
+    )
+
     if model_family == "logistic_regression":
         return train_text_classifier(
             TextTrainingConfig(
@@ -251,10 +304,10 @@ def train_model_family(
                 max_features=config.max_features,
                 min_df=config.min_df,
                 max_df=config.max_df,
-                ngram_max=config.ngram_max,
+                ngram_max=ngram_max,
                 keep_stop_words=config.keep_stop_words,
                 class_weight=config.class_weight,
-                max_iter=config.max_iter,
+                max_iter=max_iter,
             )
         )
     if model_family == "linear_svm":
@@ -275,10 +328,10 @@ def train_model_family(
                 max_features=config.max_features,
                 min_df=config.min_df,
                 max_df=config.max_df,
-                ngram_max=config.ngram_max,
+                ngram_max=ngram_max,
                 c_values=config.c_values,
                 class_weight=config.class_weight,
-                max_iter=config.max_iter,
+                max_iter=max_iter,
                 cv_folds=config.cv_folds,
                 scoring=config.scoring,
             )
@@ -322,11 +375,52 @@ def sorted_rows(rows: Iterable[dict[str, Any]], ranking_metric: str) -> list[dic
     )
 
 
+def promote_final_model(
+    *,
+    best_row: dict[str, Any],
+    ranking_metric: str,
+    final_model_output: Path,
+    final_manifest_output: Path,
+    config: ClassificationComparisonConfig,
+) -> None:
+    """Copy the winning field classifier into data/models/final/."""
+    source = Path(str(best_row["model_path"]))
+    if not source.exists():
+        raise FileNotFoundError(f"Best model artifact missing: {source}")
+
+    final_model_output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, final_model_output)
+
+    metrics_source = Path(str(best_row["metrics_path"]))
+    metrics_dest = final_model_output.with_name(final_model_output.stem + "_metrics.txt")
+    if metrics_source.exists():
+        shutil.copy2(metrics_source, metrics_dest)
+
+    write_json_artifact(
+        final_manifest_output,
+        {
+            "role": "final_primary_field_classifier",
+            "label_column": config.label_column,
+            "best_model_family": best_row["model_family"],
+            "ranking_metric": ranking_metric,
+            "accuracy": best_row["accuracy"],
+            "macro_f1": best_row["macro_f1"],
+            "weighted_f1": best_row["weighted_f1"],
+            "best_c": best_row.get("best_c"),
+            "source_model_path": str(source),
+            "final_model_path": str(final_model_output),
+            "model_sha256": best_row.get("model_sha256"),
+            "text_columns": list(config.text_columns),
+        },
+    )
+
+
 def write_comparison_manifest(
     path: Path,
     *,
     config: ClassificationComparisonConfig,
     rows: list[dict[str, Any]],
+    final_model_output: Path | None = None,
 ) -> None:
     write_json_artifact(
         path,
@@ -334,6 +428,13 @@ def write_comparison_manifest(
             "config": json_ready_dataclass(config),
             "ranking_metric": config.ranking_metric,
             "best_model_family": rows[0]["model_family"] if rows else None,
+            "final_model_path": str(final_model_output) if final_model_output else None,
+            "family_best_defaults": {
+                key: {
+                    k: (list(v) if isinstance(v, tuple) else v) for k, v in vals.items()
+                }
+                for key, vals in FAMILY_BEST_DEFAULTS.items()
+            },
             "models": rows,
         },
     )
@@ -382,7 +483,28 @@ def compare_classification_models(
             for rank, row in enumerate(ranked_rows, start=1)
         ],
     )
-    write_comparison_manifest(config.manifest_output, config=config, rows=ranked_rows)
+
+    final_model_output: Path | None = None
+    final_manifest_output: Path | None = None
+    if config.promote_final and ranked_rows:
+        assert config.final_model_output is not None
+        assert config.final_manifest_output is not None
+        promote_final_model(
+            best_row=ranked_rows[0],
+            ranking_metric=config.ranking_metric,
+            final_model_output=config.final_model_output,
+            final_manifest_output=config.final_manifest_output,
+            config=config,
+        )
+        final_model_output = config.final_model_output
+        final_manifest_output = config.final_manifest_output
+
+    write_comparison_manifest(
+        config.manifest_output,
+        config=config,
+        rows=ranked_rows,
+        final_model_output=final_model_output,
+    )
 
     return ClassificationComparisonResult(
         comparison_output=config.comparison_output,
@@ -391,14 +513,17 @@ def compare_classification_models(
         best_model_family=str(ranked_rows[0]["model_family"]),
         ranking_metric=config.ranking_metric,
         rows=tuple(ranked_rows),
+        final_model_output=final_model_output,
+        final_manifest_output=final_manifest_output,
     )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Train and compare all supported flat publication text classifiers "
-            "on the same input data and write ranked metrics artifacts."
+            "Compare Logistic Regression vs Linear SVM on primary_field using "
+            "each family's best defaults, then promote the winner to "
+            "data/models/final/."
         )
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
@@ -407,7 +532,7 @@ def parse_args() -> argparse.Namespace:
         "--text-columns",
         type=parse_text_columns,
         default=DEFAULT_TEXT_COLUMNS,
-        help="Comma-separated text columns. Default: title,abstract,keywords",
+        help="Comma-separated text columns. Default: title,abstract,topics,keywords,concepts",
     )
     parser.add_argument(
         "--model-families",
@@ -418,18 +543,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_COMPARISON_DIR)
     parser.add_argument("--comparison-output", type=Path, default=None)
     parser.add_argument("--manifest-output", type=Path, default=None)
-    parser.add_argument("--test-size", type=float, default=0.2)
+    parser.add_argument("--final-model-output", type=Path, default=None)
+    parser.add_argument("--final-manifest-output", type=Path, default=None)
+    parser.add_argument(
+        "--no-promote-final",
+        action="store_true",
+        help="Skip copying the winning model into data/models/final/",
+    )
+    parser.add_argument("--test-size", type=float, default=SHARED_TEST_SIZE)
     parser.add_argument("--random-state", type=int, default=42)
     parser.add_argument("--max-rows", type=int, default=None)
     parser.add_argument("--min-class-count", type=int, default=20)
     parser.add_argument("--max-features", type=int, default=50_000)
     parser.add_argument("--min-df", type=parse_document_frequency, default=2)
     parser.add_argument("--max-df", type=parse_document_frequency, default=0.95)
-    parser.add_argument("--ngram-max", type=int, default=2)
+    parser.add_argument(
+        "--ngram-max",
+        type=int,
+        default=None,
+        help="Force same ngram_max for both (default: each family's best)",
+    )
     parser.add_argument("--keep-stop-words", action="store_true")
     parser.add_argument("--class-weight", type=parse_class_weight, default="balanced")
-    parser.add_argument("--max-iter", type=int, default=1000)
-    parser.add_argument("--c-values", type=parse_c_values, default=(0.1, 1.0, 10.0))
+    parser.add_argument("--max-iter", type=int, default=None)
+    parser.add_argument("--c-values", type=parse_c_values, default=SVM_C_VALUES)
     parser.add_argument("--cv-folds", type=int, default=3)
     parser.add_argument("--scoring", default="f1_macro")
     parser.add_argument(
@@ -448,6 +585,10 @@ def result_summary(result: ClassificationComparisonResult) -> str:
         f"Comparison: {result.comparison_output}",
         f"Manifest: {result.manifest_output}",
     ]
+    if result.final_model_output:
+        lines.append(f"Final field model: {result.final_model_output}")
+    if result.final_manifest_output:
+        lines.append(f"Final manifest: {result.final_manifest_output}")
     return "\n".join(lines)
 
 
@@ -462,6 +603,9 @@ def main() -> None:
             output_dir=args.output_dir,
             comparison_output=args.comparison_output,
             manifest_output=args.manifest_output,
+            final_model_output=args.final_model_output,
+            final_manifest_output=args.final_manifest_output,
+            promote_final=not args.no_promote_final,
             test_size=args.test_size,
             random_state=args.random_state,
             max_rows=args.max_rows,
@@ -484,3 +628,9 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# Comparison trains each family with its own best ngrams (not a forced shared ngram), ranks by macro F1, 
+# and copies the winner to:
+# data/models/final/publication_field_classifier.joblib
+
