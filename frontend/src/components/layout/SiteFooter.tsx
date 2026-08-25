@@ -12,7 +12,7 @@ import { CORPUS_SOURCES, SourceDot, sourceColor } from "@/components/ui/Provenan
  */
 export function SiteFooter() {
   return (
-    <footer className="mt-12 border-t border-rule bg-surface">
+    <footer className="mt-12 shrink-0 border-t border-rule bg-surface">
       <div className="flex h-2 w-full" aria-hidden>
         {CORPUS_SOURCES.map((source) => (
           <div

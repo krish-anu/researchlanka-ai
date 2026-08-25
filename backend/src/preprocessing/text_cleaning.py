@@ -144,6 +144,7 @@ DOMAIN_STOPWORDS = {
     "present",
     "presents",
     "available",  # leftover after boilerplate phrase-stripping (e.g. "editorial abstract" -> "available")
+<<<<<<< HEAD
     # Geographic / corpus-common tokens that dominate every cluster
     "sri",
     "lanka",
@@ -180,10 +181,13 @@ FUNCTION_STOPWORDS = {
     "have",
     "has",
     "had",
+=======
+>>>>>>> origin/main
 }
 
 # sklearn's TfidfVectorizer(stop_words=...) accepts a list; sorted for a
 # stable, diffable order.
+<<<<<<< HEAD
 CUSTOM_STOP_WORDS = sorted(ENGLISH_STOP_WORDS | DOMAIN_STOPWORDS | FUNCTION_STOPWORDS)
 
 
@@ -195,6 +199,9 @@ def ngram_contains_stopword(term: str, stop_set: set[str] | None = None) -> bool
     """
     stops = stop_set if stop_set is not None else set(CUSTOM_STOP_WORDS)
     return any(tok in stops for tok in term.split())
+=======
+CUSTOM_STOP_WORDS = sorted(ENGLISH_STOP_WORDS | DOMAIN_STOPWORDS)
+>>>>>>> origin/main
 
 
 # --------------------------------------------------------------------------

@@ -40,6 +40,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
 
+from src.preprocessing.text_cleaning import (
+    clean_text_series,
+    CUSTOM_STOP_WORDS,
+)
+
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = (
     PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
@@ -205,11 +211,19 @@ def default_manifest_output(
         DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, label_column)}_manifest.json"
     )
 
-
-def combined_text(frame: pd.DataFrame, text_columns: Iterable[str]) -> pd.Series:
+def combined_text(
+    frame: pd.DataFrame,
+    text_columns: Iterable[str],
+    *,
+    clean: bool = True,
+) -> pd.Series:
     text = frame[list(text_columns)].fillna("").astype(str).agg(" ".join, axis=1)
-    return text.str.replace(r"\s+", " ", regex=True).str.strip()
+    text = text.str.replace(r"\s+", " ", regex=True).str.strip()
 
+    if clean:
+        text = clean_text_series(text)
+
+    return text
 
 def load_training_frame(
     input_path: Path,
@@ -231,7 +245,11 @@ def load_training_frame(
 
     training_frame = pd.DataFrame(
         {
-            "text": combined_text(frame, text_columns),
+            "text": combined_text(
+                frame,
+                text_columns,
+                clean=True,
+            ),
             "label": frame[label_column].astype(str).str.strip(),
         },
         index=frame.index,
@@ -295,7 +313,7 @@ def build_pipeline(
                 TfidfVectorizer(
                     strip_accents="unicode",
                     lowercase=True,
-                    stop_words=None,
+                    stop_words=CUSTOM_STOP_WORDS,
                     ngram_range=(1, ngram_max),
                     min_df=min_df,
                     max_df=max_df,

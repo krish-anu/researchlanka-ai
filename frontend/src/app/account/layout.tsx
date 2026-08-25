@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { TabBar, TabLink } from "@/components/layout/TabNav";
 import { requireCapability } from "@/services/auth/server";
 
 /**
@@ -10,7 +9,8 @@ import { requireCapability } from "@/services/auth/server";
  * route that middleware's matcher misses.
  */
 const TABS = [
-  { href: "/account", label: "Profile" },
+  // The area root, so it must match exactly or it stays lit on every sub-tab.
+  { href: "/account", label: "Profile", exact: true },
   { href: "/account/saved", label: "Saved library" },
   { href: "/account/flags", label: "Your flags" },
 ];
@@ -24,20 +24,15 @@ export default async function AccountLayout({
 
   return (
     <div className="flex flex-col gap-6">
-      <nav aria-label="Account" className="border-b border-rule">
-        <ul className="scroll-x flex gap-1">
-          {TABS.map((tab) => (
-            <li key={tab.href}>
-              <Link
-                href={tab.href}
-                className="inline-block whitespace-nowrap px-3 py-2.5 text-body-sm text-ink-secondary hover:text-primary"
-              >
-                {tab.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <TabBar label="Account">
+        {TABS.map((tab) => (
+          <li key={tab.href}>
+            <TabLink href={tab.href} exact={tab.exact}>
+              {tab.label}
+            </TabLink>
+          </li>
+        ))}
+      </TabBar>
       {children}
     </div>
   );
