@@ -152,6 +152,104 @@ def test_has_sri_lankan_first_author_requires_first_authorship_lk():
     assert openalex.has_sri_lankan_first_author(work) is False
 
 
+def test_first_author_filter_ignores_lk_in_unstructured_urls_and_text():
+    """LK outside first-authorship country metadata must not imply Sri Lankan ownership."""
+    work = sample_work("GB")
+    work["title"] = "UK-led probe with Sri Lanka mentioned in page metadata"
+    work["authorships"][0]["author"] = {"display_name": "Antonio Fernandez"}
+    work["authorships"][0]["countries"] = ["GB"]
+    work["authorships"][0]["institutions"][0]["display_name"] = "University of Edinburgh"
+    work["authorships"][0]["institutions"][0]["country_code"] = "GB"
+    work["authorships"][1]["author"] = {"display_name": "Marc Vendrell"}
+    work["authorships"][1]["countries"] = ["GB"]
+    work["authorships"][1]["institutions"][0]["display_name"] = "University of Edinburgh"
+    work["authorships"][1]["institutions"][0]["country_code"] = "GB"
+    work["authorships"][1]["is_corresponding"] = True
+    work["primary_location"]["landing_page_url"] = "https://example.org/LK/not-affiliation"
+    work["locations"][0]["pdf_url"] = "https://example.org/assets/paper-LK.pdf"
+
+    assert openalex.has_sri_lankan_first_author(work) is False
+
+    row = openalex.work_to_row(work)
+    assert row["first_author_countries"] == "GB"
+    assert row["corresponding_author_countries"] == "GB"
+    assert row["country_owner"] == "GB"
+    assert row["ownership_class"] == "NON_SL"
+    assert row["ownership_classification"] == "NON_SL"
+    assert row["ownership_confidence"] == "HIGH"
+    assert row["keep_in_sri_lanka_owned_dataset"] is False
+    assert row["keep_in_strict_sri_lanka_dataset"] is False
+    assert row["needs_manual_review"] is False
+
+
+def test_corresponding_author_is_preferred_over_first_author_for_ownership():
+    """A Sri Lankan corresponding author is stronger evidence than author order."""
+    work = sample_work("GB")
+    work["authorships"][0]["author"] = {"display_name": "Foreign First"}
+    work["authorships"][0]["countries"] = ["GB"]
+    work["authorships"][0]["institutions"][0]["display_name"] = "University of Oxford"
+    work["authorships"][0]["institutions"][0]["country_code"] = "GB"
+    work["authorships"][1]["author"] = {"display_name": "Sri Lankan Corresponding"}
+    work["authorships"][1]["countries"] = ["LK"]
+    work["authorships"][1]["institutions"][0]["display_name"] = "University of Colombo"
+    work["authorships"][1]["institutions"][0]["country_code"] = "LK"
+    work["authorships"][1]["is_corresponding"] = True
+
+    row = openalex.work_to_row(work)
+
+    assert row["first_author_country"] == "GB"
+    assert row["corresponding_author_country"] == "LK"
+    assert row["country_owner"] == "LK"
+    assert row["ownership_class"] == "SL_OWNED_INTERNATIONAL"
+    assert row["ownership_confidence"] == "MEDIUM"
+    assert row["keep_in_sri_lanka_owned_dataset"] is True
+
+
+def test_sri_lankan_participant_only_is_excluded_when_foreign_corresponding():
+    """An LK coauthor alone should not become Sri Lankan-owned research."""
+    work = sample_work("GB")
+    work["authorships"][0]["author"] = {"display_name": "Foreign Lead"}
+    work["authorships"][0]["countries"] = ["GB"]
+    work["authorships"][0]["institutions"][0]["display_name"] = "University of Oxford"
+    work["authorships"][0]["institutions"][0]["country_code"] = "GB"
+    work["authorships"][0]["is_corresponding"] = True
+    work["authorships"][1]["author"] = {"display_name": "Sri Lankan Collaborator"}
+    work["authorships"][1]["countries"] = ["LK"]
+    work["authorships"][1]["institutions"][0]["display_name"] = "University of Colombo"
+    work["authorships"][1]["institutions"][0]["country_code"] = "LK"
+
+    assert openalex.keep_in_sri_lanka_owned_dataset(work) is False
+
+    row = openalex.work_to_row(work)
+    assert row["has_sri_lankan_participant"] is True
+    assert row["ownership_class"] == "FOREIGN_PROJECT_WITH_SL_PARTICIPATION"
+    assert row["keep_in_strict_sri_lanka_dataset"] is False
+
+
+def test_missing_leadership_evidence_with_lk_participant_needs_review():
+    """LK participation without first/corresponding ownership evidence is ambiguous."""
+    work = sample_work("LK")
+    work["authorships"] = [
+        {
+            "author": {"display_name": "Middle Collaborator"},
+            "author_position": "middle",
+            "countries": ["LK"],
+            "institutions": [
+                {
+                    "display_name": "University of Colombo",
+                    "country_code": "LK",
+                }
+            ],
+        }
+    ]
+
+    row = openalex.work_to_row(work)
+
+    assert row["ownership_class"] == "REVIEW_REQUIRED"
+    assert row["needs_manual_review"] is True
+    assert row["keep_in_sri_lanka_owned_dataset"] is False
+
+
 def test_publication_year_collection_range_requires_2016_or_later():
     """Local collection filtering should reject pre-2016 OpenAlex records."""
     old_work = sample_work("LK")
@@ -257,6 +355,22 @@ def test_work_to_row_flattens_expected_openalex_fields():
         == "Department of Public Health, University of Colombo, Sri Lanka"
     )
     assert row["countries"] == "LK; US"
+    assert row["first_author_countries"] == "LK"
+    assert row["country_owner"] == "LK"
+    assert row["first_author_name"] == "A. Researcher"
+    assert row["first_author_institution"] == "University of Colombo"
+    assert row["first_author_country"] == "LK"
+    assert row["last_author_name"] == "B. Collaborator"
+    assert row["last_author_institution"] == "Example University"
+    assert row["last_author_country"] == "US"
+    assert row["all_author_countries"] == "LK; US"
+    assert row["has_sri_lankan_participant"] is True
+    assert row["has_foreign_participant"] is True
+    assert row["ownership_class"] == "SL_OWNED_INTERNATIONAL"
+    assert row["ownership_classification"] == "SL_OWNED_INTERNATIONAL"
+    assert row["ownership_confidence"] == "LOW"
+    assert row["keep_in_strict_sri_lanka_dataset"] is True
+    assert row["keep_in_sri_lanka_owned_dataset"] is True
     assert row["source_name"] == "Example Journal"
     assert row["publisher"] == "Example Publisher"
     assert row["is_retracted"] is False

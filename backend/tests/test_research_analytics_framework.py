@@ -942,8 +942,33 @@ def test_openalex_adapter_can_restrict_collection_to_configured_country_only():
                             }
                         ],
                     },
+                    {
+                        "id": "https://openalex.org/W-FOREIGN-LED",
+                        "title": "Foreign-led Sri Lanka collaboration",
+                        "authorships": [
+                            {
+                                "author_position": "first",
+                                "countries": ["GB"],
+                                "institutions": [
+                                    {
+                                        "display_name": "University of Edinburgh",
+                                        "country_code": "GB",
+                                    }
+                                ],
+                            },
+                            {
+                                "countries": ["LK"],
+                                "institutions": [
+                                    {
+                                        "display_name": "University of Colombo",
+                                        "country_code": "LK",
+                                    }
+                                ],
+                            },
+                        ],
+                    },
                 ],
-                "meta": {"next_cursor": None, "count": 2},
+                "meta": {"next_cursor": None, "count": 3},
             }
 
     strict_adapter = OpenAlexAdapter(country_code="LK", strict_country_only=True)
