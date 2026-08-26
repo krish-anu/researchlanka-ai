@@ -71,3 +71,8 @@ Thumbs.db
 !/.github/**
 
 notebooks/outputs/
+
+# Branch-layout leftovers from newer app structure
+/backend/
+/frontend/
+/image.png
