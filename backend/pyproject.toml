@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "research-analytics-framework"
+version = "0.1.0"
+description = "Reusable national research publication collection, integration, cleaning, deduplication, and analytics framework."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.135.2",
+    "httpx==0.28.1",
+    "joblib==1.5.3",
+    "pandas==3.0.3",
+    "pyarrow==22.0.0",
+    "psycopg[binary]>=3.2,<4",
+    "python-dotenv==1.2.2",
+    "requests==2.34.2",
+    "scikit-learn==1.8.0",
+    "uvicorn[standard]==0.40.0",
+]
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6.0"]
+dev = ["pytest==9.1.1"]
+
+[project.scripts]
+research-framework = "research_analytics.cli:main"
+run-pipeline = "research_analytics.cli:run_stage_cli"
+load-records = "src.database.load_records:main"
+research-api = "src.api.server:main"
+research-model-api = "src.api.fastapi_app:main"
+train-publication-classifier = "src.modeling.training:main"
+compare-publication-classifiers = "src.modeling.classification_comparison:main"
+predict-publication-classifier = "src.modeling.inference:main"
+evaluate-publication-classifier = "src.modeling.evaluation:main"
+validate-analysis-dataset = "src.quality.validate_analysis_dataset:main"
+create-publication-dataset-splits = "src.modeling.dataset_splits:main"
+generate-publication-embeddings = "src.modeling.embeddings:main"
+
+[tool.setuptools.packages.find]
+include = ["research_analytics*", "src*"]
