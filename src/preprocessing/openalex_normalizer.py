@@ -87,6 +87,21 @@ def authorships(work: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def first_authorship(work: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the first author authorship from an OpenAlex work."""
+    valid_authorships = authorships(work)
+    if not valid_authorships:
+        return None
+    return next(
+        (
+            authorship
+            for authorship in valid_authorships
+            if authorship.get("author_position") == "first"
+        ),
+        valid_authorships[0],
+    )
+
+
 def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
     """Collect country codes from both authorship countries and institutions."""
     codes = {
@@ -103,6 +118,19 @@ def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
 def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
     """Check whether one authorship has a Sri Lankan affiliation signal."""
     return SRI_LANKA_COUNTRY_CODE in country_codes_from_authorship(authorship)
+
+
+def is_first_authorship_from_country(work: dict[str, Any], country_code: str) -> bool:
+    """Check whether the first author has an affiliation signal for a country."""
+    first = first_authorship(work)
+    if first is None:
+        return False
+    return country_code.upper() in country_codes_from_authorship(first)
+
+
+def has_sri_lankan_first_author(work: dict[str, Any]) -> bool:
+    """Check whether a work's first author has a Sri Lankan affiliation signal."""
+    return is_first_authorship_from_country(work, SRI_LANKA_COUNTRY_CODE)
 
 
 def has_sri_lankan_author(work: dict[str, Any]) -> bool:
