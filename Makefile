@@ -1,105 +1,92 @@
 .DEFAULT_GOAL := help
+SHELL := /bin/bash
 
-# Python commands. Override these if you want to use a different environment:
-#   make test PYTHON=python
-PYTHON ?= .venv/bin/python
-PIP ?= .venv/bin/pip
+BACKEND_DIR ?= backend
+FRONTEND_DIR ?= frontend
+SYSTEM_PYTHON ?= python3
+BACKEND_PYTHON ?= .venv/bin/python
+BACKEND_PIP ?= .venv/bin/pip
+BACKEND_HOST ?= 127.0.0.1
+BACKEND_PORT ?= 8080
+BACKEND_API_EXTRA_ARGS ?=
+FRONTEND_HOST ?= 127.0.0.1
+FRONTEND_PORT ?= 3000
+API_BASE_URL ?= http://$(BACKEND_HOST):$(BACKEND_PORT)/api/v1
+NPM ?= npm
+NEXT_TELEMETRY_DISABLED ?= 1
+FRONTEND_NODE_MAX_OLD_SPACE_MB ?= 1536
+DEV_SEMANTIC_EMBEDDINGS ?= data/models/publication_text_embeddings_cli_sample.parquet
+DEV_SEMANTIC_MODEL ?= data/models/publication_text_embedding_model_cli_sample.joblib
 
-# Default OpenAlex output folder.
-# JSONL is raw API data. CSV/Parquet and DOI conflicts are cleaned outputs.
-OPENALEX_DIR ?= data/raw/openalex
-OPENALEX_JSONL ?= $(OPENALEX_DIR)/openalex_sri_lanka_works.jsonl
-OPENALEX_CSV ?= $(OPENALEX_DIR)/openalex_sri_lanka_works.csv
-OPENALEX_PARQUET ?= $(OPENALEX_DIR)/openalex_sri_lanka_works.parquet
-OPENALEX_DOI_CONFLICTS ?= $(OPENALEX_DIR)/openalex_sri_lanka_doi_conflicts.csv
-OPENALEX_PROGRESS ?= $(OPENALEX_JSONL).progress.json
-OPENALEX_PAGINATION ?= $(OPENALEX_DIR)/openalex_sri_lanka_pagination_audit.json
-OPENALEX_LOG ?= $(OPENALEX_DIR)/openalex_collection.log
+.PHONY: help install install-backend install-frontend backend api frontend dev load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now test check check-backend check-frontend
 
-# OpenAlex collection settings.
-# Use OPENALEX_EXTRA_ARGS for optional flags such as --strict-lk-only.
-OPENALEX_LOG_LEVEL ?= INFO
-OPENALEX_FROM_YEAR ?= 2016
-OPENALEX_TO_YEAR ?= 2026
-OPENALEX_PER_PAGE ?= 200
-OPENALEX_SAMPLE_RECORDS ?= 1000
-OPENALEX_EMAIL ?=
-OPENALEX_EXTRA_ARGS ?=
-
-# Build optional/email args only when values are provided.
-OPENALEX_EMAIL_ARG = $(if $(OPENALEX_EMAIL),--email $(OPENALEX_EMAIL),)
-
-# File output arguments shared by collect, sample, and resume targets.
-OPENALEX_OUTPUT_ARGS = \
-	--jsonl-output $(OPENALEX_JSONL) \
-	--csv-output $(OPENALEX_CSV) \
-	--parquet-output $(OPENALEX_PARQUET) \
-	--doi-conflicts-output $(OPENALEX_DOI_CONFLICTS) \
-	--pagination-output $(OPENALEX_PAGINATION) \
-	--progress-output $(OPENALEX_PROGRESS)
-
-# Runtime arguments shared by collect, sample, and resume targets.
-OPENALEX_RUN_ARGS = \
-	$(OPENALEX_OUTPUT_ARGS) \
-	--from-year $(OPENALEX_FROM_YEAR) \
-	--to-year $(OPENALEX_TO_YEAR) \
-	--per-page $(OPENALEX_PER_PAGE) \
-	--log-level $(OPENALEX_LOG_LEVEL) \
-	--log-file $(OPENALEX_LOG) \
-	$(OPENALEX_EMAIL_ARG) \
-	$(OPENALEX_EXTRA_ARGS)
-
-.PHONY: help install test openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report
-
-# Show available targets and common overrides.
 help:
-	@echo "ResearchLanka pipeline targets"
+	@echo "ResearchLanka development shortcuts"
 	@echo ""
-	@echo "  make install                 Install Python dependencies into .venv"
-	@echo "  make test                    Run the test suite"
-	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
-	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
-	@echo "  make openalex-resume         Resume an interrupted OpenAlex collection"
-	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
-	@echo "  make openalex-doi-conflicts  Rebuild only the DOI conflict CSV from existing JSONL"
-	@echo "  make openalex-report         Print the quality report from existing JSONL"
+	@echo "  make install            Install backend and frontend dependencies"
+	@echo "  make dev                Run backend API and frontend together"
+	@echo "  make load-db-2016-now   Load only 2016-2026 records into PostgreSQL"
+	@echo "  make reset-db-2016-now  Clear PostgreSQL records, then load 2016-2026"
+	@echo "  make backend            Run the backend API on http://$(BACKEND_HOST):$(BACKEND_PORT)/api/v1"
+	@echo "  make frontend           Run the frontend on http://$(FRONTEND_HOST):$(FRONTEND_PORT)"
+	@echo "  make test               Run backend tests and frontend checks"
+	@echo "  make check              Same as make test"
 	@echo ""
-	@echo "Useful variables:"
-	@echo "  OPENALEX_LOG_LEVEL=DEBUG"
-	@echo "  OPENALEX_EMAIL=you@example.com"
-	@echo "  OPENALEX_EXTRA_ARGS='--strict-lk-only'"
-	@echo "  OPENALEX_DIR=data/processed/openalex"
+	@echo "Common overrides:"
+	@echo "  BACKEND_PORT=8082 FRONTEND_PORT=3001 make dev"
+	@echo "  API_BASE_URL=http://127.0.0.1:8080/api/v1 make frontend"
+	@echo "  FRONTEND_NODE_MAX_OLD_SPACE_MB=2048 make dev"
+	@echo "  DEV_SEMANTIC_EMBEDDINGS=data/models/publication_text_embeddings_2016_2026.parquet DEV_SEMANTIC_MODEL=data/models/publication_text_embedding_model_2016_2026.joblib make dev"
 
-# Install project dependencies into the configured virtual environment.
-install:
-	$(PIP) install -r requirements.txt
+$(BACKEND_DIR)/.venv/bin/python:
+	cd $(BACKEND_DIR) && $(SYSTEM_PYTHON) -m venv .venv
 
-# Run all automated tests.
-test:
-	$(PYTHON) -m pytest
+install: install-backend install-frontend
 
-# Run the full OpenAlex API collection pipeline.
-# This writes raw JSONL, cleaned CSV, cleaned Parquet, DOI conflicts, pagination audit, progress, and logs.
-openalex:
-	$(PYTHON) scripts/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS)
+install-backend: $(BACKEND_DIR)/.venv/bin/python
+	$(MAKE) -C $(BACKEND_DIR) install PYTHON=$(BACKEND_PYTHON) PIP=$(BACKEND_PIP)
 
-# Run a smaller API collection for validation before a full collection.
-openalex-sample:
-	$(PYTHON) scripts/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS) --max-records $(OPENALEX_SAMPLE_RECORDS)
+install-frontend:
+	$(NPM) --prefix $(FRONTEND_DIR) install
 
-# Continue an interrupted collection using the progress JSON file.
-openalex-resume:
-	$(PYTHON) scripts/kaggle_collect_openalex_sri_lanka.py $(OPENALEX_RUN_ARGS) --resume
+backend: $(BACKEND_DIR)/.venv/bin/python
+	cd $(BACKEND_DIR) && RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=$(DEV_SEMANTIC_EMBEDDINGS) RESEARCHLANKA_SEMANTIC_MODEL_PATH=$(DEV_SEMANTIC_MODEL) $(BACKEND_PYTHON) scripts/api/serve_api.py --host $(BACKEND_HOST) --port $(BACKEND_PORT) $(BACKEND_API_EXTRA_ARGS)
 
-# Rebuild cleaned outputs from an existing raw JSONL file.
-# This does not call the OpenAlex API.
-openalex-rebuild:
-	$(PYTHON) -c "from pathlib import Path; from scripts.kaggle_collect_openalex_sri_lanka import rebuild_csv_from_jsonl, write_doi_conflict_report, write_parquet_from_jsonl, collect_quality_report, print_collection_report; jsonl=Path('$(OPENALEX_JSONL)'); rebuild_csv_from_jsonl(jsonl, Path('$(OPENALEX_CSV)')); write_parquet_from_jsonl(jsonl, Path('$(OPENALEX_PARQUET)')); write_doi_conflict_report(jsonl, Path('$(OPENALEX_DOI_CONFLICTS)')); print_collection_report(collect_quality_report(jsonl, records_skipped=0))"
+api: backend
 
-# Rebuild only the DOI conflict CSV from existing raw JSONL.
-openalex-doi-conflicts:
-	$(PYTHON) -c "from pathlib import Path; from scripts.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report; count=write_doi_conflict_report(Path('$(OPENALEX_JSONL)'), Path('$(OPENALEX_DOI_CONFLICTS)')); print(f'DOI conflicts: {count:,}')"
+load-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) load-db-2016-now
 
-# Print a quality summary from existing raw JSONL.
-openalex-report:
-	$(PYTHON) -c "from pathlib import Path; from scripts.kaggle_collect_openalex_sri_lanka import collect_quality_report, print_collection_report; print_collection_report(collect_quality_report(Path('$(OPENALEX_JSONL)'), records_skipped=0))"
+reset-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) reset-db-2016-now
+
+load-full-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) load-full-db-2016-now
+
+reset-full-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) reset-full-db-2016-now
+
+frontend:
+	NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL=$(API_BASE_URL) $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $(FRONTEND_PORT)
+
+dev: $(BACKEND_DIR)/.venv/bin/python
+	@set -e; \
+	( cd $(BACKEND_DIR) && RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=$(DEV_SEMANTIC_EMBEDDINGS) RESEARCHLANKA_SEMANTIC_MODEL_PATH=$(DEV_SEMANTIC_MODEL) $(BACKEND_PYTHON) scripts/api/serve_api.py --host $(BACKEND_HOST) --port $(BACKEND_PORT) $(BACKEND_API_EXTRA_ARGS) ) & backend_pid=$$!; \
+	NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL=$(API_BASE_URL) $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $(FRONTEND_PORT) & frontend_pid=$$!; \
+	trap 'kill $$backend_pid $$frontend_pid 2>/dev/null' INT TERM EXIT; \
+	wait -n $$backend_pid $$frontend_pid; \
+	status=$$?; \
+	kill $$backend_pid $$frontend_pid 2>/dev/null; \
+	wait $$backend_pid $$frontend_pid 2>/dev/null || true; \
+	exit $$status
+
+test: check
+
+check: check-backend check-frontend
+
+check-backend: $(BACKEND_DIR)/.venv/bin/python
+	$(MAKE) -C $(BACKEND_DIR) test PYTHON=$(BACKEND_PYTHON)
+
+check-frontend:
+	$(NPM) --prefix $(FRONTEND_DIR) run typecheck
+	$(NPM) --prefix $(FRONTEND_DIR) run check:palette

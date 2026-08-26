@@ -1,101 +1,111 @@
-# AI Research Analytics Platform
+# researchlanka-ai
 
-AI-Powered Research Portfolio and Analytics Platform for Sri Lanka.
+This repository is organized into two top-level workspaces:
 
-This project collects, cleans, analyzes, and visualizes research publications by Sri Lankan researchers and institutions.
+- `backend/` - Python research analytics pipeline, API, database scripts, docs, tests, and data configuration.
+- `frontend/` - Frontend application workspace.
 
-## Main Outputs
+## Quick Start
 
-- Consolidated Sri Lankan research publication dataset.
-- Cleaned and standardized publication database.
-- AI/ML-based publication classification.
-- Research analytics for productivity, citations, topics, and collaboration.
-- Interactive dashboard for searching and visualizing research trends.
+From the repository root:
 
-## Setup
+```bash
+make install
+make dev
+```
 
-Clone the repository:
+This starts the backend API at `http://127.0.0.1:8080/api/v1` and the
+frontend at `http://127.0.0.1:3000`.
+
+## Fresh Clone Setup With Data
+
+Use these commands when setting up the full project on a new machine.
 
 ```bash
 git clone <repository-url>
 cd researchlanka-ai
+make install
 ```
 
-Create a virtual environment:
+Start PostgreSQL and create the backend environment file:
 
 ```bash
+cd backend
+printf "DATABASE_URL=postgresql://researchlanka_user:change_me@localhost:5433/researchlanka\n" > .env
+docker compose up -d db
+.venv/bin/python scripts/database/check_database_connection.py
+.venv/bin/python scripts/database/apply_database_migrations.py
+.venv/bin/python scripts/database/verify_database_schema.py
+cd ..
+```
+
+The large data and model files are not committed to git. To restore the
+prepared dataset, place `researchlanka-share-data.zip` in the repository root
+and unzip it:
+
+```bash
+unzip researchlanka-share-data.zip
+```
+
+The zip should restore these files:
+
+```text
+backend/data/processed/common/common_publications_final_2016_2026.csv
+backend/data/models/publication_text_embeddings_cli_sample.parquet
+backend/data/models/publication_text_embedding_model_cli_sample.joblib
+```
+
+Load the database and start the backend and frontend:
+
+```bash
+make reset-db-2016-now
+make dev
+```
+
+You can also run each side separately:
+
+```bash
+make backend
+make frontend
+```
+
+Use port overrides when needed:
+
+```bash
+BACKEND_PORT=8082 FRONTEND_PORT=3001 make dev
+```
+
+## Backend
+
+Run backend commands from the backend folder:
+
+```bash
+cd backend
 python -m venv .venv
-```
-
-Activate it:
-
-```bash
 source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
+pytest
 ```
 
-## Important GitHub Rules
+The full backend README is in `backend/README.md`.
 
-- Do not work directly on `main`.
-- Create one branch for each task.
-- Create or use a GitHub issue before starting work.
-- Use clear commit messages.
-- Open a pull request before merging.
-- Get at least one review before merging.
-- Do not commit `.env`, passwords, API keys, or large datasets.
+## Kaggle Run
 
-## Branch Example
+For a complete Kaggle guide from uploading the dataset to downloading the final
+outputs, see `KAGGLE_README.md`.
 
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/openalex-collector
+Recommended Kaggle notebook:
+
+```text
+dse-project.ipynb
 ```
 
-## Commit Example
+Alternative copy:
 
-```bash
-git add .
-git commit -m "feat(collector): add OpenAlex data collection"
-git push origin feature/openalex-collector
+```text
+notebooks/kaggle_run_main_full_pipeline.ipynb
 ```
 
-## Useful Docs
+## Frontend
 
-- [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
-- [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
-- [Contributing Guide](CONTRIBUTING.md)
-- [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
-- [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
-- [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
-
-## Collector Structure
-
-Collector implementations live in `src/collectors/` and should keep network
-access separate from command-line orchestration. Each collector follows the
-same shape:
-
-- `fetch_*()` methods request one API resource or page.
-- `iter_*()` methods handle pagination and yield records.
-- `total_*()` methods are used only when the source API exposes reliable counts.
-- Shared HTTP retry/session behavior lives in `src/collectors/http.py`.
-- Source-specific normalization lives in `src/preprocessing/`.
-- CLI entrypoints live in `scripts/` and should call collector classes instead
-  of duplicating request or pagination logic.
-
-Run the OpenAlex pipeline with Crossref DOI enrichment in one command:
-
-```bash
-python scripts/kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com
-```
-
-## Team
-
-- ANUSAN K. - 230048J
-- ASMA AR - 230060M
-- BANDARA K.G.C. - 230075M
+Frontend code should be added inside `frontend/`.

@@ -1,7 +1,7 @@
+# Python environments, caches, and build outputs
 .venv/
 venv/
 env/
-
 __pycache__/
 *.py[cod]
 *.pyo
@@ -19,31 +19,69 @@ coverage.xml
 htmlcov/
 junit.xml
 test-results/
-
 build/
 dist/
 *.egg-info/
 .eggs/
 pip-wheel-metadata/
 
+# Node and frontend build outputs
+node_modules/
+.next/
+.next.stale/
+out/
+next-env.d.ts
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment files and logs
 .env
-.env.local
+.env.*
+!.env.example
 *.log
 *.tmp
 *.bak
 *.orig
 *.swp
 *.swo
+*.pem
 
-
+# Notebook outputs
 .ipynb_checkpoints/
+notebooks/outputs/
+backend/notebooks/outputs/
 
+# Generated data and model artifacts
 data/raw/
 data/processed/
 data/interim/
 data/external/
+data/models/
 data/reports/*.json
 outputs/
+pipeline/
+backend/data/raw/
+backend/data/processed/
+backend/data/interim/
+backend/data/external/
+backend/data/models/
+backend/data/reports/
+backend/outputs/
+backend/pipeline/
+backend/researchlanka-kaggle-outputs/
+backend/researchlanka-kaggle-outputs*.zip
+kaggle-output/
+
+# Local Dagster runtime state
+.tmp_dagster_home_*/
+backend/dagster-quickstart/.tmp_dagster_home_*/
+
+# Large local data exports and databases
+image.png
+*.part
 *.xlsx
 *.parquet
 *.jsonl
@@ -51,6 +89,7 @@ outputs/
 *.sqlite3
 *.db
 
+# Keep checked-in examples and configuration
 !data/.gitkeep
 !data/sample/
 !data/sample/**
@@ -58,21 +97,30 @@ outputs/
 !data/config/**
 !configurations/
 !configurations/**
+!backend/data/config/
+!backend/data/config/**
+!backend/configurations/
+!backend/configurations/**
 !examples/
 !examples/**
 
+# OS, editor, shell, and local assistant state
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+.claude/
+.codex/
+.agents/
+.mcp.json
+.bash_profile
+.bashrc
+.gitconfig
+.profile
+.ripgreprc
+.zprofile
+.zshrc
 
 # Track GitHub Actions and work-plan configuration
 !/.github/
 !/.github/**
-
-notebooks/outputs/
-
-# Branch-layout leftovers from newer app structure
-/backend/
-/frontend/
-/image.png
