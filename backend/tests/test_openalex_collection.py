@@ -142,6 +142,27 @@ def test_has_sri_lankan_author_rejects_non_lk_authorships():
     assert openalex.has_sri_lankan_author(work) is False
 
 
+def test_has_sri_lankan_first_author_requires_first_authorship_lk():
+    """Only an LK-affiliated first authorship should satisfy first-author scope."""
+    work = sample_work("US")
+    work["authorships"][1]["countries"] = ["LK"]
+    work["authorships"][1]["institutions"][0]["country_code"] = "LK"
+
+    assert openalex.has_sri_lankan_author(work) is True
+    assert openalex.has_sri_lankan_first_author(work) is False
+
+
+def test_publication_year_collection_range_requires_2016_or_later():
+    """Local collection filtering should reject pre-2016 OpenAlex records."""
+    old_work = sample_work("LK")
+    old_work["publication_year"] = 2015
+    current_work = sample_work("LK")
+    current_work["publication_year"] = 2016
+
+    assert openalex.is_publication_year_in_collection_range(old_work) is False
+    assert openalex.is_publication_year_in_collection_range(current_work) is True
+
+
 def test_strict_sri_lanka_only_accepts_only_lk_country_codes():
     """Strict LK-only filtering should reject international collaborations."""
     lk_only_work = sample_work("LK")
@@ -441,15 +462,20 @@ def test_collector_fetch_works_sends_openalex_request_metadata():
 
 
 def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
-    """The collector should keep only LK-affiliated works from sample API pages."""
+    """The collector should keep only first-author LK works from 2016 onward."""
     lk_work = sample_work("LK")
     non_lk_work = sample_work("IN")
+    lk_coauthor_work = sample_work("US")
+    lk_coauthor_work["authorships"][1]["countries"] = ["LK"]
+    lk_coauthor_work["authorships"][1]["institutions"][0]["country_code"] = "LK"
+    old_lk_work = sample_work("LK")
+    old_lk_work["publication_year"] = 2015
     calls = []
 
     def fake_fetch_works(**kwargs):
         calls.append(kwargs)
         return {
-            "results": [lk_work, non_lk_work],
+            "results": [lk_work, non_lk_work, lk_coauthor_work, old_lk_work],
             "meta": {"next_cursor": None},
         }
 
