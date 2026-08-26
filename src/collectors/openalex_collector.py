@@ -20,6 +20,7 @@ from src.preprocessing.openalex_normalizer import (
     country_codes_from_authorship,
     detected_country_codes,
     display_names,
+    has_sri_lankan_first_author,
     get_nested,
     has_sri_lankan_author,
     institution_names,
@@ -42,6 +43,24 @@ DEFAULT_FROM_YEAR = 2016
 DEFAULT_TO_YEAR = 2026
 
 logger = logging.getLogger(__name__)
+
+
+def is_publication_year_in_collection_range(
+    work: dict[str, Any],
+    *,
+    from_year: int | None = DEFAULT_FROM_YEAR,
+    to_year: int | None = DEFAULT_TO_YEAR,
+) -> bool:
+    """Return True only for works inside the allowed publication-year window."""
+    year = normalize_publication_year(work.get("publication_year"))
+    if year is None:
+        return False
+    minimum_year = max(from_year or DEFAULT_FROM_YEAR, DEFAULT_FROM_YEAR)
+    if year < minimum_year:
+        return False
+    if to_year is not None and year > to_year:
+        return False
+    return True
 
 
 def create_session() -> requests.Session:
@@ -85,7 +104,7 @@ class OpenAlexWorkPage:
 
 @dataclass
 class OpenAlexCollector:
-    """Collect OpenAlex works with Sri Lankan affiliation metadata."""
+    """Collect OpenAlex works with Sri Lankan first-author affiliation metadata."""
 
     email: str | None = None
     api_key: str | None = None
@@ -147,7 +166,7 @@ class OpenAlexCollector:
         start_cursor: str = "*",
         strict_lk_only: bool = False,
     ) -> Iterator[OpenAlexWorkPage]:
-        """Yield cursor pages after applying broad or strict LK filtering."""
+        """Yield cursor pages after applying year and first-author LK filtering."""
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
         seen_ids: set[str] = set()
@@ -179,7 +198,20 @@ class OpenAlexCollector:
             works: list[dict[str, Any]] = []
             skipped_count = 0
             for work in results:
-                if not isinstance(work, dict) or not has_sri_lankan_author(work):
+                if not isinstance(work, dict):
+                    skipped_count += 1
+                    continue
+                if not is_publication_year_in_collection_range(
+                    work,
+                    from_year=from_year,
+                    to_year=to_year,
+                ):
+                    skipped_count += 1
+                    continue
+                if not has_sri_lankan_first_author(work):
+                    skipped_count += 1
+                    continue
+                if not has_sri_lankan_author(work):
                     skipped_count += 1
                     continue
                 work_id = openalex_work_id(work)
@@ -270,7 +302,7 @@ class OpenAlexCollector:
         records_saved: int = 0,
         strict_lk_only: bool = False,
     ) -> Iterator[dict[str, Any]]:
-        """Yield individual Sri Lankan-affiliated works from cursor pages."""
+        """Yield individual first-author LK works from cursor pages."""
         saved = records_saved
 
         for page in self.iter_sri_lankan_work_pages(
