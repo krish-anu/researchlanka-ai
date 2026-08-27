@@ -144,11 +144,64 @@ DOMAIN_STOPWORDS = {
     "present",
     "presents",
     "available",  # leftover after boilerplate phrase-stripping (e.g. "editorial abstract" -> "available")
+<<<<<<< HEAD
+    # Geographic / corpus-common tokens that dominate every cluster
+    "sri",
+    "lanka",
+    "srilanka",
+}
+
+# Extra function words to drop even if an analyzer/token_pattern miss
+# (sklearn ENGLISH_STOP_WORDS already includes these; listed so n-gram pruning
+# can strip phrases like "of science" / "in lanka").
+FUNCTION_STOPWORDS = {
+    "the",
+    "of",
+    "to",
+    "were",
+    "was",
+    "in",
+    "with",
+    "is",
+    "for",
+    "as",
+    "and",
+    "or",
+    "on",
+    "by",
+    "from",
+    "at",
+    "an",
+    "a",
+    "be",
+    "this",
+    "that",
+    "are",
+    "been",
+    "have",
+    "has",
+    "had",
+=======
+>>>>>>> origin/main
 }
 
 # sklearn's TfidfVectorizer(stop_words=...) accepts a list; sorted for a
 # stable, diffable order.
+<<<<<<< HEAD
+CUSTOM_STOP_WORDS = sorted(ENGLISH_STOP_WORDS | DOMAIN_STOPWORDS | FUNCTION_STOPWORDS)
+
+
+def ngram_contains_stopword(term: str, stop_set: set[str] | None = None) -> bool:
+    """True if any token in a unigram/bigram/trigram is a stop word.
+
+    sklearn only removes *unigram* stop words before n-grams are built, so
+    leftover phrases like "sri lanka" / "of science" are dropped here.
+    """
+    stops = stop_set if stop_set is not None else set(CUSTOM_STOP_WORDS)
+    return any(tok in stops for tok in term.split())
+=======
 CUSTOM_STOP_WORDS = sorted(ENGLISH_STOP_WORDS | DOMAIN_STOPWORDS)
+>>>>>>> origin/main
 
 
 # --------------------------------------------------------------------------
