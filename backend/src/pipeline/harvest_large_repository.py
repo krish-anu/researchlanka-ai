@@ -31,6 +31,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
 
+from src.collectors.http import create_retry_session
 from src.collectors.oai_pmh_collector import OaiPmhCollector, OaiPmhError
 from src.collectors.repository_registry import load_registry
 
@@ -95,7 +96,7 @@ def harvest_range(
             print(f"{indent}{range_label}: 0 records (none in range)")
             return 0, []
         error = exc
-    except requests.HTTPError as exc:
+    except requests.RequestException as exc:
         error = exc
 
     if from_date >= until_date or depth >= MAX_SPLIT_DEPTH:
@@ -130,7 +131,12 @@ def main() -> None:
         raise SystemExit(f"Target {args.id!r} has no OAI endpoint on record.")
 
     verify_ssl = not target.extra.get("ssl_verify_failed", False)
-    collector = OaiPmhCollector(base_url=target.oai_endpoint, timeout=args.timeout, verify_ssl=verify_ssl)
+    collector = OaiPmhCollector(
+        base_url=target.oai_endpoint,
+        timeout=args.timeout,
+        verify_ssl=verify_ssl,
+        session=create_retry_session(total_retries=1, backoff_factor=0.5),
+    )
 
     output_path = args.output or DEFAULT_RAW_DIR / target.id / "oai_dc.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,13 +146,32 @@ def main() -> None:
 
     print(f"Harvesting {target.id} ({target.name}) from {from_date} to {until_date} -> {output_path}")
 
-    seen_ids: set[str] = set()
-    with output_path.open("w", encoding="utf-8") as output_file:
-        total, failed_ranges = harvest_range(
-            collector, from_date=from_date, until_date=until_date, output_file=output_file, seen_ids=seen_ids,
-        )
+    temp_output_path = output_path.with_name(f"{output_path.name}.tmp")
 
-    print(f"\nSaved {total} unique records to {output_path}")
+    seen_ids: set[str] = set()
+    total = 0
+    failed_ranges: list[str] = []
+    with temp_output_path.open("w", encoding="utf-8") as output_file:
+        for year in range(args.start_year, args.end_year + 1):
+            year_from = max(from_date, date(year, 1, 1))
+            year_until = min(until_date, date(year, 12, 31))
+            count, year_failed_ranges = harvest_range(
+                collector,
+                from_date=year_from,
+                until_date=year_until,
+                output_file=output_file,
+                seen_ids=seen_ids,
+            )
+            total += count
+            failed_ranges.extend(year_failed_ranges)
+
+    if total > 0 or not output_path.exists():
+        temp_output_path.replace(output_path)
+        print(f"\nSaved {total} unique records to {output_path}")
+    else:
+        temp_output_path.unlink()
+        print(f"\nCollected 0 records; kept existing output at {output_path}")
+
     if failed_ranges:
         print(f"{len(failed_ranges)} date range(s) could not be harvested even at minimum granularity:")
         for r in failed_ranges:

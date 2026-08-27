@@ -31,6 +31,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from src.collectors.http import create_retry_session
+from src.preprocessing.crossref_normalizer import first_author_is_from_sri_lanka
 from src.preprocessing.crossref_normalizer import reduce_work
 
 
@@ -126,6 +127,7 @@ class CrossrefCollector:
         filters: list[str] | None = None,
         rows: int = 100,
         max_records: int | None = None,
+        require_first_author_lk: bool = False,
     ) -> Iterator[dict[str, Any]]:
         """Yield normalized works whose affiliations match ``affiliation_query``.
 
@@ -176,6 +178,8 @@ class CrossrefCollector:
                     return
 
                 if work.get("type") != "journal-article":
+                    continue
+                if require_first_author_lk and not first_author_is_from_sri_lanka(work):
                     continue
 
                 try:
