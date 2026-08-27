@@ -59,9 +59,9 @@ def parse_args() -> argparse.Namespace:
         help="Use one prefix cursor scan instead of recursive publication-date windows.",
     )
     parser.add_argument(
-        "--include-all-authorships",
+        "--require-first-author-lk",
         action="store_true",
-        help="Disable the default first-author Sri Lanka affiliation filter.",
+        help="Keep only records where Crossref identifies a Sri Lankan first-author affiliation.",
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH, help=f"JSONL output path. Default: {DEFAULT_OUTPUT_PATH}")
     parser.add_argument("--audit-output", type=Path, default=DEFAULT_AUDIT_PATH, help=f"Collection audit path. Default: {DEFAULT_AUDIT_PATH}")
@@ -103,7 +103,7 @@ def main() -> None:
             )
             for work in works:
                 if (
-                    not args.include_all_authorships
+                    args.require_first_author_lk
                     and not first_author_is_from_sri_lanka(work)
                 ):
                     skipped_first_author += 1
