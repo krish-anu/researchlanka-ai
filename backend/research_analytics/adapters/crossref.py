@@ -21,11 +21,13 @@ class CrossrefAdapter(SourceAdapter):
         filters: list[str] | None = None,
         max_records: int | None = None,
         rows: int = 100,
+        require_first_author_lk: bool = True,
     ) -> None:
         self.affiliation_query = affiliation_query
         self.filters = filters
         self.max_records = max_records
         self.rows = rows
+        self.require_first_author_lk = require_first_author_lk
         self.collector = CrossrefCollector(email=email)
 
     def connect(self) -> None:
@@ -41,6 +43,7 @@ class CrossrefAdapter(SourceAdapter):
             filters=self.filters,
             rows=self.rows,
             max_records=self.max_records,
+            require_first_author_lk=self.require_first_author_lk,
         )
 
     def transform(self, raw_record: dict) -> dict:

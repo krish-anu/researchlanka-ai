@@ -121,7 +121,11 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_UNTIL_YEAR,
         help=f"End publication year. Default: {DEFAULT_UNTIL_YEAR}.",
     )
-    
+    collect_parser.add_argument(
+        "--include-all-authorships",
+        action="store_true",
+        help="Disable the default first-author Sri Lanka affiliation filter.",
+    )
 
     enrich_parser = subparsers.add_parser(
         "enrich-dois",
@@ -215,6 +219,7 @@ def collect_crossref(
                 filters=date_filters,
                 rows=args.rows,
                 max_records=remaining,
+                require_first_author_lk=not args.include_all_authorships,
             ):
                 doi = work.get("DOI")
 

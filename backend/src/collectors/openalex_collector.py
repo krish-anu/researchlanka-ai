@@ -27,6 +27,7 @@ from src.preprocessing.openalex_normalizer import (
     institution_names,
     is_sri_lankan_authorship,
     is_strict_sri_lanka_only,
+    keep_in_sri_lanka_owned_dataset,
     location_values,
     locations,
     normalize_publication_date,
@@ -243,10 +244,7 @@ class OpenAlexCollector:
                 ):
                     skipped_count += 1
                     continue
-                if not has_sri_lankan_first_author(work):
-                    skipped_count += 1
-                    continue
-                if not has_sri_lankan_author(work):
+                if not keep_in_sri_lanka_owned_dataset(work):
                     skipped_count += 1
                     continue
                 work_id = openalex_work_id(work)
