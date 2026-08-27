@@ -15,6 +15,14 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from src.preprocessing.crossref_normalizer import (
+    author_affiliation_names,
+    crossref_author_name,
+    first_author_is_from_sri_lanka,
+    first_author_record,
+    has_sri_lankan_affiliated_author,
+)
+
 DOI_PATTERN = re.compile(r"10\.\d{4,9}/[^\s\"'<>]+", re.IGNORECASE)
 URL_PATTERN = re.compile(r"https?://\S+")
 YEAR_PATTERN = re.compile(r"(1[5-9]\d{2}|20\d{2})")
@@ -131,18 +139,19 @@ def map_crossref_record(record: dict[str, Any], *, institution_id: str) -> dict[
     common publication schema. Used for SLJOL (prefix 10.4038).
     """
 
-    def author_name(author: dict[str, Any]) -> str | None:
-        if author.get("name"):
-            return author["name"]
-        parts = [author.get("given"), author.get("family")]
-        joined = " ".join(p for p in parts if p)
-        return joined or None
-
-    authors = [name for a in record.get("author", []) if (name := author_name(a))]
+    authors = [
+        name
+        for author in record.get("author", [])
+        if (name := crossref_author_name(author))
+    ]
+    first_author = first_author_record(record)
 
     date_parts = (record.get("issued") or {}).get("date-parts") or [[]]
     issued = date_parts[0]
-    publication_date = "-".join(f"{part:02d}" if i else str(part) for i, part in enumerate(issued)) or None
+    publication_date = (
+        "-".join(f"{part:02d}" if i else str(part) for i, part in enumerate(issued))
+        or None
+    )
     publication_year = issued[0] if issued else None
 
     doi = record.get("DOI")
@@ -159,6 +168,13 @@ def map_crossref_record(record: dict[str, Any], *, institution_id: str) -> dict[
         "abstract": _strip_jats(record.get("abstract")),
         "keywords": record.get("subject", []),
         "authors": authors,
+        "first_author_name": crossref_author_name(first_author),
+        "first_author_affiliation": "; ".join(author_affiliation_names(first_author)),
+        "first_author_country": (
+            "LK" if first_author_is_from_sri_lanka(record) else ""
+        ),
+        "has_sri_lankan_participant": has_sri_lankan_affiliated_author(record),
+        "keep_in_strict_sri_lanka_dataset": first_author_is_from_sri_lanka(record),
         "contributors": [],
         "publication_date": publication_date,
         "publication_year": publication_year,

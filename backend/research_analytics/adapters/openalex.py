@@ -8,6 +8,7 @@ from typing import Iterator
 
 from src.collectors.openalex_collector import OpenAlexCollector, build_filters
 from src.preprocessing.openalex_normalizer import detected_country_codes
+from src.preprocessing.openalex_normalizer import keep_in_country_owned_dataset
 from src.preprocessing.openalex_normalizer import work_to_row
 
 from research_analytics.adapters.base import SourceAdapter
@@ -143,10 +144,12 @@ class OpenAlexAdapter(SourceAdapter):
         logger.info("OpenAlex collection complete: %s records", yielded)
 
     def _matches_country_scope(self, work: dict[str, Any]) -> bool:
-        if not self.strict_country_only:
-            return True
         if not self.country_code:
             return False
+        if not keep_in_country_owned_dataset(work, self.country_code):
+            return False
+        if not self.strict_country_only:
+            return True
         return detected_country_codes(work) == {self.country_code.upper()}
 
     def transform(self, record: dict) -> dict:
