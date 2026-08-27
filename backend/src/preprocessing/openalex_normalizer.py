@@ -241,7 +241,9 @@ def affiliation_country_codes(authorship: dict[str, Any] | None) -> str:
 
 def corresponding_author_names(work: dict[str, Any]) -> str:
     """Flatten names for all corresponding authors OpenAlex identifies."""
-    return unique_join(author_name(authorship) for authorship in corresponding_authorships(work))
+    return unique_join(
+        author_name(authorship) for authorship in corresponding_authorships(work)
+    )
 
 
 def corresponding_author_institutions(work: dict[str, Any]) -> str:
@@ -388,7 +390,10 @@ def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[
         "country_owner": "",
         "ownership_class": "REVIEW_REQUIRED",
         "ownership_confidence": "LOW",
-        "ownership_reason": "OpenAlex metadata does not identify enough publication-specific affiliation evidence to determine research ownership.",
+        "ownership_reason": (
+            "OpenAlex metadata does not identify enough publication-specific "
+            "affiliation evidence to determine research ownership."
+        ),
         "keep_in_strict_dataset": False,
         "needs_manual_review": True,
     }
@@ -399,7 +404,10 @@ def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[
                 "country_owner": unique_join(sorted(all_codes)),
                 "ownership_class": "NON_SL",
                 "ownership_confidence": "HIGH" if all_codes else "LOW",
-                "ownership_reason": "No Sri Lankan publication-specific author affiliation is present in OpenAlex structured metadata.",
+                "ownership_reason": (
+                    f"No {target_country} publication-specific author affiliation "
+                    "is present in OpenAlex structured metadata."
+                ),
                 "needs_manual_review": False,
             }
         )
@@ -410,13 +418,22 @@ def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[
         if target_country in corresponding_codes:
             if corresponding_codes - {target_country}:
                 ownership_class = "SL_FOREIGN_COLED"
-                reason = "Sri Lankan and foreign corresponding-author affiliations indicate genuine joint leadership."
+                reason = (
+                    f"{target_country} and foreign corresponding-author affiliations "
+                    "indicate genuine joint leadership."
+                )
             elif has_foreign:
                 ownership_class = "SL_OWNED_INTERNATIONAL"
-                reason = "Sri Lankan corresponding-author affiliation indicates Sri Lankan leadership; foreign authors are collaborators."
+                reason = (
+                    f"{target_country} corresponding-author affiliation indicates "
+                    "country leadership; foreign authors are collaborators."
+                )
             else:
                 ownership_class = "SL_DOMESTIC"
-                reason = "Sri Lankan corresponding-author affiliation and no foreign affiliation indicate domestic Sri Lankan leadership."
+                reason = (
+                    f"{target_country} corresponding-author affiliation and no "
+                    "foreign affiliation indicate domestic leadership."
+                )
             result.update(
                 {
                     "ownership_class": ownership_class,
@@ -433,7 +450,11 @@ def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[
             {
                 "ownership_class": "FOREIGN_PROJECT_WITH_SL_PARTICIPATION",
                 "ownership_confidence": "MEDIUM",
-                "ownership_reason": "Foreign corresponding-author affiliation indicates foreign leadership; Sri Lankan affiliation appears as participant evidence only.",
+                "ownership_reason": (
+                    "Foreign corresponding-author affiliation indicates foreign "
+                    f"leadership; {target_country} affiliation appears as "
+                    "participant evidence only."
+                ),
                 "needs_manual_review": False,
             }
         )
@@ -447,7 +468,11 @@ def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[
                 {
                     "ownership_class": ownership_class,
                     "ownership_confidence": "LOW",
-                    "ownership_reason": "Sri Lankan first-author affiliation is the strongest available OpenAlex leadership proxy; no corresponding-author or project-owner metadata is available.",
+                    "ownership_reason": (
+                        f"{target_country} first-author affiliation is the strongest "
+                        "available OpenAlex leadership proxy; no corresponding-author "
+                        "or project-owner metadata is available."
+                    ),
                     "keep_in_strict_dataset": True,
                     "needs_manual_review": False,
                 }
@@ -458,7 +483,11 @@ def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[
             {
                 "ownership_class": "FOREIGN_PROJECT_WITH_SL_PARTICIPATION",
                 "ownership_confidence": "LOW",
-                "ownership_reason": "Foreign first-author affiliation is the strongest available OpenAlex leadership proxy; Sri Lankan affiliation appears as participant evidence only.",
+                "ownership_reason": (
+                    "Foreign first-author affiliation is the strongest available "
+                    f"OpenAlex leadership proxy; {target_country} affiliation appears "
+                    "as participant evidence only."
+                ),
                 "needs_manual_review": False,
             }
         )
@@ -467,7 +496,11 @@ def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[
     result.update(
         {
             "country_owner": unique_join(sorted(all_codes)),
-            "ownership_reason": "Sri Lankan participation is present, but OpenAlex has no corresponding-author or first-author affiliation evidence to identify leadership.",
+            "ownership_reason": (
+                f"{target_country} participation is present, but OpenAlex has no "
+                "corresponding-author or first-author affiliation evidence to "
+                "identify leadership."
+            ),
         }
     )
     return result
