@@ -27,6 +27,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import requests
 
 from src.collectors.crossref_collector import CrossrefPrefixCollector
+from src.preprocessing.crossref_normalizer import first_author_is_from_sri_lanka
 
 SLJOL_DOI_PREFIX = "10.4038"
 DEFAULT_FROM_YEAR = 2016
@@ -57,6 +58,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Use one prefix cursor scan instead of recursive publication-date windows.",
     )
+    parser.add_argument(
+        "--require-first-author-lk",
+        action="store_true",
+        help="Keep only records where Crossref identifies a Sri Lankan first-author affiliation.",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH, help=f"JSONL output path. Default: {DEFAULT_OUTPUT_PATH}")
     parser.add_argument("--audit-output", type=Path, default=DEFAULT_AUDIT_PATH, help=f"Collection audit path. Default: {DEFAULT_AUDIT_PATH}")
     return parser.parse_args()
@@ -81,6 +87,7 @@ def main() -> None:
     print(f"Collecting -> {args.output}")
 
     total = 0
+    skipped_first_author = 0
     seen_dois: set[str] = set()
     audit_rows: list[dict[str, object]] = []
     try:
@@ -95,6 +102,12 @@ def main() -> None:
                 )
             )
             for work in works:
+                if (
+                    args.require_first_author_lk
+                    and not first_author_is_from_sri_lanka(work)
+                ):
+                    skipped_first_author += 1
+                    continue
                 output_file.write(json.dumps(work, ensure_ascii=False) + "\n")
                 total += 1
                 if total % 1000 == 0:
@@ -113,6 +126,7 @@ def main() -> None:
                 "collection_date": date.today().isoformat(),
                 "reported_total": total_available,
                 "saved_total": total,
+                "skipped_first_author_not_lk": skipped_first_author,
                 "from_year": args.from_year,
                 "until_year": args.until_year,
                 "slices": audit_rows,
@@ -124,6 +138,8 @@ def main() -> None:
         encoding="utf-8",
     )
     print(f"Saved {total} works to {args.output}")
+    if skipped_first_author:
+        print(f"Skipped {skipped_first_author} works without first-author LK evidence.")
     print(f"Saved audit to {args.audit_output}")
 
 

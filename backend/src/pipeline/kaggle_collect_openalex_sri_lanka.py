@@ -4,10 +4,11 @@ Run in Kaggle:
     python kaggle_collect_openalex_sri_lanka.py --max-records 1000
     python kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com
 
-This script keeps a work when at least one authorship has a Sri Lankan
-affiliation in OpenAlex. OpenAlex provides affiliation countries, not author
-nationality, so "Sri Lankan author" here means an author with country code LK
-or an LK institution in that work's authorship metadata.
+This script keeps a work only when it is from 2016 onward and the first
+authorship has a Sri Lankan affiliation in OpenAlex. OpenAlex provides
+affiliation countries, not author nationality, so "Sri Lankan first author"
+here means the first authorship has country code LK or an LK institution in
+that work's authorship metadata.
 """
 
 from __future__ import annotations
