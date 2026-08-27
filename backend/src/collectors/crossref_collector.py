@@ -31,6 +31,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from src.collectors.http import create_retry_session
+from src.preprocessing.crossref_normalizer import first_author_is_from_sri_lanka
 from src.preprocessing.crossref_normalizer import reduce_work
 
 
@@ -126,6 +127,7 @@ class CrossrefCollector:
         filters: list[str] | None = None,
         rows: int = 100,
         max_records: int | None = None,
+        require_first_author_lk: bool = False,
     ) -> Iterator[dict[str, Any]]:
         """
         Collect all works matching affiliation.
@@ -161,6 +163,8 @@ class CrossrefCollector:
 
                 if work.get("type") != "journal-article":
                     continue
+                if require_first_author_lk and not first_author_is_from_sri_lanka(work):
+                    continue
 
                 try:
                     normalized = reduce_work(work)
@@ -175,17 +179,6 @@ class CrossrefCollector:
             cursor = message.get("next-cursor")
 
             time.sleep(0.2)
-
-    def iter_works(
-        self, *, affiliation_query: str, rows: int = 100, max_records: int | None = None
-    ) -> Iterator[dict[str, Any]]:
-        """Backward-compatible alias for affiliation-based work iteration."""
-
-        yield from self.iter_affiliation_works(
-            affiliation_query=affiliation_query,
-            rows=rows,
-            max_records=max_records,
-        )
 
     # =====================================================
     # 2. SINGLE DOI LOOKUP
