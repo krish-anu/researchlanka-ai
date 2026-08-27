@@ -156,6 +156,54 @@ class OaiPmhCollector:
 
         return records, next_token
 
+    def _fetch_sets_page(self, *, resumption_token: str | None) -> tuple[list[str], str | None]:
+        if resumption_token:
+            params = {"verb": "ListSets", "resumptionToken": resumption_token}
+        else:
+            params = {"verb": "ListSets"}
+
+        root = self._request(params)
+
+        list_sets = root.find(f"{OAI_NS}ListSets")
+        if list_sets is None:
+            return [], None
+
+        set_specs = [
+            spec_el.text
+            for set_el in list_sets.findall(f"{OAI_NS}set")
+            for spec_el in [set_el.find(f"{OAI_NS}setSpec")]
+            if spec_el is not None and spec_el.text
+        ]
+
+        token_el = list_sets.find(f"{OAI_NS}resumptionToken")
+        next_token = None
+        if token_el is not None and token_el.text:
+            next_token = token_el.text
+
+        return set_specs, next_token
+
+    def iter_set_specs(self) -> Iterator[str]:
+        """Yield every OAI-PMH setSpec, following ListSets resumption tokens."""
+
+        resumption_token: str | None = None
+        first_page = True
+        seen_tokens: set[str] = set()
+
+        while first_page or resumption_token:
+            first_page = False
+            set_specs, resumption_token = self._fetch_sets_page(
+                resumption_token=resumption_token
+            )
+
+            yield from set_specs
+
+            if resumption_token is not None:
+                if resumption_token in seen_tokens:
+                    raise RuntimeError(
+                        f"OAI-PMH ListSets resumption token repeated: {resumption_token}"
+                    )
+                seen_tokens.add(resumption_token)
+
     def iter_records(
         self,
         *,
