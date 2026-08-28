@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
 
 # cd researchlanka-ai/backend
-# python scripts/run_nmf_pipeline.py \
-#   --data data/processed/common/common_publications_final_with_linearsvm.csv \
+# python scripts/modeling/run_nmf_topic_modeling.py \
+#   --data data/processed/common/common_publications_final.csv \
 #   --output-dir data/processed/common/nmf \
-#   --k 20
+#   --k 25
