@@ -17,7 +17,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from utils.column_resolve import clean_str
+from src.utils.column_resolve import clean_str
 
 __all__ = [
     "extract_publisher",
@@ -43,6 +43,7 @@ def extract_publisher(record: Mapping[str, Any]) -> dict:
     """
     return {
         "publisher": clean_str(record.get("publisher")),
+        "publisher_location": clean_str(record.get("publisher_location")),
     }
 
 

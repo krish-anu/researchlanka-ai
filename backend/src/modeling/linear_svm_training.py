@@ -51,10 +51,14 @@ DEFAULT_INPUT = (
     PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
 )
 DEFAULT_MODEL_DIR = PROJECT_ROOT / "data" / "models"
-DEFAULT_LABEL_COLUMN = "primary_domain"
+DEFAULT_LABEL_COLUMN = "primary_field"
 DEFAULT_TEXT_COLUMNS = ["title", "abstract", "topics", "keywords", "concepts"]
 DEFAULT_MODEL_FAMILY = "linear_svm"
+# Best defaults from config sweep + prior training runs
 DEFAULT_C_VALUES = (0.1, 1.0, 10.0)
+DEFAULT_NGRAM_MAX = 3
+DEFAULT_TEST_SIZE = 0.15
+DEFAULT_CLASS_WEIGHT: str | None = "balanced"
 
 
 @dataclass(frozen=True)
@@ -70,16 +74,16 @@ class LinearSVMTrainingConfig:
     label_counts_output: Path | None = None
     predictions_output: Path | None = None
     manifest_output: Path | None = None
-    test_size: float = 0.15
+    test_size: float = DEFAULT_TEST_SIZE
     random_state: int = 42
     max_rows: int | None = None
     min_class_count: int = 20
     max_features: int = 50_000
     min_df: int | float = 2
     max_df: int | float = 0.95
-    ngram_max: int = 3
+    ngram_max: int = DEFAULT_NGRAM_MAX
     c_values: tuple[float, ...] = DEFAULT_C_VALUES
-    class_weight: str | None = "balanced"
+    class_weight: str | None = DEFAULT_CLASS_WEIGHT
     max_iter: int = 5000
     cv_folds: int = 3
     scoring: str = "f1_macro"
@@ -874,3 +878,15 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# # 1) Compare logreg vs SVM on primary_field → promote winner
+# python scripts/modeling/compare_classification_models.py
+
+# # 2) Train 2-level field → subfield Linear SVM
+# python scripts/modeling/train_linear_svm_hierarchical.py
+
+# # 3) Predict unlabeled rows (missing field and/or subfield)
+# python scripts/modeling/predict_field_subfield.py \
+#   --input data/processed/common/common_publications_final.csv \
+#   --output data/processed/common/common_publications_final_with_predictions.csv
