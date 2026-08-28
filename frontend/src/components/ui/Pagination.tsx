@@ -8,6 +8,7 @@ interface PaginationProps {
   pagination: PaginationMeta;
   basePath: string;
   searchParams: SearchParams;
+  pageParam?: string;
 }
 
 /** Window of page numbers around the current page, plus first/last anchors. */
@@ -35,6 +36,7 @@ export function Pagination({
   pagination,
   basePath,
   searchParams,
+  pageParam = "page",
 }: PaginationProps) {
   const { page, total, total_pages: totalPages, page_size: pageSize } = pagination;
   if (totalPages <= 1) {
@@ -65,7 +67,7 @@ export function Pagination({
           <li>
             {page > 1 ? (
               <Link
-                href={pageHref(basePath, searchParams, page - 1)}
+                href={pageHref(basePath, searchParams, page - 1, pageParam)}
                 className={linkClass}
                 rel="prev"
               >
@@ -86,7 +88,7 @@ export function Pagination({
             ) : (
               <li key={entry}>
                 <Link
-                  href={pageHref(basePath, searchParams, entry)}
+                  href={pageHref(basePath, searchParams, entry, pageParam)}
                   aria-current={entry === page ? "page" : undefined}
                   className={
                     entry === page
@@ -103,7 +105,7 @@ export function Pagination({
           <li>
             {page < totalPages ? (
               <Link
-                href={pageHref(basePath, searchParams, page + 1)}
+                href={pageHref(basePath, searchParams, page + 1, pageParam)}
                 className={linkClass}
                 rel="next"
               >

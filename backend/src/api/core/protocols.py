@@ -37,6 +37,26 @@ class PublicationRepository(Protocol):
     def suggest(self, query: str, *, limit: int) -> list[dict[str, Any]]:
         """Return autocomplete suggestions."""
 
+    def semantic_search(
+        self,
+        query: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        """Return publications ranked by semantic similarity to query text."""
+
+    def related_publications(
+        self,
+        publication_key: str,
+        *,
+        filters: dict[str, Any],
+        limit: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        """Return publications ranked by semantic similarity to a publication."""
+
     def researcher_profile(self, researcher_key: str) -> dict[str, Any] | None:
         """Return an author/researcher aggregate."""
 
@@ -95,6 +115,17 @@ class PublicationRepository(Protocol):
     ) -> list[dict[str, Any]]:
         """Return ranked aggregate rows."""
 
+    def paginated_analytics_rankings(
+        self,
+        filters: dict[str, Any],
+        *,
+        dimension: str,
+        metric: str,
+        page: int,
+        page_size: int,
+    ) -> dict[str, Any]:
+        """Return ranked aggregate rows with total count metadata."""
+
     def collaboration_network(
         self,
         filters: dict[str, Any],
@@ -103,7 +134,12 @@ class PublicationRepository(Protocol):
         min_weight: int,
         limit: int,
     ) -> dict[str, Any]:
-        """Return graph nodes and edges."""
+        """Return graph nodes, edges, and a structural summary.
+
+        Nodes carry centrality and community labels; the summary carries the
+        graph-level context needed to read them (density, components,
+        modularity). See :mod:`src.analytics.network`.
+        """
 
     def data_quality(self, filters: dict[str, Any], *, group_by: str | None) -> dict[str, Any]:
         """Return data-quality metrics."""

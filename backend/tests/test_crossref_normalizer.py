@@ -1,6 +1,10 @@
 """Tests for Crossref data normalization."""
 
-from src.preprocessing.crossref_normalizer import reduce_work
+from src.preprocessing.crossref_normalizer import (
+    first_author_is_from_sri_lanka,
+    reduce_work,
+)
+from src.collectors.schema_mapping import map_crossref_record
 
 
 def test_reduce_work_basic():
@@ -21,6 +25,84 @@ def test_reduce_work_basic():
     assert result["title"] == ["Test Paper"]
     assert result["type"] == "journal-article"
     assert result["publisher"] == "Springer"
+
+
+def test_reduce_work_marks_first_author_lk_from_registry_affiliation():
+    work = {
+        "DOI": "10.1234/lk-first",
+        "title": ["LK First Author"],
+        "type": "journal-article",
+        "author": [
+            {
+                "given": "A.",
+                "family": "Author",
+                "affiliation": [{"name": "University of Colombo"}],
+            },
+            {
+                "given": "B.",
+                "family": "Writer",
+                "affiliation": [{"name": "Example University, Australia"}],
+            },
+        ],
+    }
+
+    result = reduce_work(work)
+
+    assert first_author_is_from_sri_lanka(work) is True
+    assert result["first_author_name"] == "A. Author"
+    assert result["first_author_affiliation"] == "University of Colombo"
+    assert result["first_author_country"] == "LK"
+    assert result["has_sri_lankan_participant"] is True
+    assert result["keep_in_strict_sri_lanka_dataset"] is True
+
+
+def test_first_author_lk_rejects_sri_lankan_later_author_only():
+    work = {
+        "DOI": "10.1234/lk-collab",
+        "title": ["LK Later Author"],
+        "type": "journal-article",
+        "author": [
+            {
+                "given": "A.",
+                "family": "Lead",
+                "affiliation": [{"name": "Example University, Australia"}],
+            },
+            {
+                "given": "B.",
+                "family": "Collaborator",
+                "affiliation": [{"name": "University of Colombo"}],
+            },
+        ],
+    }
+
+    result = reduce_work(work)
+
+    assert first_author_is_from_sri_lanka(work) is False
+    assert result["has_sri_lankan_participant"] is True
+    assert result["keep_in_strict_sri_lanka_dataset"] is False
+
+
+def test_sljol_crossref_mapping_carries_first_author_lk_fields():
+    record = {
+        "DOI": "10.4038/example",
+        "title": ["SLJOL article"],
+        "type": "journal-article",
+        "issued": {"date-parts": [[2024, 5, 1]]},
+        "author": [
+            {
+                "given": "A.",
+                "family": "Author",
+                "affiliation": [{"name": "University of Peradeniya, Sri Lanka"}],
+            }
+        ],
+    }
+
+    mapped = map_crossref_record(record, institution_id="sljol")
+
+    assert mapped["first_author_name"] == "A. Author"
+    assert mapped["first_author_affiliation"] == "University of Peradeniya, Sri Lanka"
+    assert mapped["first_author_country"] == "LK"
+    assert mapped["keep_in_strict_sri_lanka_dataset"] is True
 
 
 def test_reduce_work_handles_missing_fields():

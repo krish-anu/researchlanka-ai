@@ -209,15 +209,40 @@ class ResearchPipeline:
         )
         logger.info("Export stage complete: %s", self.config.export.output_dir)
 
-    def load_database(self) -> int:
+    def load_database(
+        self,
+        *,
+        year_min: int | None = None,
+        year_max: int | None = None,
+    ) -> int:
         if not self.config.pipeline.load_database:
             self.result.database_load_count = 0
             logger.info("Database load stage skipped by configuration")
             return self.result.database_load_count
 
         from src.database.loader import load_final_publications
+        from src.database.load_records import filter_records_by_publication_year
+
+        if year_min is None:
+            year_min = self.config.collection.start_year
+        if year_max is None:
+            year_max = self.config.collection.end_year
 
         records = self.result.deduplicated_records or self.result.cleaned_records
+        records = list(
+            filter_records_by_publication_year(
+                records,
+                year_min=year_min,
+                year_max=year_max,
+            )
+        )
+        if year_min is not None or year_max is not None:
+            logger.info(
+                "Database load year filter applied: min=%s max=%s remaining=%s",
+                year_min,
+                year_max,
+                len(records),
+            )
         logger.info("Database load stage started: %s records", len(records))
         self.result.database_load_count = load_final_publications(records)
         logger.info(

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
+import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
@@ -11,6 +12,7 @@ import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import {
   exportUrl,
+  getCollaborationNetwork,
   getResearcher,
   getResearcherCoauthors,
   getResearcherPublications,
@@ -64,13 +66,19 @@ export default async function ResearcherProfilePage({
     return <ApiErrorPanel error={profile.error} what="this researcher profile" />;
   }
 
-  const [publications, coauthors, trendSample] = await Promise.all([
+  const data = profile.value.data;
+  const [publications, coauthors, trendSample, network] = await Promise.all([
     getResearcherPublications(researcherKey, { page, page_size: PAGE_SIZE }),
     getResearcherCoauthors(researcherKey, { limit: 25 }),
     getResearcherPublications(researcherKey, { page: 1, page_size: TREND_SAMPLE }),
+    getCollaborationNetwork({
+      scope: "researcher",
+      researcher: [data.label],
+      limit: 40,
+      min_weight: 1,
+    }),
   ]);
 
-  const data = profile.value.data;
   const sample = trendSample.ok ? trendSample.value.data : [];
   const sampleTotal = trendSample.ok ? trendSample.value.pagination.total : 0;
   const trend = yearHistogram(sample);
@@ -79,7 +87,7 @@ export default async function ResearcherProfilePage({
 
   return (
     <div className="flex flex-col gap-5">
-      <nav className="text-sm text-muted">
+      <nav className="text-body-sm text-muted">
         <Link href="/researchers" className="hover:text-ink hover:underline">
           Researchers
         </Link>
@@ -88,14 +96,14 @@ export default async function ResearcherProfilePage({
       </nav>
 
       <header>
-        <h1 className="text-2xl font-semibold text-ink">{data.label}</h1>
-        <p className="mt-1 text-sm text-ink-secondary">
+        <h1 className="font-display text-h1 text-ink">{data.label}</h1>
+        <p className="mt-1 text-body-sm text-ink-secondary">
           Active {formatYearRange(data.year_min, data.year_max)}
         </p>
       </header>
 
       <div className="panel border-warning/40 p-3">
-        <p className="flex gap-2 text-sm text-ink-secondary">
+        <p className="flex gap-2 text-body-sm text-ink-secondary">
           <span aria-hidden className="text-warning">
             ▲
           </span>
@@ -188,7 +196,7 @@ export default async function ResearcherProfilePage({
               height={240}
             />
           ) : (
-            <p className="p-4 text-sm text-muted">
+            <p className="p-4 text-body-sm text-muted">
               No records with a publication year.
             </p>
           )}
@@ -202,7 +210,7 @@ export default async function ResearcherProfilePage({
           {!coauthors.ok ? (
             <ApiErrorPanel error={coauthors.error} what="co-authors" />
           ) : coauthors.value.data.length === 0 ? (
-            <p className="p-4 text-sm text-muted">
+            <p className="p-4 text-body-sm text-muted">
               No co-authors recorded for this researcher.
             </p>
           ) : (
@@ -245,10 +253,10 @@ export default async function ResearcherProfilePage({
               <li key={entry.label}>
                 <Link
                   href={publicationSearchHref({ field: entry.label })}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 text-sm text-ink-secondary hover:bg-wash hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
                 >
                   {entry.label}
-                  <span className="tabular text-xs text-muted">
+                  <span className="data-mono text-muted">
                     {entry.count}
                   </span>
                 </Link>
@@ -257,6 +265,21 @@ export default async function ResearcherProfilePage({
           </ul>
         </section>
       ) : null}
+
+      <ChartPanel
+        title="Author collaboration network"
+        description="Co-author links across publications attributed to this researcher."
+      >
+        {!network.ok ? (
+          <ApiErrorPanel error={network.error} what="the author collaboration network" />
+        ) : (
+          <CollaborationNetwork
+            network={network.value.data}
+            scope="researcher"
+            height={380}
+          />
+        )}
+      </ChartPanel>
 
       <section>
         <SectionHeading

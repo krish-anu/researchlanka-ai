@@ -1,6 +1,17 @@
 import pytest
 
+from src.api.core.constants import (
+    PUBLICATION_COVERAGE_END_YEAR,
+    PUBLICATION_COVERAGE_START_YEAR,
+)
+from src.api.core.query import parse_filters
+from src.api.repositories.postgres import (
+    INSTITUTION_LIKE_AUTHOR_SQL_PATTERN,
+    PostgresPublicationRepository,
+    is_institution_like_author,
+)
 from src.api.repository import build_where
+from src.api.routes import route_get
 from src.api.service import APIError, ResearchLankaAPI
 
 
@@ -26,6 +37,7 @@ PUBLICATIONS = [
         "topics": "Epidemiology; Malaria",
         "concepts": "public health",
         "source_dataset": "openalex; crossref",
+        "source_record_id": "W1",
         "abstract": "A study abstract.",
         "citation_count_divergence_flag": False,
         "reference_count_divergence_flag": True,
@@ -52,6 +64,7 @@ PUBLICATIONS = [
         "topics": None,
         "concepts": None,
         "source_dataset": "repositories_combined",
+        "source_record_id": "thesis-1",
         "abstract": None,
         "citation_count_divergence_flag": False,
         "reference_count_divergence_flag": False,
@@ -74,6 +87,8 @@ class FakeRepository:
         rows = PUBLICATIONS
         if filters.get("year_min"):
             rows = [row for row in rows if row["publication_year"] >= filters["year_min"]]
+        if filters.get("year_max"):
+            rows = [row for row in rows if row["publication_year"] <= filters["year_max"]]
         if filters.get("has_doi") is True:
             rows = [row for row in rows if row.get("doi")]
         if filters.get("has_doi") is False:
@@ -102,6 +117,28 @@ class FakeRepository:
 
     def suggest(self, query, *, limit):
         return [{"type": "publication", "value": PUBLICATIONS[0]["title"], "key": PUBLICATIONS[0]["publication_key"]}][:limit]
+
+    def semantic_search(self, query, *, filters, limit, min_score):
+        row = {
+            **PUBLICATIONS[0],
+            "semantic_score": 0.925432,
+            "semantic_rank": 1,
+            "similarity_score": 0.925432,
+            "similarity_rank": 1,
+        }
+        return [row][:limit]
+
+    def related_publications(self, publication_key, *, filters, limit, min_score):
+        if publication_key == "missing":
+            raise KeyError(publication_key)
+        row = {
+            **PUBLICATIONS[1],
+            "semantic_score": 0.812345,
+            "semantic_rank": 1,
+            "similarity_score": 0.812345,
+            "similarity_rank": 1,
+        }
+        return [row][:limit]
 
     def researcher_profile(self, researcher_key):
         return {"key": "a-author", "label": researcher_key, "publication_count": 1}
@@ -150,6 +187,61 @@ def api():
     return ResearchLankaAPI(FakeRepository())
 
 
+class FakeSemanticIndex:
+    def __init__(self):
+        self.search_calls = []
+        self.related_calls = []
+
+    def search(self, query, *, filters, limit, min_score):
+        self.search_calls.append(
+            {
+                "query": query,
+                "filters": filters,
+                "limit": limit,
+                "min_score": min_score,
+            }
+        )
+        return [
+            {
+                "doi": "10.1000/test",
+                "title": "Stale embedding title",
+                "semantic_score": 0.925432,
+                "semantic_rank": 1,
+                "similarity_score": 0.925432,
+                "similarity_rank": 1,
+            },
+            {
+                "source_dataset": "repositories_combined",
+                "source_record_id": "thesis-1",
+                "title": "Stale repository title",
+                "semantic_score": 0.812345,
+                "semantic_rank": 2,
+                "similarity_score": 0.812345,
+                "similarity_rank": 2,
+            },
+        ]
+
+    def related_publications(self, publication_key, *, filters, limit, min_score):
+        self.related_calls.append(
+            {
+                "publication_key": publication_key,
+                "filters": filters,
+                "limit": limit,
+                "min_score": min_score,
+            }
+        )
+        return [
+            {
+                "source_dataset": "repositories_combined",
+                "source_record_id": "thesis-1",
+                "semantic_score": 0.812345,
+                "semantic_rank": 1,
+                "similarity_score": 0.812345,
+                "similarity_rank": 1,
+            }
+        ]
+
+
 def test_publication_list_maps_arrays_quality_flags_and_pagination():
     payload = api().list_publications({"include_facets": ["true"], "page_size": ["1"]})
 
@@ -188,6 +280,20 @@ def test_invalid_year_filter_raises_api_error():
     assert exc_info.value.code == "invalid_filter"
 
 
+def test_parse_filters_defaults_to_public_dataset_coverage():
+    filters = parse_filters({})
+
+    assert filters["year_min"] == PUBLICATION_COVERAGE_START_YEAR
+    assert filters["year_max"] == PUBLICATION_COVERAGE_END_YEAR
+
+
+def test_parse_filters_clamps_to_public_dataset_coverage():
+    filters = parse_filters({"year_min": ["1950"], "year_max": ["2035"]})
+
+    assert filters["year_min"] == PUBLICATION_COVERAGE_START_YEAR
+    assert filters["year_max"] == PUBLICATION_COVERAGE_END_YEAR
+
+
 def test_compare_institutions_requires_two_or_three_values():
     with pytest.raises(APIError):
         api().compare_institutions({"institution": ["University of Colombo"]})
@@ -220,6 +326,527 @@ def test_publication_exports_use_filtered_summary_contract():
     assert "Repository-only thesis" not in csv_payload.decode("utf-8")
     assert jsonl_content_type == "application/x-ndjson; charset=utf-8"
     assert jsonl_payload.decode("utf-8").count("\n") == 1
+
+
+def test_semantic_search_endpoint_shapes_scores_and_filters():
+    payload = api().semantic_search(
+        {
+            "q": ["vector borne disease surveillance"],
+            "year_min": ["2020"],
+            "limit": ["5"],
+            "min_score": ["0.5"],
+        }
+    )
+
+    assert payload["data"][0]["title"] == "Malaria surveillance in Sri Lanka"
+    assert payload["data"][0]["semantic_score"] == 0.925432
+    assert payload["data"][0]["semantic_rank"] == 1
+    assert payload["data"][0]["similarity_score"] == 0.925432
+    assert payload["data"][0]["similarity_rank"] == 1
+    assert payload["filters"]["applied"]["q"] == "vector borne disease surveillance"
+    assert payload["filters"]["applied"]["year_min"] == 2020
+    assert payload["meta"]["search"]["mode"] == "semantic"
+    assert payload["meta"]["search"]["algorithm"] == "tfidf_svd_cosine_similarity"
+
+
+def test_similarity_search_route_shapes_scores_and_filters():
+    payload = route_get(
+        api(),
+        "/api/v1/search/similarity",
+        {
+            "q": ["vector borne disease surveillance"],
+            "year_min": ["2020"],
+            "limit": ["5"],
+            "min_score": ["0.5"],
+        },
+    )
+
+    assert payload["data"][0]["title"] == "Malaria surveillance in Sri Lanka"
+    assert payload["data"][0]["similarity_score"] == 0.925432
+    assert payload["data"][0]["similarity_rank"] == 1
+    assert payload["filters"]["applied"]["q"] == "vector borne disease surveillance"
+    assert payload["filters"]["applied"]["year_min"] == 2020
+    assert payload["meta"]["search"]["mode"] == "similarity"
+    assert payload["meta"]["search"]["algorithm"] == "tfidf_svd_cosine_similarity"
+
+
+def test_related_publications_route_and_missing_embedding():
+    payload = route_get(
+        api(),
+        "/api/v1/publications/doi%3A10.1000%2Ftest/related",
+        {"limit": ["3"]},
+    )
+
+    assert payload["data"][0]["title"] == "Repository-only thesis"
+    assert payload["data"][0]["semantic_rank"] == 1
+    assert payload["data"][0]["similarity_rank"] == 1
+
+    similar_payload = route_get(
+        api(),
+        "/api/v1/publications/doi%3A10.1000%2Ftest/similar",
+        {"limit": ["3"]},
+    )
+
+    assert similar_payload["data"][0]["title"] == "Repository-only thesis"
+    assert similar_payload["data"][0]["similarity_score"] == 0.812345
+    assert similar_payload["meta"]["search"]["mode"] == "similarity"
+
+    with pytest.raises(APIError) as exc_info:
+        api().related_publications("missing", {})
+
+    assert exc_info.value.code == "not_found"
+    assert exc_info.value.status == 404
+
+
+def test_postgres_semantic_search_hydrates_embedding_hits_from_database(monkeypatch):
+    semantic_index = FakeSemanticIndex()
+    repository = PostgresPublicationRepository(
+        connection_factory=lambda _database_url: None,
+        semantic_index=semantic_index,
+    )
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        calls.append({"sql": sql, "params": params})
+        return [PUBLICATIONS[1], PUBLICATIONS[0]]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    rows = repository.semantic_search(
+        "vector borne disease surveillance",
+        filters={"year_min": 2020},
+        limit=2,
+        min_score=0.5,
+    )
+
+    assert semantic_index.search_calls[0]["limit"] > 2
+    assert rows[0]["title"] == "Malaria surveillance in Sri Lanka"
+    assert rows[0]["title"] != "Stale embedding title"
+    assert rows[0]["publication_key"] == "doi:10.1000/test"
+    assert rows[0]["similarity_score"] == 0.925432
+    assert rows[1]["publication_key"] == "source:repositories:thesis-1"
+    assert rows[1]["similarity_rank"] == 2
+    assert "publication_year >= %s" in calls[0]["sql"]
+    assert 2020 in calls[0]["params"]
+
+
+def test_postgres_related_publications_hydrates_database_records(monkeypatch):
+    semantic_index = FakeSemanticIndex()
+    repository = PostgresPublicationRepository(
+        connection_factory=lambda _database_url: None,
+        semantic_index=semantic_index,
+    )
+
+    monkeypatch.setattr(repository, "_fetch_all", lambda _sql, _params: PUBLICATIONS)
+
+    rows = repository.related_publications(
+        "doi:10.1000/test",
+        filters={},
+        limit=1,
+        min_score=None,
+    )
+
+    assert semantic_index.related_calls[0]["limit"] > 1
+    assert rows == [
+        {
+            **PUBLICATIONS[1],
+            "semantic_score": 0.812345,
+            "semantic_rank": 1,
+            "similarity_score": 0.812345,
+            "similarity_rank": 1,
+        }
+    ]
+
+
+def test_postgres_metadata_counts_public_dataset_coverage(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_one(sql, params):
+        calls.append({"sql": sql, "params": params})
+        return {
+            "publication_count": 1,
+            "min_publication_year": PUBLICATION_COVERAGE_START_YEAR,
+            "max_publication_year": PUBLICATION_COVERAGE_END_YEAR,
+        }
+
+    monkeypatch.setattr(repository, "_fetch_one", fake_fetch_one)
+
+    metadata = repository.metadata()
+
+    assert metadata["publication_count"] == 1
+    assert "publication_year >= %s" in calls[0]["sql"]
+    assert "publication_year <= %s" in calls[0]["sql"]
+    assert calls[0]["params"] == [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR]
+
+
+def test_postgres_analytics_and_facets_do_not_fetch_full_publication_rows(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fail_list_publications(*_args, **_kwargs):
+        raise AssertionError("aggregate endpoints must not fetch full publication rows")
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        calls.append({"sql": normalized_sql, "params": params})
+        if "open_access_count" in normalized_sql:
+            return [
+                {
+                    "publication_count": 2,
+                    "citation_total": 12,
+                    "open_access_count": 1,
+                    "doi_count": 1,
+                    "abstract_count": 1,
+                }
+            ]
+        if "count(DISTINCT btrim(split.value))" in normalized_sql:
+            return [{"total": 2}]
+        if "missing_institutions_count" in normalized_sql:
+            return [
+                {
+                    "record_count": 2,
+                    "missing_doi_count": 1,
+                    "missing_abstract_count": 1,
+                    "missing_institutions_count": 0,
+                    "citation_divergence_count": 0,
+                    "reference_divergence_count": 1,
+                }
+            ]
+        if "source.label AS source_label" in normalized_sql:
+            return [{"source_label": "University of Colombo", "target_label": "University of Ruhuna", "weight": 2}]
+        if "WHERE label = ANY(%s::text[])" in normalized_sql:
+            return [
+                {"label": "University of Colombo", "publication_count": 2},
+                {"label": "University of Ruhuna", "publication_count": 2},
+            ]
+        if " AS label," in normalized_sql:
+            return [{"label": "Medicine", "publication_count": 1, "citation_total": 12}]
+        if " AS key," in normalized_sql:
+            return [{"key": 2024, "publication_count": 1, "citation_total": 12}]
+        if " AS value," in normalized_sql or "SELECT value, count(*) AS count" in normalized_sql:
+            return [{"value": "2024", "count": 1}]
+        return []
+
+    monkeypatch.setattr(repository, "list_publications", fail_list_publications)
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    assert repository.analytics_overview({})["publication_count"] == 2
+    assert repository.analytics_trends({}, group_by="year", metric="publications")[0]["key"] == 2024
+    assert repository.analytics_rankings({}, dimension="primary_field", metric="publications", limit=10)[0]["label"] == "Medicine"
+    assert repository.collaboration_network({}, scope="institution", min_weight=2, limit=10)["edges"][0]["weight"] == 2
+    assert any("sri_lankan_institutions" in call["sql"] for call in calls)
+    assert repository.data_quality({}, group_by=None)["missing_doi_percentage"] == 50.0
+    assert repository._facets({})["publication_year"]["2024"] == 1
+
+
+def test_institution_like_author_detection():
+    assert is_institution_like_author("University of Jaffna")
+    assert is_institution_like_author("Department of Pharmacy")
+    assert is_institution_like_author("Ministry of Health")
+    assert not is_institution_like_author("Meththika Vithanage")
+    assert not is_institution_like_author("Kumanan, T.")
+
+
+def test_postgres_researcher_rankings_filter_institution_like_author_values(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        calls.append({"sql": " ".join(sql.split()), "params": params})
+        return [{"label": "Meththika Vithanage", "publication_count": 3, "citation_total": 21}]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    rows = repository.analytics_rankings(
+        {},
+        dimension="authors",
+        metric="publications",
+        limit=10,
+    )
+
+    assert rows == [
+        {
+            "key": "meththika-vithanage",
+            "label": "Meththika Vithanage",
+            "publication_count": 3,
+            "citation_total": 21,
+        }
+    ]
+    assert "split.value) ~* %s" in calls[0]["sql"]
+    assert INSTITUTION_LIKE_AUTHOR_SQL_PATTERN in calls[0]["params"]
+
+
+def test_postgres_researcher_profile_rejects_institution_like_keys(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+
+    def fail_fetch_all(sql, params):
+        raise AssertionError("institution-like researcher keys should not query records")
+
+    monkeypatch.setattr(repository, "_fetch_all", fail_fetch_all)
+
+    assert repository.researcher_profile("University of Jaffna") is None
+
+
+def test_postgres_researcher_coauthors_filter_institution_like_values(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        assert "regexp_split_to_table" in normalized_sql
+        assert "count(DISTINCT publication_key)" in normalized_sql
+        assert "%Meththika Vithanage%" in params
+        return [
+            {
+                "node_key": "meththika-vithanage",
+                "label": "Meththika Vithanage",
+                "publication_count": 3,
+            },
+            {
+                "node_key": "university-of-jaffna",
+                "label": "University of Jaffna",
+                "publication_count": 3,
+            },
+            {
+                "node_key": "suneth-agampodi",
+                "label": "Suneth Agampodi",
+                "publication_count": 1,
+            },
+        ]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    assert repository.researcher_coauthors("Meththika Vithanage", limit=10) == [
+        {"name": "Suneth Agampodi", "publication_count": 1}
+    ]
+
+
+def test_researcher_service_filters_institution_like_repository_results():
+    class MixedResearcherRepository(FakeRepository):
+        def analytics_rankings(self, filters, *, dimension, metric, limit):
+            return [
+                {
+                    "key": "university-of-jaffna",
+                    "label": "University of Jaffna",
+                    "publication_count": 703,
+                    "citation_total": 0,
+                },
+                {
+                    "key": "meththika-vithanage",
+                    "label": "Meththika Vithanage",
+                    "publication_count": 373,
+                    "citation_total": 23132,
+                },
+                {
+                    "key": "department-of-pharmacy",
+                    "label": "Department of Pharmacy",
+                    "publication_count": 199,
+                    "citation_total": 0,
+                },
+            ]
+
+        def researcher_coauthors(self, researcher_key, *, limit):
+            return [
+                {"name": "Department of Pharmacy", "publication_count": 5},
+                {"name": "Suneth Agampodi", "publication_count": 2},
+            ]
+
+    service = ResearchLankaAPI(MixedResearcherRepository())
+
+    assert service.researchers({})["data"] == [
+        {
+            "key": "meththika-vithanage",
+            "label": "Meththika Vithanage",
+            "publication_count": 373,
+            "citation_total": 23132,
+        }
+    ]
+    assert service.researcher_coauthors("Meththika Vithanage", {})["data"] == [
+        {"name": "Suneth Agampodi", "publication_count": 2}
+    ]
+    with pytest.raises(APIError, match="Researcher not found"):
+        service.researcher_profile("University of Jaffna")
+
+
+def test_researcher_service_overfetches_to_fill_requested_limit_after_filtering():
+    class MixedResearcherRepository(FakeRepository):
+        requested_limit = None
+
+        def analytics_rankings(self, filters, *, dimension, metric, limit):
+            self.requested_limit = limit
+            return [
+                {
+                    "key": "university-of-jaffna",
+                    "label": "University of Jaffna",
+                    "publication_count": 703,
+                    "citation_total": 0,
+                },
+                {
+                    "key": "department-of-pharmacy",
+                    "label": "Department of Pharmacy",
+                    "publication_count": 199,
+                    "citation_total": 0,
+                },
+                {
+                    "key": "meththika-vithanage",
+                    "label": "Meththika Vithanage",
+                    "publication_count": 373,
+                    "citation_total": 23132,
+                },
+                {
+                    "key": "suneth-agampodi",
+                    "label": "Suneth Agampodi",
+                    "publication_count": 228,
+                    "citation_total": 2231,
+                },
+            ]
+
+    repository = MixedResearcherRepository()
+    service = ResearchLankaAPI(repository)
+
+    rows = service.researchers({"limit": ["2"]})["data"]
+
+    assert repository.requested_limit == 27
+    assert [row["label"] for row in rows] == [
+        "Meththika Vithanage",
+        "Suneth Agampodi",
+    ]
+
+
+def test_postgres_researcher_collaboration_network_uses_author_ids(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        calls.append({"sql": normalized_sql, "params": params})
+        if "source.node_key AS source_key" in normalized_sql:
+            return [
+                {
+                    "source_key": "author-perera",
+                    "target_key": "author-silva",
+                    "source_label": "Perera, K.",
+                    "target_label": "Silva, A.",
+                    "weight": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                }
+            ]
+        if "WHERE node_key = ANY(%s::text[])" in normalized_sql:
+            return [
+                {
+                    "node_key": "author-perera",
+                    "label": "Perera, K.",
+                    "publication_count": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                },
+                {
+                    "node_key": "author-silva",
+                    "label": "Silva, A.",
+                    "publication_count": 2,
+                    "first_year": 2022,
+                    "last_year": 2024,
+                },
+            ]
+        return []
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    network = repository.collaboration_network(
+        {"researcher": ["Perera"], "field": ["Medicine"]},
+        scope="researcher",
+        min_weight=2,
+        limit=10,
+    )
+
+    assert "author_ids" in calls[0]["sql"]
+    assert network["edges"] == [
+        {
+            "source": "author-perera",
+            "target": "author-silva",
+            "source_label": "Perera, K.",
+            "target_label": "Silva, A.",
+            "weight": 2,
+            "edge_type": "author_collaboration",
+            "first_year": 2022,
+            "last_year": 2024,
+        }
+    ]
+    assert {
+        "id": "author-perera",
+        "label": "Perera, K.",
+        "type": "researcher",
+        "publication_count": 2,
+        "first_year": 2022,
+        "last_year": 2024,
+    }.items() <= network["nodes"][0].items()
+    assert {
+        "degree_centrality": 1.0,
+        "strength": 2.0,
+        "betweenness_centrality": 0.0,
+        "community": 0,
+    }.items() <= network["nodes"][0].items()
+    assert network["summary"]["node_count"] == 2
+
+
+def test_single_researcher_collaboration_network_uses_coauthor_aggregate(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        calls.append({"sql": normalized_sql, "params": params})
+        return [
+            {
+                "node_key": "author-perera",
+                "label": "Perera, K.",
+                "publication_count": 4,
+                "first_year": 2020,
+                "last_year": 2024,
+            },
+            {
+                "node_key": "author-silva",
+                "label": "Silva, A.",
+                "publication_count": 2,
+                "first_year": 2022,
+                "last_year": 2024,
+            },
+            {
+                "node_key": "university-of-jaffna",
+                "label": "University of Jaffna",
+                "publication_count": 2,
+                "first_year": 2022,
+                "last_year": 2024,
+            },
+        ]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    network = repository.collaboration_network(
+        {"researcher": ["Perera, K."]},
+        scope="researcher",
+        min_weight=1,
+        limit=10,
+    )
+
+    assert len(calls) == 1
+    assert "regexp_split_to_table" in calls[0]["sql"]
+    assert "source.node_key AS source_key" not in calls[0]["sql"]
+    assert "%Perera, K.%" in calls[0]["params"]
+    assert network["edges"] == [
+        {
+            "source": "author-perera",
+            "target": "author-silva",
+            "source_label": "Perera, K.",
+            "target_label": "Silva, A.",
+            "weight": 2,
+            "edge_type": "author_collaboration",
+            "first_year": 2022,
+            "last_year": 2024,
+        }
+    ]
+    assert network["summary"]["node_count"] == 2
 
 
 def test_analytics_export_and_disabled_raw_payload():

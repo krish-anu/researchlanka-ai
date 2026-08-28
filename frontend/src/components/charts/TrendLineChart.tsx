@@ -27,38 +27,41 @@ export function TrendLineChart({
   height = 280,
 }: TrendLineChartProps) {
   const build = useCallback(
-    (theme: ChartTheme) => ({
-      data: [
-        {
-          type: "scatter",
-          mode: "lines+markers",
-          x: points.map((point) => point.key),
-          y: points.map((point) => point.value),
-          line: { color: theme.series[0], width: 2, shape: "linear" },
-          marker: {
-            color: theme.series[0],
-            size: 8,
-            line: { color: theme.surface, width: 2 },
+    (theme: ChartTheme) => {
+      const base = baseLayout(theme);
+      return {
+        data: [
+          {
+            type: "scatter",
+            mode: "lines+markers",
+            x: points.map((point) => point.key),
+            y: points.map((point) => point.value),
+            line: { color: theme.series[0], width: 2, shape: "linear" },
+            marker: {
+              color: theme.series[0],
+              size: 8,
+              line: { color: theme.surface, width: 2 },
+            },
+            hovertemplate: `%{x}<br>${valueLabel}: %{y:,}<extra></extra>`,
+            name: valueLabel,
           },
-          hovertemplate: `%{x}<br>${valueLabel}: %{y:,}<extra></extra>`,
-          name: valueLabel,
+        ],
+        layout: {
+          ...base,
+          // Crosshair + single tooltip is the default read for a time series.
+          hovermode: "x unified",
+          xaxis: {
+            ...(base.xaxis as Record<string, unknown>),
+            title: { text: "Year", font: { color: theme.muted, size: 11 } },
+          },
+          yaxis: {
+            ...(base.yaxis as Record<string, unknown>),
+            title: { text: valueLabel, font: { color: theme.muted, size: 11 } },
+            rangemode: "tozero",
+          },
         },
-      ],
-      layout: {
-        ...baseLayout(theme),
-        // Crosshair + single tooltip is the default read for a time series.
-        hovermode: "x unified",
-        xaxis: {
-          ...(baseLayout(theme).xaxis as Record<string, unknown>),
-          title: { text: "Year", font: { color: theme.muted, size: 11 } },
-        },
-        yaxis: {
-          ...(baseLayout(theme).yaxis as Record<string, unknown>),
-          title: { text: valueLabel, font: { color: theme.muted, size: 11 } },
-          rangemode: "tozero",
-        },
-      },
-    }),
+      };
+    },
     [points, valueLabel],
   );
 
