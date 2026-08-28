@@ -1,16 +1,16 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE INDEX IF NOT EXISTS idx_final_publications_year_desc_title
-    ON final_publications(publication_year DESC NULLS LAST, title ASC NULLS LAST);
+    ON final_publications(publication_year DESC NULLS LAST, left(coalesce(title, ''), 512));
 
 CREATE INDEX IF NOT EXISTS idx_final_publications_year_asc_title
-    ON final_publications(publication_year ASC NULLS LAST, title ASC NULLS LAST);
+    ON final_publications(publication_year ASC NULLS LAST, left(coalesce(title, ''), 512));
 
 CREATE INDEX IF NOT EXISTS idx_final_publications_citations_desc_year_desc
     ON final_publications(citation_count DESC NULLS LAST, publication_year DESC NULLS LAST);
 
 CREATE INDEX IF NOT EXISTS idx_final_publications_title_asc_year_desc
-    ON final_publications(title ASC NULLS LAST, publication_year DESC NULLS LAST);
+    ON final_publications(left(coalesce(title, ''), 512), publication_year DESC NULLS LAST);
 
 CREATE INDEX IF NOT EXISTS idx_final_publications_type_year
     ON final_publications(type, publication_year DESC NULLS LAST);
