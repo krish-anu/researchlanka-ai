@@ -120,7 +120,7 @@ class CrossrefCollector:
 
         return response.json()
 
-    def iter_works(
+    def iter_affiliation_works(
         self,
         *,
         affiliation_query: str,
@@ -129,10 +129,26 @@ class CrossrefCollector:
         max_records: int | None = None,
         require_first_author_lk: bool = False,
     ) -> Iterator[dict[str, Any]]:
-        """
-        Collect all works matching affiliation.
+        """Yield normalized works whose affiliations match ``affiliation_query``.
 
-        Uses Crossref cursor pagination.
+        Walks Crossref cursor pagination until the API stops returning a
+        ``next-cursor`` (or ``max_records`` is reached), keeps only
+        ``journal-article`` entries, and yields each one through
+        :func:`~src.preprocessing.crossref_normalizer.reduce_work`. Records
+        whose normalization raises are logged and skipped rather than aborting
+        the scan, so one malformed payload cannot end a long collection.
+
+        Args:
+            affiliation_query: Free-text affiliation, e.g. "University of
+                Moratuwa Sri Lanka".
+            filters: Optional raw Crossref filter expressions, joined with
+                commas, e.g. ``["from-pub-date:2016-01-01"]``.
+            rows: Page size requested from the API.
+            max_records: Stop after yielding this many records; ``None``
+                collects everything the query matches.
+
+        Yields:
+            One normalized work dict per matching journal article.
         """
 
         cursor = "*"
@@ -179,6 +195,28 @@ class CrossrefCollector:
             cursor = message.get("next-cursor")
 
             time.sleep(0.2)
+
+    def iter_works(
+        self,
+        *,
+        affiliation_query: str,
+        filters: list[str] | None = None,
+        rows: int = 100,
+        max_records: int | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Backward-compatible alias for :meth:`iter_affiliation_works`.
+
+        Kept because callers and tests still use the older, less specific name.
+        It forwards every argument unchanged -- notably ``filters``, which the
+        date-windowed pipelines rely on.
+        """
+
+        yield from self.iter_affiliation_works(
+            affiliation_query=affiliation_query,
+            filters=filters,
+            rows=rows,
+            max_records=max_records,
+        )
 
     # =====================================================
     # 2. SINGLE DOI LOOKUP
