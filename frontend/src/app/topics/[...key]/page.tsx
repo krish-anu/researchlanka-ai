@@ -40,7 +40,7 @@ export default async function TopicPublicationsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <nav className="text-sm text-muted">
+      <nav className="text-body-sm text-muted">
         <Link href="/topics" className="hover:text-ink hover:underline">
           Topics
         </Link>

@@ -161,7 +161,7 @@ export const getHealth = () =>
   request<DetailResponse<HealthStatus>>("/health", {}, { revalidate: 0 });
 
 export const getDatasetMeta = () =>
-  request<DetailResponse<DatasetMeta>>("/meta", {}, { revalidate: 600 });
+  request<DetailResponse<DatasetMeta>>("/meta", {}, { revalidate: 0 });
 
 export const getLimitations = () =>
   request<DetailResponse<Limitations>>("/limitations", {}, { revalidate: 3600 });
@@ -173,9 +173,23 @@ export const listPublications = (params: QueryParams) =>
     revalidate: 0,
   });
 
+export const searchSimilarPublications = (params: QueryParams) =>
+  request<ListResponse<PublicationSummary>>("/search/similarity", params, {
+    revalidate: 0,
+  });
+
 export const getPublication = (publicationKey: string) =>
   request<DetailResponse<PublicationDetail>>(
     `/publications/${encodeURIComponent(publicationKey)}`,
+  );
+
+export const getSimilarPublications = (
+  publicationKey: string,
+  params: QueryParams = {},
+) =>
+  request<ListResponse<PublicationSummary>>(
+    `/publications/${encodeURIComponent(publicationKey)}/similar`,
+    params,
   );
 
 export const getPublicationReferences = (
@@ -202,7 +216,9 @@ export const getFacets = (params: QueryParams = {}) =>
 /* -------------------------------------------------------------- researchers */
 
 export const listResearchers = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/researchers", params);
+  request<ListResponse<RankingEntry>>("/researchers", params, {
+    revalidate: 0,
+  });
 
 export const getResearcher = (researcherKey: string) =>
   request<DetailResponse<ProfileAggregate>>(
@@ -230,7 +246,7 @@ export const getResearcherCoauthors = (
 /* ------------------------------------------------------------- institutions */
 
 export const listInstitutions = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/institutions", params);
+  request<ListResponse<RankingEntry>>("/institutions", params);
 
 export const getInstitution = (institutionKey: string) =>
   request<DetailResponse<ProfileAggregate>>(
@@ -264,7 +280,7 @@ export const compareInstitutions = (institutions: string[]) =>
 /* ---------------------------------------------------------- topics & fields */
 
 export const listTopics = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/topics", params);
+  request<ListResponse<RankingEntry>>("/topics", params);
 
 export const getTopicPublications = (
   topicKey: string,
@@ -277,25 +293,34 @@ export const getTopicPublications = (
 
 export const listFields = (
   params: QueryParams & { level?: "domain" | "field" | "subfield" | "topic" } = {},
-) => request<DetailResponse<RankingEntry[]>>("/fields", params);
+) => request<ListResponse<RankingEntry>>("/fields", params);
 
 /* ---------------------------------------------------------------- analytics */
 
 export const getAnalyticsOverview = (params: QueryParams = {}) =>
-  request<DetailResponse<AnalyticsOverview>>("/analytics/overview", params);
+  request<DetailResponse<AnalyticsOverview>>("/analytics/overview", params, {
+    revalidate: 0,
+  });
 
 export const getAnalyticsTrends = (
   params: QueryParams & {
     group_by?: "year" | "type" | "field" | "institution";
     metric?: "publications" | "citations";
   } = {},
-) => request<DetailResponse<TrendPoint[]>>("/analytics/trends", params);
+) =>
+  request<DetailResponse<TrendPoint[]>>("/analytics/trends", params, {
+    revalidate: 0,
+  });
 
 export const getAnalyticsInstitutions = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/analytics/institutions", params);
+  request<ListResponse<RankingEntry>>("/analytics/institutions", params, {
+    revalidate: 0,
+  });
 
 export const getAnalyticsFields = (params: QueryParams = {}) =>
-  request<DetailResponse<RankingEntry[]>>("/analytics/fields", params);
+  request<ListResponse<RankingEntry>>("/analytics/fields", params, {
+    revalidate: 0,
+  });
 
 export const getCollaborationNetwork = (
   params: QueryParams & {
@@ -307,13 +332,17 @@ export const getCollaborationNetwork = (
   request<DetailResponse<CollaborationNetwork>>(
     "/analytics/collaboration-network",
     params,
+    { revalidate: 0 },
   );
 
 export const getDataQuality = (
   params: QueryParams & {
     group_by?: "source_dataset" | "type" | "institution" | "year";
   } = {},
-) => request<DetailResponse<DataQualitySummary>>("/analytics/data-quality", params);
+) =>
+  request<DetailResponse<DataQualitySummary>>("/analytics/data-quality", params, {
+    revalidate: 0,
+  });
 
 /* ------------------------------------------------------------------ exports */
 

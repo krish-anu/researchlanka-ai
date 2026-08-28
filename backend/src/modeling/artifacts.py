@@ -7,8 +7,8 @@ import hashlib
 import json
 import os
 import tempfile
-from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -38,6 +38,20 @@ class SavedArtifact:
 
 
 @dataclass(frozen=True)
+class CsvArtifactSpec:
+    """A named CSV to save and checksum alongside the standard artifacts.
+
+    Used for outputs that belong to a run but are not part of every run's fixed
+    set -- the evaluation artifacts, for instance.
+    """
+
+    name: str
+    path: Path
+    fieldnames: Sequence[str]
+    rows: Sequence[Mapping[str, Any]]
+
+
+@dataclass(frozen=True)
 class SavedModelArtifacts:
     """Metadata for the files produced by one model-saving run."""
 
@@ -46,6 +60,7 @@ class SavedModelArtifacts:
     label_counts: SavedArtifact
     predictions: SavedArtifact
     manifest: SavedArtifact
+    extra: dict[str, SavedArtifact] = field(default_factory=dict)
 
 
 def file_sha256(path: Path) -> str:
@@ -67,7 +82,14 @@ def describe_artifact(path: Path) -> SavedArtifact:
 
 
 def fsync_directory(path: Path) -> None:
-    """Best-effort directory fsync so atomic replacements survive crashes."""
+    """Best-effort directory fsync so atomic replacements survive crashes.
+
+    Flushing the *directory* entry is what makes a completed ``os.replace``
+    durable across a power loss on POSIX. Windows supports neither opening a
+    directory as a file descriptor nor fsyncing one, so both calls are treated
+    as best-effort and any ``OSError`` is swallowed -- the artifact itself has
+    already been fsynced by the writer at this point.
+    """
 
     try:
         directory_fd = os.open(path, os.O_RDONLY)
@@ -76,6 +98,8 @@ def fsync_directory(path: Path) -> None:
 
     try:
         os.fsync(directory_fd)
+    except OSError:
+        return
     finally:
         os.close(directory_fd)
 
@@ -139,9 +163,21 @@ def write_csv_artifact(
 
 
 def dump_joblib_artifact(path: Path, model: Any) -> SavedArtifact:
+    """Pickle ``model`` to ``path`` durably, via the shared atomic-write helper.
+
+    ``joblib.dump`` closes the file itself, so the bytes must be forced to disk
+    through a second handle. That handle is opened ``"r+b"`` rather than
+    ``"rb"``: Windows rejects ``os.fsync`` on a read-only descriptor with
+    ``OSError(EBADF)``, while ``"r+b"`` is writable, does not truncate, and
+    behaves identically on POSIX.
+    """
+
     def writer(temp_path: Path) -> None:
         joblib.dump(model, temp_path)
-        with temp_path.open("rb") as output_file:
+        # Opened read-write, not "rb": Windows refuses to flush a handle that
+        # was not opened for writing, so a read-only handle here fails the whole
+        # save with EBADF.
+        with temp_path.open("rb+") as output_file:
             os.fsync(output_file.fileno())
 
     return atomic_write_artifact(path, writer)
@@ -161,14 +197,19 @@ def artifact_manifest_entries(
     label_counts: SavedArtifact,
     predictions: SavedArtifact,
     manifest_output: Path,
+    extra: Mapping[str, SavedArtifact] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    return {
+    entries = {
         "model": model.as_manifest_dict(),
         "metrics": metrics.as_manifest_dict(),
         "label_counts": label_counts.as_manifest_dict(),
         "predictions": predictions.as_manifest_dict(),
         "manifest": {"path": str(manifest_output)},
     }
+    entries.update(
+        {name: artifact.as_manifest_dict() for name, artifact in (extra or {}).items()}
+    )
+    return entries
 
 
 def save_model_artifacts(
@@ -185,6 +226,7 @@ def save_model_artifacts(
     manifest_config: Mapping[str, Any],
     manifest_result: Mapping[str, Any],
     created_at: str | None = None,
+    extra_csv_artifacts: Sequence[CsvArtifactSpec] = (),
 ) -> SavedModelArtifacts:
     """Save all model-training artifacts and write a checksum manifest."""
 
@@ -200,6 +242,12 @@ def save_model_artifacts(
         fieldnames=PREDICTION_FIELDNAMES,
         rows=predictions,
     )
+    saved_extra = {
+        spec.name: write_csv_artifact(
+            spec.path, fieldnames=list(spec.fieldnames), rows=spec.rows
+        )
+        for spec in extra_csv_artifacts
+    }
 
     result_payload = dict(manifest_result)
     if not result_payload.get("model_sha256"):
@@ -217,6 +265,7 @@ def save_model_artifacts(
             label_counts=saved_labels,
             predictions=saved_predictions,
             manifest_output=manifest_output,
+            extra=saved_extra,
         ),
     }
     saved_manifest = write_json_artifact(manifest_output, manifest)
@@ -227,4 +276,5 @@ def save_model_artifacts(
         label_counts=saved_labels,
         predictions=saved_predictions,
         manifest=saved_manifest,
+        extra=saved_extra,
     )

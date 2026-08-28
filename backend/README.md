@@ -83,12 +83,20 @@ To run only the database load stage:
 python -m research_analytics.cli load_database --config configurations/sri_lanka/config.json
 ```
 
+The Sri Lanka config covers 2016-2026, and the loader applies that range when
+loading through the framework. To load the prepared 2016-2026 final dataset
+directly into the API table:
+
+```bash
+python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026.csv --year-min 2016 --year-max 2026
+```
+
 To load a prepared records file directly into PostgreSQL:
 
 ```bash
-python scripts/database/load_records.py data/processed/common/final_common_dataset.csv
-python scripts/database/load_records.py data/processed/common/final_common_dataset.jsonl --batch-size 500
-python scripts/database/load_records.py data/processed/common/final_common_dataset.csv --limit 25
+python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026.csv
+python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026.csv --batch-size 500
+python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026.csv --limit 25
 ```
 
 The direct loader accepts CSV, JSON arrays, JSON objects with a `records` list,
@@ -162,6 +170,13 @@ git push origin feature/openalex-collector
 
 ## Useful Docs
 
+Start here if you are new to the backend:
+
+- [Backend Architecture Map](docs/BACKEND_ARCHITECTURE_MAP.md) - what every package does, how data flows between stages, and which file to open for a given task
+- [Backend Code Audit](docs/BACKEND_CODE_AUDIT.md) - defects found and fixed, plus the open questions that need a team decision
+
+Reference:
+
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
 - [API Design](docs/API_DESIGN.md) - read-only dashboard/search/profile API contract for the PostgreSQL-backed corpus
 - [Metadata Quality Report Index](docs/00_metadata_quality_report_index.md) - missing values, completeness, conflicts, and final column decisions
@@ -172,7 +187,6 @@ git push origin feature/openalex-collector
 - [Migration to Framework Pipeline](docs/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
-- [GitHub Management Workflow](docs/GITHUB_MANAGEMENT.md)
 
 ## Sri Lanka National Framework Mode
 
@@ -312,6 +326,23 @@ make predict-logreg PYTHON=python
 The inference step verifies the saved model against the training manifest,
 combines the configured text columns, and writes prediction CSV plus an
 inference manifest with model and output checksums.
+
+Generate dense publication-text embeddings:
+
+```bash
+make model-embeddings PYTHON=python
+```
+
+The default embedding run combines `title`, `abstract`, and `keywords`, learns
+a TF-IDF + TruncatedSVD embedder, and writes:
+
+- `data/models/publication_text_embeddings.parquet`
+- `data/models/publication_text_embedding_model.joblib`
+- `data/models/publication_text_embeddings_manifest.json`
+- `data/models/publication_text_embeddings_summary.txt`
+
+Override `EMBED_TEXT_COLUMNS`, `EMBED_DIM`, and other `EMBED_*` Make variables
+to customize vector size, vocabulary controls, and output paths.
 
 The analyzers read in chunks, so they work on the full multi-hundred-megabyte outputs.
 

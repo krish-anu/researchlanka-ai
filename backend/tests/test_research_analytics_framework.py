@@ -17,6 +17,7 @@ from research_analytics.cleaning import (
 )
 from research_analytics.config import config_from_dict
 from research_analytics.institutions import NationalInstitutionRegistry, enrich_national_context
+from research_analytics.networks import build_author_collaboration_network
 from research_analytics.schema import STANDARD_PUBLICATION_FIELDS
 from research_analytics.validation import record_validation_errors, validate_records
 
@@ -45,6 +46,44 @@ def test_standard_schema_maps_user_columns_without_country_specific_code():
     assert mapped["institutions"] == "Example University"
     assert mapped["publication_year"] == "2024"
     assert mapped["source_name"] == "user_upload"
+
+
+def test_author_collaboration_network_uses_disambiguated_ids_and_years():
+    network = build_author_collaboration_network(
+        [
+            {
+                "publication_id": "p1",
+                "authors": "Perera, K.; Silva, A.",
+                "author_ids": "author-perera; author-silva",
+                "publication_year": "2022",
+            },
+            {
+                "publication_id": "p2",
+                "authors": "Perera, Kumara; Silva, A.; Fernando, N.",
+                "author_ids": "author-perera; author-silva; author-fernando",
+                "publication_year": "2024",
+            },
+        ]
+    )
+
+    assert {
+        (edge["source"], edge["target"]): edge
+        for edge in network["edges"]
+    }[("author-perera", "author-silva")] == {
+        "source": "author-perera",
+        "target": "author-silva",
+        "source_label": "Perera, K.",
+        "target_label": "Silva, A.",
+        "weight": 2,
+        "edge_type": "author_collaboration",
+        "first_year": 2022,
+        "last_year": 2024,
+    }
+    assert {node["id"] for node in network["nodes"]} == {
+        "author-perera",
+        "author-silva",
+        "author-fernando",
+    }
 
 
 def test_pipeline_runs_from_configuration_and_exports_reports(tmp_path):
@@ -903,8 +942,33 @@ def test_openalex_adapter_can_restrict_collection_to_configured_country_only():
                             }
                         ],
                     },
+                    {
+                        "id": "https://openalex.org/W-FOREIGN-LED",
+                        "title": "Foreign-led Sri Lanka collaboration",
+                        "authorships": [
+                            {
+                                "author_position": "first",
+                                "countries": ["GB"],
+                                "institutions": [
+                                    {
+                                        "display_name": "University of Edinburgh",
+                                        "country_code": "GB",
+                                    }
+                                ],
+                            },
+                            {
+                                "countries": ["LK"],
+                                "institutions": [
+                                    {
+                                        "display_name": "University of Colombo",
+                                        "country_code": "LK",
+                                    }
+                                ],
+                            },
+                        ],
+                    },
                 ],
-                "meta": {"next_cursor": None, "count": 2},
+                "meta": {"next_cursor": None, "count": 3},
             }
 
     strict_adapter = OpenAlexAdapter(country_code="LK", strict_country_only=True)

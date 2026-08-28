@@ -291,8 +291,35 @@ before dynamic routes such as `/institutions/{institution_key}`.
 | `GET` | `/analytics/trends` | Publication and citation trends by year. |
 | `GET` | `/analytics/institutions` | Institution rankings and trend summaries. |
 | `GET` | `/analytics/fields` | Field, subfield, topic, and type breakdowns. |
-| `GET` | `/analytics/collaboration-network` | Nodes and edges for Cytoscape.js. |
+| `GET` | `/analytics/collaboration-network` | Nodes and edges for Cytoscape.js, with per-node centrality, community labels, and a structural summary. |
 | `GET` | `/analytics/data-quality` | Missingness, conflict, and quality-flag summary. |
+
+#### Collaboration network response
+
+`data` carries `nodes`, `edges` and `summary`. Each node adds the structural
+measures computed by `src/analytics/network.py`:
+
+| Field | Meaning |
+|---|---|
+| `degree_centrality` | Share of other nodes this one collaborates with directly, normalised by `n - 1`. |
+| `strength` | Weighted degree -- total co-publications, not distinct partners. |
+| `betweenness_centrality` | Share of shortest paths running through this node. High values mark bridging partners. |
+| `closeness_centrality` | Wasserman-Faust corrected closeness, so an isolated pair cannot outrank the main component. |
+| `community` | Community id from label propagation, 0-based and ordered by descending size. |
+
+`summary` carries `node_count`, `edge_count`, `density`, `component_count`,
+`largest_component_size`, `community_count` and `modularity`.
+
+Two properties callers can rely on:
+
+- **The measures describe the returned graph**, computed after `min_weight` and
+  `limit` are applied. Centrality over edges the response omitted would not
+  match the picture drawn from it.
+- **The output is deterministic.** Node ordering and every tie-break are fixed,
+  so the same corpus and parameters always yield the same ranking and the same
+  community ids. Modularity is reported alongside the partition so a reader can
+  judge whether the communities are worth interpreting -- below roughly 0.3 the
+  split says little.
 
 ### Model Serving
 
@@ -520,15 +547,21 @@ The API should derive and expose these flags:
         "id": "university-of-colombo",
         "label": "University of Colombo",
         "type": "institution",
-        "publication_count": 1200
+        "publication_count": 1200,
+        "first_year": 2016,
+        "last_year": 2026
       }
     ],
     "edges": [
       {
         "source": "university-of-colombo",
         "target": "university-of-peradeniya",
+        "source_label": "University of Colombo",
+        "target_label": "University of Peradeniya",
         "weight": 42,
-        "collaboration_type": "domestic_multi_institution"
+        "edge_type": "institution_collaboration",
+        "first_year": 2018,
+        "last_year": 2025
       }
     ]
   }

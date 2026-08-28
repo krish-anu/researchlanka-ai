@@ -16,6 +16,8 @@ dependencies = [
     "pyarrow==22.0.0",
     "psycopg[binary]>=3.2,<4",
     "python-dotenv==1.2.2",
+    # Required by research_analytics.duplicate_analysis (fuzzy title matching).
+    "rapidfuzz==3.14.3",
     "requests==2.34.2",
     "scikit-learn==1.8.0",
     "uvicorn[standard]==0.40.0",
@@ -32,8 +34,12 @@ load-records = "src.database.load_records:main"
 research-api = "src.api.server:main"
 research-model-api = "src.api.fastapi_app:main"
 train-publication-classifier = "src.modeling.training:main"
+compare-publication-classifiers = "src.modeling.classification_comparison:main"
 predict-publication-classifier = "src.modeling.inference:main"
+evaluate-publication-classifier = "src.modeling.evaluation:main"
+validate-analysis-dataset = "src.quality.validate_analysis_dataset:main"
 create-publication-dataset-splits = "src.modeling.dataset_splits:main"
+generate-publication-embeddings = "src.modeling.embeddings:main"
 
 [tool.setuptools.packages.find]
 include = ["research_analytics*", "src*"]

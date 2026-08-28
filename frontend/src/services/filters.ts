@@ -82,8 +82,11 @@ export function extractSort(searchParams: SearchParams): SortOption | undefined 
     : undefined;
 }
 
-export function extractPage(searchParams: SearchParams): number {
-  const raw = firstValue(searchParams.page);
+export function extractPage(
+  searchParams: SearchParams,
+  key = "page",
+): number {
+  const raw = firstValue(searchParams[key]);
   const parsed = raw ? Number.parseInt(raw, 10) : 1;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
@@ -125,13 +128,14 @@ export function pageHref(
   basePath: string,
   searchParams: SearchParams,
   page: number,
+  pageKey = "page",
 ): string {
   const search = new URLSearchParams();
-  for (const [key, raw] of Object.entries(searchParams)) {
-    if (key === "page") continue;
-    for (const item of toArray(raw)) search.append(key, item);
+  for (const [paramKey, raw] of Object.entries(searchParams)) {
+    if (paramKey === pageKey) continue;
+    for (const item of toArray(raw)) search.append(paramKey, item);
   }
-  if (page > 1) search.set("page", String(page));
+  if (page > 1) search.set(pageKey, String(page));
   const qs = search.toString();
   return qs ? `${basePath}?${qs}` : basePath;
 }

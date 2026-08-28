@@ -111,6 +111,7 @@ def build_adapter_from_config(config: FrameworkConfig) -> SourceAdapter:
             email=source.options.get("email"),
             filters=source.options.get("filters"),
             max_records=source.options.get("max_records"),
+            require_first_author_lk=source.options.get("require_first_author_lk", True),
         )
 
     return adapter_class(**source.options)

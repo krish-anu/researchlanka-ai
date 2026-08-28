@@ -4,6 +4,10 @@ import { Suspense } from "react";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
+import {
+  NetworkBrokersTable,
+  NetworkSummaryPanel,
+} from "@/components/network/NetworkMetrics";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable, TableDisclosure, type Column } from "@/components/ui/DataTable";
 import { ApiErrorPanel, Skeleton } from "@/components/ui/Feedback";
@@ -181,7 +185,7 @@ async function TrendsSection() {
         {!trends.ok ? (
           <ApiErrorPanel error={trends.error} what="publication trends" />
         ) : points.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No trend data available.</p>
+          <p className="p-4 text-body-sm text-muted">No trend data available.</p>
         ) : (
           <TrendLineChart
             points={points.map((point) => ({
@@ -209,7 +213,7 @@ async function TrendsSection() {
             ariaLabel="Line chart of citations per publication year"
           />
         ) : (
-          <p className="p-4 text-sm text-muted">No citation trend available.</p>
+          <p className="p-4 text-body-sm text-muted">No citation trend available.</p>
         )}
       </ChartPanel>
     </div>
@@ -243,7 +247,7 @@ async function RankingsSection() {
         {!institutions.ok ? (
           <ApiErrorPanel error={institutions.error} what="institution rankings" />
         ) : institutions.value.data.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No institution data available.</p>
+          <p className="p-4 text-body-sm text-muted">No institution data available.</p>
         ) : (
           <RankingBarChart
             entries={institutions.value.data.map((entry) => ({
@@ -277,7 +281,7 @@ async function RankingsSection() {
         {!fields.ok ? (
           <ApiErrorPanel error={fields.error} what="the field breakdown" />
         ) : fields.value.data.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No field data available.</p>
+          <p className="p-4 text-body-sm text-muted">No field data available.</p>
         ) : (
           <RankingBarChart
             entries={fields.value.data.map((entry) => ({
@@ -296,16 +300,16 @@ async function RankingsSection() {
 async function NetworkSection() {
   const network = await getCollaborationNetwork({
     scope: "institution",
-    limit: 60,
-    min_weight: 2,
+    limit: 120,
+    min_weight: 1,
   });
 
   return (
     <ChartPanel
       title="Institutional collaboration network"
-      description="Institutions that co-publish, with at least two shared publications."
+      description="Institutions that co-publish in the national corpus."
       action={
-        <Link href="/institutions" className="text-sm text-primary hover:underline">
+        <Link href="/institutions" className="text-body-sm text-primary hover:underline">
           Browse institutions →
         </Link>
       }
@@ -314,8 +318,16 @@ async function NetworkSection() {
           <TableDisclosure label="View collaboration pairs as table">
             <DataTable
               columns={[
-                { key: "source", header: "Institution", render: (row) => row.source },
-                { key: "target", header: "Collaborator", render: (row) => row.target },
+                {
+                  key: "source",
+                  header: "Institution",
+                  render: (row) => row.source_label ?? row.source,
+                },
+                {
+                  key: "target",
+                  header: "Collaborator",
+                  render: (row) => row.target_label ?? row.target,
+                },
                 {
                   key: "weight",
                   header: "Shared publications",
@@ -333,7 +345,22 @@ async function NetworkSection() {
       {!network.ok ? (
         <ApiErrorPanel error={network.error} what="the collaboration network" />
       ) : (
-        <CollaborationNetwork network={network.value.data} scope="institution" />
+        <div className="flex flex-col gap-5">
+          <CollaborationNetwork network={network.value.data} scope="institution" />
+          <NetworkSummaryPanel summary={network.value.data.summary} />
+          <div>
+            <h3 className="mb-2 font-display text-h3 text-ink">
+              Bridging institutions
+            </h3>
+            <p className="mb-3 max-w-prose text-body-sm text-ink-secondary">
+              Institutions carrying the most shortest paths between others. A
+              different ranking from the most prolific: an institution that only
+              co-publishes inside its own cluster brokers nothing, however much
+              it publishes.
+            </p>
+            <NetworkBrokersTable nodes={network.value.data.nodes} />
+          </div>
+        </div>
       )}
     </ChartPanel>
   );
@@ -353,10 +380,10 @@ function PanelPairSkeleton() {
 function PageIntro() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-ink">
+      <h1 className="font-display text-h1 text-ink">
         Sri Lanka research at a glance
       </h1>
-      <p className="mt-1 max-w-prose text-sm text-ink-secondary">
+      <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
         A public, read-only view of the consolidated national publication
         corpus. Browse{" "}
         <Link href="/publications" className="text-primary hover:underline">
