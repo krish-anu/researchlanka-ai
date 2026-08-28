@@ -483,6 +483,9 @@ def train_hierarchical_classifier(
     assert config.metrics_output is not None
     assert config.label_counts_output is not None
     assert config.manifest_output is not None
+    field_predictions_output = config.field_model_output.with_name(
+        f"{config.field_model_output.stem}_predictions.csv"
+    )
 
     metrics_text = render_metrics(
         config=config,
@@ -516,7 +519,7 @@ def train_hierarchical_classifier(
         label_counts=field_label_counts,
         label_counts_output=config.label_counts_output,
         predictions=[],
-        predictions_output=None,
+        predictions_output=field_predictions_output,
         manifest_output=config.manifest_output,
         manifest_config=json_ready_dataclass(config),
         manifest_result=json_ready_dataclass(result),
@@ -726,41 +729,42 @@ def result_summary(result: HierarchicalTrainingResult) -> str:
 
 def main() -> None:
     args = parse_args()
-    result = train_hierarchical_classifier(
-        HierarchicalTrainingConfig(
-            input_path=args.input,
-            taxonomy_path=args.taxonomy,
-            field_column=args.field_column,
-            subfield_column=args.subfield_column,
-            text_columns=tuple(args.text_columns),
-            field_model_output=args.field_model_output,
-            subfield_model_output=args.subfield_model_output,
-            metrics_output=args.metrics_output,
-            label_counts_output=args.label_counts_output,
-            manifest_output=args.manifest_output,
-            test_size=args.test_size,
-            random_state=args.random_state,
-            max_rows=args.max_rows,
-            min_subfield_count=args.min_subfield_count,
-            max_features=args.max_features,
-            min_df=args.min_df,
-            max_df=args.max_df,
-            ngram_max=args.ngram_max,
-            c_value=args.c_value,
-            class_weight=args.class_weight,
-            max_iter=args.max_iter,
-        )
+    config = HierarchicalTrainingConfig(
+        input_path=args.input,
+        taxonomy_path=args.taxonomy,
+        field_column=args.field_column,
+        subfield_column=args.subfield_column,
+        text_columns=tuple(args.text_columns),
+        field_model_output=args.field_model_output,
+        subfield_model_output=args.subfield_model_output,
+        metrics_output=args.metrics_output,
+        label_counts_output=args.label_counts_output,
+        manifest_output=args.manifest_output,
+        test_size=args.test_size,
+        random_state=args.random_state,
+        max_rows=args.max_rows,
+        min_subfield_count=args.min_subfield_count,
+        max_features=args.max_features,
+        min_df=args.min_df,
+        max_df=args.max_df,
+        ngram_max=args.ngram_max,
+        c_value=args.c_value,
+        class_weight=args.class_weight,
+        max_iter=args.max_iter,
     )
+    result = train_hierarchical_classifier(config)
     print(result_summary(result))
     if args.predict_output:
-        lookup = load_taxonomy(config.taxonomy_path)
-        run_hierarchical_prediction(
+        resolved = resolved_config(config)
+        run_field_subfield_prediction(
             input_path=config.input_path,
             output_path=args.predict_output,
-            domain_model_path=result.domain_model_output,
+            field_model_path=result.field_model_output,
             subfield_model_path=result.subfield_model_output,
-            taxonomy_path=config.taxonomy_path,
-            text_columns=config.text_columns,
+            text_columns=resolved.text_columns,
+            only_unlabeled=False,
+            field_column=resolved.field_column,
+            subfield_column=resolved.subfield_column,
         )
         print(f"Predictions written to: {args.predict_output}")
 
