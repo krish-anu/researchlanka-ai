@@ -46,10 +46,20 @@ from sklearn.pipeline import Pipeline
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_INPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
+DEFAULT_INPUT = (
+    PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
+)
 DEFAULT_MODEL_DIR = PROJECT_ROOT / "data" / "models"
-DEFAULT_LABEL_COLUMN = "primary_domain"
-DEFAULT_TEXT_COLUMNS = ["title", "abstract", "keywords"]
+
+DEFAULT_LABEL_COLUMN = "primary_field"
+DEFAULT_TEXT_COLUMNS = ["title", "abstract", "topics", "keywords", "concepts"]
+DEFAULT_MODEL_FAMILY = "logistic_regression"
+# Best Logistic Regression defaults (aligned text cols with Linear SVM)
+DEFAULT_NGRAM_MAX = 2
+DEFAULT_TEST_SIZE = 0.15
+DEFAULT_CLASS_WEIGHT: str | None = "balanced"
+DEFAULT_MAX_ITER = 1000
+
 
 MODEL_FAMILY_LOGISTIC_REGRESSION = "logistic_regression"
 MODEL_FAMILY_MULTINOMIAL_NB = "multinomial_nb"
@@ -73,19 +83,26 @@ class TextTrainingConfig:
     label_counts_output: Path | None = None
     predictions_output: Path | None = None
     manifest_output: Path | None = None
+
+    test_size: float = DEFAULT_TEST_SIZE
+
     confusion_matrix_output: Path | None = None
     per_class_output: Path | None = None
-    test_size: float = 0.2
+
     random_state: int = 42
     max_rows: int | None = None
     min_class_count: int = 20
     max_features: int = 50_000
     min_df: int | float = 2
     max_df: int | float = 0.95
-    ngram_max: int = 2
+    ngram_max: int = DEFAULT_NGRAM_MAX
     keep_stop_words: bool = False
+
+    class_weight: str | None = DEFAULT_CLASS_WEIGHT
+    max_iter: int = DEFAULT_MAX_ITER
+
     # Logistic Regression only.
-    class_weight: str | None = "balanced"
+
     max_iter: int = 1000
     # Multinomial Naive Bayes only: additive smoothing, and whether the class
     # prior is learned from the data or left uniform. A uniform prior is the
@@ -128,10 +145,14 @@ def parse_document_frequency(value: str) -> int | float:
     try:
         parsed = float(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(f"invalid document frequency value: {value}") from exc
+        raise argparse.ArgumentTypeError(
+            f"invalid document frequency value: {value}"
+        ) from exc
 
     if parsed <= 0:
-        raise argparse.ArgumentTypeError("document frequency thresholds must be positive")
+        raise argparse.ArgumentTypeError(
+            "document frequency thresholds must be positive"
+        )
     if parsed < 1 or ("." in value and parsed == 1):
         return parsed
     if not parsed.is_integer():
@@ -159,12 +180,18 @@ def artifact_stem(model_family: str, label_column: str) -> str:
     return f"{slugify(model_family)}_{slugify(label_column)}"
 
 
-def default_model_output(label_column: str, model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
+def default_model_output(
+    label_column: str, model_family: str = DEFAULT_MODEL_FAMILY
+) -> Path:
     return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, label_column)}.joblib"
 
 
-def default_metrics_output(label_column: str, model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, label_column)}_metrics.txt"
+def default_metrics_output(
+    label_column: str, model_family: str = DEFAULT_MODEL_FAMILY
+) -> Path:
+    return (
+        DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, label_column)}_metrics.txt"
+    )
 
 
 def default_label_counts_output(
@@ -178,28 +205,37 @@ def default_predictions_output(
     label_column: str,
     model_family: str = DEFAULT_MODEL_FAMILY,
 ) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, label_column)}_predictions.csv"
+    return (
+        DEFAULT_MODEL_DIR
+        / f"{artifact_stem(model_family, label_column)}_predictions.csv"
+    )
 
 
 def default_confusion_matrix_output(
     label_column: str,
     model_family: str = DEFAULT_MODEL_FAMILY,
 ) -> Path:
-    return confusion_matrix_output(artifact_stem(model_family, label_column), DEFAULT_MODEL_DIR)
+    return confusion_matrix_output(
+        artifact_stem(model_family, label_column), DEFAULT_MODEL_DIR
+    )
 
 
 def default_per_class_output(
     label_column: str,
     model_family: str = DEFAULT_MODEL_FAMILY,
 ) -> Path:
-    return per_class_output(artifact_stem(model_family, label_column), DEFAULT_MODEL_DIR)
+    return per_class_output(
+        artifact_stem(model_family, label_column), DEFAULT_MODEL_DIR
+    )
 
 
 def default_manifest_output(
     label_column: str,
     model_family: str = DEFAULT_MODEL_FAMILY,
 ) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, label_column)}_manifest.json"
+    return (
+        DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, label_column)}_manifest.json"
+    )
 
 
 def combined_text(frame: pd.DataFrame, text_columns: Iterable[str]) -> pd.Series:
@@ -395,7 +431,9 @@ def family_hyperparameters(config: TextTrainingConfig) -> dict[str, Any]:
 
 
 def write_label_counts(path: Path, label_counts: pd.Series) -> None:
-    rows = [{"label": label, "count": int(count)} for label, count in label_counts.items()]
+    rows = [
+        {"label": label, "count": int(count)} for label, count in label_counts.items()
+    ]
     write_csv_artifact(path, fieldnames=["label", "count"], rows=rows)
 
 
@@ -504,7 +542,9 @@ def write_manifest(
     manifest = {
         "config": json_ready_dataclass(config),
         "result": json_ready_dataclass(result),
-        "label_counts": {str(label): int(count) for label, count in label_counts.items()},
+        "label_counts": {
+            str(label): int(count) for label, count in label_counts.items()
+        },
         "artifacts": {
             "model": str(result.model_output),
             "metrics": str(result.metrics_output),
@@ -571,7 +611,9 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
     predictions = pipeline.predict(test_text)
     accuracy = accuracy_score(test_labels, predictions)
     macro_f1 = f1_score(test_labels, predictions, average="macro", zero_division=0)
-    weighted_f1 = f1_score(test_labels, predictions, average="weighted", zero_division=0)
+    weighted_f1 = f1_score(
+        test_labels, predictions, average="weighted", zero_division=0
+    )
     report = classification_report(test_labels, predictions, zero_division=0)
 
     # Every family is scored through the same evaluation pipeline, so runs stay
@@ -836,7 +878,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Output run manifest JSON path. Default: data/models/logistic_regression_<label>_manifest.json",
     )
-    parser.add_argument("--test-size", type=float, default=0.2, help="Held-out test fraction.")
+    parser.add_argument(
+        "--test-size",
+        type=float,
+        default=DEFAULT_TEST_SIZE,
+        help="Held-out test fraction.",
+    )
     parser.add_argument("--random-state", type=int, default=42, help="Random seed.")
     parser.add_argument(
         "--max-rows",
@@ -928,7 +975,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def result_summary(result: TrainingResult, *, model_family: str = DEFAULT_MODEL_FAMILY) -> str:
+def result_summary(
+    result: TrainingResult, *, model_family: str = DEFAULT_MODEL_FAMILY
+) -> str:
     lines = [
         f"Trained {model_family} classifier on {result.usable_rows:,} rows.",
         f"Classes: {result.class_count:,}",
