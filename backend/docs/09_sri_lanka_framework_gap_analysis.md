@@ -26,9 +26,9 @@ stable national workflow.
 | Area | Current state | Gap | Suggested action |
 | --- | --- | --- | --- |
 | OpenAlex framework adapter | Uses config for country code, years, mapping, transformations, and strict national filtering. | Some normalization helpers still expose Sri Lanka-specific function names and columns. | Keep behavior, but align names if the framework code should read purely as the Sri Lanka national implementation. |
-| `sources` block in Sri Lanka config | Lists OpenAlex, Crossref, SLJOL, and repository source groups. | Active execution still uses a single `source`/`input` path, while `sources` is mostly descriptive. | Decide whether multi-source orchestration should be implemented or whether `sources` should become documentation-only metadata. |
+| `sources` block in Sri Lanka config | Lists OpenAlex, Crossref, SLJOL, and repository source groups. | Implemented for collectable source entries; descriptive entries without a path/API configuration are skipped with a log message. | Keep descriptive entries for planning, and add adapter details when a source should run in framework orchestration. |
 | Entity resolution | Resolves exact normalized aliases from the Sri Lanka registry. | No fuzzy/identifier-based matching for institution variants outside the alias file. | Add ROR-aware and controlled fuzzy matching for unresolved Sri Lanka affiliations. |
-| Collaboration analytics | Classifies domestic and international collaboration. | Collaboration edges are built from institution co-occurrence only; author-level or funder-level networks are not represented. | Add optional author, funder, and country collaboration exports if needed by the dashboard. |
+| Collaboration analytics | Classifies domestic and international collaboration and summarizes author, country, and funder collaboration networks when those fields exist. | Network depth depends on available metadata. | Add dashboard controls if users need to choose network type interactively. |
 | Source validation | Preview and validation work for adapter records. | Validation report is mostly structural; it does not fully assess Sri Lanka-specific metadata quality thresholds. | Add national validation checks for LK association, institution resolution rate, DOI coverage, and year ranges. |
 | Dashboard/API design | Read-only API contract is documented in `docs/API_DESIGN.md`; MVP service code lives in `src/api/`. | Not yet connected to a deployed dashboard. | Harden the MVP API against PostgreSQL `final_publications`, then connect the dashboard. |
 | Documentation | Main docs now describe Sri Lanka national scope. | Some older analysis docs still describe decisions from historical datasets rather than current pipeline behavior. | Mark older analysis docs as historical or update them against current outputs. |
@@ -48,14 +48,14 @@ stable national workflow.
 
 | Missing capability | Why it matters | Suggested priority |
 | --- | --- | --- |
-| Multi-source execution from `sources` | Sri Lanka data sources are listed, but the framework currently runs one active source at a time. | High |
-| Crossref adapter wiring in Sri Lanka config | Crossref is listed as enabled but not fully configured as an active framework source. | High |
-| SLJOL and repository adapters wired into framework config | Legacy scripts collect these sources, but framework orchestration does not yet collect all of them end-to-end. | High |
+| Multi-source execution from `sources` | Implemented for enabled sources with concrete collection config. The current Sri Lanka config keeps some source entries descriptive. | Closed |
+| Crossref adapter wiring in Sri Lanka config | Crossref adapter support exists, including first-author Sri Lanka filtering. The config needs an affiliation query if Crossref should run directly from the framework. | Configuration task |
+| SLJOL and repository adapters wired into framework config | Framework can run configured local/API/OAI sources; current legacy scripts and prepared merged CSV remain the production path for entries without adapter details. | Configuration task |
 | Full API raw payload export strategy | `raw_record` now preserves complete OpenAlex payloads, but CSV files become very large and awkward to parse. | Medium |
 | Database load stage | Implemented: `load_database` now loads deduplicated records into PostgreSQL `final_publications` using the latest finalized dataset columns. | Closed |
-| Classification/topic modeling stages | `classify` and `topic_modeling` flags exist but do not drive implemented stages. | Medium |
+| Classification/topic modeling stages | Implemented: `classify` runs the existing model-comparison workflow and `topic_modeling` runs the existing NMF pipeline when enabled. | Closed |
 | Semantic search and forecasting stages | Config has flags for these, but no pipeline implementation is wired. | Low/Medium |
-| Dashboard/API implementation | The read-only API MVP is implemented, but no deployed dashboard integration is connected here. | Medium |
+| Dashboard/API implementation | The read-only API MVP and frontend routes are implemented locally; production deployment remains outside this framework audit. | Deployment task |
 | Provenance report per source | Raw records are saved, but there is no source-level lineage summary for merged national outputs. | Medium |
 | Data-quality thresholds | Data quality is reported, but pass/fail thresholds are not configurable. | Medium |
 
@@ -63,8 +63,8 @@ stable national workflow.
 
 | Refactor target | Current issue | Recommended direction |
 | --- | --- | --- |
-| `ResearchPipeline.run_all()` | Always calls `resolve_entities()` even when `pipeline.resolve_entities` is false. | Respect the stage flag or remove the unused flag. |
-| `sources` vs `source` config model | Both exist, but only one source is actively built by `build_adapter_from_config()`. | Choose one model for Sri Lanka production runs, or implement a `MultiSourcePipeline`. |
+| `ResearchPipeline.run_all()` | Now respects `pipeline.resolve_entities`; when false, cleaned records are carried forward. | Keep enabled only when national registry enrichment is required. |
+| `sources` vs `source` config model | `source` remains the explicit single-source override; `sources` can now run multiple collectable source entries when `source` is absent. | Add concrete path/API details to descriptive `sources` entries before expecting collection. |
 | OpenAlex filtering logic | Framework adapter has generic strict-country filtering; legacy collector has Sri Lanka-specific broad/strict filtering. | Consolidate shared LK filtering semantics to avoid drift. |
 | Source-specific metadata handling | Flattened helper fields go to `source_specific_metadata`; full API payload goes to `raw_record`. | Add explicit docs for where dashboard/API consumers should read each class of metadata. |
 | Export of nested data in CSV | Lists/dicts are stringified in CSV, especially `raw_record`. | Add JSONL export for transformed/deduplicated records or keep large raw payloads in `source_records.json` only. |
@@ -87,9 +87,8 @@ stable national workflow.
 
 ## Recommended next steps
 
-1. Decide whether the production framework should execute all Sri Lanka sources from the `sources` block, or keep using the merged CSV as the single active input.
-2. If multi-source execution is needed, add a `MultiSourcePipeline` that collects each enabled Sri Lanka source, preserves source provenance, and merges before cleaning/deduplication.
-3. Document the full raw API retention policy: use `source_records.json` for complete raw payloads, and keep CSV rows focused on normalized reporting fields.
-4. Add national data-quality thresholds for DOI coverage, institution resolution rate, publication year validity, and LK-only OpenAlex filtering.
-5. Harden the read-only API MVP in `src/api/`, add deployment configuration, and connect the publication search, profile, dashboard, and export views.
-6. Mark older analysis docs as historical if their numbers do not reflect the latest regenerated outputs.
+1. Add concrete adapter details to descriptive `sources` entries when those sources should run directly through framework orchestration.
+2. Document the full raw API retention policy: use `source_records.json` for complete raw payloads, and keep CSV rows focused on normalized reporting fields.
+3. Add national data-quality thresholds for DOI coverage, institution resolution rate, publication year validity, and LK-only OpenAlex filtering.
+4. Add deployment configuration for the API/frontend if production hosting becomes part of the project scope.
+5. Mark older analysis docs as historical if their numbers do not reflect the latest regenerated outputs.

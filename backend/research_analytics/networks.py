@@ -12,6 +12,8 @@ from typing import Any
 
 
 AUTHOR_COLLABORATION_EDGE_TYPE = "author_collaboration"
+COUNTRY_COLLABORATION_EDGE_TYPE = "country_collaboration"
+FUNDER_COLLABORATION_EDGE_TYPE = "funder_collaboration"
 
 
 def build_author_collaboration_network(
@@ -94,6 +96,42 @@ def build_author_collaboration_network(
     return {"nodes": nodes, "edges": edges}
 
 
+def build_country_collaboration_network(
+    records: list[dict[str, Any]],
+    *,
+    min_weight: int = 1,
+    limit: int | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Build a weighted country co-occurrence graph from publication records."""
+
+    return _build_value_collaboration_network(
+        records,
+        field="countries",
+        node_type="country",
+        edge_type=COUNTRY_COLLABORATION_EDGE_TYPE,
+        min_weight=min_weight,
+        limit=limit,
+    )
+
+
+def build_funder_collaboration_network(
+    records: list[dict[str, Any]],
+    *,
+    min_weight: int = 1,
+    limit: int | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Build a weighted funder co-occurrence graph from publication records."""
+
+    return _build_value_collaboration_network(
+        records,
+        field="funder_name",
+        node_type="funder",
+        edge_type=FUNDER_COLLABORATION_EDGE_TYPE,
+        min_weight=min_weight,
+        limit=limit,
+    )
+
+
 def split_author_values(value: Any) -> list[str]:
     """Split author-like multi-value fields without splitting surname commas."""
 
@@ -114,6 +152,87 @@ def split_author_values(value: Any) -> list[str]:
         return split_author_values(parsed)
 
     return [part.strip() for part in text.split(";") if part.strip()]
+
+
+def split_collaboration_values(value: Any) -> list[str]:
+    """Split semicolon/list-shaped collaboration fields into unique labels."""
+
+    values = split_author_values(value)
+    seen: set[str] = set()
+    output: list[str] = []
+    for value in values:
+        cleaned = value.strip()
+        key = cleaned.casefold()
+        if cleaned and key not in seen:
+            seen.add(key)
+            output.append(cleaned)
+    return output
+
+
+def _build_value_collaboration_network(
+    records: list[dict[str, Any]],
+    *,
+    field: str,
+    node_type: str,
+    edge_type: str,
+    min_weight: int,
+    limit: int | None,
+) -> dict[str, list[dict[str, Any]]]:
+    min_weight = max(1, min_weight)
+    edge_weights: Counter[tuple[str, str]] = Counter()
+    node_labels: dict[str, str] = {}
+    node_publications: Counter[str] = Counter()
+    node_years: dict[str, set[int]] = defaultdict(set)
+    edge_years: dict[tuple[str, str], set[int]] = defaultdict(set)
+
+    for record in records:
+        values = split_collaboration_values(record.get(field))
+        if not values:
+            continue
+        publication_year = _publication_year(record)
+        node_ids = [_stable_value_id(node_type, value) for value in values]
+        for node_id, label in zip(node_ids, values, strict=True):
+            node_labels.setdefault(node_id, label)
+            node_publications[node_id] += 1
+            if publication_year is not None:
+                node_years[node_id].add(publication_year)
+        for left, right in combinations(sorted(set(node_ids)), 2):
+            edge_key = (left, right)
+            edge_weights[edge_key] += 1
+            if publication_year is not None:
+                edge_years[edge_key].add(publication_year)
+
+    edges = [
+        {
+            **_edge_row(edge_key, weight, node_labels=node_labels, years=edge_years[edge_key]),
+            "edge_type": edge_type,
+        }
+        for edge_key, weight in edge_weights.items()
+        if weight >= min_weight
+    ]
+    edges.sort(key=lambda row: (-int(row["weight"]), str(row["source_label"]).casefold()))
+    if limit is not None:
+        edges = edges[: max(0, limit)]
+
+    connected_node_ids = {
+        node_id for edge in edges for node_id in (str(edge["source"]), str(edge["target"]))
+    }
+    if not connected_node_ids:
+        connected_node_ids = set(node_labels)
+    nodes = [
+        {
+            **_node_row(
+                node_id,
+                node_labels[node_id],
+                publication_count=node_publications[node_id],
+                years=node_years[node_id],
+            ),
+            "type": node_type,
+        }
+        for node_id in connected_node_ids
+    ]
+    nodes.sort(key=lambda row: (-int(row["publication_count"]), str(row["label"]).casefold()))
+    return {"nodes": nodes, "edges": edges}
 
 
 def _record_author_nodes(record: dict[str, Any]) -> list[tuple[str, str]]:
@@ -167,6 +286,14 @@ def _author_name_id(name: str) -> str:
         return text
     digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:12]
     return f"author-{digest}"
+
+
+def _stable_value_id(prefix: str, value: str) -> str:
+    text = re.sub(r"[^0-9a-z]+", "-", value.casefold()).strip("-")
+    if text:
+        return f"{prefix}-{text}"
+    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:12]
+    return f"{prefix}-{digest}"
 
 
 def _publication_year(record: dict[str, Any]) -> int | None:
