@@ -598,7 +598,7 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
         stratify=training_frame["label"],
     )
 
-    pipeline = build_pipeline(
+    eval_pipeline = build_pipeline(
         max_features=config.max_features,
         min_df=config.min_df,
         max_df=config.max_df,
@@ -611,9 +611,9 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
         alpha=config.alpha,
         fit_prior=config.fit_prior,
     )
-    pipeline.fit(train_text, train_labels)
+    eval_pipeline.fit(train_text, train_labels)
 
-    predictions = pipeline.predict(test_text)
+    predictions = eval_pipeline.predict(test_text)
     accuracy = accuracy_score(test_labels, predictions)
     macro_f1 = f1_score(test_labels, predictions, average="macro", zero_division=0)
     weighted_f1 = f1_score(
@@ -647,6 +647,21 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
     assert config.manifest_output is not None
     assert config.confusion_matrix_output is not None
     assert config.per_class_output is not None
+
+    pipeline = build_pipeline(
+        max_features=config.max_features,
+        min_df=config.min_df,
+        max_df=config.max_df,
+        ngram_max=config.ngram_max,
+        keep_stop_words=config.keep_stop_words,
+        class_weight=config.class_weight,
+        max_iter=config.max_iter,
+        random_state=config.random_state,
+        model_family=config.model_family,
+        alpha=config.alpha,
+        fit_prior=config.fit_prior,
+    )
+    pipeline.fit(training_frame["text"], training_frame["label"])
 
     metrics_text = render_metrics(
         input_path=config.input_path,
