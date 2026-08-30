@@ -57,7 +57,7 @@ DEFAULT_TEXT_COLUMNS = ["title", "abstract", "keywords"]
 DEFAULT_MODEL_FAMILY = "logistic_regression"
 # Best Logistic Regression defaults (aligned text cols with Linear SVM)
 DEFAULT_NGRAM_MAX = 2
-DEFAULT_TEST_SIZE = 0.15
+DEFAULT_TEST_SIZE = 0.2
 DEFAULT_CLASS_WEIGHT: str | None = "balanced"
 DEFAULT_MAX_ITER = 1000
 
