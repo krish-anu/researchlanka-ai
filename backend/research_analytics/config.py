@@ -307,6 +307,11 @@ def _first_enabled_source(sources: dict[str, Any]) -> dict[str, Any]:
 
 
 def _load_mapping(path: Path) -> dict[str, Any]:
+    if not path.exists() and not path.is_absolute():
+        backend_relative = Path(__file__).resolve().parents[1] / path
+        if backend_relative.exists():
+            path = backend_relative
+
     if path.suffix.lower() == ".json":
         return json.loads(path.read_text(encoding="utf-8"))
 
