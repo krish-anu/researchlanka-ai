@@ -49,7 +49,7 @@ MODEL_TFIDF_NGRAM_MAX ?= 2
 MODEL_TFIDF_TOP_FEATURES_PER_RECORD ?= 50
 LOGREG_INPUT ?= $(MODEL_TEXT_INPUT)
 LOGREG_LABEL_COLUMN ?= primary_domain
-LOGREG_TEXT_COLUMNS ?= title,abstract,keywords
+LOGREG_TEXT_COLUMNS ?= title,abstract,topics,keywords,concepts
 LOGREG_MODEL_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN).joblib
 LOGREG_METRICS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_metrics.txt
 LOGREG_LABEL_COUNTS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_labels.csv
@@ -113,7 +113,7 @@ NB_TEST_SIZE ?= $(LOGREG_TEST_SIZE)
 NB_EXTRA_ARGS ?=
 
 # Evaluation. Point EVAL_PREDICTIONS at one or more predictions CSVs.
-EVAL_PREDICTIONS ?= --predictions-csv data/models/multinomial_nb_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_predictions.csv
+EVAL_PREDICTIONS ?= --predictions-csv data/models/multinomial_nb_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/linear_svm_$(LOGREG_LABEL_COLUMN)_predictions.csv
 EVAL_OUTPUT_DIR ?= data/models
 EVAL_EXTRA_ARGS ?=
 
