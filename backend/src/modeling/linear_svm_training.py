@@ -41,7 +41,6 @@ from sklearn.svm import LinearSVC
 
 
 from src.preprocessing.text_cleaning import (
-    clean_text_series,
     CUSTOM_STOP_WORDS,
 )
 
@@ -214,16 +213,9 @@ def default_manifest_output(
 def combined_text(
     frame: pd.DataFrame,
     text_columns: Iterable[str],
-    *,
-    clean: bool = True,
 ) -> pd.Series:
-    text = frame[list(text_columns)].fillna("").astype(str).agg(" ".join, axis=1)
-    text = text.str.replace(r"\s+", " ", regex=True).str.strip()
-
-    if clean:
-        text = clean_text_series(text)
-
-    return text
+    text = frame[list(text_columns)].astype(str).agg(" ".join, axis=1)
+    return text.str.replace(r"\s+", " ", regex=True).str.strip()
 
 def load_training_frame(
     input_path: Path,
@@ -245,11 +237,7 @@ def load_training_frame(
 
     training_frame = pd.DataFrame(
         {
-            "text": combined_text(
-                frame,
-                text_columns,
-                clean=True,
-            ),
+            "text": combined_text(frame, text_columns),
             "label": frame[label_column].astype(str).str.strip(),
         },
         index=frame.index,
