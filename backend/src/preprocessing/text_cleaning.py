@@ -143,11 +143,38 @@ DOMAIN_STOPWORDS = {
     "proposed",
     "present",
     "presents",
-    "available",  # leftover after boilerplate phrase-stripping (e.g. "editorial abstract" -> "available")
-    # Geographic / corpus-common tokens that dominate every cluster
+    "available",
     "sri",
     "lanka",
     "srilanka",
+    "lankan",
+    "south",
+    "asia",
+    "asian",
+    "universtiy",
+    "conference",
+    "international_conference",
+    "international",
+    "text",
+    "pre",
+    "proceedings",
+    "conference_proceedings",
+    "2023",
+    "2024",
+    "moratuwa",
+    "moratuwa engineering conference",
+    "moratuwa engineering",
+    "pre text",
+    "19",
+    "review",
+    "sri lankan",
+    "development",
+    "design",
+    "conduct",
+    "conducted",
+    "different",
+
+  
 }
 
 # Extra function words to drop even if an analyzer/token_pattern miss
@@ -180,6 +207,7 @@ FUNCTION_STOPWORDS = {
     "have",
     "has",
     "had",
+
 }
 
 # sklearn's TfidfVectorizer(stop_words=...) accepts a list; sorted for a
