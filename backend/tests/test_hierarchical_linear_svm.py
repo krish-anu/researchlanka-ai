@@ -9,6 +9,10 @@ from pathlib import Path
 from src.modeling.artifacts import file_sha256
 from src.modeling.hierarchical_linear_svm import (
     HierarchicalTrainingConfig,
+    default_label_counts_output,
+    default_manifest_output,
+    default_metrics_output,
+    default_subfield_model_output,
     train_hierarchical_classifier,
 )
 
@@ -22,6 +26,13 @@ FIELDNAMES = [
     "primary_field",
     "primary_subfield",
 ]
+
+
+def test_default_hierarchical_artifact_names_match_kaggle_notebook():
+    assert default_subfield_model_output().name == "linear_svm_hierarchical_subfields.joblib"
+    assert default_metrics_output().name == "linear_svm_hierarchical_metrics.txt"
+    assert default_label_counts_output().name == "linear_svm_hierarchical_labels.csv"
+    assert default_manifest_output().name == "linear_svm_hierarchical_manifest.json"
 
 
 def write_hierarchical_csv(path: Path) -> None:
