@@ -1,5 +1,7 @@
 """Tests for common dataset normalization and merge helpers."""
 
+import warnings
+
 import pandas as pd
 
 from src.pipeline.kaggle_merge_common_dataset import (
@@ -8,6 +10,7 @@ from src.pipeline.kaggle_merge_common_dataset import (
     build_manual_review_candidates,
     deduplicate_publications,
     find_input_file,
+    normalize_date,
     normalize_crossref,
     normalize_title_key,
     record_merge_info,
@@ -52,6 +55,15 @@ def test_normalize_title_key_preserves_unicode_words():
     assert normalize_title_key(theory) != normalize_title_key(practical)
     assert "සිද්ධාන්ත" in normalize_title_key(theory)
     assert "ප්‍රායෝගික" in normalize_title_key(practical)
+
+
+def test_normalize_date_parses_slash_dates_without_pandas_warning():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+
+        assert normalize_date("31/12/2024") == "2024-12-31"
+        assert normalize_date("12/31/2024") == "2024-12-31"
+        assert normalize_date("05/06/2024") == "2024-06-05"
 
 
 def test_normalize_crossref_extracts_nested_publication_fields():

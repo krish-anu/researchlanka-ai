@@ -9,8 +9,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "dagster-dg-cli",
-    "dagster-webserver",
+    "dagster-dg-cli==1.13.16",
+    "dagster-webserver==1.13.16",
 ]
 
 [build-system]
@@ -28,5 +28,3 @@ root_module = "dagster_quickstart"
 registry_modules = [
     "dagster_quickstart.components.*",
 ]
-
-
