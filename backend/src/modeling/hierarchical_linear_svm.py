@@ -169,19 +169,19 @@ def default_field_model_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path
 
 
 def default_subfield_model_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'subfield')}.joblib"
+    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'subfields')}.joblib"
 
 
 def default_metrics_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'field')}_metrics.txt"
+    return DEFAULT_MODEL_DIR / f"{slugify(model_family)}_metrics.txt"
 
 
 def default_label_counts_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'field')}_labels.csv"
+    return DEFAULT_MODEL_DIR / f"{slugify(model_family)}_labels.csv"
 
 
 def default_manifest_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'field')}_manifest.json"
+    return DEFAULT_MODEL_DIR / f"{slugify(model_family)}_manifest.json"
 
 
 # ---------------------------------------------------------------------------

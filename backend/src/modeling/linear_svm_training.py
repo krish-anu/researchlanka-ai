@@ -57,7 +57,7 @@ DEFAULT_MODEL_FAMILY = "linear_svm"
 # Best defaults from config sweep + prior training runs
 DEFAULT_C_VALUES = (0.1, 1.0, 10.0)
 DEFAULT_NGRAM_MAX = 3
-DEFAULT_TEST_SIZE = 0.15
+DEFAULT_TEST_SIZE = 0.2
 DEFAULT_CLASS_WEIGHT: str | None = "balanced"
 
 
