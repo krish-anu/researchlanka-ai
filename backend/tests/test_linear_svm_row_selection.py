@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import csv
+import warnings
 from pathlib import Path
+
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from src.modeling.linear_svm_training import load_training_frame as load_svm_frame
 from src.modeling.training import load_training_frame as load_shared_frame
+from src.preprocessing.text_cleaning import CUSTOM_STOP_WORDS
 
 
 FIELDNAMES = ["title", "abstract", "keywords", "primary_domain"]
@@ -58,7 +62,7 @@ def test_linear_svm_uses_shared_row_selection(tmp_path: Path) -> None:
     kwargs = {
         "label_column": "primary_domain",
         "text_columns": ["title", "abstract", "keywords"],
-        "min_class_count": 2,
+        "min_class_count": 1,
         "max_rows": None,
     }
     svm_frame, svm_input_rows, svm_label_counts = load_svm_frame(input_csv, **kwargs)
@@ -71,3 +75,23 @@ def test_linear_svm_uses_shared_row_selection(tmp_path: Path) -> None:
     assert svm_frame["text"].tolist() == shared_frame["text"].tolist()
     assert svm_frame["label"].tolist() == shared_frame["label"].tolist()
     assert svm_label_counts.to_dict() == shared_label_counts.to_dict()
+    assert "abstract available editorial" not in svm_frame["text"].tolist()
+    assert "abstract not available editorial note" not in svm_frame["text"].tolist()
+
+
+def test_custom_stop_words_are_vectorizer_consistent() -> None:
+    vectorizer = TfidfVectorizer(
+        stop_words=CUSTOM_STOP_WORDS,
+        strip_accents="unicode",
+        lowercase=True,
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        vectorizer.fit(["engineering materials", "clinical health"])
+
+    assert not [
+        warning
+        for warning in caught
+        if "stop_words may be inconsistent" in str(warning.message)
+    ]
