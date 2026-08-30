@@ -601,7 +601,19 @@ def normalize_date(value: Any) -> Any:
             f"{int(year_month_day.group(3)):02d}"
         )
 
-    parsed = pd.to_datetime(text, errors="coerce", dayfirst=True)
+    slash_or_dot_date = re.fullmatch(r"(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})", text)
+    if slash_or_dot_date:
+        first = int(slash_or_dot_date.group(1))
+        second = int(slash_or_dot_date.group(2))
+        year = int(slash_or_dot_date.group(3))
+        year = 2000 + year if year < 100 else year
+        day, month = (second, first) if second > 12 else (first, second)
+        try:
+            return pd.Timestamp(year=year, month=month, day=day).date().isoformat()
+        except ValueError:
+            return pd.NA
+
+    parsed = pd.to_datetime(text, errors="coerce")
     if pd.isna(parsed):
         return pd.NA
 
