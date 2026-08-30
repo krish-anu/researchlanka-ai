@@ -335,11 +335,30 @@ class ResearchPipeline:
                 text_columns=text_columns,
                 model_families=model_families,
                 output_dir=output_dir,
+                test_size=float(settings.get("test_size", 0.15)),
+                random_state=int(settings.get("random_state", 42)),
                 promote_final=settings.get("promote_final", True),
                 max_rows=settings.get("max_rows"),
                 min_class_count=settings.get("min_class_count", 20),
+                max_features=int(settings.get("max_features", 50_000)),
                 min_df=parse_document_frequency(str(settings.get("min_df", 2))),
                 max_df=parse_document_frequency(str(settings.get("max_df", 0.95))),
+                ngram_max=(
+                    int(settings["ngram_max"])
+                    if settings.get("ngram_max") is not None
+                    else None
+                ),
+                keep_stop_words=bool(settings.get("keep_stop_words", False)),
+                class_weight=settings.get("class_weight", "balanced"),
+                max_iter=(
+                    int(settings["max_iter"])
+                    if settings.get("max_iter") is not None
+                    else None
+                ),
+                c_values=_float_tuple(settings.get("c_values", (0.1, 1.0, 10.0))),
+                cv_folds=int(settings.get("cv_folds", 3)),
+                scoring=settings.get("scoring", "f1_macro"),
+                ranking_metric=settings.get("ranking_metric", "macro_f1"),
             )
         )
         self.result.classification_result = {
@@ -473,3 +492,13 @@ def _untag_pipeline_source(record: dict[str, Any]) -> dict[str, Any]:
 
 def _stage_input_path(settings: dict[str, Any], *, default: Path) -> Path:
     return Path(settings.get("input_path") or settings.get("input") or default)
+
+
+def _float_tuple(value: Any) -> tuple[float, ...]:
+    if isinstance(value, str):
+        values = [item.strip() for item in value.split(",") if item.strip()]
+    elif isinstance(value, (list, tuple)):
+        values = list(value)
+    else:
+        values = [value]
+    return tuple(float(item) for item in values)
