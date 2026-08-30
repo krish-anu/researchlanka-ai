@@ -1,6 +1,8 @@
 import csv
 import json
 from datetime import date, datetime
+from pathlib import Path
+from types import SimpleNamespace
 
 from research_analytics import ResearchPipeline, load_config, map_to_standard_schema
 from research_analytics.adapters import SOURCE_REGISTRY
@@ -84,6 +86,36 @@ def test_author_collaboration_network_uses_disambiguated_ids_and_years():
         "author-silva",
         "author-fernando",
     }
+
+
+def test_field_aware_analytics_includes_country_and_funder_collaboration_networks():
+    summary = run_field_aware_analytics(
+        [
+            {
+                "title": "A",
+                "countries": "LK; US",
+                "funder_name": "Fund A; Fund B",
+                "publication_year": 2024,
+            },
+            {
+                "title": "B",
+                "countries": "LK; GB",
+                "funder_name": "Fund A; Fund C",
+                "publication_year": 2025,
+            },
+        ]
+    )
+
+    assert summary["country_collaboration_network"]["edge_count"] == 2
+    assert summary["funder_collaboration_network"]["edge_count"] == 2
+    assert {
+        edge["edge_type"]
+        for edge in summary["country_collaboration_network"]["top_edges"]
+    } == {"country_collaboration"}
+    assert {
+        edge["edge_type"]
+        for edge in summary["funder_collaboration_network"]["top_edges"]
+    } == {"funder_collaboration"}
 
 
 def test_pipeline_runs_from_configuration_and_exports_reports(tmp_path):
@@ -601,6 +633,48 @@ def test_sri_lanka_source_config_shape_can_select_first_enabled_source():
     assert config.institution_registry.path == "configurations/sri_lanka/institutions.csv"
 
 
+def test_pipeline_collects_all_collectable_sources_from_sources_block(tmp_path):
+    first = tmp_path / "first.csv"
+    second = tmp_path / "second.csv"
+    first.write_text("record_id,title\n1,First source paper\n", encoding="utf-8")
+    second.write_text("record_id,title\n2,Second source paper\n", encoding="utf-8")
+    config = config_from_dict(
+        {
+            "sources": {
+                "first_source": {
+                    "enabled": True,
+                    "type": "csv",
+                    "path": str(first),
+                },
+                "planning_only": {
+                    "enabled": True,
+                },
+                "second_source": {
+                    "enabled": True,
+                    "type": "csv",
+                    "path": str(second),
+                },
+            },
+            "column_mapping": {
+                "record_id": "source_record_id",
+                "title": "title",
+            },
+            "pipeline": {"validate": False, "clean": False, "deduplicate": False, "export": False},
+        }
+    )
+
+    result = ResearchPipeline(config).run_all()
+
+    assert [record["title"] for record in result.raw_records] == [
+        "First source paper",
+        "Second source paper",
+    ]
+    assert [record["source_name"] for record in result.transformed_records] == [
+        "first_source",
+        "second_source",
+    ]
+
+
 def test_stage_runner_executes_all_pipeline_steps_from_sri_lanka_shaped_config(tmp_path):
     dataset = tmp_path / "publications.csv"
     dataset.write_text(
@@ -633,6 +707,94 @@ def test_stage_runner_executes_all_pipeline_steps_from_sri_lanka_shaped_config(t
     output = run_stage(ResearchPipeline(config), "all")
 
     assert output == "Run complete: 3 raw, 3 cleaned, 2 deduplicated."
+
+
+def test_pipeline_classification_stage_uses_existing_model_comparison(monkeypatch, tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text("title,primary_field\nA paper,Medicine\n", encoding="utf-8")
+    calls = []
+
+    def fake_compare(config):
+        calls.append(config)
+        return SimpleNamespace(
+            comparison_output=tmp_path / "model_comparison.csv",
+            manifest_output=tmp_path / "model_comparison_manifest.json",
+            model_count=2,
+            best_model_family="linear_svm",
+            final_model_output=tmp_path / "publication_field_classifier.joblib",
+        )
+
+    monkeypatch.setattr(
+        "src.modeling.classification_comparison.compare_classification_models",
+        fake_compare,
+    )
+    config = config_from_dict(
+        {
+            "source": {"name": "ml_test", "type": "csv", "path": str(dataset)},
+            "pipeline": {"classify": True, "export": False},
+            "machine_learning": {
+                "classification": {
+                    "input_path": str(dataset),
+                    "output_dir": str(tmp_path / "models"),
+                    "label_column": "primary_field",
+                    "model_families": ["logistic_regression", "linear_svm"],
+                    "max_rows": 50,
+                }
+            },
+        }
+    )
+
+    result = ResearchPipeline(config).classify()
+
+    assert calls
+    assert calls[0].input_path == dataset
+    assert calls[0].output_dir == tmp_path / "models"
+    assert result["best_model_family"] == "linear_svm"
+    assert result["model_count"] == 2
+
+
+def test_pipeline_topic_modeling_stage_uses_existing_nmf_pipeline(monkeypatch, tmp_path):
+    dataset = tmp_path / "publications.csv"
+    dataset.write_text(
+        "title,abstract,topics,keywords,concepts,publication_year\n"
+        "A paper,About dengue,health,dengue,medicine,2024\n",
+        encoding="utf-8",
+    )
+    calls = []
+
+    def fake_run_final_pipeline(**kwargs):
+        calls.append(kwargs)
+        Path(kwargs["output_dir"]).mkdir(parents=True, exist_ok=True)
+        return {
+            "topic_names": ["health"],
+            "coherence_cv": None,
+            "diversity": 1.0,
+            "redundancy": 0.0,
+        }
+
+    monkeypatch.setattr("src.modeling.nmf_topic_modeling.run_final_pipeline", fake_run_final_pipeline)
+    config = config_from_dict(
+        {
+            "source": {"name": "topic_test", "type": "csv", "path": str(dataset)},
+            "pipeline": {"topic_modeling": True, "export": False},
+            "machine_learning": {
+                "topic_modeling": {
+                    "input_path": str(dataset),
+                    "output_dir": str(tmp_path / "nmf"),
+                    "k": 1,
+                    "max_rows": 10,
+                }
+            },
+        }
+    )
+
+    result = ResearchPipeline(config).run_topic_modeling()
+
+    assert calls
+    assert len(calls[0]["df"]) == 1
+    assert calls[0]["k"] == 1
+    assert calls[0]["output_dir"] == tmp_path / "nmf"
+    assert result["topic_count"] == 1
 
 
 def test_national_institution_registry_resolves_aliases_and_collaboration_type(tmp_path):
