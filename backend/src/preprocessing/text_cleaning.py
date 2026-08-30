@@ -17,7 +17,7 @@ content it has, and provides an expanded stopword list for the generic
 academic language that dominated Topic 1 ("study", "using", "data", ...).
 
 Usage:
-    from src.modeling.text_cleaning import clean_text_series, CUSTOM_STOP_WORDS, cleaning_report
+    from src.preprocessing.text_cleaning import clean_text_series, CUSTOM_STOP_WORDS, cleaning_report
 
 `combined_text()` in nmf_topic_modeling.py calls clean_text_series() by
 default - see its `clean=` flag to opt out and reproduce the original
@@ -162,8 +162,6 @@ DOMAIN_STOPWORDS = {
     "2023",
     "2024",
     "moratuwa",
-    "moratuwa engineering conference",
-    "moratuwa engineering",
     "pre text",
     "19",
     "review",
