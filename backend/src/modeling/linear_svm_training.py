@@ -42,6 +42,7 @@ from sklearn.svm import LinearSVC
 
 from src.preprocessing.text_cleaning import (
     CUSTOM_STOP_WORDS,
+    clean_text_series,
 )
 
 
@@ -50,7 +51,7 @@ DEFAULT_INPUT = (
     PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
 )
 DEFAULT_MODEL_DIR = PROJECT_ROOT / "data" / "models"
-DEFAULT_LABEL_COLUMN = "primary_field"
+DEFAULT_LABEL_COLUMN = "primary_domain"
 DEFAULT_TEXT_COLUMNS = ["title", "abstract", "topics", "keywords", "concepts"]
 DEFAULT_MODEL_FAMILY = "linear_svm"
 # Best defaults from config sweep + prior training runs
@@ -214,8 +215,12 @@ def combined_text(
     frame: pd.DataFrame,
     text_columns: Iterable[str],
 ) -> pd.Series:
-    text = frame[list(text_columns)].astype(str).agg(" ".join, axis=1)
-    return text.str.replace(r"\s+", " ", regex=True).str.strip()
+    available_columns = [column for column in text_columns if column in frame.columns]
+    if not available_columns:
+        return pd.Series("", index=frame.index)
+    text = frame[available_columns].astype(str).agg(" ".join, axis=1)
+    text = text.str.replace(r"\s+", " ", regex=True).str.strip()
+    return clean_text_series(text)
 
 def load_training_frame(
     input_path: Path,
@@ -701,7 +706,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--label-column",
         default=DEFAULT_LABEL_COLUMN,
-        help="Target label column to predict. Default: primary_domain",
+        help=f"Target label column to predict. Default: {DEFAULT_LABEL_COLUMN}",
     )
     parser.add_argument(
         "--text-columns",
