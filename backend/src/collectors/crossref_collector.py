@@ -127,7 +127,7 @@ class CrossrefCollector:
         filters: list[str] | None = None,
         rows: int = 100,
         max_records: int | None = None,
-        require_first_author_lk: bool = False,
+            require_first_author_lk: bool = True,
     ) -> Iterator[dict[str, Any]]:
         """Yield normalized works whose affiliations match ``affiliation_query``.
 
@@ -203,6 +203,7 @@ class CrossrefCollector:
         filters: list[str] | None = None,
         rows: int = 100,
         max_records: int | None = None,
+        require_first_author_lk: bool = True,
     ) -> Iterator[dict[str, Any]]:
         """Backward-compatible alias for :meth:`iter_affiliation_works`.
 
@@ -216,6 +217,7 @@ class CrossrefCollector:
             filters=filters,
             rows=rows,
             max_records=max_records,
+            require_first_author_lk=require_first_author_lk,
         )
 
     # =====================================================

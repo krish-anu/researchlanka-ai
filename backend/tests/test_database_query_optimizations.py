@@ -34,10 +34,10 @@ def test_api_query_optimization_migration_enables_trigram_indexes():
 def test_api_query_optimization_migration_adds_sort_and_filter_indexes():
     sql = migration_sql()
 
-    assert "ON final_publications(publication_year DESC NULLS LAST, title ASC NULLS LAST)" in sql
-    assert "ON final_publications(publication_year ASC NULLS LAST, title ASC NULLS LAST)" in sql
+    assert "ON final_publications(publication_year DESC NULLS LAST, left(coalesce(title, ''), 512))" in sql
+    assert "ON final_publications(publication_year ASC NULLS LAST, left(coalesce(title, ''), 512))" in sql
     assert "ON final_publications(citation_count DESC NULLS LAST, publication_year DESC NULLS LAST)" in sql
-    assert "ON final_publications(title ASC NULLS LAST, publication_year DESC NULLS LAST)" in sql
+    assert "ON final_publications(left(coalesce(title, ''), 512), publication_year DESC NULLS LAST)" in sql
     assert "ON final_publications(type, publication_year DESC NULLS LAST)" in sql
     assert "ON final_publications(primary_field, publication_year DESC NULLS LAST)" in sql
     assert "ON final_publications(primary_subfield, publication_year DESC NULLS LAST)" in sql
