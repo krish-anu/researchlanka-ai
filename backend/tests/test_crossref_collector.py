@@ -20,6 +20,13 @@ def test_iter_works(monkeypatch):
                     "type": "journal-article",
                     "title": ["Test Paper"],
                     "issued": {"date-parts": [[2024]]},
+                    "author": [
+                        {
+                            "given": "A.",
+                            "family": "Author",
+                            "affiliation": [{"name": "University of Colombo"}],
+                        }
+                    ],
                 },
                 {"DOI": "10.9999/book", "type": "book"},
             ],
@@ -91,6 +98,91 @@ def test_iter_works_can_require_first_author_lk(monkeypatch):
 
     assert [work["DOI"] for work in works] == ["10.1234/lk-first"]
     assert works[0]["keep_in_strict_sri_lanka_dataset"] is True
+
+
+def test_iter_works_requires_first_author_lk_by_default(monkeypatch):
+    fake_response = {
+        "message": {
+            "items": [
+                {
+                    "DOI": "10.1234/lk-first",
+                    "type": "journal-article",
+                    "title": ["LK first"],
+                    "author": [
+                        {
+                            "given": "A.",
+                            "family": "Author",
+                            "affiliation": [{"name": "University of Colombo"}],
+                        }
+                    ],
+                },
+                {
+                    "DOI": "10.1234/foreign-first",
+                    "type": "journal-article",
+                    "title": ["Foreign first"],
+                    "author": [
+                        {
+                            "given": "Foreign",
+                            "family": "Lead",
+                            "affiliation": [{"name": "Example University, Australia"}],
+                        },
+                        {
+                            "given": "Sri Lankan",
+                            "family": "Collaborator",
+                            "affiliation": [{"name": "University of Colombo"}],
+                        },
+                    ],
+                },
+            ],
+            "next-cursor": None,
+        }
+    }
+
+    collector = CrossrefCollector()
+    monkeypatch.setattr(collector, "fetch_works", lambda **kwargs: fake_response)
+
+    assert [work["DOI"] for work in collector.iter_works(affiliation_query="lanka")] == [
+        "10.1234/lk-first"
+    ]
+
+
+def test_iter_works_can_disable_first_author_lk_filter(monkeypatch):
+    fake_response = {
+        "message": {
+            "items": [
+                {
+                    "DOI": "10.1234/foreign-first",
+                    "type": "journal-article",
+                    "title": ["Foreign first"],
+                    "author": [
+                        {
+                            "given": "Foreign",
+                            "family": "Lead",
+                            "affiliation": [{"name": "Example University, Australia"}],
+                        },
+                        {
+                            "given": "Sri Lankan",
+                            "family": "Collaborator",
+                            "affiliation": [{"name": "University of Colombo"}],
+                        },
+                    ],
+                }
+            ],
+            "next-cursor": None,
+        }
+    }
+
+    collector = CrossrefCollector()
+    monkeypatch.setattr(collector, "fetch_works", lambda **kwargs: fake_response)
+
+    works = list(
+        collector.iter_works(
+            affiliation_query="lanka",
+            require_first_author_lk=False,
+        )
+    )
+
+    assert [work["DOI"] for work in works] == ["10.1234/foreign-first"]
 
 
 def test_prefix_total_works_sends_prefix_query():
