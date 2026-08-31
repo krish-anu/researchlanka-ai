@@ -645,7 +645,7 @@ def train_linear_svm(
     label_counts_output: Path | None = None,
     predictions_output: Path | None = None,
     manifest_output: Path | None = None,
-    test_size: float = 0.15,
+    test_size: float = DEFAULT_TEST_SIZE,
     random_state: int = 42,
     max_rows: int | None = None,
     min_class_count: int = 20,
@@ -748,7 +748,10 @@ def parse_args() -> argparse.Namespace:
         help="Output run manifest JSON path. Default: data/models/linear_svm_<label>_manifest.json",
     )
     parser.add_argument(
-        "--test-size", type=float, default=0.15, help="Held-out test fraction."
+        "--test-size",
+        type=float,
+        default=DEFAULT_TEST_SIZE,
+        help=f"Held-out test fraction. Default: {DEFAULT_TEST_SIZE}",
     )
     parser.add_argument("--random-state", type=int, default=42, help="Random seed.")
     parser.add_argument(
