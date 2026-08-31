@@ -23,6 +23,8 @@ OPENALEX_DOI_CONFLICTS ?= $(OPENALEX_DIR)/openalex_sri_lanka_doi_conflicts.csv
 OPENALEX_PROGRESS ?= $(OPENALEX_JSONL).progress.json
 OPENALEX_PAGINATION ?= $(OPENALEX_DIR)/openalex_sri_lanka_pagination_audit.json
 OPENALEX_LOG ?= $(OPENALEX_DIR)/openalex_collection.log
+OPENALEX_LK_AUDIT_DIR ?= data/reports/openalex_lk_affiliation_audit
+OPENALEX_LK_AUDIT_EXTRA_ARGS ?=
 
 # OpenAlex collection settings.
 # Use OPENALEX_EXTRA_ARGS for optional flags such as --strict-lk-only.
@@ -145,7 +147,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report openalex-lk-audit institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -165,6 +167,7 @@ help:
 	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
 	@echo "  make openalex-doi-conflicts  Rebuild only the DOI conflict CSV from existing JSONL"
 	@echo "  make openalex-report         Print the quality report from existing JSONL"
+	@echo "  make openalex-lk-audit       Audit publication-time LK affiliation evidence from existing OpenAlex JSONL"
 	@echo "  make author-disambiguate     Resolve author mentions onto stable author identities"
 	@echo "  make author-review           Show the ambiguous-author review queue"
 	@echo "  make author-decisions        Promote reviewed verdicts into the decisions file"
@@ -324,3 +327,12 @@ author-decisions:
 # Print a quality summary from existing raw JSONL.
 openalex-report:
 	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import collect_quality_report, print_collection_report; print_collection_report(collect_quality_report(Path('$(OPENALEX_JSONL)'), records_skipped=0))"
+
+# Audit publication-time Sri Lankan institutional authorship evidence.
+# This does not change production OpenAlex filtering or rebuilt datasets.
+openalex-lk-audit:
+	$(PYTHON) -m src.quality.audit_openalex_lk_affiliations \
+	--input $(OPENALEX_JSONL) \
+	--output-dir $(OPENALEX_LK_AUDIT_DIR) \
+	--log-level $(OPENALEX_LOG_LEVEL) \
+	$(OPENALEX_LK_AUDIT_EXTRA_ARGS)
