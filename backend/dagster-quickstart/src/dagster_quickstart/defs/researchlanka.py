@@ -104,6 +104,7 @@ from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
     main as collect_openalex_main,
     rebuild_csv_from_jsonl as rebuild_openalex_csv_from_jsonl,
 )
+from src.quality.audit_openalex_lk_affiliations import run_audit as run_openalex_lk_audit  # noqa: E402
 from src.processing.convert_repositories_jsonl_to_csv import (  # noqa: E402
     DEFAULT_OUTPUT_PATH as REPOSITORIES_CSV_OUTPUT,
     convert as convert_repositories_to_csv,
@@ -118,6 +119,7 @@ OPENALEX_CSV_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_works.csv"
 OPENALEX_PARQUET_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_works.parquet"
 OPENALEX_DOI_CONFLICTS_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_doi_conflicts.csv"
 OPENALEX_PAGINATION_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_pagination_audit.json"
+OPENALEX_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "openalex_lk_affiliation_audit"
 
 
 @contextmanager
@@ -619,6 +621,56 @@ def researchlanka_openalex_api_collection(context) -> dict[str, Any]:
         "max_records": max_records or 0,
         "missing_doi_count": int(quality["missing_doi_count"]),
         "duplicate_doi_count": int(quality["duplicate_doi_count"]),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_openalex_lk_affiliation_audit(
+    context,
+    researchlanka_openalex_api_collection: dict[str, Any],
+) -> dict[str, Any]:
+    """Audit publication-time LK affiliation evidence from stored OpenAlex works."""
+
+    collection_metadata = researchlanka_openalex_api_collection
+    if not env_bool("RESEARCHLANKA_RUN_OPENALEX_LK_AUDIT", True):
+        metadata = {
+            "status": "skipped",
+            "reason": "RESEARCHLANKA_RUN_OPENALEX_LK_AUDIT is disabled",
+            "collection_status": collection_metadata.get("status", ""),
+        }
+        context.add_output_metadata(metadata)
+        return metadata
+    if not OPENALEX_JSONL_OUTPUT.exists():
+        raise FileNotFoundError(
+            f"Cannot run OpenAlex LK affiliation audit; missing {OPENALEX_JSONL_OUTPUT}"
+        )
+
+    with backend_working_directory():
+        summary = run_openalex_lk_audit(OPENALEX_JSONL_OUTPUT, OPENALEX_LK_AUDIT_OUTPUT_DIR)
+
+    metadata = {
+        "status": "audited",
+        "input": str(OPENALEX_JSONL_OUTPUT),
+        "output_dir": str(OPENALEX_LK_AUDIT_OUTPUT_DIR),
+        "total_works": int(summary["overall"]["unique_openalex_work_ids"]),
+        "total_authorships": int(summary["overall"]["total_authorships"]),
+        "currently_lk_authorships": int(summary["overall"]["currently_lk_authorships"]),
+        "strict_verified_dataset_size": int(
+            summary["publication_impact"]["strict_verified_dataset_size"]
+        ),
+        "percentage_retained": float(summary["publication_impact"]["percentage_retained"]),
+        "review_records": int(summary["publication_impact"]["records_sent_to_review"]),
+        "issue_authorships": int(
+            summary["potential_problems"]["at_least_one_issue_authorships"]["count"]
+        ),
+        "normalized_lk_only_authorships": int(
+            summary["potential_problems"]["normalized_lk_only_authorships"]["count"]
+        ),
+        "explicit_conflict_authorships": int(
+            summary["potential_problems"]["explicit_country_conflict_authorships"]["count"]
+        ),
     }
     context.add_output_metadata(metadata)
     return metadata
@@ -1623,6 +1675,11 @@ researchlanka_database_job = define_asset_job(
 researchlanka_source_check_job = define_asset_job(
     name="researchlanka_source_check_job",
     selection=AssetSelection.keys("researchlanka_source_validation").upstream(),
+)
+
+researchlanka_openalex_lk_audit_job = define_asset_job(
+    name="researchlanka_openalex_lk_audit_job",
+    selection=AssetSelection.keys("researchlanka_openalex_lk_affiliation_audit").upstream(),
 )
 
 researchlanka_common_preprocessing_job = define_asset_job(
