@@ -105,6 +105,7 @@ from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
     rebuild_csv_from_jsonl as rebuild_openalex_csv_from_jsonl,
 )
 from src.quality.audit_openalex_lk_affiliations import run_audit as run_openalex_lk_audit  # noqa: E402
+from src.quality.audit_crossref_lk_affiliations import run_audit as run_crossref_lk_audit  # noqa: E402
 from src.processing.convert_repositories_jsonl_to_csv import (  # noqa: E402
     DEFAULT_OUTPUT_PATH as REPOSITORIES_CSV_OUTPUT,
     convert as convert_repositories_to_csv,
@@ -120,6 +121,7 @@ OPENALEX_PARQUET_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_works.parqu
 OPENALEX_DOI_CONFLICTS_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_doi_conflicts.csv"
 OPENALEX_PAGINATION_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_pagination_audit.json"
 OPENALEX_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "openalex_lk_affiliation_audit"
+CROSSREF_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "crossref_lk_affiliation_audit"
 
 
 @contextmanager
@@ -711,6 +713,56 @@ def researchlanka_crossref_api_collection(context) -> dict[str, Any]:
         "csv_output": str(CROSSREF_CSV_OUTPUT),
         "max_records": max_records or 0,
         "queries": ", ".join(queries),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_crossref_lk_affiliation_audit(
+    context,
+    researchlanka_crossref_api_collection: dict[str, Any],
+) -> dict[str, Any]:
+    """Audit publication-time LK affiliation evidence from stored Crossref works."""
+
+    collection_metadata = researchlanka_crossref_api_collection
+    if not env_bool("RESEARCHLANKA_RUN_CROSSREF_LK_AUDIT", True):
+        metadata = {
+            "status": "skipped",
+            "reason": "RESEARCHLANKA_RUN_CROSSREF_LK_AUDIT is disabled",
+            "collection_status": collection_metadata.get("status", ""),
+        }
+        context.add_output_metadata(metadata)
+        return metadata
+    if not CROSSREF_JSONL_OUTPUT.exists():
+        raise FileNotFoundError(
+            f"Cannot run Crossref LK affiliation audit; missing {CROSSREF_JSONL_OUTPUT}"
+        )
+
+    with backend_working_directory():
+        summary = run_crossref_lk_audit(CROSSREF_JSONL_OUTPUT, CROSSREF_LK_AUDIT_OUTPUT_DIR)
+
+    metadata = {
+        "status": "audited",
+        "input": str(CROSSREF_JSONL_OUTPUT),
+        "output_dir": str(CROSSREF_LK_AUDIT_OUTPUT_DIR),
+        "total_works": int(summary["overall"]["unique_crossref_work_ids"]),
+        "total_author_rows": int(summary["overall"]["audit_rows_including_authorless_works"]),
+        "candidate_lk_authorships": int(summary["overall"]["candidate_lk_authorships"]),
+        "strict_verified_dataset_size": int(
+            summary["publication_impact"]["strict_verified_dataset_size"]
+        ),
+        "percentage_retained": float(summary["publication_impact"]["percentage_retained"]),
+        "review_records": int(summary["publication_impact"]["records_sent_to_review"]),
+        "issue_author_rows": int(
+            summary["potential_problems"]["at_least_one_issue_authorship_rows"]["count"]
+        ),
+        "work_level_only_works": int(
+            summary["potential_problems"]["work_level_only_works"]["count"]
+        ),
+        "query_false_positive_rows": int(
+            summary["potential_problems"]["query_false_positive_rows"]["count"]
+        ),
     }
     context.add_output_metadata(metadata)
     return metadata
@@ -1680,6 +1732,19 @@ researchlanka_source_check_job = define_asset_job(
 researchlanka_openalex_lk_audit_job = define_asset_job(
     name="researchlanka_openalex_lk_audit_job",
     selection=AssetSelection.keys("researchlanka_openalex_lk_affiliation_audit").upstream(),
+)
+
+researchlanka_crossref_lk_audit_job = define_asset_job(
+    name="researchlanka_crossref_lk_audit_job",
+    selection=AssetSelection.keys("researchlanka_crossref_lk_affiliation_audit").upstream(),
+)
+
+researchlanka_lk_affiliation_audit_job = define_asset_job(
+    name="researchlanka_lk_affiliation_audit_job",
+    selection=(
+        AssetSelection.keys("researchlanka_openalex_lk_affiliation_audit").upstream()
+        | AssetSelection.keys("researchlanka_crossref_lk_affiliation_audit").upstream()
+    ),
 )
 
 researchlanka_common_preprocessing_job = define_asset_job(
