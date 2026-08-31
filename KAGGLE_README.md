@@ -281,7 +281,12 @@ data/models/logistic_regression_primary_domain.joblib
 data/models/logistic_regression_primary_domain_metrics.txt
 data/models/linear_svm_primary_domain.joblib
 data/models/linear_svm_primary_domain_metrics.txt
+data/models/classification_comparison/model_comparison.csv
 ```
+
+Use `data/models/classification_comparison/model_comparison.csv` for the fair
+model comparison. Those runs are trained and evaluated on the same shared
+eligible row set, so the held-out row counts should match across model families.
 
 ## Step 9: Download The Final Zip File
 
