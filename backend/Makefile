@@ -25,6 +25,9 @@ OPENALEX_PAGINATION ?= $(OPENALEX_DIR)/openalex_sri_lanka_pagination_audit.json
 OPENALEX_LOG ?= $(OPENALEX_DIR)/openalex_collection.log
 OPENALEX_LK_AUDIT_DIR ?= data/reports/openalex_lk_affiliation_audit
 OPENALEX_LK_AUDIT_EXTRA_ARGS ?=
+CROSSREF_JSONL ?= data/processed/crossref/crossref_sri_lanka_works.jsonl
+CROSSREF_LK_AUDIT_DIR ?= data/reports/crossref_lk_affiliation_audit
+CROSSREF_LK_AUDIT_EXTRA_ARGS ?=
 
 # OpenAlex collection settings.
 # Use OPENALEX_EXTRA_ARGS for optional flags such as --strict-lk-only.
@@ -147,7 +150,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report openalex-lk-audit institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report openalex-lk-audit crossref-lk-audit lk-affiliation-audits institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -168,6 +171,8 @@ help:
 	@echo "  make openalex-doi-conflicts  Rebuild only the DOI conflict CSV from existing JSONL"
 	@echo "  make openalex-report         Print the quality report from existing JSONL"
 	@echo "  make openalex-lk-audit       Audit publication-time LK affiliation evidence from existing OpenAlex JSONL"
+	@echo "  make crossref-lk-audit       Audit publication-time LK affiliation evidence from existing Crossref JSONL"
+	@echo "  make lk-affiliation-audits   Run both OpenAlex and Crossref LK affiliation audits"
 	@echo "  make author-disambiguate     Resolve author mentions onto stable author identities"
 	@echo "  make author-review           Show the ambiguous-author review queue"
 	@echo "  make author-decisions        Promote reviewed verdicts into the decisions file"
@@ -336,3 +341,14 @@ openalex-lk-audit:
 	--output-dir $(OPENALEX_LK_AUDIT_DIR) \
 	--log-level $(OPENALEX_LOG_LEVEL) \
 	$(OPENALEX_LK_AUDIT_EXTRA_ARGS)
+
+# Audit publication-time Sri Lankan institutional authorship evidence in
+# Crossref author affiliation strings.
+crossref-lk-audit:
+	$(PYTHON) -m src.quality.audit_crossref_lk_affiliations \
+	--input $(CROSSREF_JSONL) \
+	--output-dir $(CROSSREF_LK_AUDIT_DIR) \
+	--log-level $(OPENALEX_LOG_LEVEL) \
+	$(CROSSREF_LK_AUDIT_EXTRA_ARGS)
+
+lk-affiliation-audits: openalex-lk-audit crossref-lk-audit
