@@ -281,7 +281,12 @@ data/models/logistic_regression_primary_domain.joblib
 data/models/logistic_regression_primary_domain_metrics.txt
 data/models/linear_svm_primary_domain.joblib
 data/models/linear_svm_primary_domain_metrics.txt
+data/models/classification_comparison/model_comparison.csv
 ```
+
+Use `data/models/classification_comparison/model_comparison.csv` for the fair
+model comparison. Those runs are trained and evaluated on the same shared
+eligible row set, so the held-out row counts should match across model families.
 
 ## Step 9: Download The Final Zip File
 
@@ -338,9 +343,10 @@ resolution issues.
 The notebook uses a Kaggle-friendly install:
 
 ```python
-!pip install "dagster==1.13.16" "dagster-webserver==1.13.16" "rapidfuzz==3.14.3" "psycopg[binary]>=3.2,<4"
-!pip install -e . --no-deps
-!pip install -e dagster-quickstart --no-deps
+!python -m pip install -r requirements.txt "protobuf<6" "google-cloud-bigquery-storage>=2.30,<3"
+!python -m pip install "dagster==1.13.16" "dagster-webserver==1.13.16" "protobuf<6" "google-cloud-bigquery-storage>=2.30,<3"
+!python -m pip install -e . --no-deps
+!python -m pip install -e dagster-quickstart --no-deps
 ```
 
 If Kaggle prints warnings but the install finishes successfully, continue.
