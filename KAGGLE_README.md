@@ -338,9 +338,10 @@ resolution issues.
 The notebook uses a Kaggle-friendly install:
 
 ```python
-!pip install "dagster==1.13.16" "dagster-webserver==1.13.16" "rapidfuzz==3.14.3" "psycopg[binary]>=3.2,<4"
-!pip install -e . --no-deps
-!pip install -e dagster-quickstart --no-deps
+!python -m pip install -r requirements.txt "protobuf<6" "google-cloud-bigquery-storage>=2.30,<3"
+!python -m pip install "dagster==1.13.16" "dagster-webserver==1.13.16" "protobuf<6" "google-cloud-bigquery-storage>=2.30,<3"
+!python -m pip install -e . --no-deps
+!python -m pip install -e dagster-quickstart --no-deps
 ```
 
 If Kaggle prints warnings but the install finishes successfully, continue.
