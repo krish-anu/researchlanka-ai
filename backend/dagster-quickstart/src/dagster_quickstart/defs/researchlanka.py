@@ -780,7 +780,7 @@ def researchlanka_crossref_api_collection(context) -> dict[str, Any]:
             config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
             DEFAULT_COLLECTION_END_YEAR,
         ),
-        include_all_authorships=False,
+        include_all_authorships=True,
     )
 
     with backend_working_directory():

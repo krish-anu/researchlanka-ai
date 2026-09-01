@@ -51,7 +51,11 @@ PROJECT_ROOT = next(
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.pipeline.kaggle_merge_common_dataset import is_blank, normalize_doi
+from src.pipeline.kaggle_merge_common_dataset import (
+    OWNERSHIP_POLICY_VERSION,
+    is_blank,
+    normalize_doi,
+)
 
 
 DEFAULT_INPUT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_deduplicated.csv"
@@ -644,8 +648,31 @@ def bool_is_true(value: Any) -> bool:
     return str(value).strip().casefold() in {"true", "1", "yes", "y"}
 
 
+def contains_lk_country(value: Any) -> bool:
+    if is_blank(value):
+        return False
+    countries = {
+        part.strip().upper()
+        for part in re.split(r"[;,|]", str(value))
+        if part.strip()
+    }
+    return "LK" in countries
+
+
+def valid_policy_version(value: Any) -> bool:
+    return clean_text(value) == OWNERSHIP_POLICY_VERSION
+
+
 def verified_ownership_mask(df: pd.DataFrame) -> pd.Series:
-    required = {"ownership_decision", "ownership_confidence", "needs_manual_review"}
+    required = {
+        "ownership_decision",
+        "ownership_confidence",
+        "needs_manual_review",
+        "lead_country",
+        "ownership_reason",
+        "ownership_evidence",
+        "ownership_policy_version",
+    }
     missing = required - set(df.columns)
     if missing:
         return pd.Series(False, index=df.index)
@@ -653,7 +680,21 @@ def verified_ownership_mask(df: pd.DataFrame) -> pd.Series:
         df["ownership_decision"].map(lambda value: str(value).strip().upper() == "INCLUDE")
         & df["ownership_confidence"].map(lambda value: str(value).strip().upper() in {"HIGH", "MEDIUM"})
         & ~df["needs_manual_review"].map(bool_is_true)
+        & df["lead_country"].map(contains_lk_country)
+        & ~df["ownership_reason"].map(is_blank)
+        & ~df["ownership_evidence"].map(is_blank)
+        & df["ownership_policy_version"].map(valid_policy_version)
     )
+
+
+def ownership_review_mask(cleaned: pd.DataFrame, verified_mask: pd.Series) -> pd.Series:
+    decision = cleaned.get("ownership_decision", pd.Series(pd.NA, index=cleaned.index)).map(
+        lambda value: str(value).strip().upper()
+    )
+    excluded_mask = decision == "EXCLUDE"
+    explicit_review_mask = decision == "REVIEW"
+    invalid_metadata_mask = ~verified_mask & ~excluded_mask
+    return explicit_review_mask | invalid_metadata_mask
 
 
 def write_ownership_sidecars(
@@ -664,13 +705,11 @@ def write_ownership_sidecars(
     verified_csv: Path,
 ) -> tuple[int, int, int]:
     review_csv.parent.mkdir(parents=True, exist_ok=True)
-    review_mask = cleaned.get("ownership_decision", pd.Series(pd.NA, index=cleaned.index)).map(
-        lambda value: str(value).strip().upper() == "REVIEW"
-    )
     excluded_mask = cleaned.get("ownership_decision", pd.Series(pd.NA, index=cleaned.index)).map(
         lambda value: str(value).strip().upper() == "EXCLUDE"
     )
     verified_mask = verified_ownership_mask(cleaned)
+    review_mask = ownership_review_mask(cleaned, verified_mask)
 
     cleaned.loc[review_mask].to_csv(review_csv, index=False)
     cleaned.loc[excluded_mask].to_csv(excluded_csv, index=False)
