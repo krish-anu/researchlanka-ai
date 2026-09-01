@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import shutil
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
@@ -24,6 +25,7 @@ CONFIG_PATH = BACKEND_DIR / "configurations" / "sri_lanka" / "config.json"
 RAW_DIR = BACKEND_DIR / "data" / "raw"
 PROCESSED_DIR = BACKEND_DIR / "data" / "processed"
 REPORT_DIR = BACKEND_DIR / "data" / "reports"
+KAGGLE_OUTPUT_DIR = BACKEND_DIR / "researchlanka-kaggle-outputs"
 CROSSREF_JSONL_OUTPUT = PROCESSED_DIR / "crossref" / "crossref_sri_lanka_works.jsonl"
 CROSSREF_CSV_OUTPUT = PROCESSED_DIR / "crossref" / "crossref_sri_lanka_works.csv"
 SLJOL_JSONL_OUTPUT = RAW_DIR / "sljol" / "crossref_works.jsonl"
@@ -142,6 +144,26 @@ OPENALEX_DOI_CONFLICTS_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_doi_c
 OPENALEX_PAGINATION_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_pagination_audit.json"
 OPENALEX_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "openalex_lk_affiliation_audit"
 CROSSREF_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "crossref_lk_affiliation_audit"
+KAGGLE_REPORT_DIR = KAGGLE_OUTPUT_DIR / "data" / "reports"
+
+
+def stage_report_dir_for_kaggle_outputs(source_dir: Path, report_name: str) -> dict[str, Any]:
+    """Copy report artifacts into the Kaggle output bundle staging directory."""
+
+    destination_dir = KAGGLE_REPORT_DIR / report_name
+    destination_dir.mkdir(parents=True, exist_ok=True)
+
+    copied_paths: list[str] = []
+    for source_path in sorted(path for path in source_dir.iterdir() if path.is_file()):
+        destination_path = destination_dir / source_path.name
+        shutil.copy2(source_path, destination_path)
+        copied_paths.append(str(destination_path))
+
+    return {
+        "kaggle_report_dir": str(destination_dir),
+        "kaggle_report_files": len(copied_paths),
+        "kaggle_report_file_list": copied_paths,
+    }
 
 
 @contextmanager
@@ -801,11 +823,16 @@ def researchlanka_crossref_lk_affiliation_audit(
 
     with backend_working_directory():
         summary = run_crossref_lk_audit(CROSSREF_JSONL_OUTPUT, CROSSREF_LK_AUDIT_OUTPUT_DIR)
+    kaggle_report_metadata = stage_report_dir_for_kaggle_outputs(
+        CROSSREF_LK_AUDIT_OUTPUT_DIR,
+        "crossref_lk_affiliation_audit",
+    )
 
     metadata = {
         "status": "audited",
         "input": str(CROSSREF_JSONL_OUTPUT),
         "output_dir": str(CROSSREF_LK_AUDIT_OUTPUT_DIR),
+        **kaggle_report_metadata,
         "total_works": int(summary["overall"]["unique_crossref_work_ids"]),
         "total_author_rows": int(summary["overall"]["audit_rows_including_authorless_works"]),
         "candidate_lk_authorships": int(summary["overall"]["candidate_lk_authorships"]),
