@@ -32,6 +32,7 @@ from src.api.core.serializers import (
     publication_summary,
 )
 from src.api.repositories.postgres import is_institution_like_author
+from src.api.services.nmf_topics import TOPIC_DIRECTORY_QUERY_PARAMS, NmfTopicService
 from src.database.final_schema import FINAL_PUBLICATION_COLUMNS
 
 
@@ -50,8 +51,14 @@ RANKING_PAGINATION_QUERY_PARAMS = FILTER_QUERY_PARAMS | {
 class ResearchLankaAPI:
     """High-level read-only API operations."""
 
-    def __init__(self, repository: PublicationRepository) -> None:
+    def __init__(
+        self,
+        repository: PublicationRepository,
+        *,
+        nmf_service: NmfTopicService | None = None,
+    ) -> None:
         self.repository = repository
+        self.nmf_service = nmf_service or NmfTopicService()
 
     def health(self) -> dict[str, Any]:
         ok = self.repository.health()
@@ -65,6 +72,10 @@ class ResearchLankaAPI:
 
     def metadata(self) -> dict[str, Any]:
         data = self.repository.metadata()
+        try:
+            data = {**data, **self.nmf_service.metadata()}
+        except APIError:
+            pass
         return {
             "data": {
                 "api_version": API_VERSION,
@@ -127,6 +138,7 @@ class ResearchLankaAPI:
                 details={"field": "sort", "allowed": sorted(SORT_OPTIONS)},
             )
         include_facets = parse_bool(first(query, "include_facets"), default=False)
+        filters = self._apply_nmf_filters(filters)
         result = self.repository.list_publications(
             filters,
             page=page,
@@ -134,7 +146,9 @@ class ResearchLankaAPI:
             sort=sort,
             include_facets=include_facets,
         )
-        rows = [publication_summary(row) for row in result.get("records", [])]
+        rows = self._enrich_publication_summaries(
+            [publication_summary(row) for row in result.get("records", [])]
+        )
         total = int(result.get("total", len(rows)))
         return list_response(
             rows,
@@ -151,7 +165,9 @@ class ResearchLankaAPI:
         row = self.repository.get_publication(publication_key)
         if row is None:
             raise APIError("not_found", "Publication not found.", status=404)
-        return {"data": publication_detail(row), "meta": self._meta()}
+        detail = publication_detail(row)
+        detail = self._enrich_publication_summaries([detail])[0]
+        return {"data": detail, "meta": self._meta()}
 
     def publication_references(self, publication_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_resource_key(publication_key, field="publication_key")
@@ -187,7 +203,7 @@ class ResearchLankaAPI:
 
     def facets(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, FILTER_QUERY_PARAMS)
-        filters = parse_filters(query)
+        filters = self._apply_nmf_filters(parse_filters(query))
         result = self.repository.list_publications(
             filters,
             page=1,
@@ -221,7 +237,7 @@ class ResearchLankaAPI:
                 "Similarity search requires a non-empty q parameter.",
                 details={"field": "q"},
             )
-        filters = parse_filters(query)
+        filters = self._apply_nmf_filters(parse_filters(query))
         filters.pop("q", None)
         limit = min(parse_positive_int(query, "limit", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
         min_score = self._semantic_min_score(query)
@@ -233,7 +249,7 @@ class ResearchLankaAPI:
         )
         return self._semantic_list_response(
             rows,
-            filters={"q": text, **filters},
+            filters={"q": text, **self._public_nmf_filters(filters)},
             limit=limit,
             min_score=min_score,
             mode=mode,
@@ -254,7 +270,7 @@ class ResearchLankaAPI:
     ) -> dict[str, Any]:
         validate_resource_key(publication_key, field="publication_key")
         validate_query_params(query, SIMILARITY_QUERY_PARAMS - {"q"})
-        filters = parse_filters(query)
+        filters = self._apply_nmf_filters(parse_filters(query))
         filters.pop("q", None)
         limit = min(parse_positive_int(query, "limit", default=10), MAX_PAGE_SIZE)
         min_score = self._semantic_min_score(query)
@@ -266,7 +282,7 @@ class ResearchLankaAPI:
         )
         return self._semantic_list_response(
             rows,
-            filters={"publication_key": publication_key, **filters},
+            filters={"publication_key": publication_key, **self._public_nmf_filters(filters)},
             limit=limit,
             min_score=min_score,
             mode=mode,
@@ -403,6 +419,16 @@ class ResearchLankaAPI:
         return {"data": self.repository.compare_institutions(keys), "meta": self._meta()}
 
     def topics(self, query: dict[str, list[str]]) -> dict[str, Any]:
+        source = first(query, "source") or "nmf"
+        if source == "nmf":
+            validate_query_params(query, TOPIC_DIRECTORY_QUERY_PARAMS | FILTER_QUERY_PARAMS)
+            return self.nmf_service.list_topics(query, meta=self._meta())
+        if source != "openalex":
+            raise APIError(
+                "invalid_filter",
+                "source must be nmf or openalex.",
+                details={"field": "source"},
+            )
         validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
         filters = parse_filters(query)
         page = parse_positive_int(query, "page", default=1)
@@ -425,12 +451,31 @@ class ResearchLankaAPI:
 
     def topic_publications(self, topic_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_resource_key(topic_key, field="topic_key")
-        validate_query_params(query, PAGINATION_QUERY_PARAMS)
+        validate_query_params(query, PAGINATION_QUERY_PARAMS | {"source"})
+        source = first(query, "source") or "nmf"
+        if source == "nmf":
+            result = self.nmf_service.topic_publications(
+                topic_key,
+                query,
+                repository=self.repository,
+                meta=self._meta(),
+            )
+            if result is not None:
+                return result
+            raise APIError("not_found", "NMF topic not found.", status=404)
+        if source != "openalex":
+            raise APIError(
+                "invalid_filter",
+                "source must be nmf or openalex.",
+                details={"field": "source"},
+            )
         page = parse_positive_int(query, "page", default=1)
         page_size = min(parse_positive_int(query, "page_size", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
         result = self.repository.topic_publications(topic_key, page=page, page_size=page_size)
         return list_response(
-            [publication_summary(row) for row in result.get("records", [])],
+            self._enrich_publication_summaries(
+                [publication_summary(row) for row in result.get("records", [])]
+            ),
             page=page,
             page_size=page_size,
             total=int(result.get("total", 0)),
@@ -473,10 +518,17 @@ class ResearchLankaAPI:
         return {"data": self.repository.analytics_overview(filters), "meta": self._meta()}
 
     def analytics_trends(self, query: dict[str, list[str]]) -> dict[str, Any]:
-        validate_query_params(query, FILTER_QUERY_PARAMS | {"group_by", "metric"})
+        validate_query_params(query, FILTER_QUERY_PARAMS | TOPIC_DIRECTORY_QUERY_PARAMS | {"group_by", "metric"})
         filters = parse_filters(query)
         group_by = first(query, "group_by") or "year"
         metric = first(query, "metric") or "publications"
+        if group_by == "nmf_topic":
+            return {
+                "data": self.nmf_service.topic_trends(query, meta=self._meta())["data"],
+                "filters": {"applied": filters, "group_by": group_by, "metric": metric},
+                "meta": self._meta(),
+            }
+        filters = self._apply_nmf_filters(filters)
         return {
             "data": self.repository.analytics_trends(filters, group_by=group_by, metric=metric),
             "filters": {"applied": filters},
@@ -542,6 +594,7 @@ class ResearchLankaAPI:
         if sort not in SORT_OPTIONS:
             raise APIError("invalid_sort", f"Unsupported sort: {sort}.", details={"field": "sort"})
         limit = min(parse_positive_int(query, "limit", default=10_000), 50_000)
+        filters = self._apply_nmf_filters(filters)
         result = self.repository.list_publications(
             filters,
             page=1,
@@ -549,7 +602,7 @@ class ResearchLankaAPI:
             sort=sort,
             include_facets=False,
         )
-        rows = [publication_summary(row) for row in result.get("records", [])]
+        rows = self._enrich_publication_summaries([publication_summary(row) for row in result.get("records", [])])
         if file_format == "jsonl":
             return publication_rows_to_jsonl(rows), "application/x-ndjson; charset=utf-8"
         if file_format == "csv":
@@ -571,6 +624,60 @@ class ResearchLankaAPI:
         else:
             raise APIError("not_found", "Analytics export not found.", status=404)
         return csv_bytes(data), "text/csv; charset=utf-8"
+
+    def _apply_nmf_filters(self, filters: dict[str, Any]) -> dict[str, Any]:
+        topic_ids = filters.get("nmf_topic_id")
+        topic_names = filters.get("nmf_topic")
+        if not topic_ids and not topic_names:
+            return filters
+
+        try:
+            store = self.nmf_service._require_store()
+        except APIError as exc:
+            if exc.code == "service_unavailable":
+                raise APIError(
+                    "invalid_filter",
+                    "NMF topic filters require loaded k=25 topic-model artifacts.",
+                    details={"field": "nmf_topic"},
+                    status=503,
+                ) from exc
+            raise
+
+        publication_keys: list[str] = []
+        if topic_ids:
+            publication_keys.extend(store.publication_keys_for_topics(topic_ids))
+        if topic_names:
+            publication_keys.extend(store.publication_keys_for_topic_names(topic_names))
+
+        resolved = dict(filters)
+        resolved.pop("nmf_topic_id", None)
+        resolved.pop("nmf_topic", None)
+        resolved["publication_keys"] = sorted(set(publication_keys))
+        return resolved
+
+    def _public_nmf_filters(self, filters: dict[str, Any]) -> dict[str, Any]:
+        public_filters = dict(filters)
+        public_filters.pop("publication_keys", None)
+        return public_filters
+
+    def _enrich_publication_summaries(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        try:
+            store = self.nmf_service._require_store()
+        except APIError:
+            return rows
+
+        enriched: list[dict[str, Any]] = []
+        for row in rows:
+            assignment = store.assignment_for_publication(row.get("publication_key", ""))
+            if assignment:
+                row = {
+                    **row,
+                    "nmf_topic_id": assignment["nmf_topic_id"],
+                    "nmf_topic_name": assignment["nmf_topic_name"],
+                    "nmf_topic_weight": assignment["nmf_topic_weight"],
+                }
+            enriched.append(row)
+        return enriched
 
     def _meta(self, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         snapshot_date = None
@@ -658,7 +765,7 @@ class ResearchLankaAPI:
         min_score: float | None,
         mode: str = "semantic",
     ) -> dict[str, Any]:
-        summaries = [semantic_publication_summary(row) for row in rows]
+        summaries = self._enrich_publication_summaries([semantic_publication_summary(row) for row in rows])
         meta = self._meta()
         meta["search"] = {
             "mode": mode,
@@ -685,6 +792,10 @@ def semantic_publication_summary(row: dict[str, Any]) -> dict[str, Any]:
         summary["similarity_score"] = row.get("similarity_score")
     if row.get("similarity_rank") is not None:
         summary["similarity_rank"] = row.get("similarity_rank")
+    if row.get("nmf_topic_id") is not None:
+        summary["nmf_topic_id"] = row.get("nmf_topic_id")
+        summary["nmf_topic_name"] = row.get("nmf_topic_name")
+        summary["nmf_topic_weight"] = row.get("nmf_topic_weight")
     return summary
 
 

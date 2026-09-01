@@ -30,9 +30,8 @@ from sklearn.svm import LinearSVC
 
 
 from src.modeling.artifacts import (
-    file_sha256,
+    dump_joblib_artifact,
     save_model_artifacts,
-    write_json_artifact,
 )
 
 from src.preprocessing.text_cleaning import clean_text_series, CUSTOM_STOP_WORDS
@@ -113,6 +112,9 @@ class HierarchicalTrainingResult:
     subfield_model_count: int
     field_accuracy: float | None
     field_macro_f1: float | None
+    subfield_evaluated_model_count: int = 0
+    subfield_accuracy_mean: float | None = None
+    subfield_macro_f1_mean: float | None = None
     field_model_sha256: str = ""
     subfield_model_sha256: str = ""
 
@@ -167,19 +169,19 @@ def default_field_model_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path
 
 
 def default_subfield_model_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'subfield')}.joblib"
+    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'subfields')}.joblib"
 
 
 def default_metrics_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'field')}_metrics.txt"
+    return DEFAULT_MODEL_DIR / f"{slugify(model_family)}_metrics.txt"
 
 
 def default_label_counts_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'field')}_labels.csv"
+    return DEFAULT_MODEL_DIR / f"{slugify(model_family)}_labels.csv"
 
 
 def default_manifest_output(model_family: str = DEFAULT_MODEL_FAMILY) -> Path:
-    return DEFAULT_MODEL_DIR / f"{artifact_stem(model_family, 'field')}_manifest.json"
+    return DEFAULT_MODEL_DIR / f"{slugify(model_family)}_manifest.json"
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +226,10 @@ def combined_text(
     *,
     clean: bool = True,
 ) -> pd.Series:
-    text = frame[list(text_columns)].fillna("").astype(str).agg(" ".join, axis=1)
+    available_columns = [column for column in text_columns if column in frame.columns]
+    if not available_columns:
+        return pd.Series("", index=frame.index)
+    text = frame[available_columns].fillna("").astype(str).agg(" ".join, axis=1)
     text = text.str.replace(r"\s+", " ", regex=True).str.strip()
 
     if clean:
@@ -275,7 +280,15 @@ def build_pipeline(
     )
 
 
-def fit_and_score(
+def is_empty_vocabulary_error(exc: ValueError) -> bool:
+    message = str(exc)
+    return (
+        "After pruning, no terms remain" in message
+        or "empty vocabulary" in message
+    )
+
+
+def fit_and_score_once(
     frame: pd.DataFrame,
     label_column: str,
     *,
@@ -314,6 +327,36 @@ def fit_and_score(
     final_model = build_pipeline(**pipeline_kwargs)
     final_model.fit(frame["text"], frame[label_column])
     return final_model, accuracy, macro_f1
+
+
+def fit_and_score(
+    frame: pd.DataFrame,
+    label_column: str,
+    *,
+    pipeline_kwargs: dict[str, Any],
+    test_size: float,
+    random_state: int,
+) -> tuple[Pipeline, float | None, float | None]:
+    """Fit and score, retrying tiny vocabularies with min_df=1."""
+    try:
+        return fit_and_score_once(
+            frame,
+            label_column,
+            pipeline_kwargs=pipeline_kwargs,
+            test_size=test_size,
+            random_state=random_state,
+        )
+    except ValueError as exc:
+        if pipeline_kwargs.get("min_df") == 1 or not is_empty_vocabulary_error(exc):
+            raise
+        fallback_kwargs = {**pipeline_kwargs, "min_df": 1}
+        return fit_and_score_once(
+            frame,
+            label_column,
+            pipeline_kwargs=fallback_kwargs,
+            test_size=test_size,
+            random_state=random_state,
+        )
 
 
 def load_labeled_frame(
@@ -394,6 +437,7 @@ def render_metrics(
     usable_rows: int,
     field_label_counts: pd.Series,
     subfield_model_count: int,
+    subfield_scores: dict[str, dict[str, float | None]],
     field_accuracy: float | None,
     field_macro_f1: float | None,
 ) -> str:
@@ -419,6 +463,35 @@ def render_metrics(
         lines.append(f"field_macro_f1: {field_macro_f1:.4f}")
     else:
         lines.append("field_accuracy: n/a")
+    if subfield_scores:
+        evaluated_scores = [
+            score
+            for score in subfield_scores.values()
+            if score["accuracy"] is not None and score["macro_f1"] is not None
+        ]
+        if evaluated_scores:
+            mean_accuracy = sum(
+                float(score["accuracy"]) for score in evaluated_scores
+            ) / len(evaluated_scores)
+            mean_macro_f1 = sum(
+                float(score["macro_f1"]) for score in evaluated_scores
+            ) / len(evaluated_scores)
+            lines.append(f"subfield_evaluated_model_count: {len(evaluated_scores)}")
+            lines.append(f"subfield_accuracy_mean: {mean_accuracy:.4f}")
+            lines.append(f"subfield_macro_f1_mean: {mean_macro_f1:.4f}")
+        else:
+            lines.append("subfield_accuracy_mean: n/a")
+        lines.extend(["", "Subfield model scores:"])
+        for field, score in sorted(subfield_scores.items()):
+            accuracy = score["accuracy"]
+            macro_f1 = score["macro_f1"]
+            if accuracy is None or macro_f1 is None:
+                lines.append(f"{field}: accuracy=n/a macro_f1=n/a")
+            else:
+                lines.append(
+                    f"{field}: accuracy={float(accuracy):.4f} "
+                    f"macro_f1={float(macro_f1):.4f}"
+                )
     lines.extend(["", "Field class distribution:"])
     lines.extend(f"{label}: {count}" for label, count in field_label_counts.items())
     return "\n".join(lines).rstrip() + "\n"
@@ -463,11 +536,12 @@ def train_hierarchical_classifier(
     )
 
     subfield_models: dict[str, Pipeline] = {}
+    subfield_scores: dict[str, dict[str, float | None]] = {}
     for field in sorted(labeled[config.field_column].astype(str).unique()):
         field_frame = labeled[labeled[config.field_column].astype(str) == field]
         if field_frame[config.subfield_column].nunique() < config.min_subfield_count:
             continue
-        model, _, _ = fit_and_score(
+        model, accuracy, macro_f1 = fit_and_score(
             field_frame,
             config.subfield_column,
             pipeline_kwargs=pipeline_kwargs,
@@ -475,6 +549,7 @@ def train_hierarchical_classifier(
             random_state=config.random_state,
         )
         subfield_models[field] = model
+        subfield_scores[field] = {"accuracy": accuracy, "macro_f1": macro_f1}
 
     field_label_counts = labeled[config.field_column].value_counts()
 
@@ -483,6 +558,9 @@ def train_hierarchical_classifier(
     assert config.metrics_output is not None
     assert config.label_counts_output is not None
     assert config.manifest_output is not None
+    field_predictions_output = config.field_model_output.with_name(
+        f"{config.field_model_output.stem}_predictions.csv"
+    )
 
     metrics_text = render_metrics(
         config=config,
@@ -490,8 +568,32 @@ def train_hierarchical_classifier(
         usable_rows=len(labeled),
         field_label_counts=field_label_counts,
         subfield_model_count=len(subfield_models),
+        subfield_scores=subfield_scores,
         field_accuracy=field_accuracy,
         field_macro_f1=field_macro_f1,
+    )
+
+    evaluated_subfield_scores = [
+        score
+        for score in subfield_scores.values()
+        if score["accuracy"] is not None and score["macro_f1"] is not None
+    ]
+    subfield_accuracy_mean = (
+        sum(float(score["accuracy"]) for score in evaluated_subfield_scores)
+        / len(evaluated_subfield_scores)
+        if evaluated_subfield_scores
+        else None
+    )
+    subfield_macro_f1_mean = (
+        sum(float(score["macro_f1"]) for score in evaluated_subfield_scores)
+        / len(evaluated_subfield_scores)
+        if evaluated_subfield_scores
+        else None
+    )
+
+    saved_subfields = dump_joblib_artifact(
+        config.subfield_model_output,
+        subfield_models,
     )
 
     result = HierarchicalTrainingResult(
@@ -506,6 +608,10 @@ def train_hierarchical_classifier(
         subfield_model_count=len(subfield_models),
         field_accuracy=field_accuracy,
         field_macro_f1=field_macro_f1,
+        subfield_evaluated_model_count=len(evaluated_subfield_scores),
+        subfield_accuracy_mean=subfield_accuracy_mean,
+        subfield_macro_f1_mean=subfield_macro_f1_mean,
+        subfield_model_sha256=saved_subfields.sha256,
     )
 
     saved_field = save_model_artifacts(
@@ -516,31 +622,16 @@ def train_hierarchical_classifier(
         label_counts=field_label_counts,
         label_counts_output=config.label_counts_output,
         predictions=[],
-        predictions_output=None,
+        predictions_output=field_predictions_output,
         manifest_output=config.manifest_output,
         manifest_config=json_ready_dataclass(config),
-        manifest_result=json_ready_dataclass(result),
-    )
-
-    config.subfield_model_output.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(subfield_models, config.subfield_model_output)
-    subfield_sha = file_sha256(config.subfield_model_output)
-
-    write_json_artifact(
-        config.manifest_output,
-        {
-            "config": json_ready_dataclass(config),
-            "result": {
-                **json_ready_dataclass(result),
-                "field_model_sha256": saved_field.model.sha256,
-                "subfield_model_sha256": subfield_sha,
-            },
-            "field_label_counts": {
-                str(label): int(count) for label, count in field_label_counts.items()
-            },
+        manifest_result={
+            **json_ready_dataclass(result),
+            "subfield_scores": subfield_scores,
             "subfield_models_trained_for": sorted(subfield_models),
             "prediction_columns": [PRED_FIELD_COLUMN, PRED_SUBFIELD_COLUMN],
         },
+        extra_artifacts={"subfield_models": saved_subfields},
     )
 
     return HierarchicalTrainingResult(
@@ -555,8 +646,11 @@ def train_hierarchical_classifier(
         subfield_model_count=result.subfield_model_count,
         field_accuracy=result.field_accuracy,
         field_macro_f1=result.field_macro_f1,
+        subfield_evaluated_model_count=result.subfield_evaluated_model_count,
+        subfield_accuracy_mean=result.subfield_accuracy_mean,
+        subfield_macro_f1_mean=result.subfield_macro_f1_mean,
         field_model_sha256=saved_field.model.sha256,
-        subfield_model_sha256=subfield_sha,
+        subfield_model_sha256=saved_subfields.sha256,
     )
 
 
@@ -702,7 +796,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="If set, run the trained models over the input CSV and save "
-        "linearsvm_domain/field/subfield predictions here.",
+        "predicted_field/predicted_subfield columns here.",
     )
 
     return parser.parse_args()
@@ -717,6 +811,9 @@ def result_summary(result: HierarchicalTrainingResult) -> str:
     if result.field_accuracy is not None:
         lines.append(f"Field accuracy: {result.field_accuracy:.4f}")
         lines.append(f"Field macro F1: {result.field_macro_f1:.4f}")
+    if result.subfield_accuracy_mean is not None:
+        lines.append(f"Subfield mean accuracy: {result.subfield_accuracy_mean:.4f}")
+        lines.append(f"Subfield mean macro F1: {result.subfield_macro_f1_mean:.4f}")
     lines.append(f"Field model: {result.field_model_output}")
     lines.append(f"Subfield models: {result.subfield_model_output}")
     lines.append(f"Metrics: {result.metrics_output}")
@@ -726,41 +823,42 @@ def result_summary(result: HierarchicalTrainingResult) -> str:
 
 def main() -> None:
     args = parse_args()
-    result = train_hierarchical_classifier(
-        HierarchicalTrainingConfig(
-            input_path=args.input,
-            taxonomy_path=args.taxonomy,
-            field_column=args.field_column,
-            subfield_column=args.subfield_column,
-            text_columns=tuple(args.text_columns),
-            field_model_output=args.field_model_output,
-            subfield_model_output=args.subfield_model_output,
-            metrics_output=args.metrics_output,
-            label_counts_output=args.label_counts_output,
-            manifest_output=args.manifest_output,
-            test_size=args.test_size,
-            random_state=args.random_state,
-            max_rows=args.max_rows,
-            min_subfield_count=args.min_subfield_count,
-            max_features=args.max_features,
-            min_df=args.min_df,
-            max_df=args.max_df,
-            ngram_max=args.ngram_max,
-            c_value=args.c_value,
-            class_weight=args.class_weight,
-            max_iter=args.max_iter,
-        )
+    config = HierarchicalTrainingConfig(
+        input_path=args.input,
+        taxonomy_path=args.taxonomy,
+        field_column=args.field_column,
+        subfield_column=args.subfield_column,
+        text_columns=tuple(args.text_columns),
+        field_model_output=args.field_model_output,
+        subfield_model_output=args.subfield_model_output,
+        metrics_output=args.metrics_output,
+        label_counts_output=args.label_counts_output,
+        manifest_output=args.manifest_output,
+        test_size=args.test_size,
+        random_state=args.random_state,
+        max_rows=args.max_rows,
+        min_subfield_count=args.min_subfield_count,
+        max_features=args.max_features,
+        min_df=args.min_df,
+        max_df=args.max_df,
+        ngram_max=args.ngram_max,
+        c_value=args.c_value,
+        class_weight=args.class_weight,
+        max_iter=args.max_iter,
     )
+    result = train_hierarchical_classifier(config)
     print(result_summary(result))
     if args.predict_output:
-        lookup = load_taxonomy(config.taxonomy_path)
-        run_hierarchical_prediction(
+        resolved = resolved_config(config)
+        run_field_subfield_prediction(
             input_path=config.input_path,
             output_path=args.predict_output,
-            domain_model_path=result.domain_model_output,
+            field_model_path=result.field_model_output,
             subfield_model_path=result.subfield_model_output,
-            taxonomy_path=config.taxonomy_path,
-            text_columns=config.text_columns,
+            text_columns=resolved.text_columns,
+            only_unlabeled=False,
+            field_column=resolved.field_column,
+            subfield_column=resolved.subfield_column,
         )
         print(f"Predictions written to: {args.predict_output}")
 
