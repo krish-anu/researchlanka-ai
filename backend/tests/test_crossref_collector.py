@@ -21,6 +21,13 @@ def test_iter_works(monkeypatch):
                     "type": "journal-article",
                     "title": ["Test Paper"],
                     "issued": {"date-parts": [[2024]]},
+                    "author": [
+                        {
+                            "given": "A.",
+                            "family": "Author",
+                            "affiliation": [{"name": "University of Colombo"}],
+                        }
+                    ],
                 },
                 {"DOI": "10.9999/book", "type": "book"},
             ],

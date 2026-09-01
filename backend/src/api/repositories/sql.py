@@ -156,6 +156,13 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
                 flag_clauses.append("abstract IS NULL")
         if flag_clauses:
             clauses.append("(" + " OR ".join(flag_clauses) + ")")
+    publication_keys = filters.get("publication_keys")
+    if publication_keys is not None:
+        if publication_keys:
+            clauses.append("publication_key = ANY(%s)")
+            params.append(publication_keys)
+        else:
+            clauses.append("FALSE")
     if not clauses:
         return "", params
     return "WHERE " + " AND ".join(clauses), params

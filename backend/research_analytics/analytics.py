@@ -5,7 +5,11 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from research_analytics.networks import build_author_collaboration_network
+from research_analytics.networks import (
+    build_author_collaboration_network,
+    build_country_collaboration_network,
+    build_funder_collaboration_network,
+)
 
 
 def run_field_aware_analytics(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -70,6 +74,22 @@ def run_field_aware_analytics(records: list[dict[str, Any]]) -> dict[str, Any]:
 
     if _field_available(records, "collaboration_type"):
         summary["collaboration_types"] = dict(_counter(records, "collaboration_type").most_common())
+
+    if _field_available(records, "countries"):
+        country_network = build_country_collaboration_network(records)
+        summary["country_collaboration_network"] = {
+            "node_count": len(country_network["nodes"]),
+            "edge_count": len(country_network["edges"]),
+            "top_edges": country_network["edges"][:20],
+        }
+
+    if _field_available(records, "funder_name"):
+        funder_network = build_funder_collaboration_network(records)
+        summary["funder_collaboration_network"] = {
+            "node_count": len(funder_network["nodes"]),
+            "edge_count": len(funder_network["edges"]),
+            "top_edges": funder_network["edges"][:20],
+        }
 
     if _field_available(records, "categories"):
         summary["publications_by_category"] = dict(_counter(records, "categories").most_common(50))

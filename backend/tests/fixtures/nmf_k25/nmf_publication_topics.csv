@@ -1,0 +1,4 @@
+doi,openalex_id,source_dataset,source_record_id,nmf_topic_id,nmf_topic_name,nmf_topic_weight
+10.1000/test,,openalex,W1,1,patients / age / hospital,0.82
+,,repositories_combined,thesis-1,2,medicine / internal_medicine / internal,0.71
+10.1000/env,,openalex,W2,3,environmental / water / environmental_science,0.66
