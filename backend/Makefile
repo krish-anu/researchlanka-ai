@@ -122,6 +122,18 @@ VALIDATE_CHECKS ?= authors,institutions,citations,collaboration
 VALIDATE_REPORT_DIR ?= data/reports/validation
 VALIDATE_EXTRA_ARGS ?=
 
+# Google Maps assisted institution-location confirmation.
+MAPS_LOCATION_INPUT ?= data/processed/crossref/crossref_sri_lanka_works.jsonl
+MAPS_LOCATION_REGISTRY ?= configurations/sri_lanka/institutions.csv
+MAPS_LOCATION_EVIDENCE ?= data/reports/validation/google_maps_institution_location_evidence.csv
+MAPS_LOCATION_REGISTRY_REPORT ?= data/reports/validation/google_maps_registry_alias_application.csv
+MAPS_LOCATION_LIMIT ?= 50
+MAPS_LOCATION_BATCH_SIZE ?= 5
+MAPS_LOCATION_DEPTH ?= 1
+MAPS_LOCATION_EXIT_ON_INACTIVITY ?= 3m
+MAPS_LOCATION_CONFIRM_EXTRA_ARGS ?=
+MAPS_LOCATION_APPLY_EXTRA_ARGS ?=
+
 # Build optional/email args only when values are provided.
 OPENALEX_EMAIL_ARG = $(if $(OPENALEX_EMAIL),--email $(OPENALEX_EMAIL),)
 
@@ -145,7 +157,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report maps-location-confirm maps-location-rescore maps-location-apply institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -165,6 +177,9 @@ help:
 	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
 	@echo "  make openalex-doi-conflicts  Rebuild only the DOI conflict CSV from existing JSONL"
 	@echo "  make openalex-report         Print the quality report from existing JSONL"
+	@echo "  make maps-location-confirm   Confirm unresolved institution locations with Google Maps evidence"
+	@echo "  make maps-location-rescore   Re-score existing Google Maps evidence without scraping"
+	@echo "  make maps-location-apply     Add confirmed Google Maps aliases to the institution registry"
 	@echo "  make author-disambiguate     Resolve author mentions onto stable author identities"
 	@echo "  make author-review           Show the ambiguous-author review queue"
 	@echo "  make author-decisions        Promote reviewed verdicts into the decisions file"
@@ -284,6 +299,34 @@ openalex-rebuild:
 # Rebuild only the DOI conflict CSV from existing raw JSONL.
 openalex-doi-conflicts:
 	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report; count=write_doi_conflict_report(Path('$(OPENALEX_JSONL)'), Path('$(OPENALEX_DOI_CONFLICTS)')); print(f'DOI conflicts: {count:,}')"
+
+# Confirm unresolved Crossref affiliation/institution strings against Google
+# Maps. Uses direct Docker runner by default; keep batches small to avoid rate
+# limiting and review the CSV before applying aliases.
+maps-location-confirm:
+	$(PYTHON) scripts/quality/confirm_institution_locations_google_maps.py \
+	--input $(MAPS_LOCATION_INPUT) \
+	--registry-csv $(MAPS_LOCATION_REGISTRY) \
+	--output $(MAPS_LOCATION_EVIDENCE) \
+	--limit $(MAPS_LOCATION_LIMIT) \
+	--batch-size $(MAPS_LOCATION_BATCH_SIZE) \
+	--depth $(MAPS_LOCATION_DEPTH) \
+	--exit-on-inactivity $(MAPS_LOCATION_EXIT_ON_INACTIVITY) $(MAPS_LOCATION_CONFIRM_EXTRA_ARGS)
+
+# Re-score an existing evidence CSV with the current conservative matching
+# rules. Does not call Google Maps.
+maps-location-rescore:
+	$(PYTHON) scripts/quality/confirm_institution_locations_google_maps.py \
+	--output $(MAPS_LOCATION_EVIDENCE) \
+	--rescore-existing
+
+# Promote reviewed confirmed evidence into the institution registry as aliases.
+# Run with MAPS_LOCATION_APPLY_EXTRA_ARGS=--dry-run first if you want a report only.
+maps-location-apply:
+	$(PYTHON) scripts/processing/apply_google_maps_location_evidence.py \
+	--evidence-csv $(MAPS_LOCATION_EVIDENCE) \
+	--registry-csv $(MAPS_LOCATION_REGISTRY) \
+	--report-csv $(MAPS_LOCATION_REGISTRY_REPORT) $(MAPS_LOCATION_APPLY_EXTRA_ARGS)
 
 # Regenerate the national institution registry from the merged dataset.
 # Writes configurations/sri_lanka/institutions.csv for review -- read the diff
