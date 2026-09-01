@@ -63,6 +63,10 @@ data/models/
 data/reports/*.json
 outputs/
 pipeline/
+!backend/src/pipeline/
+!backend/src/pipeline/**
+backend/src/pipeline/__pycache__/
+backend/src/pipeline/**/*.py[cod]
 tools/google-maps-scraper-kit/
 backend/data/raw/
 backend/data/processed/
