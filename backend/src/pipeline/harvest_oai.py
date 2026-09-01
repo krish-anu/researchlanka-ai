@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 PROJECT_ROOT = next(
@@ -26,6 +27,8 @@ from src.collectors.oai_pmh_collector import OaiPmhCollector, OaiPmhError
 from src.collectors.repository_registry import harvestable_targets, load_registry
 
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw"
+DEFAULT_START_YEAR = 2016
+DEFAULT_END_YEAR = date.today().year
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,8 +37,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--endpoint", default=None, help="OAI-PMH base URL. Overrides --id.")
     parser.add_argument("--list", action="store_true", help="List harvestable target ids and exit.")
     parser.add_argument("--set", dest="set_spec", default=None, help="Optional OAI setSpec to restrict harvesting.")
-    parser.add_argument("--from", dest="from_date", default=None, help="Optional OAI 'from' date (YYYY-MM-DD).")
-    parser.add_argument("--until", dest="until_date", default=None, help="Optional OAI 'until' date (YYYY-MM-DD).")
+    parser.add_argument(
+        "--from",
+        dest="from_date",
+        default=f"{DEFAULT_START_YEAR}-01-01",
+        help=f"OAI 'from' date (YYYY-MM-DD). Default: {DEFAULT_START_YEAR}-01-01.",
+    )
+    parser.add_argument(
+        "--until",
+        dest="until_date",
+        default=f"{DEFAULT_END_YEAR}-12-31",
+        help=f"OAI 'until' date (YYYY-MM-DD). Default: {DEFAULT_END_YEAR}-12-31.",
+    )
     parser.add_argument("--metadata-prefix", default="oai_dc", help="Metadata format to request. Default: oai_dc")
     parser.add_argument("--max-records", type=int, default=None, help="Safety limit for testing.")
     parser.add_argument("--timeout", type=int, default=30, help="Per-request timeout in seconds.")

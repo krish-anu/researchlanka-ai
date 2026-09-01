@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -24,19 +25,32 @@ from src.pipeline.build_final_common_dataset import build_publication_key
 from src.utils.doi import normalize_doi
 
 
+DEFAULT_START_YEAR = 2016
+DEFAULT_END_YEAR = date.today().year
+DEFAULT_YEAR_SUFFIX = f"{DEFAULT_START_YEAR}_{DEFAULT_END_YEAR}"
 DEFAULT_INPUT_CSV = (
     PROJECT_ROOT
     / "data"
     / "processed"
     / "common"
-    / "common_publications_final_2016_2026_multivalue_normalized.csv"
+    / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_multivalue_normalized.csv"
 )
 DEFAULT_OUTPUT_CSV = (
-    PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_analysis_ready.csv"
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "common"
+    / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_analysis_ready.csv"
 )
-DEFAULT_ISSUE_DIR = PROJECT_ROOT / "data" / "processed" / "common" / "preprocessing_issues_2016_2026"
+DEFAULT_ISSUE_DIR = (
+    PROJECT_ROOT / "data" / "processed" / "common" / f"preprocessing_issues_{DEFAULT_YEAR_SUFFIX}"
+)
 DEFAULT_SUMMARY_CSV = (
-    PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_analysis_ready_summary.csv"
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "common"
+    / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_analysis_ready_summary.csv"
 )
 
 TEXT_COLUMNS = ["title", "abstract", "keywords"]

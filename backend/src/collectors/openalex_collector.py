@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, Iterator
 
 import requests
@@ -42,7 +43,7 @@ from src.preprocessing.openalex_normalizer import (
 OPENALEX_BASE_URL = "https://api.openalex.org"
 LK_AUTHORSHIP_FILTER = "authorships.institutions.country_code:LK"
 DEFAULT_FROM_YEAR = 2016
-DEFAULT_TO_YEAR = 2026
+DEFAULT_TO_YEAR = date.today().year
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,8 @@ def is_publication_year_in_collection_range(
     minimum_year = max(from_year or DEFAULT_FROM_YEAR, DEFAULT_FROM_YEAR)
     if year < minimum_year:
         return False
-    if to_year is not None and year > to_year:
+    maximum_year = min(to_year or DEFAULT_TO_YEAR, DEFAULT_TO_YEAR)
+    if year > maximum_year:
         return False
     return True
 
@@ -80,8 +82,8 @@ def build_filters(
     built_filters = list(filters or [LK_AUTHORSHIP_FILTER])
 
     if from_year is not None or to_year is not None:
-        start = from_year if from_year is not None else "*"
-        end = to_year if to_year is not None else "*"
+        start = max(from_year or DEFAULT_FROM_YEAR, DEFAULT_FROM_YEAR)
+        end = min(to_year or DEFAULT_TO_YEAR, DEFAULT_TO_YEAR)
         built_filters.append(f"publication_year:{start}-{end}")
 
     return built_filters

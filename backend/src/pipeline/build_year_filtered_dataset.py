@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -20,13 +21,14 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 DEFAULT_START_YEAR = 2016
-DEFAULT_END_YEAR = 2026
+DEFAULT_END_YEAR = date.today().year
+DEFAULT_YEAR_SUFFIX = f"{DEFAULT_START_YEAR}_{DEFAULT_END_YEAR}"
 DEFAULT_INPUT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
 DEFAULT_OUTPUT_CSV = (
-    PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026.csv"
+    PROJECT_ROOT / "data" / "processed" / "common" / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}.csv"
 )
 DEFAULT_SUMMARY_CSV = (
-    PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_summary.csv"
+    PROJECT_ROOT / "data" / "processed" / "common" / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_summary.csv"
 )
 
 
@@ -36,6 +38,7 @@ def year_filter_counts(
     start_year: int = DEFAULT_START_YEAR,
     end_year: int = DEFAULT_END_YEAR,
 ) -> dict[str, int]:
+    end_year = min(end_year, DEFAULT_END_YEAR)
     if "publication_year" not in df.columns:
         raise ValueError("Input dataset must include a publication_year column.")
 
@@ -57,6 +60,7 @@ def filter_by_publication_year(
     start_year: int = DEFAULT_START_YEAR,
     end_year: int = DEFAULT_END_YEAR,
 ) -> pd.DataFrame:
+    end_year = min(end_year, DEFAULT_END_YEAR)
     if start_year > end_year:
         raise ValueError("start_year must be less than or equal to end_year.")
 
@@ -98,6 +102,7 @@ def build_year_filtered_dataset(
     start_year: int = DEFAULT_START_YEAR,
     end_year: int = DEFAULT_END_YEAR,
 ) -> pd.DataFrame:
+    end_year = min(end_year, DEFAULT_END_YEAR)
     df = pd.read_csv(input_csv, dtype="object", low_memory=False)
     counts = year_filter_counts(df, start_year=start_year, end_year=end_year)
     filtered = filter_by_publication_year(df, start_year=start_year, end_year=end_year)
