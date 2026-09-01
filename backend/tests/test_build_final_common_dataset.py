@@ -8,6 +8,7 @@ from src.pipeline.build_final_common_dataset import (
     clean_final_dataset,
     normalize_funder_identifier,
     split_reference_payload,
+    verified_ownership_mask,
 )
 
 
@@ -250,6 +251,7 @@ def test_build_final_common_dataset_writes_sidecars(tmp_path):
             ],
             "lead_country": ["LK", "LK", "AU"],
             "needs_manual_review": [False, True, False],
+            "ownership_policy_version": ["1.0", "1.0", "1.0"],
             "funder_id": [pd.NA, pd.NA, pd.NA],
             "raw_source_json": [pd.NA, pd.NA, pd.NA],
         }
@@ -286,3 +288,67 @@ def test_build_final_common_dataset_writes_sidecars(tmp_path):
     assert references.loc[0, "reference_title"] == "Reference"
     assert count_audit.loc[0, "publication_key"] == "doi:10.1000/test"
     assert count_audit.loc[0, "is_referenced_by_count"] == 3
+
+
+def test_verified_ownership_mask_requires_complete_lk_policy_evidence():
+    df = pd.DataFrame(
+        {
+            "ownership_decision": ["INCLUDE", "INCLUDE", "INCLUDE", "INCLUDE"],
+            "ownership_confidence": ["MEDIUM", "MEDIUM", "MEDIUM", "MEDIUM"],
+            "needs_manual_review": [False, False, False, False],
+            "lead_country": ["LK", "AU", "LK", "LK"],
+            "ownership_reason": ["LK corresponding author.", "Foreign lead.", "", "LK lead."],
+            "ownership_evidence": [
+                "crossref:explicit_corresponding_or_project_lead_affiliation",
+                "crossref:explicit_corresponding_or_project_lead_affiliation",
+                "crossref:explicit_corresponding_or_project_lead_affiliation",
+                "crossref:explicit_corresponding_or_project_lead_affiliation",
+            ],
+            "ownership_policy_version": ["1.0", "1.0", "1.0", "legacy"],
+        }
+    )
+
+    assert verified_ownership_mask(df).tolist() == [True, False, False, False]
+
+
+def test_malformed_include_rows_go_to_review_sidecar(tmp_path):
+    input_csv = tmp_path / "input.csv"
+    output_csv = tmp_path / "final.csv"
+    references_csv = tmp_path / "references.csv"
+    count_audit_csv = tmp_path / "count_audit.csv"
+    summary_csv = tmp_path / "summary.csv"
+    review_csv = tmp_path / "review.csv"
+    excluded_csv = tmp_path / "excluded.csv"
+    verified_csv = tmp_path / "verified.csv"
+
+    pd.DataFrame(
+        {
+            "source_dataset": ["crossref"],
+            "source_record_id": ["10.1000/malformed"],
+            "doi": ["10.1000/malformed"],
+            "title": ["Malformed ownership row"],
+            "ownership_decision": ["INCLUDE"],
+            "ownership_class": ["SL_OWNED_INTERNATIONAL"],
+            "ownership_confidence": ["MEDIUM"],
+            "ownership_reason": [""],
+            "ownership_evidence": [""],
+            "lead_country": [""],
+            "needs_manual_review": [False],
+            "ownership_policy_version": ["1.0"],
+        }
+    ).to_csv(input_csv, index=False)
+
+    final, _reference_rows, _count_audit_rows = build_final_common_dataset(
+        input_csv,
+        output_csv,
+        references_csv,
+        count_audit_csv,
+        summary_csv,
+        review_csv=review_csv,
+        excluded_csv=excluded_csv,
+        verified_csv=verified_csv,
+    )
+
+    assert len(final) == 0
+    assert len(pd.read_csv(review_csv)) == 1
+    assert len(pd.read_csv(excluded_csv)) == 0
