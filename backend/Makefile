@@ -123,9 +123,11 @@ EVAL_OUTPUT_DIR ?= data/models
 EVAL_EXTRA_ARGS ?=
 
 # Dataset field validation.
-VALIDATE_CHECKS ?= authors,institutions,citations,collaboration
+VALIDATE_CHECKS ?= authors,institutions,citations,collaboration,ownership
 VALIDATE_REPORT_DIR ?= data/reports/validation
 VALIDATE_EXTRA_ARGS ?=
+FINAL_COMMON_INPUT ?= data/processed/common/common_publications_deduplicated.csv
+FINAL_COMMON_OUTPUT ?= data/processed/common/common_publications_final.csv
 
 # Google Maps assisted institution-location confirmation.
 MAPS_LOCATION_INPUT ?= data/processed/crossref/crossref_sri_lanka_works.jsonl
@@ -162,7 +164,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report maps-location-confirm maps-location-rescore maps-location-apply institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -182,9 +184,6 @@ help:
 	@echo "  make openalex-rebuild        Rebuild CSV, Parquet, DOI conflicts, and summary from existing JSONL"
 	@echo "  make openalex-doi-conflicts  Rebuild only the DOI conflict CSV from existing JSONL"
 	@echo "  make openalex-report         Print the quality report from existing JSONL"
-	@echo "  make maps-location-confirm   Confirm unresolved institution locations with Google Maps evidence"
-	@echo "  make maps-location-rescore   Re-score existing Google Maps evidence without scraping"
-	@echo "  make maps-location-apply     Add confirmed Google Maps aliases to the institution registry"
 	@echo "  make author-disambiguate     Resolve author mentions onto stable author identities"
 	@echo "  make author-review           Show the ambiguous-author review queue"
 	@echo "  make author-decisions        Promote reviewed verdicts into the decisions file"
@@ -198,7 +197,9 @@ help:
 	@echo "  make train-logreg            Train TF-IDF + Logistic Regression classifier"
 	@echo "  make train-nb                Train the TF-IDF + Multinomial Naive Bayes baseline"
 	@echo "  make evaluate-models         Score predictions: confusion matrix, per-class, comparison"
-	@echo "  make validate-dataset        Validate author, institution, citation and collaboration fields"
+	@echo "  make validate-dataset        Validate author, institution, citation, collaboration and ownership fields"
+	@echo "  make validate-ownership      Run strict ownership validation only"
+	@echo "  make final-common            Build verified final dataset and ownership sidecars"
 	@echo "  make predict-logreg          Run saved classifier inference on publication text"
 	@echo "  make model-api               Serve FastAPI model endpoints"
 	@echo ""
@@ -275,6 +276,12 @@ evaluate-models:
 # Validate author, institution, citation and collaboration fields.
 validate-dataset:
 	$(PYTHON) -m src.quality.validate_analysis_dataset --checks $(VALIDATE_CHECKS) --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
+
+validate-ownership:
+	$(PYTHON) -m src.quality.validate_analysis_dataset --checks ownership --strict --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
+
+final-common:
+	$(PYTHON) scripts/processing/build_final_common_dataset.py --input-csv $(FINAL_COMMON_INPUT) --output-csv $(FINAL_COMMON_OUTPUT)
 
 predict-logreg:
 	$(PYTHON) scripts/modeling/predict_publication_classifier.py --input $(LOGREG_INFERENCE_INPUT) --model $(LOGREG_MODEL_OUTPUT) --model-manifest $(LOGREG_MANIFEST_OUTPUT) --output $(LOGREG_INFERENCE_OUTPUT) --inference-manifest $(LOGREG_INFERENCE_MANIFEST_OUTPUT) --text-columns $(LOGREG_TEXT_COLUMNS) --metadata-columns $(LOGREG_INFERENCE_METADATA_COLUMNS) $(LOGREG_INFERENCE_EXTRA_ARGS)

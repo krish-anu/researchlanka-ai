@@ -141,6 +141,7 @@ class FrameworkConfig:
     column_mapping: dict[str, str] = field(default_factory=dict)
     transformations: dict[str, dict[str, Any]] = field(default_factory=dict)
     sources: dict[str, Any] = field(default_factory=dict)
+    ownership_policy: dict[str, Any] = field(default_factory=dict)
     aliases: dict[str, str] = field(default_factory=dict)
     categories: list[str] = field(default_factory=list)
     analytics: dict[str, bool] = field(default_factory=dict)
@@ -258,6 +259,7 @@ def config_from_dict(data: dict[str, Any]) -> FrameworkConfig:
         column_mapping=data.get("column_mapping", {}),
         transformations=data.get("transformations", {}),
         sources=data.get("sources", {}),
+        ownership_policy=data.get("ownership_policy", {}),
         aliases=data.get("aliases", {}),
         categories=data.get("categories", []),
         analytics=data.get("analytics", {}),

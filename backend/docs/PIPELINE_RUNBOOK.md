@@ -221,6 +221,31 @@ Writes 7 files to `data/processed/common/`: `common_publications_all_records.csv
 `common_publications_manual_review_candidates.csv`, `common_publications_schema.csv`,
 `common_publications_summary.csv`, `common_publications_run_log.txt`.
 
+`common_publications_all_records.csv` is the broad candidate/source-evidence
+dataset. It intentionally keeps SLJOL-only, repository-only, first-author-only,
+and weak-affiliation records so they can be reviewed or joined by DOI to
+stronger evidence.
+
+Ownership is resolved after deduplication using a fail-closed Sri Lanka-led
+policy. Sri Lankan corresponding/project-lead evidence becomes `INCLUDE`;
+foreign corresponding/project-lead evidence with only LK participation becomes
+`EXCLUDE`; missing, first-author-only, SLJOL venue-only, repository-only, and
+conflicting evidence becomes `REVIEW`.
+
+Build and validate the verified final dataset:
+
+```bash
+make final-common PYTHON=python
+make validate-ownership PYTHON=python
+```
+
+The final filename remains `common_publications_final.csv`, but it contains only
+`INCLUDE` rows with `HIGH` or `MEDIUM` confidence and
+`needs_manual_review=False`. Sidecars preserve the non-final evidence:
+`common_publications_ownership_review.csv`,
+`common_publications_ownership_excluded.csv`, and
+`common_publications_verified_sri_lanka_owned.csv`.
+
 **Optional** — adjudicate the 2,344 manual-review candidate groups in a browser at `http://127.0.0.1:8765`:
 
 ```bash

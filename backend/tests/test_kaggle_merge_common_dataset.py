@@ -142,6 +142,12 @@ def common_row(**overrides):
             "title": "Same title",
             "publication_year": "2024",
             "author_names": "A. Author",
+            "ownership_decision": "REVIEW",
+            "ownership_class": "REPOSITORY_ONLY_EVIDENCE",
+            "ownership_confidence": "LOW",
+            "ownership_reason": "Repository-only evidence requires review.",
+            "ownership_evidence": "repositories_combined:source_provenance_only",
+            "needs_manual_review": True,
         }
     )
     row.update(overrides)
@@ -403,3 +409,80 @@ def test_deduplicate_allows_field_source_policy_override():
 
     assert deduplicated.loc[0, "title"] == "OpenAlex title"
     assert deduplicated.loc[0, "abstract"] == "Crossref abstract"
+
+
+def test_deduplicate_resolves_include_with_sljol_review_to_include():
+    records = pd.DataFrame(
+        [
+            common_row(
+                source_dataset="openalex",
+                source_record_id="https://openalex.org/W-owned",
+                doi="10.1000/owned",
+                ownership_decision="INCLUDE",
+                ownership_class="SL_OWNED_INTERNATIONAL",
+                ownership_confidence="MEDIUM",
+                ownership_reason="LK corresponding author.",
+                ownership_evidence="openalex:corresponding_author_countries",
+                lead_country="LK",
+                has_sri_lankan_participant=True,
+                has_foreign_participant=True,
+                needs_manual_review=False,
+            ),
+            common_row(
+                source_dataset="sljol",
+                source_record_id="10.1000/owned",
+                doi="10.1000/owned",
+                ownership_decision="REVIEW",
+                ownership_class="SLJOL_VENUE_ONLY_EVIDENCE",
+                ownership_reason="Venue-only evidence.",
+                ownership_evidence="sljol:source_provenance_only",
+            ),
+        ],
+        columns=COMMON_COLUMNS,
+    )
+
+    deduplicated, _ = deduplicate_publications(records, return_log=True)
+    row = deduplicated.loc[0]
+
+    assert row["ownership_decision"] == "INCLUDE"
+    assert row["ownership_confidence"] == "MEDIUM"
+    assert bool(row["needs_manual_review"]) is False
+    assert "Venue-only evidence" in row["ownership_reason"]
+
+
+def test_deduplicate_resolves_include_exclude_conflict_to_review():
+    records = pd.DataFrame(
+        [
+            common_row(
+                source_dataset="openalex",
+                source_record_id="https://openalex.org/W-owned",
+                doi="10.1000/conflict",
+                ownership_decision="INCLUDE",
+                ownership_confidence="MEDIUM",
+                ownership_reason="LK corresponding author.",
+                ownership_evidence="openalex:corresponding_author_countries",
+                lead_country="LK",
+                needs_manual_review=False,
+            ),
+            common_row(
+                source_dataset="crossref",
+                source_record_id="10.1000/conflict",
+                doi="10.1000/conflict",
+                ownership_decision="EXCLUDE",
+                ownership_class="FOREIGN_PROJECT_WITH_SL_PARTICIPATION",
+                ownership_confidence="MEDIUM",
+                ownership_reason="Foreign corresponding author.",
+                ownership_evidence="crossref:explicit_corresponding_or_project_lead_affiliation",
+                lead_country="AU",
+                needs_manual_review=False,
+            ),
+        ],
+        columns=COMMON_COLUMNS,
+    )
+
+    deduplicated, _ = deduplicate_publications(records, return_log=True)
+    row = deduplicated.loc[0]
+
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "CONFLICTING_EVIDENCE"
+    assert bool(row["needs_manual_review"]) is True

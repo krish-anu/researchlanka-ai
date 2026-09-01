@@ -95,6 +95,10 @@ from src.pipeline.collect_crossref import DEFAULT_AFFILIATION_QUERIES, collect_c
 from src.pipeline.collect_sljol import SLJOL_DOI_PREFIX  # noqa: E402
 from src.pipeline.build_analysis_ready_dataset import build_analysis_ready_dataset  # noqa: E402
 from src.pipeline.build_final_common_dataset import build_final_common_dataset  # noqa: E402
+from src.quality.validate_analysis_dataset import (  # noqa: E402
+    OwnershipValidator,
+    run_validators,
+)
 from src.pipeline.build_language_normalized_dataset import build_language_normalized_dataset  # noqa: E402
 from src.pipeline.build_multivalue_normalized_dataset import build_multivalue_normalized_dataset  # noqa: E402
 from src.pipeline.build_year_filtered_dataset import build_year_filtered_dataset  # noqa: E402
@@ -108,6 +112,7 @@ from src.pipeline.kaggle_merge_common_dataset import (  # noqa: E402
     is_blank,
     normalize_doi as normalize_common_doi,
     normalize_source_frame,
+    resolve_merged_ownership_records,
     split_multi_value,
     write_run_log,
     write_schema,
@@ -482,6 +487,7 @@ def new_common_merge_group(first_row_number: int) -> dict[str, Any]:
         "group_size": 0,
         "scalar": {},
         "multi": {column: [] for column in MULTI_VALUE_COLUMNS},
+        "ownership_rows": [],
     }
 
 
@@ -514,6 +520,24 @@ def deduplicate_common_csv_streaming(
             group["group_size"] += 1
             completeness = common_row_completeness(common_row)
             source_dataset = str(common_row.get("source_dataset") or "")
+            group["ownership_rows"].append(
+                {
+                    column: common_row.get(column, "")
+                    for column in (
+                        "ownership_decision",
+                        "ownership_class",
+                        "ownership_confidence",
+                        "ownership_reason",
+                        "ownership_evidence",
+                        "lead_country",
+                        "corresponding_author_countries",
+                        "has_sri_lankan_participant",
+                        "has_foreign_participant",
+                        "needs_manual_review",
+                        "ownership_policy_version",
+                    )
+                }
+            )
 
             for column in COMMON_COLUMNS:
                 value = common_row.get(column)
@@ -560,6 +584,10 @@ def deduplicate_common_csv_streaming(
 
                 output_row[column] = clean_csv_value(group["scalar"].get(column, (None, ""))[1])
 
+            ownership = resolve_merged_ownership_records(group["ownership_rows"])
+            for column, value in ownership.items():
+                if column in output_row:
+                    output_row[column] = clean_csv_value(value)
             writer.writerow(output_row)
             if context and output_row_number % 25_000 == 0:
                 context.log.info(f"Common deduplication wrote {output_row_number:,} rows.")
@@ -1242,13 +1270,39 @@ def researchlanka_common_final_dataset(
 
 
 @asset(group_name="researchlanka")
-def researchlanka_common_year_filtered_dataset(
+def researchlanka_common_ownership_validated(
     context,
     researchlanka_common_final_dataset: dict[str, Any],
 ) -> dict[str, Any]:
-    """Filter the final dataset to the configured 2016-current-year publication window."""
+    """Block downstream outputs unless the final dataset passes ownership gates."""
 
     _ = researchlanka_common_final_dataset
+    reports = run_validators(
+        COMMON_FINAL_OUTPUT,
+        [OwnershipValidator()],
+    )
+    report = reports[0]
+    if not report.passed:
+        failed = "; ".join(gate.name for gate in report.failed_gates)
+        raise ValueError(f"Ownership validation failed before downstream publishing: {failed}")
+    metadata = {
+        "status": "validated",
+        "path": str(COMMON_FINAL_OUTPUT),
+        "rows": report.rows,
+        **{name: value for name, value in report.metrics},
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_common_year_filtered_dataset(
+    context,
+    researchlanka_common_ownership_validated: dict[str, Any],
+) -> dict[str, Any]:
+    """Filter the final dataset to the configured 2016-current-year publication window."""
+
+    _ = researchlanka_common_ownership_validated
     filtered = build_year_filtered_dataset(
         COMMON_FINAL_OUTPUT,
         COMMON_YEAR_FILTERED_OUTPUT,

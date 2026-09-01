@@ -17,11 +17,13 @@ from typing import Any
 
 from src.preprocessing.crossref_normalizer import (
     author_affiliation_names,
+    classify_sri_lanka_ownership,
     crossref_author_name,
     first_author_is_from_sri_lanka,
     first_author_record,
     has_sri_lankan_affiliated_author,
 )
+from src.preprocessing.ownership import source_only_review
 
 DOI_PATTERN = re.compile(r"10\.\d{4,9}/[^\s\"'<>]+", re.IGNORECASE)
 URL_PATTERN = re.compile(r"https?://\S+")
@@ -98,7 +100,7 @@ def map_oai_dc_record(record: dict[str, Any], *, institution_id: str) -> dict[st
     dates = record.get("date")
     issued_date = _pick_issued_date(dates)
 
-    return {
+    row = {
         "source": "institutional_repository",
         "source_institution_id": institution_id,
         "source_record_id": record.get("oai_identifier"),
@@ -120,6 +122,17 @@ def map_oai_dc_record(record: dict[str, Any], *, institution_id: str) -> dict[st
         "url": _extract_url(record.get("identifier")),
         "raw_identifiers": record.get("identifier", []),
     }
+    row.update(
+        source_only_review(
+            source="repository",
+            ownership_class="REPOSITORY_ONLY_EVIDENCE",
+            reason=(
+                "Record appears in a Sri Lankan university repository, but "
+                "repository provenance is not project ownership evidence."
+            ),
+        )
+    )
+    return row
 
 
 JATS_TAG_RE = re.compile(r"</?jats:[^>]+>|</?[a-z]+:?[^>]*>")
@@ -157,6 +170,20 @@ def map_crossref_record(record: dict[str, Any], *, institution_id: str) -> dict[
     doi = record.get("DOI")
     container_titles = record.get("container-title") or []
 
+    ownership = classify_sri_lanka_ownership(record)
+    if ownership["ownership_decision"] == "REVIEW":
+        ownership.update(
+            source_only_review(
+                source="sljol",
+                ownership_class="SLJOL_VENUE_ONLY_EVIDENCE",
+                reason=(
+                    "SLJOL DOI-prefix or venue provenance is only venue evidence; "
+                    "leadership must come from author/project evidence or a DOI join."
+                ),
+                has_sri_lankan_participant=ownership["has_sri_lankan_participant"],
+            )
+        )
+
     return {
         "source": "sljol_via_crossref",
         "source_institution_id": institution_id,
@@ -174,7 +201,7 @@ def map_crossref_record(record: dict[str, Any], *, institution_id: str) -> dict[
             "LK" if first_author_is_from_sri_lanka(record) else ""
         ),
         "has_sri_lankan_participant": has_sri_lankan_affiliated_author(record),
-        "keep_in_strict_sri_lanka_dataset": first_author_is_from_sri_lanka(record),
+        **ownership,
         "contributors": [],
         "publication_date": publication_date,
         "publication_year": publication_year,
@@ -206,7 +233,7 @@ def map_html_meta_record(record: dict[str, Any], *, institution_id: str) -> dict
     identifiers = meta.get("DC.identifier", [])
     issued_date = _first(values("DCTERMS.issued", "citation_date"))
 
-    return {
+    row = {
         "source": "institutional_repository",
         "source_institution_id": institution_id,
         "source_record_id": record.get("handle_path"),
@@ -228,6 +255,17 @@ def map_html_meta_record(record: dict[str, Any], *, institution_id: str) -> dict
         "url": record.get("url") or _extract_url(identifiers),
         "raw_identifiers": identifiers,
     }
+    row.update(
+        source_only_review(
+            source="repository",
+            ownership_class="REPOSITORY_ONLY_EVIDENCE",
+            reason=(
+                "Record appears in a Sri Lankan university repository, but "
+                "repository provenance is not project ownership evidence."
+            ),
+        )
+    )
+    return row
 
 
 def map_dspace_rest_record(record: dict[str, Any], *, institution_id: str) -> dict[str, Any]:
@@ -250,7 +288,7 @@ def map_dspace_rest_record(record: dict[str, Any], *, institution_id: str) -> di
     issued_date = _first(values("dc.date.issued"))
     abstract = _first(values("dc.description.abstract")) or _first(values("dc.description"))
 
-    return {
+    row = {
         "source": "institutional_repository",
         "source_institution_id": institution_id,
         "source_record_id": record.get("uuid"),
@@ -272,3 +310,14 @@ def map_dspace_rest_record(record: dict[str, Any], *, institution_id: str) -> di
         "url": _extract_url(values("dc.identifier.uri")),
         "raw_identifiers": identifiers,
     }
+    row.update(
+        source_only_review(
+            source="repository",
+            ownership_class="REPOSITORY_ONLY_EVIDENCE",
+            reason=(
+                "Record appears in a Sri Lankan university repository, but "
+                "repository provenance is not project ownership evidence."
+            ),
+        )
+    )
+    return row

@@ -41,7 +41,7 @@
     "openalex": {
       "enabled": true,
       "options": {
-        "strict_country_only": true
+        "strict_country_only": false
       }
     },
     "crossref": {
@@ -54,6 +54,17 @@
     "university_repositories": {
       "enabled": true
     }
+  },
+  "ownership_policy": {
+    "mode": "sri_lanka_led",
+    "allow_foreign_collaborators": true,
+    "first_author_only_action": "review",
+    "venue_only_action": "review",
+    "repository_only_action": "review",
+    "missing_leadership_action": "review",
+    "conflicting_evidence_action": "review",
+    "fail_closed": true,
+    "policy_version": "1.0"
   },
   "pipeline": {
     "collect": true,

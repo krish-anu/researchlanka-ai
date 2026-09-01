@@ -59,6 +59,9 @@ DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_pu
 DEFAULT_REFERENCES_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "publication_references.csv"
 DEFAULT_COUNT_AUDIT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "publication_count_audit.csv"
 DEFAULT_SUMMARY_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_summary.csv"
+DEFAULT_REVIEW_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_ownership_review.csv"
+DEFAULT_EXCLUDED_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_ownership_excluded.csv"
+DEFAULT_VERIFIED_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_verified_sri_lanka_owned.csv"
 
 FINAL_MAIN_COLUMNS = [
     "source_dataset",
@@ -86,6 +89,17 @@ FINAL_MAIN_COLUMNS = [
     "institutions",
     "sri_lankan_institutions",
     "countries",
+    "ownership_decision",
+    "ownership_class",
+    "ownership_confidence",
+    "ownership_reason",
+    "ownership_evidence",
+    "lead_country",
+    "corresponding_author_countries",
+    "has_sri_lankan_participant",
+    "has_foreign_participant",
+    "needs_manual_review",
+    "ownership_policy_version",
     "publisher",
     "journal",
     "source_type",
@@ -459,10 +473,12 @@ def build_reference_rows(df: pd.DataFrame) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     needed_columns = ["source_dataset", "source_record_id", "doi", "title", "references_json"]
 
-    for row_number, row in enumerate(df.loc[:, needed_columns].itertuples(index=False), start=1):
-        row_series = pd.Series(dict(zip(needed_columns, row, strict=True)))
-        publication_key = build_publication_key(row_series, row_number)
-        references = split_reference_payload(row_series["references_json"])
+    for row_number, row in enumerate(
+        df.loc[:, needed_columns].to_dict("records"),
+        start=1,
+    ):
+        publication_key = build_publication_key(row, row_number)
+        references = split_reference_payload(row["references_json"])
 
         for reference_index, raw_reference in enumerate(references, start=1):
             parsed = parse_structured_value(raw_reference)
@@ -470,9 +486,9 @@ def build_reference_rows(df: pd.DataFrame) -> list[dict[str, Any]]:
                 {
                     "publication_key": publication_key,
                     "publication_row_number": row_number,
-                    "source_dataset": row_series["source_dataset"],
-                    "source_record_id": row_series["source_record_id"],
-                    "doi": row_series["doi"],
+                    "source_dataset": row["source_dataset"],
+                    "source_record_id": row["source_record_id"],
+                    "doi": row["doi"],
                     "reference_index": reference_index,
                     "reference_doi": normalize_doi(reference_field(parsed, "DOI", "doi")),
                     "reference_title": reference_field(
@@ -535,18 +551,17 @@ def build_count_audit_rows(df: pd.DataFrame) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     needed_columns = ["source_dataset", "source_record_id", "doi", "title"]
 
-    for row_number, row in enumerate(audit.itertuples(index=False), start=1):
-        row_series = pd.Series(dict(zip(audit.columns, row, strict=True)))
-        if all(is_blank(row_series.get(column)) for column in count_columns):
+    for row_number, row in enumerate(audit.to_dict("records"), start=1):
+        if all(is_blank(row.get(column)) for column in count_columns):
             continue
 
-        publication_key = build_publication_key(row_series, row_number)
+        publication_key = build_publication_key(row, row_number)
         audit_row = {
             "publication_key": publication_key,
             "publication_row_number": row_number,
         }
         for column in needed_columns + count_columns:
-            audit_row[column] = row_series.get(column, pd.NA)
+            audit_row[column] = row.get(column, pd.NA)
         rows.append(audit_row)
 
     return rows
@@ -625,6 +640,44 @@ def clean_final_dataset(df: pd.DataFrame) -> pd.DataFrame:
     return cleaned
 
 
+def bool_is_true(value: Any) -> bool:
+    return str(value).strip().casefold() in {"true", "1", "yes", "y"}
+
+
+def verified_ownership_mask(df: pd.DataFrame) -> pd.Series:
+    required = {"ownership_decision", "ownership_confidence", "needs_manual_review"}
+    missing = required - set(df.columns)
+    if missing:
+        return pd.Series(False, index=df.index)
+    return (
+        df["ownership_decision"].map(lambda value: str(value).strip().upper() == "INCLUDE")
+        & df["ownership_confidence"].map(lambda value: str(value).strip().upper() in {"HIGH", "MEDIUM"})
+        & ~df["needs_manual_review"].map(bool_is_true)
+    )
+
+
+def write_ownership_sidecars(
+    cleaned: pd.DataFrame,
+    *,
+    review_csv: Path,
+    excluded_csv: Path,
+    verified_csv: Path,
+) -> tuple[int, int, int]:
+    review_csv.parent.mkdir(parents=True, exist_ok=True)
+    review_mask = cleaned.get("ownership_decision", pd.Series(pd.NA, index=cleaned.index)).map(
+        lambda value: str(value).strip().upper() == "REVIEW"
+    )
+    excluded_mask = cleaned.get("ownership_decision", pd.Series(pd.NA, index=cleaned.index)).map(
+        lambda value: str(value).strip().upper() == "EXCLUDE"
+    )
+    verified_mask = verified_ownership_mask(cleaned)
+
+    cleaned.loc[review_mask].to_csv(review_csv, index=False)
+    cleaned.loc[excluded_mask].to_csv(excluded_csv, index=False)
+    cleaned.loc[verified_mask].to_csv(verified_csv, index=False)
+    return int(review_mask.sum()), int(excluded_mask.sum()), int(verified_mask.sum())
+
+
 def write_summary(
     output_path: Path,
     *,
@@ -638,6 +691,9 @@ def write_summary(
     output_columns: int,
     reference_rows: int,
     count_audit_rows: int,
+    review_rows: int,
+    excluded_rows: int,
+    verified_rows: int,
 ) -> None:
     rows = [
         {"metric": "input_csv", "value": str(input_csv)},
@@ -650,6 +706,9 @@ def write_summary(
         {"metric": "output_columns", "value": output_columns},
         {"metric": "reference_sidecar_rows", "value": reference_rows},
         {"metric": "count_audit_sidecar_rows", "value": count_audit_rows},
+        {"metric": "ownership_review_rows", "value": review_rows},
+        {"metric": "ownership_excluded_rows", "value": excluded_rows},
+        {"metric": "verified_sri_lanka_owned_rows", "value": verified_rows},
         {"metric": "dropped_main_columns", "value": "; ".join(DROP_FROM_MAIN)},
         {"metric": "renamed_columns", "value": "cited_by_count -> citation_count; funder_id -> funder_identifier"},
     ]
@@ -662,14 +721,24 @@ def build_final_common_dataset(
     references_csv: Path,
     count_audit_csv: Path,
     summary_csv: Path,
+    review_csv: Path = DEFAULT_REVIEW_CSV,
+    excluded_csv: Path = DEFAULT_EXCLUDED_CSV,
+    verified_csv: Path = DEFAULT_VERIFIED_CSV,
 ) -> tuple[pd.DataFrame, int, int]:
     df = pd.read_csv(input_csv, dtype="object", low_memory=False)
     reference_rows = write_reference_sidecar(df, references_csv)
     count_audit_rows = write_count_audit_sidecar(df, count_audit_csv)
     cleaned = clean_final_dataset(df)
+    review_rows, excluded_rows, verified_rows = write_ownership_sidecars(
+        cleaned,
+        review_csv=review_csv,
+        excluded_csv=excluded_csv,
+        verified_csv=verified_csv,
+    )
+    final = cleaned.loc[verified_ownership_mask(cleaned)].copy()
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
-    cleaned.to_csv(output_csv, index=False)
+    final.to_csv(output_csv, index=False)
     write_summary(
         summary_csv,
         input_csv=input_csv,
@@ -678,13 +747,16 @@ def build_final_common_dataset(
         count_audit_csv=count_audit_csv,
         input_rows=len(df),
         input_columns=len(df.columns),
-        output_rows=len(cleaned),
-        output_columns=len(cleaned.columns),
+        output_rows=len(final),
+        output_columns=len(final.columns),
         reference_rows=reference_rows,
         count_audit_rows=count_audit_rows,
+        review_rows=review_rows,
+        excluded_rows=excluded_rows,
+        verified_rows=verified_rows,
     )
 
-    return cleaned, reference_rows, count_audit_rows
+    return final, reference_rows, count_audit_rows
 
 
 def parse_args() -> argparse.Namespace:
@@ -696,6 +768,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--references-csv", type=Path, default=DEFAULT_REFERENCES_CSV)
     parser.add_argument("--count-audit-csv", type=Path, default=DEFAULT_COUNT_AUDIT_CSV)
     parser.add_argument("--summary-csv", type=Path, default=DEFAULT_SUMMARY_CSV)
+    parser.add_argument("--review-csv", type=Path, default=DEFAULT_REVIEW_CSV)
+    parser.add_argument("--excluded-csv", type=Path, default=DEFAULT_EXCLUDED_CSV)
+    parser.add_argument("--verified-csv", type=Path, default=DEFAULT_VERIFIED_CSV)
     return parser.parse_args()
 
 
@@ -707,6 +782,9 @@ def main() -> None:
         args.references_csv,
         args.count_audit_csv,
         args.summary_csv,
+        args.review_csv,
+        args.excluded_csv,
+        args.verified_csv,
     )
 
     print("Done.")

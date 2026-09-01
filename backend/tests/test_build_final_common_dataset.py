@@ -216,20 +216,42 @@ def test_build_final_common_dataset_writes_sidecars(tmp_path):
     references_csv = tmp_path / "references.csv"
     count_audit_csv = tmp_path / "count_audit.csv"
     summary_csv = tmp_path / "summary.csv"
+    review_csv = tmp_path / "review.csv"
+    excluded_csv = tmp_path / "excluded.csv"
+    verified_csv = tmp_path / "verified.csv"
 
     pd.DataFrame(
         {
-            "source_dataset": ["crossref"],
-            "source_record_id": ["10.1000/test"],
-            "doi": ["10.1000/test"],
-            "title": ["Test publication"],
-            "cited_by_count": ["3"],
-            "is_referenced_by_count": ["3"],
-            "reference_count": ["1"],
-            "referenced_works_count": [pd.NA],
-            "references_json": ['{"DOI": "10.1000/ref", "article-title": "Reference", "author": "A.", "year": "2020"}'],
-            "funder_id": [pd.NA],
-            "raw_source_json": [pd.NA],
+            "source_dataset": ["crossref", "openalex", "crossref"],
+            "source_record_id": ["10.1000/test", "10.1000/review", "10.1000/excluded"],
+            "doi": ["10.1000/test", "10.1000/review", "10.1000/excluded"],
+            "title": ["Test publication", "Review publication", "Excluded publication"],
+            "cited_by_count": ["3", pd.NA, pd.NA],
+            "is_referenced_by_count": ["3", pd.NA, pd.NA],
+            "reference_count": ["1", pd.NA, pd.NA],
+            "referenced_works_count": [pd.NA, pd.NA, pd.NA],
+            "references_json": [
+                '{"DOI": "10.1000/ref", "article-title": "Reference", "author": "A.", "year": "2020"}',
+                pd.NA,
+                pd.NA,
+            ],
+            "ownership_decision": ["INCLUDE", "REVIEW", "EXCLUDE"],
+            "ownership_class": [
+                "SL_OWNED_INTERNATIONAL",
+                "FIRST_AUTHOR_ONLY_LK_EVIDENCE",
+                "FOREIGN_PROJECT_WITH_SL_PARTICIPATION",
+            ],
+            "ownership_confidence": ["MEDIUM", "LOW", "MEDIUM"],
+            "ownership_reason": ["LK corresponding author.", "First author only.", "Foreign lead."],
+            "ownership_evidence": [
+                "crossref:explicit_corresponding_or_project_lead_affiliation",
+                "openalex:first_author_affiliation_countries",
+                "crossref:explicit_corresponding_or_project_lead_affiliation",
+            ],
+            "lead_country": ["LK", "LK", "AU"],
+            "needs_manual_review": [False, True, False],
+            "funder_id": [pd.NA, pd.NA, pd.NA],
+            "raw_source_json": [pd.NA, pd.NA, pd.NA],
         }
     ).to_csv(input_csv, index=False)
 
@@ -239,6 +261,9 @@ def test_build_final_common_dataset_writes_sidecars(tmp_path):
         references_csv,
         count_audit_csv,
         summary_csv,
+        review_csv=review_csv,
+        excluded_csv=excluded_csv,
+        verified_csv=verified_csv,
     )
 
     references = pd.read_csv(references_csv)
@@ -247,9 +272,13 @@ def test_build_final_common_dataset_writes_sidecars(tmp_path):
     assert reference_rows == 1
     assert count_audit_rows == 1
     assert len(cleaned) == 1
+    assert cleaned.loc[0, "ownership_decision"] == "INCLUDE"
     assert output_csv.exists()
     assert count_audit_csv.exists()
     assert summary_csv.exists()
+    assert len(pd.read_csv(review_csv)) == 1
+    assert len(pd.read_csv(excluded_csv)) == 1
+    assert len(pd.read_csv(verified_csv)) == 1
     assert "is_referenced_by_count" not in cleaned.columns
     assert "referenced_works_count" not in cleaned.columns
     assert references.loc[0, "publication_key"] == "doi:10.1000/test"
