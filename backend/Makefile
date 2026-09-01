@@ -23,6 +23,11 @@ OPENALEX_DOI_CONFLICTS ?= $(OPENALEX_DIR)/openalex_sri_lanka_doi_conflicts.csv
 OPENALEX_PROGRESS ?= $(OPENALEX_JSONL).progress.json
 OPENALEX_PAGINATION ?= $(OPENALEX_DIR)/openalex_sri_lanka_pagination_audit.json
 OPENALEX_LOG ?= $(OPENALEX_DIR)/openalex_collection.log
+OPENALEX_LK_AUDIT_DIR ?= data/reports/openalex_lk_affiliation_audit
+OPENALEX_LK_AUDIT_EXTRA_ARGS ?=
+CROSSREF_JSONL ?= data/processed/crossref/crossref_sri_lanka_works.jsonl
+CROSSREF_LK_AUDIT_DIR ?= data/reports/crossref_lk_affiliation_audit
+CROSSREF_LK_AUDIT_EXTRA_ARGS ?=
 
 # OpenAlex collection settings.
 # Use OPENALEX_EXTRA_ARGS for optional flags such as --strict-lk-only.
@@ -49,7 +54,7 @@ MODEL_TFIDF_NGRAM_MAX ?= 2
 MODEL_TFIDF_TOP_FEATURES_PER_RECORD ?= 50
 LOGREG_INPUT ?= $(MODEL_TEXT_INPUT)
 LOGREG_LABEL_COLUMN ?= primary_domain
-LOGREG_TEXT_COLUMNS ?= title,abstract,keywords
+LOGREG_TEXT_COLUMNS ?= title,abstract,topics,keywords,concepts
 LOGREG_MODEL_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN).joblib
 LOGREG_METRICS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_metrics.txt
 LOGREG_LABEL_COUNTS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_labels.csv
@@ -113,7 +118,7 @@ NB_TEST_SIZE ?= $(LOGREG_TEST_SIZE)
 NB_EXTRA_ARGS ?=
 
 # Evaluation. Point EVAL_PREDICTIONS at one or more predictions CSVs.
-EVAL_PREDICTIONS ?= --predictions-csv data/models/multinomial_nb_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_predictions.csv
+EVAL_PREDICTIONS ?= --predictions-csv data/models/multinomial_nb_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/linear_svm_$(LOGREG_LABEL_COLUMN)_predictions.csv
 EVAL_OUTPUT_DIR ?= data/models
 EVAL_EXTRA_ARGS ?=
 
@@ -367,3 +372,23 @@ author-decisions:
 # Print a quality summary from existing raw JSONL.
 openalex-report:
 	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import collect_quality_report, print_collection_report; print_collection_report(collect_quality_report(Path('$(OPENALEX_JSONL)'), records_skipped=0))"
+
+# Audit publication-time Sri Lankan institutional authorship evidence.
+# This does not change production OpenAlex filtering or rebuilt datasets.
+openalex-lk-audit:
+	$(PYTHON) -m src.quality.audit_openalex_lk_affiliations \
+	--input $(OPENALEX_JSONL) \
+	--output-dir $(OPENALEX_LK_AUDIT_DIR) \
+	--log-level $(OPENALEX_LOG_LEVEL) \
+	$(OPENALEX_LK_AUDIT_EXTRA_ARGS)
+
+# Audit publication-time Sri Lankan institutional authorship evidence in
+# Crossref author affiliation strings.
+crossref-lk-audit:
+	$(PYTHON) -m src.quality.audit_crossref_lk_affiliations \
+	--input $(CROSSREF_JSONL) \
+	--output-dir $(CROSSREF_LK_AUDIT_DIR) \
+	--log-level $(OPENALEX_LOG_LEVEL) \
+	$(CROSSREF_LK_AUDIT_EXTRA_ARGS)
+
+lk-affiliation-audits: openalex-lk-audit crossref-lk-audit

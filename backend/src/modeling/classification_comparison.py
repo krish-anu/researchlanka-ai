@@ -1,6 +1,7 @@
 """Compare publication text classification model families.
 
-Trains Logistic Regression and Linear SVM on the same `primary_field` data,
+Trains Logistic Regression, Multinomial Naive Bayes, and Linear SVM on the same
+`primary_field` data,
 each with its **best default hyperparameters**, ranks by macro F1, and copies
 the winner into `data/models/final/` as the final field classifier.
 """
@@ -9,9 +10,11 @@ from __future__ import annotations
 
 import argparse
 import shutil
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable
+
+import pandas as pd
 
 from src.modeling.artifacts import write_csv_artifact, write_json_artifact
 from src.modeling.linear_svm_training import (
@@ -27,8 +30,8 @@ from src.modeling.training import (
     DEFAULT_MODEL_DIR,
     DEFAULT_NGRAM_MAX as LOGREG_NGRAM_MAX,
     DEFAULT_TEST_SIZE as SHARED_TEST_SIZE,
-    DEFAULT_TEXT_COLUMNS,
     TextTrainingConfig,
+    combined_text,
     parse_class_weight,
     parse_document_frequency,
     parse_text_columns,
@@ -37,18 +40,24 @@ from src.modeling.training import (
 )
 
 
-DEFAULT_MODEL_FAMILIES = ("logistic_regression", "linear_svm")
+DEFAULT_MODEL_FAMILIES = ("logistic_regression", "multinomial_nb", "linear_svm")
+DEFAULT_TEXT_COLUMNS = ("title", "abstract", "topics", "keywords", "concepts")
 DEFAULT_COMPARISON_DIR = DEFAULT_MODEL_DIR / "classification_comparison"
 DEFAULT_COMPARISON_OUTPUT = DEFAULT_COMPARISON_DIR / "model_comparison.csv"
 DEFAULT_COMPARISON_MANIFEST_OUTPUT = (
     DEFAULT_COMPARISON_DIR / "model_comparison_manifest.json"
 )
+DEFAULT_SHARED_TRAINING_INPUT = DEFAULT_COMPARISON_DIR / "shared_training_rows.csv"
 DEFAULT_FINAL_DIR = DEFAULT_MODEL_DIR / "final"
 DEFAULT_FINAL_MODEL = DEFAULT_FINAL_DIR / "publication_field_classifier.joblib"
 DEFAULT_FINAL_MANIFEST = DEFAULT_FINAL_DIR / "publication_field_classifier_manifest.json"
 
 FAMILY_BEST_DEFAULTS: dict[str, dict[str, Any]] = {
     "logistic_regression": {
+        "ngram_max": LOGREG_NGRAM_MAX,
+        "max_iter": LOGREG_MAX_ITER,
+    },
+    "multinomial_nb": {
         "ngram_max": LOGREG_NGRAM_MAX,
         "max_iter": LOGREG_MAX_ITER,
     },
@@ -101,6 +110,8 @@ class ClassificationComparisonResult:
     best_model_family: str
     ranking_metric: str
     rows: tuple[dict[str, Any], ...]
+    shared_training_input: Path
+    shared_training_rows: int
     final_model_output: Path | None = None
     final_manifest_output: Path | None = None
 
@@ -271,6 +282,58 @@ def validate_config(config: ClassificationComparisonConfig) -> None:
         raise ValueError("ranking_metric must be accuracy, macro_f1, or weighted_f1")
 
 
+def unique_columns(columns: Iterable[str]) -> list[str]:
+    seen = set()
+    ordered = []
+    for column in columns:
+        if column in seen:
+            continue
+        seen.add(column)
+        ordered.append(column)
+    return ordered
+
+
+def write_shared_training_input(
+    config: ClassificationComparisonConfig,
+) -> tuple[Path, int, int, pd.Series]:
+    """Write the maximum common eligible row set used by every compared model."""
+
+    usecols = unique_columns([*config.text_columns, config.label_column])
+    source = pd.read_csv(
+        config.input_path,
+        usecols=usecols,
+        dtype=str,
+        keep_default_na=False,
+        nrows=config.max_rows,
+    )
+    input_rows = len(source)
+
+    labels = source[config.label_column].astype(str).str.strip()
+    texts = combined_text(source, config.text_columns)
+    usable = (texts != "") & (labels != "")
+
+    label_counts = labels[usable].value_counts()
+    eligible_labels = label_counts[label_counts >= config.min_class_count].index
+    shared = source.loc[usable & labels.isin(eligible_labels), usecols].copy()
+    shared[config.label_column] = labels.loc[shared.index]
+    label_counts = shared[config.label_column].value_counts()
+
+    if shared.empty:
+        raise ValueError(
+            "No usable comparison rows found after dropping blank text/labels and "
+            "small classes."
+        )
+    if len(label_counts) < 2:
+        raise ValueError(
+            "Comparison needs at least two classes. Lower --min-class-count or "
+            "choose another --label-column."
+        )
+
+    output = config.output_dir / DEFAULT_SHARED_TRAINING_INPUT.name
+    shared.to_csv(output, index=False)
+    return output, input_rows, len(shared), label_counts
+
+
 def train_model_family(
     model_family: str,
     config: ClassificationComparisonConfig,
@@ -307,6 +370,30 @@ def train_model_family(
                 ngram_max=ngram_max,
                 keep_stop_words=config.keep_stop_words,
                 class_weight=config.class_weight,
+                max_iter=max_iter,
+            )
+        )
+    if model_family == "multinomial_nb":
+        return train_text_classifier(
+            TextTrainingConfig(
+                input_path=config.input_path,
+                label_column=config.label_column,
+                text_columns=config.text_columns,
+                model_family="multinomial_nb",
+                model_output=paths["model"],
+                metrics_output=paths["metrics"],
+                label_counts_output=paths["labels"],
+                predictions_output=paths["predictions"],
+                manifest_output=paths["manifest"],
+                test_size=config.test_size,
+                random_state=config.random_state,
+                max_rows=config.max_rows,
+                min_class_count=config.min_class_count,
+                max_features=config.max_features,
+                min_df=config.min_df,
+                max_df=config.max_df,
+                ngram_max=ngram_max,
+                keep_stop_words=config.keep_stop_words,
                 max_iter=max_iter,
             )
         )
@@ -420,6 +507,10 @@ def write_comparison_manifest(
     *,
     config: ClassificationComparisonConfig,
     rows: list[dict[str, Any]],
+    source_input_rows: int,
+    shared_training_input: Path,
+    shared_training_rows: int,
+    shared_label_counts: pd.Series,
     final_model_output: Path | None = None,
 ) -> None:
     write_json_artifact(
@@ -429,6 +520,12 @@ def write_comparison_manifest(
             "ranking_metric": config.ranking_metric,
             "best_model_family": rows[0]["model_family"] if rows else None,
             "final_model_path": str(final_model_output) if final_model_output else None,
+            "source_input_rows": source_input_rows,
+            "shared_training_input": str(shared_training_input),
+            "shared_training_rows": shared_training_rows,
+            "shared_label_counts": {
+                str(label): int(count) for label, count in shared_label_counts.items()
+            },
             "family_best_defaults": {
                 key: {
                     k: (list(v) if isinstance(v, tuple) else v) for k, v in vals.items()
@@ -448,10 +545,22 @@ def compare_classification_models(
     config = resolved_config(config or ClassificationComparisonConfig())
     validate_config(config)
     config.output_dir.mkdir(parents=True, exist_ok=True)
+    (
+        shared_training_input,
+        source_input_rows,
+        shared_training_rows,
+        shared_label_counts,
+    ) = write_shared_training_input(config)
+    shared_config = replace(
+        config,
+        input_path=shared_training_input,
+        max_rows=None,
+        min_class_count=2,
+    )
 
     rows = [
-        comparison_row(model_family, train_model_family(model_family, config))
-        for model_family in config.model_families
+        comparison_row(model_family, train_model_family(model_family, shared_config))
+        for model_family in shared_config.model_families
     ]
     ranked_rows = sorted_rows(rows, config.ranking_metric)
 
@@ -503,6 +612,10 @@ def compare_classification_models(
         config.manifest_output,
         config=config,
         rows=ranked_rows,
+        source_input_rows=source_input_rows,
+        shared_training_input=shared_training_input,
+        shared_training_rows=shared_training_rows,
+        shared_label_counts=shared_label_counts,
         final_model_output=final_model_output,
     )
 
@@ -513,6 +626,8 @@ def compare_classification_models(
         best_model_family=str(ranked_rows[0]["model_family"]),
         ranking_metric=config.ranking_metric,
         rows=tuple(ranked_rows),
+        shared_training_input=shared_training_input,
+        shared_training_rows=shared_training_rows,
         final_model_output=final_model_output,
         final_manifest_output=final_manifest_output,
     )
@@ -521,8 +636,8 @@ def compare_classification_models(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Compare Logistic Regression vs Linear SVM on primary_field using "
-            "each family's best defaults, then promote the winner to "
+            "Compare Logistic Regression, Multinomial Naive Bayes, and Linear SVM "
+            "on a shared maximum eligible row set, then promote the winner to "
             "data/models/final/."
         )
     )
@@ -538,7 +653,10 @@ def parse_args() -> argparse.Namespace:
         "--model-families",
         type=parse_model_families,
         default=DEFAULT_MODEL_FAMILIES,
-        help="Comma-separated model families. Default: logistic_regression,linear_svm",
+        help=(
+            "Comma-separated model families. Default: "
+            "logistic_regression,multinomial_nb,linear_svm"
+        ),
     )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_COMPARISON_DIR)
     parser.add_argument("--comparison-output", type=Path, default=None)
@@ -561,7 +679,7 @@ def parse_args() -> argparse.Namespace:
         "--ngram-max",
         type=int,
         default=None,
-        help="Force same ngram_max for both (default: each family's best)",
+        help="Force same ngram_max for all models (default: each family's best)",
     )
     parser.add_argument("--keep-stop-words", action="store_true")
     parser.add_argument("--class-weight", type=parse_class_weight, default="balanced")
@@ -633,4 +751,3 @@ if __name__ == "__main__":
 # Comparison trains each family with its own best ngrams (not a forced shared ngram), ranks by macro F1, 
 # and copies the winner to:
 # data/models/final/publication_field_classifier.joblib
-

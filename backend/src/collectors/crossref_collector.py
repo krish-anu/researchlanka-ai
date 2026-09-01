@@ -31,8 +31,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from src.collectors.http import create_retry_session
-from src.preprocessing.crossref_normalizer import first_author_is_from_sri_lanka
-from src.preprocessing.crossref_normalizer import reduce_work
+from src.preprocessing.crossref_normalizer import (
+    author_affiliation_names,
+    first_author_is_from_sri_lanka,
+    first_author_record,
+    reduce_work,
+)
 
 
 CROSSREF_BASE_URL = "https://api.crossref.org"
@@ -90,13 +94,13 @@ class CrossrefCollector:
     # =====================================================
 
     def fetch_works(
-    self,
-    *,
-    affiliation_query: str,
-    filters: list[str] | None = None,
-    rows: int = 100,
-    cursor: str = "*",
-) -> dict[str, Any]:
+        self,
+        *,
+        affiliation_query: str,
+        filters: list[str] | None = None,
+        rows: int = 100,
+        cursor: str = "*",
+    ) -> dict[str, Any]:
         """
         Query Crossref works using affiliation.
 
@@ -110,7 +114,7 @@ class CrossrefCollector:
             "cursor": cursor,
         }
         if filters:
-         params["filter"] = ",".join(filters)    
+            params["filter"] = ",".join(filters)
 
         response = self.session.get(
             f"{self.base_url}/works", params=params, timeout=self.timeout

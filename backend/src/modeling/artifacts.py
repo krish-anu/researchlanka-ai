@@ -227,6 +227,7 @@ def save_model_artifacts(
     manifest_result: Mapping[str, Any],
     created_at: str | None = None,
     extra_csv_artifacts: Sequence[CsvArtifactSpec] = (),
+    extra_artifacts: Mapping[str, SavedArtifact] | None = None,
 ) -> SavedModelArtifacts:
     """Save all model-training artifacts and write a checksum manifest."""
 
@@ -252,6 +253,10 @@ def save_model_artifacts(
     result_payload = dict(manifest_result)
     if not result_payload.get("model_sha256"):
         result_payload["model_sha256"] = saved_model.sha256
+    if "field_model_sha256" in result_payload and not result_payload.get(
+        "field_model_sha256"
+    ):
+        result_payload["field_model_sha256"] = saved_model.sha256
 
     manifest = {
         "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
@@ -265,7 +270,7 @@ def save_model_artifacts(
             label_counts=saved_labels,
             predictions=saved_predictions,
             manifest_output=manifest_output,
-            extra=saved_extra,
+            extra={**saved_extra, **(extra_artifacts or {})},
         ),
     }
     saved_manifest = write_json_artifact(manifest_output, manifest)

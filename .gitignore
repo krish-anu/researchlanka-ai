@@ -72,8 +72,7 @@ backend/data/models/
 backend/data/reports/
 backend/outputs/
 backend/pipeline/
-backend/researchlanka-kaggle-outputs/
-backend/researchlanka-kaggle-outputs (1)/*
+backend/researchlanka-kaggle-outputs*/
 
 backend/researchlanka-kaggle-outputs*.zip
 kaggle-output/

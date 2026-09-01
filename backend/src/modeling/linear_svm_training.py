@@ -41,8 +41,8 @@ from sklearn.svm import LinearSVC
 
 
 from src.preprocessing.text_cleaning import (
-    clean_text_series,
     CUSTOM_STOP_WORDS,
+    clean_text_series,
 )
 
 
@@ -51,13 +51,13 @@ DEFAULT_INPUT = (
     PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
 )
 DEFAULT_MODEL_DIR = PROJECT_ROOT / "data" / "models"
-DEFAULT_LABEL_COLUMN = "primary_field"
+DEFAULT_LABEL_COLUMN = "primary_domain"
 DEFAULT_TEXT_COLUMNS = ["title", "abstract", "topics", "keywords", "concepts"]
 DEFAULT_MODEL_FAMILY = "linear_svm"
 # Best defaults from config sweep + prior training runs
 DEFAULT_C_VALUES = (0.1, 1.0, 10.0)
 DEFAULT_NGRAM_MAX = 3
-DEFAULT_TEST_SIZE = 0.15
+DEFAULT_TEST_SIZE = 0.2
 DEFAULT_CLASS_WEIGHT: str | None = "balanced"
 
 
@@ -214,16 +214,13 @@ def default_manifest_output(
 def combined_text(
     frame: pd.DataFrame,
     text_columns: Iterable[str],
-    *,
-    clean: bool = True,
 ) -> pd.Series:
-    text = frame[list(text_columns)].fillna("").astype(str).agg(" ".join, axis=1)
+    available_columns = [column for column in text_columns if column in frame.columns]
+    if not available_columns:
+        return pd.Series("", index=frame.index)
+    text = frame[available_columns].astype(str).agg(" ".join, axis=1)
     text = text.str.replace(r"\s+", " ", regex=True).str.strip()
-
-    if clean:
-        text = clean_text_series(text)
-
-    return text
+    return clean_text_series(text)
 
 def load_training_frame(
     input_path: Path,
@@ -245,11 +242,7 @@ def load_training_frame(
 
     training_frame = pd.DataFrame(
         {
-            "text": combined_text(
-                frame,
-                text_columns,
-                clean=True,
-            ),
+            "text": combined_text(frame, text_columns),
             "label": frame[label_column].astype(str).str.strip(),
         },
         index=frame.index,
@@ -652,7 +645,7 @@ def train_linear_svm(
     label_counts_output: Path | None = None,
     predictions_output: Path | None = None,
     manifest_output: Path | None = None,
-    test_size: float = 0.15,
+    test_size: float = DEFAULT_TEST_SIZE,
     random_state: int = 42,
     max_rows: int | None = None,
     min_class_count: int = 20,
@@ -713,7 +706,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--label-column",
         default=DEFAULT_LABEL_COLUMN,
-        help="Target label column to predict. Default: primary_domain",
+        help=f"Target label column to predict. Default: {DEFAULT_LABEL_COLUMN}",
     )
     parser.add_argument(
         "--text-columns",
@@ -755,7 +748,10 @@ def parse_args() -> argparse.Namespace:
         help="Output run manifest JSON path. Default: data/models/linear_svm_<label>_manifest.json",
     )
     parser.add_argument(
-        "--test-size", type=float, default=0.15, help="Held-out test fraction."
+        "--test-size",
+        type=float,
+        default=DEFAULT_TEST_SIZE,
+        help=f"Held-out test fraction. Default: {DEFAULT_TEST_SIZE}",
     )
     parser.add_argument("--random-state", type=int, default=42, help="Random seed.")
     parser.add_argument(

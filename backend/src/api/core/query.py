@@ -26,11 +26,25 @@ def parse_filters(query: dict[str, list[str]]) -> dict[str, Any]:
             "researcher",
             "subfield",
             "topic",
+            "nmf_topic",
             "journal",
             "source_dataset",
             "quality_flag",
         }:
             filters[key] = [item for value in values for item in split_values(value)]
+        elif key == "nmf_topic_id":
+            parsed_ids: list[int] = []
+            for value in values:
+                for item in split_values(value):
+                    try:
+                        parsed_ids.append(int(item))
+                    except ValueError as exc:
+                        raise APIError(
+                            "invalid_filter",
+                            "nmf_topic_id must be an integer.",
+                            details={"field": "nmf_topic_id"},
+                        ) from exc
+            filters[key] = parsed_ids
         elif key in {"is_oa", "has_doi", "has_abstract"}:
             filters[key] = parse_bool(values[-1])
         elif key in {"year_min", "year_max"}:
