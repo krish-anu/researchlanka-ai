@@ -6,6 +6,8 @@ import csv
 import json
 from pathlib import Path
 
+import pandas as pd
+
 from src.modeling.artifacts import file_sha256
 from src.modeling.hierarchical_linear_svm import (
     HierarchicalTrainingConfig,
@@ -13,6 +15,8 @@ from src.modeling.hierarchical_linear_svm import (
     default_manifest_output,
     default_metrics_output,
     default_subfield_model_output,
+    fit_and_score,
+    stratified_test_count,
     train_hierarchical_classifier,
 )
 
@@ -161,3 +165,39 @@ def test_hierarchical_training_preserves_manifest_schema(tmp_path: Path) -> None
     ]
     assert result.subfield_model_count == 2
     assert result.subfield_evaluated_model_count == 2
+
+
+def test_stratified_holdout_expands_tiny_test_split_to_class_count() -> None:
+    rows = []
+    for class_index in range(5):
+        for row_index in range(4):
+            rows.append(
+                {
+                    "text": f"class {class_index} example {row_index}",
+                    "label": f"class-{class_index}",
+                }
+            )
+
+    frame = pd.DataFrame(rows)
+
+    assert stratified_test_count(frame, "label", test_size=0.15) == 5
+
+    _model, accuracy, macro_f1 = fit_and_score(
+        frame,
+        "label",
+        pipeline_kwargs={
+            "max_features": 100,
+            "min_df": 1,
+            "max_df": 1.0,
+            "ngram_max": 1,
+            "class_weight": None,
+            "max_iter": 1000,
+            "random_state": 42,
+            "c_value": 1.0,
+        },
+        test_size=0.15,
+        random_state=42,
+    )
+
+    assert accuracy is not None
+    assert macro_f1 is not None
