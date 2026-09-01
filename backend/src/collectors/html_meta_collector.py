@@ -19,6 +19,7 @@ import html
 import re
 import time
 from dataclasses import dataclass
+from datetime import date
 from html.parser import HTMLParser
 from typing import Any, Iterator
 
@@ -28,6 +29,9 @@ from src.collectors.http import create_retry_session
 
 HANDLE_LINK_RE = re.compile(r'href="([^"]*?/handle/[0-9.]+/\d+)"')
 META_NAME_RE = re.compile(r"^(?:DC|DCTERMS|citation)[.\w]*$", re.IGNORECASE)
+YEAR_PATTERN = re.compile(r"(1[5-9]\d{2}|20\d{2})")
+DEFAULT_START_YEAR = 2016
+DEFAULT_END_YEAR = date.today().year
 
 
 class _MetaTagParser(HTMLParser):
@@ -63,6 +67,49 @@ def _parse_meta_tags(page_html: str) -> dict[str, list[str]]:
     parser = _MetaTagParser()
     parser.feed(page_html)
     return parser.meta
+
+
+def _first_existing(meta: dict[str, list[str]], *fields: str) -> list[str]:
+    for field in fields:
+        if meta.get(field):
+            return meta[field]
+    return []
+
+
+def _publication_year(item: dict[str, Any]) -> int | None:
+    meta = item.get("meta") or {}
+    candidates = _first_existing(
+        meta,
+        "DCTERMS.issued",
+        "citation_publication_date",
+        "citation_date",
+        "DC.date",
+    )
+    for value in candidates:
+        match = YEAR_PATTERN.search(value)
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _is_in_year_range(
+    item: dict[str, Any],
+    *,
+    start_year: int | None,
+    end_year: int | None,
+) -> bool:
+    if start_year is None and end_year is None:
+        return True
+    year = _publication_year(item)
+    if year is None:
+        return False
+    effective_start_year = max(start_year or DEFAULT_START_YEAR, DEFAULT_START_YEAR)
+    if year < effective_start_year:
+        return False
+    effective_end_year = min(end_year or DEFAULT_END_YEAR, DEFAULT_END_YEAR)
+    if year > effective_end_year:
+        return False
+    return True
 
 
 @dataclass
@@ -132,13 +179,27 @@ class HtmlMetaCollector:
 
         return {"handle_path": handle_path, "url": url, "meta": meta}
 
-    def iter_items(self, *, max_records: int | None = None) -> Iterator[dict[str, Any]]:
+    def iter_items(
+        self,
+        *,
+        max_records: int | None = None,
+        start_year: int | None = DEFAULT_START_YEAR,
+        end_year: int | None = DEFAULT_END_YEAR,
+    ) -> Iterator[dict[str, Any]]:
         count = 0
         for handle_path in self.iter_handle_paths():
             if max_records is not None and count >= max_records:
                 return
             item = self.fetch_item(handle_path)
             if item is not None:
+                if not _is_in_year_range(
+                    item,
+                    start_year=start_year,
+                    end_year=end_year,
+                ):
+                    continue
+                if max_records is not None and count >= max_records:
+                    return
                 count += 1
                 yield item
             if self.delay:

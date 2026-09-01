@@ -9,7 +9,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import asdict, replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Iterator
@@ -40,31 +40,46 @@ COMMON_FINAL_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final.csv"
 COMMON_REFERENCES_OUTPUT = COMMON_OUTPUT_DIR / "publication_references.csv"
 COMMON_COUNT_AUDIT_OUTPUT = COMMON_OUTPUT_DIR / "publication_count_audit.csv"
 COMMON_FINAL_SUMMARY_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_summary.csv"
-COMMON_YEAR_FILTERED_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_2016_2026.csv"
-COMMON_YEAR_FILTERED_SUMMARY_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_summary.csv"
+DEFAULT_COLLECTION_START_YEAR = 2016
+DEFAULT_COLLECTION_END_YEAR = date.today().year
+DEFAULT_COLLECTION_YEAR_SUFFIX = f"{DEFAULT_COLLECTION_START_YEAR}_{DEFAULT_COLLECTION_END_YEAR}"
+COMMON_YEAR_FILTERED_OUTPUT = (
+    COMMON_OUTPUT_DIR / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}.csv"
+)
+COMMON_YEAR_FILTERED_SUMMARY_OUTPUT = (
+    COMMON_OUTPUT_DIR / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_summary.csv"
+)
 COMMON_LANGUAGE_NORMALIZED_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_language_normalized.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_language_normalized.csv"
 )
 COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_language_normalized_summary.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_language_normalized_summary.csv"
 )
 COMMON_MULTIVALUE_NORMALIZED_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_multivalue_normalized.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_multivalue_normalized.csv"
 )
-COMMON_MULTIVALUE_ITEMS_OUTPUT = COMMON_OUTPUT_DIR / "publication_multivalue_items_2016_2026.csv"
+COMMON_MULTIVALUE_ITEMS_OUTPUT = (
+    COMMON_OUTPUT_DIR / f"publication_multivalue_items_{DEFAULT_COLLECTION_YEAR_SUFFIX}.csv"
+)
 COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_multivalue_normalized_summary.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_multivalue_normalized_summary.csv"
 )
 COMMON_ANALYSIS_READY_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_analysis_ready.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_analysis_ready.csv"
 )
-COMMON_ANALYSIS_READY_ISSUE_DIR = COMMON_OUTPUT_DIR / "preprocessing_issues_2016_2026"
+COMMON_ANALYSIS_READY_ISSUE_DIR = (
+    COMMON_OUTPUT_DIR / f"preprocessing_issues_{DEFAULT_COLLECTION_YEAR_SUFFIX}"
+)
 COMMON_ANALYSIS_READY_SUMMARY_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_analysis_ready_summary.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_analysis_ready_summary.csv"
 )
 ALL_SOURCES_SOURCE_NAME = "researchlanka_all_sources_common_dataset"
-DEFAULT_COLLECTION_START_YEAR = 2016
-DEFAULT_COLLECTION_END_YEAR = 2026
 DEFAULT_REPOSITORY_WORKERS = 3
 
 if str(BACKEND_DIR) not in sys.path:
@@ -591,9 +606,19 @@ def researchlanka_openalex_api_collection(context) -> dict[str, Any]:
         "--pagination-output",
         str(OPENALEX_PAGINATION_OUTPUT),
         "--from-year",
-        str(config.collection.start_year or DEFAULT_COLLECTION_START_YEAR),
+        str(
+            max(
+                config.collection.start_year or DEFAULT_COLLECTION_START_YEAR,
+                DEFAULT_COLLECTION_START_YEAR,
+            )
+        ),
         "--to-year",
-        str(config.collection.end_year or DEFAULT_COLLECTION_END_YEAR),
+        str(
+            min(
+                config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
+                DEFAULT_COLLECTION_END_YEAR,
+            )
+        ),
         "--per-page",
         str(config.collection.batch_size),
     ]
@@ -697,8 +722,15 @@ def researchlanka_crossref_api_collection(context) -> dict[str, Any]:
         max_records=max_records,
         output=CROSSREF_JSONL_OUTPUT,
         email=os.getenv("CROSSREF_EMAIL"),
-        from_year=config.collection.start_year or DEFAULT_COLLECTION_START_YEAR,
-        until_year=config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
+        from_year=max(
+            config.collection.start_year or DEFAULT_COLLECTION_START_YEAR,
+            DEFAULT_COLLECTION_START_YEAR,
+        ),
+        until_year=min(
+            config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
+            DEFAULT_COLLECTION_END_YEAR,
+        ),
+        include_all_authorships=False,
     )
 
     with backend_working_directory():
@@ -780,8 +812,16 @@ def researchlanka_sljol_api_collection(context) -> dict[str, Any]:
 
     max_records = env_int("RESEARCHLANKA_SLJOL_MAX_RECORDS")
     rows = env_int("RESEARCHLANKA_SLJOL_ROWS", 500) or 500
-    from_year = env_int("RESEARCHLANKA_SLJOL_FROM_YEAR", DEFAULT_COLLECTION_START_YEAR) or DEFAULT_COLLECTION_START_YEAR
-    until_year = env_int("RESEARCHLANKA_SLJOL_UNTIL_YEAR", DEFAULT_COLLECTION_END_YEAR) or DEFAULT_COLLECTION_END_YEAR
+    from_year = max(
+        env_int("RESEARCHLANKA_SLJOL_FROM_YEAR", DEFAULT_COLLECTION_START_YEAR)
+        or DEFAULT_COLLECTION_START_YEAR,
+        DEFAULT_COLLECTION_START_YEAR,
+    )
+    until_year = min(
+        env_int("RESEARCHLANKA_SLJOL_UNTIL_YEAR", DEFAULT_COLLECTION_END_YEAR)
+        or DEFAULT_COLLECTION_END_YEAR,
+        DEFAULT_COLLECTION_END_YEAR,
+    )
     use_date_slicing = env_bool("RESEARCHLANKA_SLJOL_DATE_SLICING", True)
     collector = CrossrefPrefixCollector(
         prefix=SLJOL_DOI_PREFIX,
@@ -793,7 +833,11 @@ def researchlanka_sljol_api_collection(context) -> dict[str, Any]:
     total = 0
     with backend_working_directory(), SLJOL_JSONL_OUTPUT.open("w", encoding="utf-8") as output_file:
         works = (
-            collector.iter_works(max_records=max_records)
+            collector.iter_works(
+                max_records=max_records,
+                start_year=from_year,
+                end_year=until_year,
+            )
             if not use_date_slicing
             else collector.iter_works_by_publication_date(
                 start_year=from_year,
@@ -845,8 +889,14 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
         env_int("RESEARCHLANKA_REPOSITORY_WORKERS", DEFAULT_REPOSITORY_WORKERS) or 1,
         1,
     )
-    from_year = config.collection.start_year or DEFAULT_COLLECTION_START_YEAR
-    until_year = config.collection.end_year or DEFAULT_COLLECTION_END_YEAR
+    from_year = max(
+        config.collection.start_year or DEFAULT_COLLECTION_START_YEAR,
+        DEFAULT_COLLECTION_START_YEAR,
+    )
+    until_year = min(
+        config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
+        DEFAULT_COLLECTION_END_YEAR,
+    )
     from_date = f"{from_year}-01-01"
     until_date = f"{until_year}-12-31"
     all_targets = harvestable_targets(load_registry(), phase=phase)
@@ -1196,7 +1246,7 @@ def researchlanka_common_year_filtered_dataset(
     context,
     researchlanka_common_final_dataset: dict[str, Any],
 ) -> dict[str, Any]:
-    """Filter the final dataset to the configured 2016-2026 publication window."""
+    """Filter the final dataset to the configured 2016-current-year publication window."""
 
     _ = researchlanka_common_final_dataset
     filtered = build_year_filtered_dataset(
@@ -1311,6 +1361,8 @@ def harvest_repository_rest(
     *,
     max_records: int | None,
     timeout: int,
+    start_year: int | None,
+    end_year: int | None,
     context: Any | None = None,
     log_every: int = 500,
 ) -> HarvestOutcome:
@@ -1335,7 +1387,11 @@ def harvest_repository_rest(
     total = 0
     try:
         with output_path.open("w", encoding="utf-8") as output_file:
-            for item in collector.iter_items(max_records=max_records):
+            for item in collector.iter_items(
+                max_records=max_records,
+                start_year=start_year,
+                end_year=end_year,
+            ):
                 output_file.write(json.dumps(item, ensure_ascii=False) + "\n")
                 total += 1
                 if context and log_every > 0 and total % log_every == 0:
@@ -1367,6 +1423,8 @@ def harvest_repository_html(
     max_records: int | None,
     timeout: int,
     delay: float,
+    start_year: int | None,
+    end_year: int | None,
     context: Any | None = None,
     log_every: int = 500,
 ) -> HarvestOutcome:
@@ -1386,7 +1444,11 @@ def harvest_repository_html(
     total = 0
     try:
         with output_path.open("w", encoding="utf-8") as output_file:
-            for item in collector.iter_items(max_records=max_records):
+            for item in collector.iter_items(
+                max_records=max_records,
+                start_year=start_year,
+                end_year=end_year,
+            ):
                 output_file.write(json.dumps(item, ensure_ascii=False) + "\n")
                 total += 1
                 if context and log_every > 0 and total % log_every == 0:
@@ -1435,6 +1497,8 @@ def harvest_repository_target(
             target,
             max_records=max_records,
             timeout=timeout,
+            start_year=int(from_date[:4]) if from_date else None,
+            end_year=int(until_date[:4]) if until_date else None,
             context=context,
             log_every=log_every,
         )
@@ -1444,6 +1508,8 @@ def harvest_repository_target(
             max_records=max_records,
             timeout=timeout,
             delay=delay,
+            start_year=int(from_date[:4]) if from_date else None,
+            end_year=int(until_date[:4]) if until_date else None,
             context=context,
             log_every=log_every,
         )
