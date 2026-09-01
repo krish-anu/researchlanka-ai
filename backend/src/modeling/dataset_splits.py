@@ -8,7 +8,7 @@ import re
 import tempfile
 import unicodedata
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,12 +20,15 @@ from src.utils.doi import is_valid_doi, normalize_doi
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_START_YEAR = 2016
+DEFAULT_END_YEAR = date.today().year
+DEFAULT_YEAR_SUFFIX = f"{DEFAULT_START_YEAR}_{DEFAULT_END_YEAR}"
 DEFAULT_INPUT = (
     PROJECT_ROOT
     / "data"
     / "processed"
     / "common"
-    / "common_publications_final_2016_2026_analysis_ready.csv"
+    / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_analysis_ready.csv"
 )
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "modeling" / "publication_classifier"
 DEFAULT_LABEL_COLUMN = "primary_domain"

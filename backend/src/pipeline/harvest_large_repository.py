@@ -37,7 +37,7 @@ from src.collectors.repository_registry import load_registry
 
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 DEFAULT_START_YEAR = 2016
-DEFAULT_END_YEAR = 2026
+DEFAULT_END_YEAR = date.today().year
 MAX_SPLIT_DEPTH = 10
 
 
@@ -141,8 +141,10 @@ def main() -> None:
     output_path = args.output or DEFAULT_RAW_DIR / target.id / "oai_dc.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    from_date = date(args.start_year, 1, 1)
-    until_date = date(args.end_year, 12, 31)
+    start_year = max(args.start_year, DEFAULT_START_YEAR)
+    end_year = min(args.end_year, DEFAULT_END_YEAR)
+    from_date = date(start_year, 1, 1)
+    until_date = date(end_year, 12, 31)
 
     print(f"Harvesting {target.id} ({target.name}) from {from_date} to {until_date} -> {output_path}")
 
@@ -152,7 +154,7 @@ def main() -> None:
     total = 0
     failed_ranges: list[str] = []
     with temp_output_path.open("w", encoding="utf-8") as output_file:
-        for year in range(args.start_year, args.end_year + 1):
+        for year in range(start_year, end_year + 1):
             year_from = max(from_date, date(year, 1, 1))
             year_until = min(until_date, date(year, 12, 31))
             count, year_failed_ranges = harvest_range(
