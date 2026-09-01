@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -288,6 +289,27 @@ def is_empty_vocabulary_error(exc: ValueError) -> bool:
     )
 
 
+def stratified_test_count(
+    frame: pd.DataFrame,
+    label_column: str,
+    *,
+    test_size: float,
+) -> int | None:
+    """Return a valid stratified test row count, or None if it is unsafe."""
+    label_counts = frame[label_column].value_counts()
+    class_count = len(label_counts)
+    if class_count < 2 or label_counts.min() < 2:
+        return None
+
+    row_count = len(frame)
+    requested_count = math.ceil(row_count * test_size)
+    test_count = max(requested_count, class_count)
+    train_count = row_count - test_count
+    if train_count < class_count:
+        return None
+    return test_count
+
+
 def fit_and_score_once(
     frame: pd.DataFrame,
     label_column: str,
@@ -297,17 +319,18 @@ def fit_and_score_once(
     random_state: int,
 ) -> tuple[Pipeline, float | None, float | None]:
     """Fit a hold-out split for metrics, then refit on all rows."""
-    can_stratify = (
-        frame[label_column].value_counts().min() >= 2
-        and frame[label_column].nunique() >= 2
+    test_count = stratified_test_count(
+        frame,
+        label_column,
+        test_size=test_size,
     )
     accuracy: float | None = None
     macro_f1: float | None = None
 
-    if can_stratify:
+    if test_count is not None:
         train_frame, test_frame = train_test_split(
             frame,
-            test_size=test_size,
+            test_size=test_count,
             random_state=random_state,
             stratify=frame[label_column],
         )
