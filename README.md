@@ -17,6 +17,11 @@ make dev
 This starts the backend API at `http://127.0.0.1:8080/api/v1` and the
 frontend at `http://127.0.0.1:3000`.
 
+Google Maps institution-location confirmation is an offline data-quality step.
+It does not run during `make dev`, `make backend`, or `make frontend`; run
+`make maps-location-confirm` only when you intentionally want to collect new
+location evidence.
+
 ## Fresh Clone Setup With Data
 
 Use these commands when setting up the full project on a new machine.

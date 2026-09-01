@@ -203,6 +203,10 @@ narrowing the alias on one of the rows.
 
 ```bash
 make institution-registry     # regenerate the registry, then review the CSV diff
+make maps-location-confirm    # optional: collect Maps evidence for unresolved names
+make maps-location-rescore    # optional: re-score evidence without scraping again
+make maps-location-apply MAPS_LOCATION_APPLY_EXTRA_ARGS=--dry-run
+make maps-location-apply      # optional: promote confirmed aliases after review
 make institution-normalize    # apply it to the merged dataset
 ```
 
@@ -222,6 +226,21 @@ Read the unresolved-institutions CSV. Anything Sri Lankan with at least 50 menti
 belongs in the registry — add it to `CURATED_ALIASES` in
 `src/pipeline/build_institution_registry.py`, regenerate, and re-run the stage. The list
 is currently dominated by foreign institutions, which is expected and needs no action.
+
+For Crossref affiliations whose institution names are present but lack an explicit
+Sri Lanka country signal, use the Google Maps evidence stage:
+
+```bash
+make maps-location-confirm PYTHON=python MAPS_LOCATION_LIMIT=50
+make maps-location-rescore PYTHON=python
+make maps-location-apply PYTHON=python MAPS_LOCATION_APPLY_EXTRA_ARGS=--dry-run
+```
+
+Review `data/reports/validation/google_maps_registry_alias_application.csv` and then
+run `make maps-location-apply PYTHON=python` to append safe aliases to
+`configurations/sri_lanka/institutions.csv`. The apply step is conservative: it only
+adds aliases from `confirmed` evidence rows whose Maps title already resolves to an
+existing registry institution. Ambiguous or broad matches stay in review.
 
 ## Known limitations
 

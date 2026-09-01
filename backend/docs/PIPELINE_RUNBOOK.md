@@ -363,6 +363,12 @@ model without a training manifest for local experiments.
 
 ```bash
 make institution-registry PYTHON=python
+# Optional, review-assisted location confirmation for unresolved Crossref affiliations:
+make maps-location-confirm PYTHON=python
+make maps-location-rescore PYTHON=python
+make maps-location-apply PYTHON=python MAPS_LOCATION_APPLY_EXTRA_ARGS=--dry-run
+# review data/reports/validation/google_maps_registry_alias_application.csv, then:
+make maps-location-apply PYTHON=python
 # review the diff to configurations/sri_lanka/institutions.csv, then:
 make institution-normalize PYTHON=python
 make type-journal-normalize PYTHON=python
@@ -372,11 +378,27 @@ Without `make`:
 
 ```bash
 python -m src.pipeline.build_institution_registry
+python scripts/quality/confirm_institution_locations_google_maps.py \
+  --input data/processed/crossref/crossref_sri_lanka_works.jsonl \
+  --limit 50 --batch-size 5 --depth 1 --exit-on-inactivity 3m
+python scripts/quality/confirm_institution_locations_google_maps.py --rescore-existing
+python scripts/processing/apply_google_maps_location_evidence.py --dry-run
+python scripts/processing/apply_google_maps_location_evidence.py
 python -m src.pipeline.build_institution_normalized_dataset
 python -m src.pipeline.build_type_journal_normalized_dataset
 ```
 
 `build_institution_registry` **rewrites** `configurations/sri_lanka/institutions.csv`. It preserves existing `LK###` identifiers, but read the diff before committing — it also prints institution pairs whose names nest inside one another for manual review.
+
+`maps-location-confirm` is a review aid for Crossref affiliation strings that do
+not resolve by existing aliases. It uses the local `gosom/google-maps-scraper`
+Docker image in direct CLI mode and writes evidence to
+`data/reports/validation/google_maps_institution_location_evidence.csv`. It
+does not modify the registry and is not part of app runtime commands such as
+`make dev`, `make backend`, or `make api`. `maps-location-apply` only promotes
+rows whose Maps result is `confirmed` and whose matched title resolves to an
+existing registry institution; skipped rows are listed in
+`data/reports/validation/google_maps_registry_alias_application.csv`.
 
 Details: [10_institution_and_affiliation_standardization.md](10_institution_and_affiliation_standardization.md) and [11_publication_type_and_venue_standardization.md](11_publication_type_and_venue_standardization.md).
 
