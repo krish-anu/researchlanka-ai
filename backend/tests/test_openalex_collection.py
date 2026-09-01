@@ -17,6 +17,8 @@ import pytest
 from src.pipeline import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
 
+DEFAULT_OPENALEX_YEAR_FILTER = f"publication_year:2016-{openalex.DEFAULT_TO_YEAR}"
+
 
 def sample_work(country_code: str = "LK") -> dict:
     """Create a minimal OpenAlex-like work record for collector tests."""
@@ -509,11 +511,23 @@ def test_build_filters_adds_publication_year_range():
     ]
 
 
-def test_build_filters_defaults_to_2016_2026_year_range():
-    """Default collection should cover publication years 2016 through 2026."""
+def test_build_filters_defaults_to_2016_current_year_range():
+    """Default collection should cover publication years 2016 through the current year."""
     assert openalex.build_filters([openalex.LK_AUTHORSHIP_FILTER]) == [
         openalex.LK_AUTHORSHIP_FILTER,
-        "publication_year:2016-2026",
+        DEFAULT_OPENALEX_YEAR_FILTER,
+    ]
+
+
+def test_build_filters_clamps_start_year_to_2016():
+    """Collection should never request publication years before 2016."""
+    assert openalex.build_filters(
+        [openalex.LK_AUTHORSHIP_FILTER],
+        from_year=2010,
+        to_year=2024,
+    ) == [
+        openalex.LK_AUTHORSHIP_FILTER,
+        "publication_year:2016-2024",
     ]
 
 
@@ -622,7 +636,7 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
         {
             "filters": [
                 openalex.LK_AUTHORSHIP_FILTER,
-                "publication_year:2016-2026",
+                DEFAULT_OPENALEX_YEAR_FILTER,
             ],
             "cursor": "*",
             "per_page": 25,
@@ -683,7 +697,7 @@ def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
         {
             "filters": [
                 openalex.LK_AUTHORSHIP_FILTER,
-                "publication_year:2016-2026",
+                DEFAULT_OPENALEX_YEAR_FILTER,
             ],
             "cursor": "saved-cursor",
             "per_page": 25,
@@ -770,7 +784,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         progress_output,
         next_cursor="saved-cursor",
         records_saved=0,
-        filters=[openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        filters=[openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
     )
 
     class FakeCollector:
@@ -834,7 +848,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     assert progress == {
         "next_cursor": None,
         "records_saved": 2,
-        "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        "filters": [openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
         "strict_lk_only": False,
     }
     pagination_audit = json.loads(pagination_output.read_text(encoding="utf-8"))
@@ -892,7 +906,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     assert openalex_script.load_progress(progress_output) == {
         "next_cursor": "*",
         "records_saved": 0,
-        "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        "filters": [openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
         "strict_lk_only": True,
     }
     with doi_conflicts_output.open("r", encoding="utf-8", newline="") as csv_file:

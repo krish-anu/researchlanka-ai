@@ -1,7 +1,7 @@
 """Merge Sri Lanka publication CSVs into one Kaggle-ready common dataset.
 
 Expected input files:
-    crossref_clean_2016_2026_enriched.csv or crossref_sri_lanka_works.csv
+    crossref_clean_2016_<current_year>_enriched.csv or crossref_sri_lanka_works.csv
     openalex_sri_lanka_works.csv
     repositories_combined.csv
     sljol.csv
@@ -37,7 +37,7 @@ import json
 import math
 import re
 import unicodedata
-from datetime import datetime
+from datetime import date, datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable
@@ -52,9 +52,12 @@ PROJECT_ROOT = next(
 )
 LOCAL_INPUT_DIR = PROJECT_ROOT / "data"
 LOCAL_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "common"
+DEFAULT_COLLECTION_START_YEAR = 2016
+DEFAULT_COLLECTION_END_YEAR = date.today().year
+DEFAULT_COLLECTION_YEAR_SUFFIX = f"{DEFAULT_COLLECTION_START_YEAR}_{DEFAULT_COLLECTION_END_YEAR}"
 
 EXPECTED_FILES = {
-    "crossref": "crossref_clean_2016_2026_enriched.csv",
+    "crossref": f"crossref_clean_{DEFAULT_COLLECTION_YEAR_SUFFIX}_enriched.csv",
     "openalex": "openalex_sri_lanka_works.csv",
     "repositories_combined": "repositories_combined.csv",
     "sljol": "sljol.csv",
@@ -62,6 +65,7 @@ EXPECTED_FILES = {
 
 EXPECTED_FILE_CANDIDATES = {
     "crossref": (
+        f"crossref_clean_{DEFAULT_COLLECTION_YEAR_SUFFIX}_enriched.csv",
         "crossref_clean_2016_2026_enriched.csv",
         "crossref_sri_lanka_works.csv",
     ),

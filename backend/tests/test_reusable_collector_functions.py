@@ -162,8 +162,16 @@ def test_crossref_iter_works_stops_at_max_records_across_pages(monkeypatch):
         {
             "message": {
                 "items": [
-                    {"DOI": "10.1000/one", "type": "journal-article"},
-                    {"DOI": "10.1000/two", "type": "journal-article"},
+                    {
+                        "DOI": "10.1000/one",
+                        "type": "journal-article",
+                        "issued": {"date-parts": [[2024]]},
+                    },
+                    {
+                        "DOI": "10.1000/two",
+                        "type": "journal-article",
+                        "issued": {"date-parts": [[2024]]},
+                    },
                 ],
                 "next-cursor": "next",
             }
@@ -171,7 +179,11 @@ def test_crossref_iter_works_stops_at_max_records_across_pages(monkeypatch):
         {
             "message": {
                 "items": [
-                    {"DOI": "10.1000/three", "type": "journal-article"},
+                    {
+                        "DOI": "10.1000/three",
+                        "type": "journal-article",
+                        "issued": {"date-parts": [[2024]]},
+                    },
                 ],
                 "next-cursor": None,
             }
