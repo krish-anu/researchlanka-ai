@@ -14,6 +14,7 @@ from src.quality.validate_analysis_dataset import (
     CollaborationValidator,
     Gate,
     InstitutionValidator,
+    OwnershipValidator,
     build_validators,
     default_input_csv,
     record_identifier,
@@ -176,6 +177,75 @@ def test_author_gates_are_skipped_when_the_columns_are_absent():
     assert gate(report, "author_count_agreement_rate").status.startswith("skipped")
     assert gate(report, "orcid_validity_rate").status.startswith("skipped")
     assert report.passed
+
+
+# --- ownership --------------------------------------------------------------
+
+
+def test_ownership_validator_accepts_verified_include():
+    report = run(
+        OwnershipValidator(),
+        [
+            {
+                "source_dataset": "openalex",
+                "doi": "10.1000/owned",
+                "ownership_decision": "INCLUDE",
+                "ownership_class": "SL_OWNED_INTERNATIONAL",
+                "ownership_confidence": "MEDIUM",
+                "ownership_reason": "LK corresponding author.",
+                "lead_country": "LK",
+                "needs_manual_review": "False",
+            }
+        ],
+    )
+
+    assert report.passed
+    assert metric(report, "verified_included") == 1
+
+
+def test_ownership_validator_fails_missing_reason_in_verified_dataset():
+    report = run(
+        OwnershipValidator(),
+        [
+            {
+                "source_dataset": "openalex",
+                "doi": "10.1000/no-reason",
+                "ownership_decision": "INCLUDE",
+                "ownership_class": "SL_OWNED_INTERNATIONAL",
+                "ownership_confidence": "MEDIUM",
+                "ownership_reason": "",
+                "lead_country": "LK",
+                "needs_manual_review": "False",
+            }
+        ],
+    )
+
+    assert not report.passed
+    assert not gate(report, "verified_missing_decision_reason_rows").passed
+    assert "verified_missing_decision_reason_rows" in issue_names(report)
+
+
+def test_ownership_validator_blocks_review_and_low_confidence_rows():
+    report = run(
+        OwnershipValidator(),
+        [
+            {
+                "source_dataset": "openalex",
+                "ownership_decision": "REVIEW",
+                "ownership_class": "FIRST_AUTHOR_ONLY_LK_EVIDENCE",
+                "ownership_confidence": "LOW",
+                "ownership_reason": "First author only.",
+                "lead_country": "LK",
+                "needs_manual_review": "True",
+            }
+        ],
+    )
+
+    assert not report.passed
+    assert not gate(report, "verified_non_include_rows").passed
+    assert not gate(report, "verified_manual_review_rows").passed
+    assert not gate(report, "verified_low_confidence_rows").passed
+    assert metric(report, "first_author_only") == 1
 
 
 # --- institutions -----------------------------------------------------------

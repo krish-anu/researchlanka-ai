@@ -21,7 +21,7 @@ class CrossrefAdapter(SourceAdapter):
         filters: list[str] | None = None,
         max_records: int | None = None,
         rows: int = 100,
-        require_first_author_lk: bool = True,
+        require_first_author_lk: bool = False,
     ) -> None:
         self.affiliation_query = affiliation_query
         self.filters = filters

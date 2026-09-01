@@ -32,10 +32,12 @@ from __future__ import annotations
 
 import argparse
 import ast
+import csv
 import html
 import json
 import math
 import re
+import sys
 import unicodedata
 from datetime import date, datetime
 from difflib import SequenceMatcher
@@ -107,6 +109,17 @@ COMMON_COLUMNS = [
     "institutions",
     "sri_lankan_institutions",
     "countries",
+    "ownership_decision",
+    "ownership_class",
+    "ownership_confidence",
+    "ownership_reason",
+    "ownership_evidence",
+    "lead_country",
+    "corresponding_author_countries",
+    "has_sri_lankan_participant",
+    "has_foreign_participant",
+    "needs_manual_review",
+    "ownership_policy_version",
     "publisher",
     "publisher_location",
     "journal",
@@ -186,6 +199,17 @@ COLUMN_DESCRIPTIONS = {
     "institutions": "Institution names, mainly from OpenAlex.",
     "sri_lankan_institutions": "Sri Lankan institution names detected by OpenAlex.",
     "countries": "Country codes detected by OpenAlex.",
+    "ownership_decision": "Conservative ownership gate decision: INCLUDE, REVIEW, or EXCLUDE.",
+    "ownership_class": "Detailed ownership classification used to explain the decision.",
+    "ownership_confidence": "Ownership evidence confidence: HIGH, MEDIUM, or LOW.",
+    "ownership_reason": "Human-readable reason for the ownership decision.",
+    "ownership_evidence": "Source/provenance of the ownership evidence.",
+    "lead_country": "Country or countries attached to the strongest leadership evidence.",
+    "corresponding_author_countries": "Country codes from corresponding-author evidence.",
+    "has_sri_lankan_participant": "Whether publication-specific metadata has an LK participant signal.",
+    "has_foreign_participant": "Whether publication-specific metadata has a non-LK participant signal.",
+    "needs_manual_review": "Whether the ownership decision must be reviewed before final inclusion.",
+    "ownership_policy_version": "Ownership policy version used for the decision.",
     "publisher": "Publishing organization.",
     "publisher_location": "Publisher location.",
     "journal": "Journal name.",
@@ -247,6 +271,11 @@ MULTI_VALUE_COLUMNS = {
     "institutions",
     "sri_lankan_institutions",
     "countries",
+    "ownership_reason",
+    "ownership_evidence",
+    "lead_country",
+    "corresponding_author_countries",
+    "ownership_policy_version",
     "issn",
     "keywords",
     "concepts",
@@ -308,6 +337,17 @@ DEFAULT_FIELD_SOURCE_POLICY = {
     "primary_field": ["openalex"],
     "primary_subfield": ["openalex"],
     "primary_domain": ["openalex"],
+    "ownership_decision": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "ownership_class": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "ownership_confidence": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "ownership_reason": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "ownership_evidence": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "lead_country": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "corresponding_author_countries": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "has_sri_lankan_participant": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "has_foreign_participant": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "needs_manual_review": ["openalex", "crossref", "sljol", "repositories_combined"],
+    "ownership_policy_version": ["openalex", "crossref", "sljol", "repositories_combined"],
     "event_name": ["crossref", "openalex", "sljol", "repositories_combined"],
     "event_acronym": ["crossref", "openalex", "sljol", "repositories_combined"],
     "event_location": ["crossref", "openalex", "sljol", "repositories_combined"],
@@ -318,6 +358,9 @@ DEFAULT_FIELD_SOURCE_POLICY = {
 BLANK_STRINGS = {"", "nan", "none", "null", "na", "n/a", "[]", "{}"}
 DOI_RE = re.compile(r"10\.\d{4,9}/[^\s\"'<>;]+", re.IGNORECASE)
 YEAR_RE = re.compile(r"(1[5-9]\d{2}|20\d{2})")
+OWNERSHIP_DECISIONS = {"INCLUDE", "REVIEW", "EXCLUDE"}
+OWNERSHIP_CONFIDENCE_ORDER = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+OWNERSHIP_POLICY_VERSION = "1.0"
 ARTIFACT_TITLE_RE = re.compile(
     r"\b(?:additional file|supplementary|supplemental|figure|fig\.?|table|"
     r"dataset|data set|appendix|annex|image|plate)\b",
@@ -519,6 +562,132 @@ def normalize_bool(value: Any) -> Any:
         return False
 
     return pd.NA
+
+
+def normalize_ownership_decision(value: Any) -> Any:
+    text = clean_text(value)
+    if is_blank(text):
+        return pd.NA
+    decision = str(text).strip().upper()
+    return decision if decision in OWNERSHIP_DECISIONS else pd.NA
+
+
+def normalize_ownership_confidence(value: Any) -> Any:
+    text = clean_text(value)
+    if is_blank(text):
+        return pd.NA
+    confidence = str(text).strip().upper()
+    return confidence if confidence in OWNERSHIP_CONFIDENCE_ORDER else pd.NA
+
+
+def source_only_ownership(
+    source_dataset: str,
+    *,
+    has_sri_lankan_participant: Any = pd.NA,
+) -> dict[str, Any]:
+    if source_dataset == "sljol":
+        return {
+            "ownership_decision": "REVIEW",
+            "ownership_class": "SLJOL_VENUE_ONLY_EVIDENCE",
+            "ownership_confidence": "LOW",
+            "ownership_reason": (
+                "SLJOL DOI-prefix or venue provenance is only venue evidence; "
+                "leadership must come from author/project evidence or a DOI join."
+            ),
+            "ownership_evidence": "sljol:source_provenance_only",
+            "lead_country": pd.NA,
+            "corresponding_author_countries": pd.NA,
+            "has_sri_lankan_participant": has_sri_lankan_participant,
+            "has_foreign_participant": False,
+            "needs_manual_review": True,
+            "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
+        }
+    if source_dataset == "crossref":
+        return {
+            "ownership_decision": "REVIEW",
+            "ownership_class": "MISSING_LEADERSHIP_EVIDENCE",
+            "ownership_confidence": "LOW",
+            "ownership_reason": (
+                "Crossref row lacks explicit corresponding/project-lead evidence; "
+                "affiliation or first-author candidate evidence requires review."
+            ),
+            "ownership_evidence": "crossref:missing_or_legacy_ownership_fields",
+            "lead_country": pd.NA,
+            "corresponding_author_countries": pd.NA,
+            "has_sri_lankan_participant": has_sri_lankan_participant,
+            "has_foreign_participant": False,
+            "needs_manual_review": True,
+            "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
+        }
+    return {
+        "ownership_decision": "REVIEW",
+        "ownership_class": "REPOSITORY_ONLY_EVIDENCE",
+        "ownership_confidence": "LOW",
+        "ownership_reason": (
+            "Repository provenance is not project ownership evidence; leadership "
+            "must come from author/project evidence or a DOI join."
+        ),
+        "ownership_evidence": f"{source_dataset}:source_provenance_only",
+        "lead_country": pd.NA,
+        "corresponding_author_countries": pd.NA,
+        "has_sri_lankan_participant": has_sri_lankan_participant,
+        "has_foreign_participant": False,
+        "needs_manual_review": True,
+        "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
+    }
+
+
+def fill_default_ownership(output: pd.DataFrame, source_dataset: str) -> None:
+    defaults = source_only_ownership(source_dataset)
+    for column, value in defaults.items():
+        if column not in output.columns:
+            continue
+        mask = output[column].map(is_blank)
+        if mask.any():
+            output.loc[mask, column] = value
+
+
+def fill_legacy_openalex_ownership(output: pd.DataFrame) -> None:
+    missing_decision = output["ownership_decision"].map(is_blank)
+    if not missing_decision.any():
+        return
+
+    classes = output["ownership_class"].map(lambda value: str(value).strip().upper())
+    confidence = output["ownership_confidence"].map(lambda value: str(value).strip().upper())
+    needs_review = output["needs_manual_review"].map(normalize_bool)
+
+    include_mask = (
+        missing_decision
+        & classes.isin({"SL_DOMESTIC", "SL_OWNED_INTERNATIONAL"})
+        & confidence.isin({"HIGH", "MEDIUM"})
+        & (needs_review != True)
+    )
+    exclude_mask = (
+        missing_decision
+        & classes.isin({"NON_SL", "NO_LK_PUBLICATION_AFFILIATION", "FOREIGN_PROJECT_WITH_SL_PARTICIPATION"})
+    )
+    review_mask = missing_decision & ~(include_mask | exclude_mask)
+    first_author_only_mask = (
+        review_mask
+        & classes.isin({"SL_DOMESTIC", "SL_OWNED_INTERNATIONAL"})
+        & (confidence == "LOW")
+    )
+
+    output.loc[include_mask, "ownership_decision"] = "INCLUDE"
+    output.loc[exclude_mask, "ownership_decision"] = "EXCLUDE"
+    output.loc[review_mask, "ownership_decision"] = "REVIEW"
+    output.loc[first_author_only_mask, "ownership_class"] = "FIRST_AUTHOR_ONLY_LK_EVIDENCE"
+    output.loc[first_author_only_mask, "ownership_reason"] = (
+        "Legacy OpenAlex row has only low-confidence first-author LK evidence; "
+        "first author is candidate evidence, not ownership proof."
+    )
+    output.loc[include_mask | exclude_mask, "needs_manual_review"] = False
+    output.loc[review_mask, "needs_manual_review"] = True
+
+    evidence_mask = output["ownership_evidence"].map(is_blank) & missing_decision
+    output.loc[evidence_mask, "ownership_evidence"] = "openalex:legacy_ownership_classification"
+    policy_mask = output["ownership_policy_version"].map(is_blank) & missing_decision
+    output.loc[policy_mask, "ownership_policy_version"] = OWNERSHIP_POLICY_VERSION
 
 
 def normalize_int(value: Any) -> Any:
@@ -917,6 +1086,18 @@ def normalize_openalex(
     assign_column(output, "institutions", df, ["institutions"], unique_text)
     assign_column(output, "sri_lankan_institutions", df, ["sri_lankan_institutions"], unique_text)
     assign_column(output, "countries", df, ["countries"], unique_text)
+    assign_column(output, "ownership_decision", df, ["ownership_decision"], normalize_ownership_decision)
+    assign_column(output, "ownership_class", df, ["ownership_class", "ownership_classification"])
+    assign_column(output, "ownership_confidence", df, ["ownership_confidence"], normalize_ownership_confidence)
+    assign_column(output, "ownership_reason", df, ["ownership_reason"])
+    assign_column(output, "ownership_evidence", df, ["ownership_evidence"])
+    assign_column(output, "lead_country", df, ["lead_country", "country_owner"])
+    assign_column(output, "corresponding_author_countries", df, ["corresponding_author_countries"])
+    assign_column(output, "has_sri_lankan_participant", df, ["has_sri_lankan_participant"], normalize_bool)
+    assign_column(output, "has_foreign_participant", df, ["has_foreign_participant"], normalize_bool)
+    assign_column(output, "needs_manual_review", df, ["needs_manual_review"], normalize_bool)
+    assign_column(output, "ownership_policy_version", df, ["ownership_policy_version"])
+    fill_legacy_openalex_ownership(output)
     assign_column(output, "source_name", df, ["source_name"])
     assign_column(output, "publisher", df, ["publisher"])
     assign_column(output, "is_oa", df, ["is_oa"], normalize_bool)
@@ -1048,6 +1229,18 @@ def normalize_crossref(
         normalize_date_parts,
     )
     assign_column(output, "event_sponsor", df, ["event.sponsor", "event_sponsor"], unique_text)
+    assign_column(output, "ownership_decision", df, ["ownership_decision"], normalize_ownership_decision)
+    assign_column(output, "ownership_class", df, ["ownership_class", "ownership_classification"])
+    assign_column(output, "ownership_confidence", df, ["ownership_confidence"], normalize_ownership_confidence)
+    assign_column(output, "ownership_reason", df, ["ownership_reason"])
+    assign_column(output, "ownership_evidence", df, ["ownership_evidence"])
+    assign_column(output, "lead_country", df, ["lead_country", "country_owner"])
+    assign_column(output, "corresponding_author_countries", df, ["corresponding_author_countries"])
+    assign_column(output, "has_sri_lankan_participant", df, ["has_sri_lankan_participant"], normalize_bool)
+    assign_column(output, "has_foreign_participant", df, ["has_foreign_participant"], normalize_bool)
+    assign_column(output, "needs_manual_review", df, ["needs_manual_review"], normalize_bool)
+    assign_column(output, "ownership_policy_version", df, ["ownership_policy_version"])
+    fill_default_ownership(output, source_dataset)
     add_raw_json(output, df, include_raw_json)
 
     return finalize_common_frame(output)
@@ -1086,6 +1279,18 @@ def normalize_repository_like(
     assign_column(output, "container_title", df, ["journal"])
     assign_column(output, "source_name", df, ["journal"])
     output["source_type"] = "repository" if source_dataset == "repositories_combined" else "journal"
+    assign_column(output, "ownership_decision", df, ["ownership_decision"], normalize_ownership_decision)
+    assign_column(output, "ownership_class", df, ["ownership_class", "ownership_classification"])
+    assign_column(output, "ownership_confidence", df, ["ownership_confidence"], normalize_ownership_confidence)
+    assign_column(output, "ownership_reason", df, ["ownership_reason"])
+    assign_column(output, "ownership_evidence", df, ["ownership_evidence"])
+    assign_column(output, "lead_country", df, ["lead_country", "country_owner"])
+    assign_column(output, "corresponding_author_countries", df, ["corresponding_author_countries"])
+    assign_column(output, "has_sri_lankan_participant", df, ["has_sri_lankan_participant"], normalize_bool)
+    assign_column(output, "has_foreign_participant", df, ["has_foreign_participant"], normalize_bool)
+    assign_column(output, "needs_manual_review", df, ["needs_manual_review"], normalize_bool)
+    assign_column(output, "ownership_policy_version", df, ["ownership_policy_version"])
+    fill_default_ownership(output, source_dataset)
     assign_column(output, "language", df, ["language"])
     assign_column(output, "rights", df, ["rights"])
     assign_column(output, "source_set_specs", df, ["source_set_specs"], unique_text)
@@ -1283,7 +1488,136 @@ def merge_group(
         else:
             merged[column] = pd.NA
 
+    merged.update(resolve_merged_ownership(group))
     return merged
+
+
+def resolve_merged_ownership(group: pd.DataFrame) -> dict[str, Any]:
+    """Resolve source-level ownership decisions after deduplication."""
+    return resolve_merged_ownership_records(group.to_dict("records"))
+
+
+def resolve_merged_ownership_records(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Resolve source-level ownership decisions from record dictionaries."""
+    decisions = {
+        str(decision).strip().upper()
+        for decision in (record.get("ownership_decision") for record in records)
+        if not is_blank(decision)
+    }
+    reasons = unique_text([record.get("ownership_reason") for record in records])
+    evidence = unique_text([record.get("ownership_evidence") for record in records])
+    classes = unique_text([record.get("ownership_class") for record in records])
+    lead_country = unique_text([record.get("lead_country") for record in records])
+    corresponding = unique_text([record.get("corresponding_author_countries") for record in records])
+    has_lk = any(
+        normalize_bool(record.get("has_sri_lankan_participant")) is True
+        for record in records
+    )
+    has_foreign = any(
+        normalize_bool(record.get("has_foreign_participant")) is True
+        for record in records
+    )
+
+    if "INCLUDE" in decisions and "EXCLUDE" in decisions:
+        return {
+            "ownership_decision": "REVIEW",
+            "ownership_class": "CONFLICTING_EVIDENCE",
+            "ownership_confidence": "LOW",
+            "ownership_reason": f"Conflicting INCLUDE and EXCLUDE ownership evidence. {reasons}",
+            "ownership_evidence": evidence,
+            "lead_country": lead_country,
+            "corresponding_author_countries": corresponding,
+            "has_sri_lankan_participant": has_lk,
+            "has_foreign_participant": has_foreign,
+            "needs_manual_review": True,
+            "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
+        }
+
+    if "INCLUDE" in decisions:
+        include_rows = [
+            record
+            for record in records
+            if normalize_ownership_decision(record.get("ownership_decision")) == "INCLUDE"
+        ]
+        confidence = strongest_confidence_values(
+            [record.get("ownership_confidence") for record in include_rows]
+        )
+        return {
+            "ownership_decision": "INCLUDE",
+            "ownership_class": first_nonblank(
+                unique_text([record.get("ownership_class") for record in include_rows]),
+                classes,
+            ),
+            "ownership_confidence": confidence,
+            "ownership_reason": reasons,
+            "ownership_evidence": evidence,
+            "lead_country": first_nonblank(
+                unique_text([record.get("lead_country") for record in include_rows]),
+                lead_country,
+            ),
+            "corresponding_author_countries": corresponding,
+            "has_sri_lankan_participant": True,
+            "has_foreign_participant": has_foreign,
+            "needs_manual_review": False,
+            "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
+        }
+
+    if "EXCLUDE" in decisions:
+        exclude_rows = [
+            record
+            for record in records
+            if normalize_ownership_decision(record.get("ownership_decision")) == "EXCLUDE"
+        ]
+        return {
+            "ownership_decision": "EXCLUDE",
+            "ownership_class": first_nonblank(
+                unique_text([record.get("ownership_class") for record in exclude_rows]),
+                classes,
+            ),
+            "ownership_confidence": strongest_confidence_values(
+                [record.get("ownership_confidence") for record in exclude_rows]
+            ),
+            "ownership_reason": reasons,
+            "ownership_evidence": evidence,
+            "lead_country": first_nonblank(
+                unique_text([record.get("lead_country") for record in exclude_rows]),
+                lead_country,
+            ),
+            "corresponding_author_countries": corresponding,
+            "has_sri_lankan_participant": has_lk,
+            "has_foreign_participant": has_foreign,
+            "needs_manual_review": False,
+            "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
+        }
+
+    return {
+        "ownership_decision": "REVIEW",
+        "ownership_class": first_nonblank(classes, "MISSING_LEADERSHIP_EVIDENCE"),
+        "ownership_confidence": "LOW",
+        "ownership_reason": first_nonblank(reasons, "Ownership evidence is missing or insufficient."),
+        "ownership_evidence": evidence,
+        "lead_country": lead_country,
+        "corresponding_author_countries": corresponding,
+        "has_sri_lankan_participant": has_lk,
+        "has_foreign_participant": has_foreign,
+        "needs_manual_review": True,
+        "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
+    }
+
+
+def strongest_confidence(values: pd.Series) -> str:
+    return strongest_confidence_values(values.tolist())
+
+
+def strongest_confidence_values(values: list[Any]) -> str:
+    confidences = [
+        str(value).strip().upper()
+        for value in values
+        if str(value).strip().upper() in OWNERSHIP_CONFIDENCE_ORDER
+    ]
+    if not confidences:
+        return "LOW"
+    return max(confidences, key=lambda value: OWNERSHIP_CONFIDENCE_ORDER[value])
 
 
 def unique_series_text(values: pd.Series) -> Any:
@@ -1642,6 +1976,184 @@ def deduplicate_publications(
         return deduplicated, merge_log
 
     return deduplicated
+
+
+def raise_csv_field_limit() -> None:
+    limit = sys.maxsize
+    while True:
+        try:
+            csv.field_size_limit(limit)
+            return
+        except OverflowError:
+            limit //= 10
+
+
+def clean_csv_value(value: Any) -> str:
+    return "" if is_blank(value) else str(value)
+
+
+def common_row_completeness(row: dict[str, Any]) -> int:
+    ignored = {
+        "source_dataset",
+        "source_record_id",
+        "source_datestamp",
+        "raw_source_json",
+    }
+    return sum(
+        not is_blank(value)
+        for column, value in row.items()
+        if column in COMMON_COLUMNS and column not in ignored
+    )
+
+
+def common_record_merge_key(row: dict[str, Any], row_number: int) -> str:
+    doi = normalize_doi(row.get("doi"))
+    if not is_blank(doi):
+        return f"doi:{doi}"
+
+    source_dataset = row.get("source_dataset")
+    source_record_id = row.get("source_record_id")
+    if not is_blank(source_dataset) and not is_blank(source_record_id):
+        return f"source_record:{source_dataset}|{source_record_id}"
+
+    return f"row:{row_number}"
+
+
+def common_field_source_priority(column: str, source_dataset: str) -> int:
+    source_order = DEFAULT_FIELD_SOURCE_POLICY.get(column)
+    if source_order is None:
+        return 0
+    try:
+        return source_order.index(source_dataset)
+    except ValueError:
+        return len(source_order) + 99
+
+
+def split_streaming_multi_value(value: Any) -> list[str]:
+    if is_blank(value):
+        return []
+    return [
+        item.strip()
+        for item in str(value).split(";")
+        if item.strip() and not is_blank(item.strip())
+    ]
+
+
+def streaming_merge_group(first_row_number: int) -> dict[str, Any]:
+    return {
+        "first_row_number": first_row_number,
+        "group_size": 0,
+        "scalar": {},
+        "multi": {column: [] for column in MULTI_VALUE_COLUMNS},
+        "ownership_rows": [],
+    }
+
+
+def deduplicate_publications_streaming(
+    *,
+    input_csv: Path,
+    output_csv: Path,
+    summary_csv: Path,
+) -> dict[str, int]:
+    """Deduplicate common CSV rows without building a large merge log."""
+    raise_csv_field_limit()
+    groups: dict[str, dict[str, Any]] = {}
+    output_order: list[str] = []
+    input_rows = 0
+
+    with input_csv.open(newline="", encoding="utf-8") as input_file:
+        reader = csv.DictReader(input_file)
+        for row in reader:
+            input_rows += 1
+            common_row = {column: row.get(column, "") for column in COMMON_COLUMNS}
+            merge_key = common_record_merge_key(common_row, input_rows)
+            group = groups.get(merge_key)
+            if group is None:
+                group = streaming_merge_group(input_rows)
+                groups[merge_key] = group
+                output_order.append(merge_key)
+
+            group["group_size"] += 1
+            source_dataset = str(common_row.get("source_dataset") or "")
+            group["ownership_rows"].append(
+                {
+                    column: common_row.get(column, "")
+                    for column in (
+                        "ownership_decision",
+                        "ownership_class",
+                        "ownership_confidence",
+                        "ownership_reason",
+                        "ownership_evidence",
+                        "lead_country",
+                        "corresponding_author_countries",
+                        "has_sri_lankan_participant",
+                        "has_foreign_participant",
+                        "needs_manual_review",
+                        "ownership_policy_version",
+                    )
+                }
+            )
+
+            for column in COMMON_COLUMNS:
+                value = common_row.get(column)
+                if is_blank(value):
+                    continue
+                rank = (
+                    common_field_source_priority(column, source_dataset),
+                    input_rows,
+                )
+                if column in MULTI_VALUE_COLUMNS:
+                    for item in split_streaming_multi_value(value):
+                        if not is_blank(item):
+                            group["multi"][column].append((rank, item))
+                    continue
+                current = group["scalar"].get(column)
+                if current is None or rank < current[0]:
+                    group["scalar"][column] = (rank, value)
+
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    with output_csv.open("w", newline="", encoding="utf-8") as output_file:
+        writer = csv.DictWriter(output_file, fieldnames=COMMON_COLUMNS)
+        writer.writeheader()
+        for merge_key in output_order:
+            group = groups[merge_key]
+            output_row: dict[str, str] = {}
+            for column in COMMON_COLUMNS:
+                if column in MULTI_VALUE_COLUMNS:
+                    seen: set[str] = set()
+                    values: list[str] = []
+                    for _, item in sorted(group["multi"][column], key=lambda pair: pair[0]):
+                        if item in seen:
+                            continue
+                        seen.add(item)
+                        values.append(item)
+                    output_row[column] = "; ".join(values)
+                    continue
+                output_row[column] = clean_csv_value(group["scalar"].get(column, (None, ""))[1])
+
+            ownership = resolve_merged_ownership_records(group["ownership_rows"])
+            for column, value in ownership.items():
+                if column in output_row:
+                    output_row[column] = clean_csv_value(value)
+            writer.writerow(output_row)
+
+    merged_groups = sum(1 for group in groups.values() if group["group_size"] > 1)
+    summary_csv.parent.mkdir(parents=True, exist_ok=True)
+    with summary_csv.open("w", newline="", encoding="utf-8") as summary_file:
+        writer = csv.DictWriter(summary_file, fieldnames=["metric", "value"])
+        writer.writeheader()
+        writer.writerow({"metric": "input_csv", "value": str(input_csv)})
+        writer.writerow({"metric": "output_csv", "value": str(output_csv)})
+        writer.writerow({"metric": "input_rows", "value": input_rows})
+        writer.writerow({"metric": "output_rows", "value": len(output_order)})
+        writer.writerow({"metric": "merged_groups", "value": merged_groups})
+        writer.writerow({"metric": "method", "value": "streaming_doi_source_record_merge"})
+
+    return {
+        "input_rows": input_rows,
+        "output_rows": len(output_order),
+        "merged_groups": merged_groups,
+    }
 
 
 def file_candidate_names(filenames: str | tuple[str, ...] | list[str]) -> tuple[str, ...]:

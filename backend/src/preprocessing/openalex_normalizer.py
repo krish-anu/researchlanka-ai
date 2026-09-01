@@ -5,6 +5,10 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
+from src.preprocessing.ownership import (
+    OWNERSHIP_POLICY_VERSION,
+    openalex_publication_ownership,
+)
 from src.utils.doi import normalize_doi
 
 
@@ -48,14 +52,18 @@ CSV_COLUMNS = [
     "has_sri_lankan_participant",
     "has_foreign_participant",
     "venue_is_sri_lankan",
+    "ownership_decision",
     "country_owner",
     "ownership_class",
     "ownership_classification",
     "ownership_confidence",
     "ownership_reason",
+    "ownership_evidence",
+    "lead_country",
     "keep_in_strict_sri_lanka_dataset",
     "keep_in_sri_lanka_owned_dataset",
     "needs_manual_review",
+    "ownership_policy_version",
     "source_name",
     "publisher",
     "is_retracted",
@@ -349,7 +357,7 @@ def country_codes(work: dict[str, Any]) -> str:
 def country_owner(work: dict[str, Any]) -> str:
     """Return the best available country leadership proxy for OpenAlex data."""
     classification = classify_sri_lanka_ownership(work)
-    return classification["country_owner"]
+    return classification["lead_country"]
 
 
 def ownership_classification(work: dict[str, Any]) -> str:
@@ -379,131 +387,12 @@ def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[
     host fields in the records handled here, so journal-article classification
     uses publication-specific affiliations only and leaves weak cases for review.
     """
-    target_country = country_code.upper()
-    all_codes = detected_country_codes(work)
-    first_codes = first_author_country_codes(work)
-    corresponding_codes = corresponding_author_country_codes(work)
-    has_target = target_country in all_codes
-    has_foreign = bool(all_codes - {target_country})
-
-    result: dict[str, Any] = {
-        "country_owner": "",
-        "ownership_class": "REVIEW_REQUIRED",
-        "ownership_confidence": "LOW",
-        "ownership_reason": (
-            "OpenAlex metadata does not identify enough publication-specific "
-            "affiliation evidence to determine research ownership."
-        ),
-        "keep_in_strict_dataset": False,
-        "needs_manual_review": True,
-    }
-
-    if not has_target:
-        result.update(
-            {
-                "country_owner": unique_join(sorted(all_codes)),
-                "ownership_class": "NON_SL",
-                "ownership_confidence": "HIGH" if all_codes else "LOW",
-                "ownership_reason": (
-                    f"No {target_country} publication-specific author affiliation "
-                    "is present in OpenAlex structured metadata."
-                ),
-                "needs_manual_review": False,
-            }
-        )
-        return result
-
-    if corresponding_codes:
-        result["country_owner"] = unique_join(sorted(corresponding_codes))
-        if target_country in corresponding_codes:
-            if corresponding_codes - {target_country}:
-                ownership_class = "SL_FOREIGN_COLED"
-                reason = (
-                    f"{target_country} and foreign corresponding-author affiliations "
-                    "indicate genuine joint leadership."
-                )
-            elif has_foreign:
-                ownership_class = "SL_OWNED_INTERNATIONAL"
-                reason = (
-                    f"{target_country} corresponding-author affiliation indicates "
-                    "country leadership; foreign authors are collaborators."
-                )
-            else:
-                ownership_class = "SL_DOMESTIC"
-                reason = (
-                    f"{target_country} corresponding-author affiliation and no "
-                    "foreign affiliation indicate domestic leadership."
-                )
-            result.update(
-                {
-                    "ownership_class": ownership_class,
-                    "ownership_confidence": "MEDIUM",
-                    "ownership_reason": reason,
-                    "keep_in_strict_dataset": ownership_class
-                    in {"SL_DOMESTIC", "SL_OWNED_INTERNATIONAL"},
-                    "needs_manual_review": ownership_class == "SL_FOREIGN_COLED",
-                }
-            )
-            return result
-
-        result.update(
-            {
-                "ownership_class": "FOREIGN_PROJECT_WITH_SL_PARTICIPATION",
-                "ownership_confidence": "MEDIUM",
-                "ownership_reason": (
-                    "Foreign corresponding-author affiliation indicates foreign "
-                    f"leadership; {target_country} affiliation appears as "
-                    "participant evidence only."
-                ),
-                "needs_manual_review": False,
-            }
-        )
-        return result
-
-    if first_codes:
-        result["country_owner"] = unique_join(sorted(first_codes))
-        if target_country in first_codes:
-            ownership_class = "SL_OWNED_INTERNATIONAL" if has_foreign else "SL_DOMESTIC"
-            result.update(
-                {
-                    "ownership_class": ownership_class,
-                    "ownership_confidence": "LOW",
-                    "ownership_reason": (
-                        f"{target_country} first-author affiliation is the strongest "
-                        "available OpenAlex leadership proxy; no corresponding-author "
-                        "or project-owner metadata is available."
-                    ),
-                    "keep_in_strict_dataset": True,
-                    "needs_manual_review": False,
-                }
-            )
-            return result
-
-        result.update(
-            {
-                "ownership_class": "FOREIGN_PROJECT_WITH_SL_PARTICIPATION",
-                "ownership_confidence": "LOW",
-                "ownership_reason": (
-                    "Foreign first-author affiliation is the strongest available "
-                    f"OpenAlex leadership proxy; {target_country} affiliation appears "
-                    "as participant evidence only."
-                ),
-                "needs_manual_review": False,
-            }
-        )
-        return result
-
-    result.update(
-        {
-            "country_owner": unique_join(sorted(all_codes)),
-            "ownership_reason": (
-                f"{target_country} participation is present, but OpenAlex has no "
-                "corresponding-author or first-author affiliation evidence to "
-                "identify leadership."
-            ),
-        }
-    )
-    return result
+    return openalex_publication_ownership(
+        target_country=country_code,
+        all_countries=detected_country_codes(work),
+        first_author_countries=first_author_country_codes(work),
+        corresponding_author_countries=corresponding_author_country_codes(work),
+    ).as_dict()
 
 
 def detected_country_codes(work: dict[str, Any]) -> set[str]:
@@ -680,14 +569,18 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
             detected_country_codes(work) - {SRI_LANKA_COUNTRY_CODE}
         ),
         "venue_is_sri_lankan": "",
+        "ownership_decision": ownership["ownership_decision"],
         "country_owner": ownership["country_owner"],
         "ownership_class": ownership["ownership_class"],
         "ownership_classification": ownership["ownership_class"],
         "ownership_confidence": ownership["ownership_confidence"],
         "ownership_reason": ownership["ownership_reason"],
+        "ownership_evidence": ownership["ownership_evidence"],
+        "lead_country": ownership["lead_country"],
         "keep_in_strict_sri_lanka_dataset": ownership["keep_in_strict_dataset"],
         "keep_in_sri_lanka_owned_dataset": ownership["keep_in_strict_dataset"],
         "needs_manual_review": ownership["needs_manual_review"],
+        "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
         "source_name": source.get("display_name"),
         "publisher": source.get("host_organization_name"),
         "is_retracted": work.get("is_retracted") is True,

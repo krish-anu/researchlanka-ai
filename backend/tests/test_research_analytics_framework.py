@@ -595,7 +595,8 @@ def test_sri_lanka_project_country_is_supplied_by_config_not_pipeline_code(tmp_p
     assert config.project.country_name == "Sri Lanka"
     assert config.institution_registry.path == "configurations/sri_lanka/institutions.csv"
     assert config.input.path == "data/processed/repositories_combined.csv"
-    assert config.sources["openalex"]["options"]["strict_country_only"] is True
+    assert config.sources["openalex"]["options"]["strict_country_only"] is False
+    assert config.ownership_policy["mode"] == "sri_lanka_led"
 
 
 def test_sri_lanka_source_config_shape_can_select_first_enabled_source():
@@ -1142,4 +1143,5 @@ def test_openalex_adapter_can_restrict_collection_to_configured_country_only():
     assert [record["id"] for record in broad_adapter.collect()] == [
         "https://openalex.org/W-LK",
         "https://openalex.org/W-MIXED",
+        "https://openalex.org/W-FOREIGN-LED",
     ]

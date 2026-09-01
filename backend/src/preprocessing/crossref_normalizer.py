@@ -18,6 +18,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from src.preprocessing.ownership import (
+    CONFIDENCE_LOW,
+    CONFIDENCE_MEDIUM,
+    DECISION_EXCLUDE,
+    DECISION_INCLUDE,
+    DECISION_REVIEW,
+    OWNERSHIP_POLICY_VERSION,
+    OwnershipDecision,
+)
 
 CROSSREF_FIELDS = [
     "reference-count",
@@ -59,6 +68,22 @@ CROSSREF_FIELDS = [
 
 SRI_LANKA_COUNTRY_CODE = "LK"
 SRI_LANKA_COUNTRY_NAMES = ("sri lanka", "srilanka", "ceylon")
+FOREIGN_COUNTRY_NAMES = {
+    "australia": "AU",
+    "canada": "CA",
+    "china": "CN",
+    "france": "FR",
+    "germany": "DE",
+    "india": "IN",
+    "japan": "JP",
+    "malaysia": "MY",
+    "singapore": "SG",
+    "united kingdom": "GB",
+    "uk": "GB",
+    "england": "GB",
+    "united states": "US",
+    "usa": "US",
+}
 
 
 def get_nested(value: dict[str, Any], dotted_key: str) -> Any:
@@ -86,7 +111,7 @@ def reduce_work(work: dict[str, Any]) -> dict[str, Any]:
                 else ""
             ),
             "has_sri_lankan_participant": has_sri_lankan_affiliated_author(work),
-            "keep_in_strict_sri_lanka_dataset": first_author_is_from_sri_lanka(work),
+            **classify_sri_lanka_ownership(work),
         }
     )
     return reduced
@@ -152,15 +177,170 @@ def has_sri_lankan_affiliated_author(work: dict[str, Any]) -> bool:
     return False
 
 
+def corresponding_author_records(work: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return explicit Crossref corresponding/project-lead records if present.
+
+    Crossref does not consistently expose corresponding authors. This accepts
+    only explicit flags/roles present in harvested or enriched payloads.
+    """
+    authors = work.get("author")
+    if not isinstance(authors, list):
+        return []
+    records: list[dict[str, Any]] = []
+    for author in authors:
+        if not isinstance(author, dict):
+            continue
+        role = str(author.get("role") or author.get("contributor_role") or "").casefold()
+        if (
+            author.get("is_corresponding") is True
+            or author.get("corresponding") is True
+            or role in {"corresponding", "corresponding_author", "project_lead", "lead"}
+        ):
+            records.append(author)
+    return records
+
+
+def author_country_codes(author: dict[str, Any] | None) -> set[str]:
+    countries: set[str] = set()
+    for affiliation in author_affiliation_names(author):
+        countries.update(affiliation_country_codes(affiliation))
+    return countries
+
+
+def all_author_country_codes(work: dict[str, Any]) -> set[str]:
+    countries: set[str] = set()
+    authors = work.get("author")
+    if not isinstance(authors, list):
+        return countries
+    for author in authors:
+        if isinstance(author, dict):
+            countries.update(author_country_codes(author))
+    return countries
+
+
+def classify_sri_lanka_ownership(work: dict[str, Any]) -> dict[str, Any]:
+    """Classify Crossref ownership without treating first author as proof."""
+    all_codes = all_author_country_codes(work)
+    first_codes = author_country_codes(first_author_record(work))
+    corresponding_codes: set[str] = set()
+    for author in corresponding_author_records(work):
+        corresponding_codes.update(author_country_codes(author))
+
+    has_lk = SRI_LANKA_COUNTRY_CODE in all_codes
+    has_foreign = bool(all_codes - {SRI_LANKA_COUNTRY_CODE})
+    corresponding = tuple(sorted(corresponding_codes))
+
+    if corresponding_codes:
+        if corresponding_codes == {SRI_LANKA_COUNTRY_CODE}:
+            return OwnershipDecision(
+                decision=DECISION_INCLUDE,
+                ownership_class="SL_OWNED_INTERNATIONAL" if has_foreign else "SL_DOMESTIC",
+                confidence=CONFIDENCE_MEDIUM,
+                reason="Verified Sri Lankan corresponding/project-lead affiliation.",
+                evidence="crossref:explicit_corresponding_or_project_lead_affiliation",
+                lead_country=SRI_LANKA_COUNTRY_CODE,
+                corresponding_author_countries=corresponding,
+                has_sri_lankan_participant=True,
+                has_foreign_participant=has_foreign,
+                needs_manual_review=False,
+            ).as_dict()
+        if SRI_LANKA_COUNTRY_CODE in corresponding_codes:
+            return OwnershipDecision(
+                decision=DECISION_REVIEW,
+                ownership_class="CONFLICTING_CORRESPONDING_LEADERSHIP",
+                confidence=CONFIDENCE_LOW,
+                reason="Sri Lankan and foreign Crossref leadership signals conflict.",
+                evidence="crossref:explicit_corresponding_or_project_lead_affiliation",
+                lead_country="; ".join(sorted(corresponding_codes)),
+                corresponding_author_countries=corresponding,
+                has_sri_lankan_participant=has_lk,
+                has_foreign_participant=has_foreign,
+                needs_manual_review=True,
+            ).as_dict()
+        if has_lk:
+            return OwnershipDecision(
+                decision=DECISION_EXCLUDE,
+                ownership_class="FOREIGN_PROJECT_WITH_SL_PARTICIPATION",
+                confidence=CONFIDENCE_MEDIUM,
+                reason="Verified foreign corresponding/project-lead affiliation with LK participation only.",
+                evidence="crossref:explicit_corresponding_or_project_lead_affiliation",
+                lead_country="; ".join(sorted(corresponding_codes)),
+                corresponding_author_countries=corresponding,
+                has_sri_lankan_participant=True,
+                has_foreign_participant=has_foreign,
+                needs_manual_review=False,
+            ).as_dict()
+
+    if not has_lk:
+        return OwnershipDecision(
+            decision=DECISION_EXCLUDE,
+            ownership_class="NO_LK_SIGNAL",
+            confidence=CONFIDENCE_LOW,
+            reason="No Sri Lankan affiliation signal is present in Crossref metadata.",
+            evidence="crossref:author_affiliations",
+            lead_country="; ".join(sorted(all_codes)),
+            has_sri_lankan_participant=False,
+            has_foreign_participant=has_foreign,
+            needs_manual_review=False,
+        ).as_dict()
+
+    if SRI_LANKA_COUNTRY_CODE in first_codes:
+        return OwnershipDecision(
+            decision=DECISION_REVIEW,
+            ownership_class="FIRST_AUTHOR_ONLY_LK_EVIDENCE",
+            confidence=CONFIDENCE_LOW,
+            reason="Crossref first-author Sri Lankan affiliation is candidate evidence, not ownership proof.",
+            evidence="crossref:first_author_affiliation",
+            lead_country="; ".join(sorted(first_codes)),
+            has_sri_lankan_participant=True,
+            has_foreign_participant=has_foreign,
+            needs_manual_review=True,
+        ).as_dict()
+
+    return OwnershipDecision(
+        decision=DECISION_REVIEW,
+        ownership_class="MISSING_LEADERSHIP_EVIDENCE",
+        confidence=CONFIDENCE_LOW,
+        reason="Sri Lankan participant exists, but Crossref has no reliable leadership evidence.",
+        evidence="crossref:participant_affiliation_without_leadership",
+        lead_country="; ".join(sorted(all_codes)),
+        has_sri_lankan_participant=True,
+        has_foreign_participant=has_foreign,
+        needs_manual_review=True,
+    ).as_dict()
+
+
 def affiliation_is_sri_lankan(value: Any) -> bool:
     """Resolve an affiliation string to Sri Lanka using country or registry evidence."""
     text = str(value or "").strip()
     if not text:
         return False
     normalized = _normalize_affiliation_key(text)
-    if any(country_name in normalized for country_name in SRI_LANKA_COUNTRY_NAMES):
+    if any(_contains_normalized_phrase(normalized, country_name) for country_name in SRI_LANKA_COUNTRY_NAMES):
         return True
-    return any(alias in normalized for alias in _sri_lankan_institution_alias_keys())
+    return any(_contains_normalized_phrase(normalized, alias) for alias in _sri_lankan_institution_alias_keys())
+
+
+def affiliation_country_codes(value: Any) -> set[str]:
+    normalized = _normalize_affiliation_key(str(value or ""))
+    if not normalized:
+        return set()
+    countries: set[str] = set()
+    if any(_contains_normalized_phrase(normalized, name) for name in SRI_LANKA_COUNTRY_NAMES):
+        countries.add(SRI_LANKA_COUNTRY_CODE)
+    for name, code in FOREIGN_COUNTRY_NAMES.items():
+        if _contains_normalized_phrase(normalized, name):
+            countries.add(code)
+    if any(_contains_normalized_phrase(normalized, alias) for alias in _sri_lankan_institution_alias_keys()):
+        countries.add(SRI_LANKA_COUNTRY_CODE)
+    return countries
+
+
+def _contains_normalized_phrase(normalized_text: str, normalized_phrase: str) -> bool:
+    phrase = _normalize_affiliation_key(normalized_phrase)
+    if not phrase:
+        return False
+    return re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", normalized_text) is not None
 
 
 def _normalize_affiliation_key(value: str) -> str:

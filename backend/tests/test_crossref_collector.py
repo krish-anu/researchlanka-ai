@@ -100,7 +100,8 @@ def test_iter_works_can_require_first_author_lk(monkeypatch):
     )
 
     assert [work["DOI"] for work in works] == ["10.1234/lk-first"]
-    assert works[0]["keep_in_strict_sri_lanka_dataset"] is True
+    assert works[0]["ownership_decision"] == "REVIEW"
+    assert works[0]["keep_in_strict_sri_lanka_dataset"] is False
 
 
 def test_crossref_publication_year_range_requires_2016_or_later():
