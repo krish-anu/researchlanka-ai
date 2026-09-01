@@ -246,7 +246,7 @@ class OpenAlexCollector:
                 ):
                     skipped_count += 1
                     continue
-                if not keep_in_sri_lanka_owned_dataset(work):
+                if not has_sri_lankan_author(work):
                     skipped_count += 1
                     continue
                 work_id = openalex_work_id(work)
