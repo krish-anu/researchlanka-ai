@@ -1,12 +1,14 @@
 """Shared constants for the ResearchLanka API."""
 
+from datetime import date
+
 DEFAULT_PAGE_SIZE = 25
 MAX_PAGE_SIZE = 100
 DATASET_STAGE = "final_publications"
 API_VERSION = "v1"
 API_PREFIX = "/api/v1"
 PUBLICATION_COVERAGE_START_YEAR = 2016
-PUBLICATION_COVERAGE_END_YEAR = 2026
+PUBLICATION_COVERAGE_END_YEAR = date.today().year
 
 LIST_FILTERS = {
     "q",

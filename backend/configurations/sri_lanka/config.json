@@ -5,7 +5,7 @@
   },
   "coverage": {
     "start_year": 2016,
-    "end_year": 2026
+    "end_year": null
   },
   "project": {
     "name": "Sri Lankan Research Analytics",
@@ -29,7 +29,7 @@
   },
   "collection": {
     "start_year": 2016,
-    "end_year": 2026,
+    "end_year": null,
     "batch_size": 200,
     "retry_limit": 3,
     "request_delay_seconds": 1
@@ -123,7 +123,7 @@
     "normalize_institutions": true,
     "valid_year": {
       "minimum": 1950,
-      "maximum": 2026
+      "maximum": null
     },
     "required_fields": ["title"],
     "optional_fields": ["doi", "abstract", "keywords"]

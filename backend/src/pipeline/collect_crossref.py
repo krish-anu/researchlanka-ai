@@ -17,6 +17,7 @@ import json
 import logging
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 PROJECT_ROOT = next(
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "crossref"
 DEFAULT_FROM_YEAR = 2016
-DEFAULT_UNTIL_YEAR = 2026
+DEFAULT_UNTIL_YEAR = date.today().year
 DEFAULT_AFFILIATION_QUERIES = ("sri lanka", "lanka", "ceylon")
 DEFAULT_OUTPUT_PATH = DEFAULT_OUTPUT_DIR / dataset_filename(
     "crossref",
@@ -198,9 +199,11 @@ def collect_crossref(
 
     total = 0
     seen_dois = set()
+    from_year = max(args.from_year, DEFAULT_FROM_YEAR)
+    until_year = min(args.until_year, DEFAULT_UNTIL_YEAR)
     date_filters = [
-        f"from-pub-date:{args.from_year}-01-01",
-        f"until-pub-date:{args.until_year}-12-31",
+        f"from-pub-date:{from_year}-01-01",
+        f"until-pub-date:{until_year}-12-31",
     ]
 
     with args.output.open("w", encoding="utf-8") as output_file:
@@ -220,6 +223,8 @@ def collect_crossref(
                 rows=args.rows,
                 max_records=remaining,
                 require_first_author_lk=not args.include_all_authorships,
+                start_year=from_year,
+                end_year=until_year,
             ):
                 doi = work.get("DOI")
 

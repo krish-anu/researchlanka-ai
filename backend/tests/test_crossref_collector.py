@@ -3,6 +3,7 @@ from src.collectors.crossref_collector import (
     CrossrefPrefixCollector,
     CrossrefRepeatedCursorError,
     create_session,
+    is_crossref_work_in_publication_year_range,
 )
 
 def test_create_session():
@@ -49,6 +50,7 @@ def test_iter_works_can_require_first_author_lk(monkeypatch):
                     "DOI": "10.1234/lk-first",
                     "type": "journal-article",
                     "title": ["LK first"],
+                    "issued": {"date-parts": [[2024]]},
                     "author": [
                         {
                             "given": "A.",
@@ -61,6 +63,7 @@ def test_iter_works_can_require_first_author_lk(monkeypatch):
                     "DOI": "10.1234/lk-later",
                     "type": "journal-article",
                     "title": ["LK later"],
+                    "issued": {"date-parts": [[2024]]},
                     "author": [
                         {
                             "given": "Foreign",
@@ -91,6 +94,18 @@ def test_iter_works_can_require_first_author_lk(monkeypatch):
 
     assert [work["DOI"] for work in works] == ["10.1234/lk-first"]
     assert works[0]["keep_in_strict_sri_lanka_dataset"] is True
+
+
+def test_crossref_publication_year_range_requires_2016_or_later():
+    old_work = {"issued": {"date-parts": [[2015]]}}
+    start_work = {"issued": {"date-parts": [[2016]]}}
+    current_work = {"published": {"date-parts": [[2024, 4, 5]]}}
+    missing_year_work = {"DOI": "10.4038/no-year"}
+
+    assert is_crossref_work_in_publication_year_range(old_work) is False
+    assert is_crossref_work_in_publication_year_range(start_work) is True
+    assert is_crossref_work_in_publication_year_range(current_work) is True
+    assert is_crossref_work_in_publication_year_range(missing_year_work) is False
 
 
 def test_prefix_total_works_sends_prefix_query():
@@ -125,13 +140,18 @@ def test_prefix_iter_works_honors_max_records_across_pages():
     pages = [
         {
             "message": {
-                "items": [{"DOI": "10.4038/one"}, {"DOI": "10.4038/two"}],
+                "items": [
+                    {"DOI": "10.4038/one", "issued": {"date-parts": [[2024]]}},
+                    {"DOI": "10.4038/two", "issued": {"date-parts": [[2024]]}},
+                ],
                 "next-cursor": "next",
             }
         },
         {
             "message": {
-                "items": [{"DOI": "10.4038/three"}],
+                "items": [
+                    {"DOI": "10.4038/three", "issued": {"date-parts": [[2024]]}},
+                ],
                 "next-cursor": None,
             }
         },
@@ -172,7 +192,7 @@ def test_prefix_iter_works_honors_max_records_across_pages():
 def test_prefix_iter_works_stops_on_repeated_cursor():
     page = {
         "message": {
-            "items": [{"DOI": "10.4038/one"}],
+            "items": [{"DOI": "10.4038/one", "issued": {"date-parts": [[2024]]}}],
             "next-cursor": "*",
         }
     }
@@ -191,13 +211,15 @@ def test_prefix_iter_works_stops_on_repeated_cursor():
     collector = CrossrefPrefixCollector(prefix="10.4038", delay=0)
     collector.session = FakeSession()
 
-    assert list(collector.iter_works()) == [{"DOI": "10.4038/one"}]
+    assert list(collector.iter_works()) == [
+        {"DOI": "10.4038/one", "issued": {"date-parts": [[2024]]}}
+    ]
 
 
 def test_prefix_iter_works_can_raise_on_repeated_cursor():
     page = {
         "message": {
-            "items": [{"DOI": "10.4038/one"}],
+            "items": [{"DOI": "10.4038/one", "issued": {"date-parts": [[2024]]}}],
             "next-cursor": "*",
         }
     }
@@ -217,7 +239,10 @@ def test_prefix_iter_works_can_raise_on_repeated_cursor():
     collector.session = FakeSession()
     works = collector.iter_works(repeated_cursor_policy="raise")
 
-    assert next(works) == {"DOI": "10.4038/one"}
+    assert next(works) == {
+        "DOI": "10.4038/one",
+        "issued": {"date-parts": [[2024]]},
+    }
     try:
         next(works)
     except CrossrefRepeatedCursorError:
@@ -247,7 +272,9 @@ def test_prefix_iter_works_by_publication_date_splits_repeated_cursor():
                 return FakeResponse(
                     {
                         "message": {
-                            "items": [{"DOI": "10.4038/one"}],
+                            "items": [
+                                {"DOI": "10.4038/one", "issued": {"date-parts": [[2020]]}},
+                            ],
                             "next-cursor": "*",
                         }
                     }
@@ -256,7 +283,9 @@ def test_prefix_iter_works_by_publication_date_splits_repeated_cursor():
                 return FakeResponse(
                     {
                         "message": {
-                            "items": [{"DOI": "10.4038/one"}],
+                            "items": [
+                                {"DOI": "10.4038/one", "issued": {"date-parts": [[2020]]}},
+                            ],
                             "next-cursor": None,
                         }
                     }
@@ -265,7 +294,9 @@ def test_prefix_iter_works_by_publication_date_splits_repeated_cursor():
                 return FakeResponse(
                     {
                         "message": {
-                            "items": [{"DOI": "10.4038/two"}],
+                            "items": [
+                                {"DOI": "10.4038/two", "issued": {"date-parts": [[2020]]}},
+                            ],
                             "next-cursor": None,
                         }
                     }
