@@ -17,6 +17,8 @@ import pytest
 from src.pipeline import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
 
+DEFAULT_OPENALEX_YEAR_FILTER = f"publication_year:2016-{openalex.DEFAULT_TO_YEAR}"
+
 
 def sample_work(country_code: str = "LK") -> dict:
     """Create a minimal OpenAlex-like work record for collector tests."""
@@ -174,8 +176,9 @@ def test_first_author_filter_ignores_lk_in_unstructured_urls_and_text():
     assert row["first_author_countries"] == "GB"
     assert row["corresponding_author_countries"] == "GB"
     assert row["country_owner"] == "GB"
-    assert row["ownership_class"] == "NON_SL"
-    assert row["ownership_classification"] == "NON_SL"
+    assert row["ownership_decision"] == "EXCLUDE"
+    assert row["ownership_class"] == "NO_LK_PUBLICATION_AFFILIATION"
+    assert row["ownership_classification"] == "NO_LK_PUBLICATION_AFFILIATION"
     assert row["ownership_confidence"] == "HIGH"
     assert row["keep_in_sri_lanka_owned_dataset"] is False
     assert row["keep_in_strict_sri_lanka_dataset"] is False
@@ -200,6 +203,7 @@ def test_corresponding_author_is_preferred_over_first_author_for_ownership():
     assert row["first_author_country"] == "GB"
     assert row["corresponding_author_country"] == "LK"
     assert row["country_owner"] == "LK"
+    assert row["ownership_decision"] == "INCLUDE"
     assert row["ownership_class"] == "SL_OWNED_INTERNATIONAL"
     assert row["ownership_confidence"] == "MEDIUM"
     assert row["keep_in_sri_lanka_owned_dataset"] is True
@@ -222,7 +226,37 @@ def test_sri_lankan_participant_only_is_excluded_when_foreign_corresponding():
 
     row = openalex.work_to_row(work)
     assert row["has_sri_lankan_participant"] is True
+    assert row["ownership_decision"] == "EXCLUDE"
     assert row["ownership_class"] == "FOREIGN_PROJECT_WITH_SL_PARTICIPATION"
+    assert row["keep_in_strict_sri_lanka_dataset"] is False
+
+
+def test_conflicting_corresponding_author_countries_require_review():
+    work = sample_work("LK")
+    work["authorships"][0]["is_corresponding"] = True
+    work["authorships"][1]["is_corresponding"] = True
+
+    row = openalex.work_to_row(work)
+
+    assert row["corresponding_author_countries"] == "LK; US"
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "CONFLICTING_CORRESPONDING_LEADERSHIP"
+    assert row["needs_manual_review"] is True
+    assert row["keep_in_strict_sri_lanka_dataset"] is False
+
+
+def test_first_author_dual_affiliation_requires_review():
+    work = sample_work("LK")
+    work["authorships"][0]["countries"] = ["LK", "GB"]
+    work["authorships"][0]["institutions"].append(
+        {"display_name": "University of Oxford", "country_code": "GB"}
+    )
+
+    row = openalex.work_to_row(work)
+
+    assert row["first_author_country"] == "GB; LK"
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "FIRST_AUTHOR_ONLY_LK_EVIDENCE"
     assert row["keep_in_strict_sri_lanka_dataset"] is False
 
 
@@ -245,7 +279,8 @@ def test_missing_leadership_evidence_with_lk_participant_needs_review():
 
     row = openalex.work_to_row(work)
 
-    assert row["ownership_class"] == "REVIEW_REQUIRED"
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "MISSING_LEADERSHIP_EVIDENCE"
     assert row["needs_manual_review"] is True
     assert row["keep_in_sri_lanka_owned_dataset"] is False
 
@@ -366,11 +401,13 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["all_author_countries"] == "LK; US"
     assert row["has_sri_lankan_participant"] is True
     assert row["has_foreign_participant"] is True
-    assert row["ownership_class"] == "SL_OWNED_INTERNATIONAL"
-    assert row["ownership_classification"] == "SL_OWNED_INTERNATIONAL"
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "FIRST_AUTHOR_ONLY_LK_EVIDENCE"
+    assert row["ownership_classification"] == "FIRST_AUTHOR_ONLY_LK_EVIDENCE"
     assert row["ownership_confidence"] == "LOW"
-    assert row["keep_in_strict_sri_lanka_dataset"] is True
-    assert row["keep_in_sri_lanka_owned_dataset"] is True
+    assert row["keep_in_strict_sri_lanka_dataset"] is False
+    assert row["keep_in_sri_lanka_owned_dataset"] is False
+    assert row["needs_manual_review"] is True
     assert row["source_name"] == "Example Journal"
     assert row["publisher"] == "Example Publisher"
     assert row["is_retracted"] is False
@@ -509,11 +546,23 @@ def test_build_filters_adds_publication_year_range():
     ]
 
 
-def test_build_filters_defaults_to_2016_2026_year_range():
-    """Default collection should cover publication years 2016 through 2026."""
+def test_build_filters_defaults_to_2016_current_year_range():
+    """Default collection should cover publication years 2016 through the current year."""
     assert openalex.build_filters([openalex.LK_AUTHORSHIP_FILTER]) == [
         openalex.LK_AUTHORSHIP_FILTER,
-        "publication_year:2016-2026",
+        DEFAULT_OPENALEX_YEAR_FILTER,
+    ]
+
+
+def test_build_filters_clamps_start_year_to_2016():
+    """Collection should never request publication years before 2016."""
+    assert openalex.build_filters(
+        [openalex.LK_AUTHORSHIP_FILTER],
+        from_year=2010,
+        to_year=2024,
+    ) == [
+        openalex.LK_AUTHORSHIP_FILTER,
+        "publication_year:2016-2024",
     ]
 
 
@@ -622,7 +671,7 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
         {
             "filters": [
                 openalex.LK_AUTHORSHIP_FILTER,
-                "publication_year:2016-2026",
+                DEFAULT_OPENALEX_YEAR_FILTER,
             ],
             "cursor": "*",
             "per_page": 25,
@@ -683,7 +732,7 @@ def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
         {
             "filters": [
                 openalex.LK_AUTHORSHIP_FILTER,
-                "publication_year:2016-2026",
+                DEFAULT_OPENALEX_YEAR_FILTER,
             ],
             "cursor": "saved-cursor",
             "per_page": 25,
@@ -770,7 +819,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         progress_output,
         next_cursor="saved-cursor",
         records_saved=0,
-        filters=[openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        filters=[openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
     )
 
     class FakeCollector:
@@ -834,7 +883,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     assert progress == {
         "next_cursor": None,
         "records_saved": 2,
-        "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        "filters": [openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
         "strict_lk_only": False,
     }
     pagination_audit = json.loads(pagination_output.read_text(encoding="utf-8"))
@@ -892,7 +941,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     assert openalex_script.load_progress(progress_output) == {
         "next_cursor": "*",
         "records_saved": 0,
-        "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        "filters": [openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
         "strict_lk_only": True,
     }
     with doi_conflicts_output.open("r", encoding="utf-8", newline="") as csv_file:

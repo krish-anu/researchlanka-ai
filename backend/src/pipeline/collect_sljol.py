@@ -31,7 +31,7 @@ from src.preprocessing.crossref_normalizer import first_author_is_from_sri_lanka
 
 SLJOL_DOI_PREFIX = "10.4038"
 DEFAULT_FROM_YEAR = 2016
-DEFAULT_UNTIL_YEAR = 2026
+DEFAULT_UNTIL_YEAR = date.today().year
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "raw" / "sljol" / "crossref_works.jsonl"
 DEFAULT_AUDIT_PATH = PROJECT_ROOT / "data" / "raw" / "sljol" / "crossref_collection_audit.json"
 
@@ -71,6 +71,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    from_year = max(args.from_year, DEFAULT_FROM_YEAR)
+    until_year = min(args.until_year, DEFAULT_UNTIL_YEAR)
 
     collector = CrossrefPrefixCollector(
         prefix=SLJOL_DOI_PREFIX,
@@ -93,11 +95,15 @@ def main() -> None:
     try:
         with args.output.open("w", encoding="utf-8") as output_file:
             works = (
-                collector.iter_works(max_records=args.max_records)
+                collector.iter_works(
+                    max_records=args.max_records,
+                    start_year=from_year,
+                    end_year=until_year,
+                )
                 if args.no_date_slicing
                 else collector.iter_works_by_publication_date(
-                    start_year=args.from_year,
-                    end_year=args.until_year,
+                    start_year=from_year,
+                    end_year=until_year,
                     max_records=args.max_records,
                 )
             )
@@ -127,8 +133,8 @@ def main() -> None:
                 "reported_total": total_available,
                 "saved_total": total,
                 "skipped_first_author_not_lk": skipped_first_author,
-                "from_year": args.from_year,
-                "until_year": args.until_year,
+                "from_year": from_year,
+                "until_year": until_year,
                 "slices": audit_rows,
             },
             indent=2,

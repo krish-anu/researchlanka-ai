@@ -19,6 +19,13 @@ collaboration fields.
 No record is ever dropped. An institution that cannot be resolved is retained in
 `unresolved_institutions` so the registry can be improved from evidence.
 
+Institution and location evidence is not research ownership evidence by itself.
+A Sri Lankan repository, SLJOL venue, or Google Maps-confirmed institution name
+can help resolve an affiliation, but the final ownership gate still needs
+publication-specific leadership evidence such as a Sri Lankan
+corresponding/project-lead affiliation. First-author-only evidence is kept for
+REVIEW because author order is not a legal or project-ownership signal.
+
 ## Results
 
 Measured on `common_publications_final.csv`, 170,365 records:
@@ -70,6 +77,11 @@ characters are now an explicit argument to `normalize_list_like`.
 Matching is deterministic. A lookup key is built for every registry alias and every
 incoming name, and compared exactly. No fuzzy or probabilistic matching is used, so any
 resolution can be explained by pointing at the alias that produced it.
+
+Google Maps confirmation is an offline registry-quality workflow. Confirmed rows
+may add safe aliases only when the matched title already resolves to an existing
+Sri Lankan registry institution; review/rejected rows never modify the registry,
+and reapplying the same evidence is idempotent.
 
 Key construction, applied identically to both sides:
 
@@ -203,6 +215,10 @@ narrowing the alias on one of the rows.
 
 ```bash
 make institution-registry     # regenerate the registry, then review the CSV diff
+make maps-location-confirm    # optional: collect Maps evidence for unresolved names
+make maps-location-rescore    # optional: re-score evidence without scraping again
+make maps-location-apply MAPS_LOCATION_APPLY_EXTRA_ARGS=--dry-run
+make maps-location-apply      # optional: promote confirmed aliases after review
 make institution-normalize    # apply it to the merged dataset
 ```
 
@@ -222,6 +238,21 @@ Read the unresolved-institutions CSV. Anything Sri Lankan with at least 50 menti
 belongs in the registry — add it to `CURATED_ALIASES` in
 `src/pipeline/build_institution_registry.py`, regenerate, and re-run the stage. The list
 is currently dominated by foreign institutions, which is expected and needs no action.
+
+For Crossref affiliations whose institution names are present but lack an explicit
+Sri Lanka country signal, use the Google Maps evidence stage:
+
+```bash
+make maps-location-confirm PYTHON=python MAPS_LOCATION_LIMIT=50
+make maps-location-rescore PYTHON=python
+make maps-location-apply PYTHON=python MAPS_LOCATION_APPLY_EXTRA_ARGS=--dry-run
+```
+
+Review `data/reports/validation/google_maps_registry_alias_application.csv` and then
+run `make maps-location-apply PYTHON=python` to append safe aliases to
+`configurations/sri_lanka/institutions.csv`. The apply step is conservative: it only
+adds aliases from `confirmed` evidence rows whose Maps title already resolves to an
+existing registry institution. Ambiguous or broad matches stay in review.
 
 ## Known limitations
 

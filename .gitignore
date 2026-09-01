@@ -63,6 +63,7 @@ data/models/
 data/reports/*.json
 outputs/
 pipeline/
+tools/google-maps-scraper-kit/
 backend/data/raw/
 backend/data/processed/
 backend/data/interim/

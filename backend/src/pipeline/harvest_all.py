@@ -20,7 +20,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = next(
@@ -38,7 +38,7 @@ DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 DEFAULT_REPORT_DIR = PROJECT_ROOT / "data" / "reports"
 DEFAULT_MAX_RECORDS_PER_TARGET = 2000
 DEFAULT_START_YEAR = 2016
-DEFAULT_END_YEAR = 2026
+DEFAULT_END_YEAR = date.today().year
 
 
 @dataclass
@@ -196,8 +196,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     max_records = None if args.max_records_per_target == 0 else args.max_records_per_target
-    from_date = f"{args.start_year}-01-01"
-    until_date = f"{args.end_year}-12-31"
+    start_year = max(args.start_year, DEFAULT_START_YEAR)
+    end_year = min(args.end_year, DEFAULT_END_YEAR)
+    from_date = f"{start_year}-01-01"
+    until_date = f"{end_year}-12-31"
     include_ids = parse_id_filter(args.include_ids)
     exclude_ids = parse_id_filter(args.exclude_ids)
 
