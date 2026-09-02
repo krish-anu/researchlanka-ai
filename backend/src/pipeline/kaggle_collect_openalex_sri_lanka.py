@@ -1,4 +1,4 @@
-"""Kaggle-ready OpenAlex collector for Sri Lankan-affiliated works.
+"""Kaggle-ready OpenAlex collector for Sri Lanka-owned works.
 
 Run in Kaggle:
     python kaggle_collect_openalex_sri_lanka.py --max-records 1000
@@ -931,7 +931,7 @@ def main() -> None:
                         else "n/a"
                     )
                     logger.info(
-                        "Saved Sri Lankan-affiliated work number=%s progress=%s api_total=%s",
+                        "Saved Sri Lanka-owned work number=%s progress=%s api_total=%s",
                         f"{total:,}",
                         saved_progress,
                         f"{page.api_total_count:,}" if page.api_total_count else "n/a",
