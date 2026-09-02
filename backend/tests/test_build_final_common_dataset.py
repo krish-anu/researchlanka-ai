@@ -6,7 +6,9 @@ from src.pipeline.build_final_common_dataset import (
     build_final_common_dataset,
     build_count_audit_rows,
     clean_final_dataset,
+    final_inclusion_mask,
     normalize_funder_identifier,
+    repository_review_mask,
     split_reference_payload,
     verified_ownership_mask,
 )
@@ -309,6 +311,49 @@ def test_verified_ownership_mask_requires_complete_lk_policy_evidence():
     )
 
     assert verified_ownership_mask(df).tolist() == [True, False, False, False]
+
+
+def test_final_inclusion_can_add_repository_review_rows():
+    df = pd.DataFrame(
+        {
+            "source_dataset": [
+                "openalex",
+                "repositories_combined",
+                "openalex; repositories_combined",
+                "sljol",
+            ],
+            "ownership_decision": ["INCLUDE", "REVIEW", "REVIEW", "REVIEW"],
+            "ownership_class": [
+                "SL_DOMESTIC",
+                "REPOSITORY_ONLY_EVIDENCE",
+                "REPOSITORY_ONLY_EVIDENCE",
+                "SLJOL_VENUE_ONLY_EVIDENCE",
+            ],
+            "ownership_confidence": ["MEDIUM", "LOW", "LOW", "LOW"],
+            "needs_manual_review": [False, True, True, True],
+            "lead_country": ["LK", pd.NA, pd.NA, pd.NA],
+            "ownership_reason": [
+                "LK corresponding author.",
+                "Repository-only evidence requires review.",
+                "Repository-only evidence requires review.",
+                "Venue-only evidence requires review.",
+            ],
+            "ownership_evidence": [
+                "openalex:corresponding_author_countries",
+                "repositories_combined:source_provenance_only",
+                "repositories_combined:source_provenance_only",
+                "sljol:source_provenance_only",
+            ],
+            "ownership_policy_version": ["1.0", "1.0", "1.0", "1.0"],
+        }
+    )
+
+    assert repository_review_mask(df).tolist() == [False, True, True, False]
+    assert final_inclusion_mask(df).tolist() == [True, False, False, False]
+    assert final_inclusion_mask(
+        df,
+        include_repository_review_records=True,
+    ).tolist() == [True, True, True, False]
 
 
 def test_malformed_include_rows_go_to_review_sidecar(tmp_path):
