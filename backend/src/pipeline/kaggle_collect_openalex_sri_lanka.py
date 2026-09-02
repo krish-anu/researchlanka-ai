@@ -4,11 +4,9 @@ Run in Kaggle:
     python kaggle_collect_openalex_sri_lanka.py --max-records 1000
     python kaggle_collect_openalex_sri_lanka.py --enrich-crossref --crossref-email you@example.com
 
-This script keeps a work only when it is from 2016 onward and the first
-authorship has a Sri Lankan affiliation in OpenAlex. OpenAlex provides
-affiliation countries, not author nationality, so "Sri Lankan first author"
-here means the first authorship has country code LK or an LK institution in
-that work's authorship metadata.
+This script keeps a work only when it is from 2016 onward, has Sri Lankan
+participation evidence in OpenAlex, and passes the Sri Lanka-owned/led
+ownership policy gate. Participation alone is not enough for collection.
 """
 
 from __future__ import annotations
@@ -43,6 +41,7 @@ from src.preprocessing.crossref_normalizer import reduce_work as reduce_crossref
 from src.preprocessing.openalex_normalizer import (
     CSV_COLUMNS,
     country_codes,
+    keep_in_sri_lanka_owned_dataset,
     openalex_work_id,
     work_to_row,
 )
@@ -255,27 +254,43 @@ def write_pagination_audit_report(
     temp_path.replace(path)
 
 
-def read_existing_jsonl_state(path: Path) -> tuple[set[str], int]:
-    """Read existing output IDs and row count before appending during resume."""
-    openalex_ids: set[str] = set()
-    records_saved = 0
+def iter_openalex_works_from_jsonl(jsonl_output: Path):
+    """Yield valid OpenAlex work dicts from a raw JSONL file."""
+    if not jsonl_output.exists():
+        return
 
-    if not path.exists():
-        return openalex_ids, records_saved
-
-    with path.open("r", encoding="utf-8") as jsonl_file:
+    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
         for line in jsonl_file:
             if not line.strip():
                 continue
-            records_saved += 1
             try:
                 work = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if isinstance(work, dict):
-                work_id = openalex_work_id(work)
-                if work_id is not None:
-                    openalex_ids.add(work_id)
+            if not isinstance(work, dict):
+                continue
+            yield work
+
+
+def iter_owned_openalex_works_from_jsonl(jsonl_output: Path):
+    """Yield only Sri Lanka-owned OpenAlex work dicts from a raw JSONL file."""
+    for work in iter_openalex_works_from_jsonl(jsonl_output):
+        if not keep_in_sri_lanka_owned_dataset(work):
+            continue
+        yield work
+
+
+def read_existing_jsonl_state(path: Path) -> tuple[set[str], int]:
+    """Read existing owned output IDs and row count before appending during resume."""
+    openalex_ids: set[str] = set()
+    records_saved = 0
+
+    for work in iter_openalex_works_from_jsonl(path):
+        work_id = openalex_work_id(work)
+        if work_id is not None:
+            openalex_ids.add(work_id)
+        if keep_in_sri_lanka_owned_dataset(work):
+            records_saved += 1
 
     return openalex_ids, records_saved
 
@@ -292,20 +307,9 @@ def rebuild_csv_from_jsonl(jsonl_output: Path, csv_output: Path) -> None:
 
 
 def iter_flat_rows_from_jsonl(jsonl_output: Path):
-    """Yield flattened OpenAlex rows from raw JSONL records."""
-    if not jsonl_output.exists():
-        return
-
-    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
-        for line in jsonl_file:
-            if not line.strip():
-                continue
-            try:
-                work = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(work, dict):
-                yield work_to_row(work)
+    """Yield flattened OpenAlex rows from owned raw JSONL records."""
+    for work in iter_owned_openalex_works_from_jsonl(jsonl_output):
+        yield work_to_row(work)
 
 
 def write_parquet_from_jsonl(jsonl_output: Path, parquet_output: Path) -> int:
@@ -346,32 +350,19 @@ def collect_doi_conflicts(jsonl_output: Path) -> list[dict[str, object]]:
     """Find normalized DOIs attached to more than one distinct OpenAlex ID."""
     doi_records: dict[str, list[dict[str, object]]] = defaultdict(list)
 
-    if not jsonl_output.exists():
-        return []
+    for work in iter_owned_openalex_works_from_jsonl(jsonl_output):
+        openalex_id = openalex_work_id(work)
+        doi = normalize_doi(work.get("doi"))
+        if openalex_id is None or doi is None:
+            continue
 
-    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
-        for line in jsonl_file:
-            if not line.strip():
-                continue
-            try:
-                work = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(work, dict):
-                continue
-
-            openalex_id = openalex_work_id(work)
-            doi = normalize_doi(work.get("doi"))
-            if openalex_id is None or doi is None:
-                continue
-
-            doi_records[doi].append(
-                {
-                    "openalex_id": openalex_id,
-                    "title": work.get("title") or work.get("display_name"),
-                    "publication_year": work.get("publication_year"),
-                }
-            )
+        doi_records[doi].append(
+            {
+                "openalex_id": openalex_id,
+                "title": work.get("title") or work.get("display_name"),
+                "publication_year": work.get("publication_year"),
+            }
+        )
 
     conflicts: list[dict[str, object]] = []
     for doi, records in sorted(doi_records.items()):
@@ -424,31 +415,18 @@ def write_doi_conflict_report(jsonl_output: Path, csv_output: Path) -> int:
 
 
 def extract_openalex_dois(jsonl_output: Path) -> list[str]:
-    """Return unique normalized DOI values from an OpenAlex raw JSONL file."""
+    """Return unique normalized DOI values from owned OpenAlex raw JSONL records."""
     dois: list[str] = []
     seen: set[str] = set()
 
-    if not jsonl_output.exists():
-        return dois
+    for work in iter_owned_openalex_works_from_jsonl(jsonl_output):
+        doi = normalize_doi(work.get("doi"))
 
-    with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
-        for line in jsonl_file:
-            if not line.strip():
-                continue
-            try:
-                work = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(work, dict):
-                continue
+        if doi is None or doi in seen:
+            continue
 
-            doi = normalize_doi(work.get("doi"))
-
-            if doi is None or doi in seen:
-                continue
-
-            seen.add(doi)
-            dois.append(doi)
+        seen.add(doi)
+        dois.append(doi)
 
     return dois
 
@@ -557,48 +535,37 @@ def collect_quality_report(
     retracted_record_count = 0
     doi_conflict_count = len(collect_doi_conflicts(jsonl_output))
 
-    if jsonl_output.exists():
-        with jsonl_output.open("r", encoding="utf-8") as jsonl_file:
-            for line in jsonl_file:
-                if not line.strip():
-                    continue
-                try:
-                    work = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(work, dict):
-                    continue
+    for work in iter_owned_openalex_works_from_jsonl(jsonl_output):
+        total_saved += 1
 
-                total_saved += 1
+        openalex_id = openalex_work_id(work)
+        if openalex_id is not None:
+            openalex_ids[openalex_id] += 1
 
-                openalex_id = openalex_work_id(work)
-                if openalex_id is not None:
-                    openalex_ids[openalex_id] += 1
+        doi = work.get("doi")
+        if is_blank(doi):
+            missing_doi_count += 1
+        else:
+            normalized_doi = normalize_doi(doi)
+            if normalized_doi is None:
+                missing_doi_count += 1
+            else:
+                dois[normalized_doi] += 1
 
-                doi = work.get("doi")
-                if is_blank(doi):
-                    missing_doi_count += 1
-                else:
-                    normalized_doi = normalize_doi(doi)
-                    if normalized_doi is None:
-                        missing_doi_count += 1
-                    else:
-                        dois[normalized_doi] += 1
+        if is_blank(work.get("title")) and is_blank(work.get("display_name")):
+            missing_title_count += 1
+        if work.get("is_retracted") is True:
+            retracted_record_count += 1
 
-                if is_blank(work.get("title")) and is_blank(work.get("display_name")):
-                    missing_title_count += 1
-                if work.get("is_retracted") is True:
-                    retracted_record_count += 1
+        year = work.get("publication_year")
+        if isinstance(year, int):
+            years.append(year)
+        elif isinstance(year, str) and year.isdigit():
+            years.append(int(year))
 
-                year = work.get("publication_year")
-                if isinstance(year, int):
-                    years.append(year)
-                elif isinstance(year, str) and year.isdigit():
-                    years.append(int(year))
-
-                for country_code in country_codes(work).split("; "):
-                    if country_code:
-                        countries.add(country_code)
+        for country_code in country_codes(work).split("; "):
+            if country_code:
+                countries.add(country_code)
 
     year_range = None
     if years:
