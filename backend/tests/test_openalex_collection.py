@@ -509,6 +509,30 @@ def test_work_to_row_defaults_missing_retraction_status_to_false():
     assert row["is_retracted"] is False
 
 
+def test_iter_flat_rows_from_jsonl_skips_stale_unowned_records(tmp_path):
+    """Rebuilt CSV/Parquet outputs should not resurrect old participation-only records."""
+    owned_work = sri_lanka_owned_work("LK")
+    owned_work["id"] = "https://openalex.org/W-owned"
+    foreign_led_work = sample_work("GB")
+    foreign_led_work["id"] = "https://openalex.org/W-foreign-led"
+    foreign_led_work["authorships"][0]["countries"] = ["GB"]
+    foreign_led_work["authorships"][0]["institutions"][0]["country_code"] = "GB"
+    foreign_led_work["authorships"][0]["is_corresponding"] = True
+    foreign_led_work["authorships"][1]["countries"] = ["LK"]
+    foreign_led_work["authorships"][1]["institutions"][0]["country_code"] = "LK"
+
+    jsonl_output = tmp_path / "works.jsonl"
+    jsonl_output.write_text(
+        json.dumps(owned_work) + "\n" + json.dumps(foreign_led_work) + "\n",
+        encoding="utf-8",
+    )
+
+    rows = list(openalex_script.iter_flat_rows_from_jsonl(jsonl_output))
+
+    assert [row["openalex_id"] for row in rows] == ["https://openalex.org/W-owned"]
+    assert rows[0]["keep_in_sri_lanka_owned_dataset"] is True
+
+
 def test_work_to_row_normalizes_publication_year_and_date():
     """Flat rows should keep publication year as int and date as ISO date."""
     work = sample_work("LK")
@@ -838,9 +862,9 @@ def test_iter_sri_lankan_work_pages_rejects_repeated_cursor(monkeypatch):
 
 def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatch):
     """Resume should append new records and skip records already in the JSONL."""
-    existing_work = sample_work("LK")
+    existing_work = sri_lanka_owned_work("LK")
     existing_work["id"] = "https://openalex.org/W1"
-    new_work = sample_work("LK")
+    new_work = sri_lanka_owned_work("LK")
     new_work["id"] = "https://openalex.org/W2"
     new_work["doi"] = "https://doi.org/10.1234/new"
 
@@ -1063,24 +1087,24 @@ def test_setup_logging_can_write_to_log_file(tmp_path):
 
 def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
     """The collection report should summarize the final JSONL dataset."""
-    first_work = sample_work("LK")
+    first_work = sri_lanka_owned_work("LK")
     first_work["id"] = "https://openalex.org/W1"
     first_work["doi"] = "https://doi.org/10.1234/duplicate"
     first_work["publication_year"] = 2022
 
-    duplicate_work = sample_work("LK")
+    duplicate_work = sri_lanka_owned_work("LK")
     duplicate_work["id"] = "https://openalex.org/W1"
     duplicate_work["doi"] = "https://doi.org/10.1234/DUPLICATE"
     duplicate_work["publication_year"] = 2024
     duplicate_work["is_retracted"] = True
 
-    conflict_work = sample_work("LK")
+    conflict_work = sri_lanka_owned_work("LK")
     conflict_work["id"] = "https://openalex.org/W4"
     conflict_work["doi"] = "10.1234/duplicate"
     conflict_work["title"] = "Different OpenAlex Record With Same DOI"
     conflict_work["publication_year"] = 2025
 
-    missing_work = sample_work("LK")
+    missing_work = sri_lanka_owned_work("LK")
     missing_work["id"] = "https://openalex.org/W3"
     missing_work["doi"] = None
     missing_work["title"] = None
@@ -1120,17 +1144,17 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
 
 def test_write_doi_conflict_report_outputs_different_ids_for_same_doi(tmp_path):
     """DOI conflicts should be exported separately from the main works dataset."""
-    first_work = sample_work("LK")
+    first_work = sri_lanka_owned_work("LK")
     first_work["id"] = "https://openalex.org/W1"
     first_work["doi"] = "https://doi.org/10.1234/conflict"
     first_work["title"] = "First DOI Record"
 
-    second_work = sample_work("LK")
+    second_work = sri_lanka_owned_work("LK")
     second_work["id"] = "https://openalex.org/W2"
     second_work["doi"] = "10.1234/CONFLICT"
     second_work["title"] = "Second DOI Record"
 
-    same_id_duplicate = sample_work("LK")
+    same_id_duplicate = sri_lanka_owned_work("LK")
     same_id_duplicate["id"] = "https://openalex.org/W1"
     same_id_duplicate["doi"] = "10.1234/conflict"
 
@@ -1170,14 +1194,22 @@ def test_write_doi_conflict_report_outputs_different_ids_for_same_doi(tmp_path):
 
 def test_extract_openalex_dois_returns_unique_normalized_values(tmp_path):
     jsonl_output = tmp_path / "works.jsonl"
+    first_work = sri_lanka_owned_work("LK")
+    first_work["doi"] = "https://doi.org/10.1234/Example"
+    duplicate_work = sri_lanka_owned_work("LK")
+    duplicate_work["doi"] = "10.1234/example"
+    missing_doi_work = sri_lanka_owned_work("LK")
+    missing_doi_work["doi"] = None
+    other_work = sri_lanka_owned_work("LK")
+    other_work["doi"] = "DOI: 10.5678/Other"
     jsonl_output.write_text(
         "\n".join(
             [
-                json.dumps({"doi": "https://doi.org/10.1234/Example"}),
-                json.dumps({"doi": "10.1234/example"}),
-                json.dumps({"doi": None}),
+                json.dumps(first_work),
+                json.dumps(duplicate_work),
+                json.dumps(missing_doi_work),
                 "not-json",
-                json.dumps({"doi": "DOI: 10.5678/Other"}),
+                json.dumps(other_work),
             ]
         )
         + "\n",
@@ -1193,12 +1225,18 @@ def test_extract_openalex_dois_returns_unique_normalized_values(tmp_path):
 def test_enrich_crossref_from_openalex_skips_existing_and_writes_found(tmp_path):
     openalex_jsonl = tmp_path / "openalex.jsonl"
     crossref_output = tmp_path / "crossref_enriched.jsonl"
+    existing_work = sri_lanka_owned_work("LK")
+    existing_work["doi"] = "10.1234/existing"
+    found_work = sri_lanka_owned_work("LK")
+    found_work["doi"] = "https://doi.org/10.1234/found"
+    missing_work = sri_lanka_owned_work("LK")
+    missing_work["doi"] = "10.1234/missing"
     openalex_jsonl.write_text(
         "\n".join(
             [
-                json.dumps({"doi": "10.1234/existing"}),
-                json.dumps({"doi": "https://doi.org/10.1234/found"}),
-                json.dumps({"doi": "10.1234/missing"}),
+                json.dumps(existing_work),
+                json.dumps(found_work),
+                json.dumps(missing_work),
             ]
         )
         + "\n",
@@ -1326,7 +1364,7 @@ def test_kaggle_script_runs_crossref_enrichment_when_enabled(tmp_path, monkeypat
 
 def test_write_parquet_from_jsonl_writes_flat_rows(tmp_path, monkeypatch):
     """Parquet export should write the same flattened rows as the CSV path."""
-    work = sample_work("LK")
+    work = sri_lanka_owned_work("LK")
     jsonl_output = tmp_path / "works.jsonl"
     parquet_output = tmp_path / "works.parquet"
     jsonl_output.write_text(json.dumps(work) + "\n", encoding="utf-8")
