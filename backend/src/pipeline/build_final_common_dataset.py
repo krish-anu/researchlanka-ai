@@ -687,6 +687,37 @@ def verified_ownership_mask(df: pd.DataFrame) -> pd.Series:
     )
 
 
+def repository_review_mask(df: pd.DataFrame) -> pd.Series:
+    """Return repository-provenance rows that are reviewable but not verified owned."""
+    if "source_dataset" not in df.columns:
+        return pd.Series(False, index=df.index)
+
+    source_has_repository = df["source_dataset"].map(
+        lambda value: "repositories_combined" in {part.strip() for part in str(value).split(";")}
+    )
+    decision = df.get("ownership_decision", pd.Series(pd.NA, index=df.index)).map(
+        lambda value: str(value).strip().upper()
+    )
+    ownership_class = df.get("ownership_class", pd.Series(pd.NA, index=df.index)).map(
+        lambda value: str(value).strip().upper()
+    )
+    return source_has_repository & (decision == "REVIEW") & (
+        ownership_class == "REPOSITORY_ONLY_EVIDENCE"
+    )
+
+
+def final_inclusion_mask(
+    df: pd.DataFrame,
+    *,
+    include_repository_review_records: bool = False,
+) -> pd.Series:
+    """Return rows to write to the main final dataset."""
+    mask = verified_ownership_mask(df)
+    if include_repository_review_records:
+        mask = mask | repository_review_mask(df)
+    return mask
+
+
 def ownership_review_mask(cleaned: pd.DataFrame, verified_mask: pd.Series) -> pd.Series:
     decision = cleaned.get("ownership_decision", pd.Series(pd.NA, index=cleaned.index)).map(
         lambda value: str(value).strip().upper()
@@ -733,6 +764,7 @@ def write_summary(
     review_rows: int,
     excluded_rows: int,
     verified_rows: int,
+    repository_review_rows_in_final: int = 0,
 ) -> None:
     rows = [
         {"metric": "input_csv", "value": str(input_csv)},
@@ -748,6 +780,7 @@ def write_summary(
         {"metric": "ownership_review_rows", "value": review_rows},
         {"metric": "ownership_excluded_rows", "value": excluded_rows},
         {"metric": "verified_sri_lanka_owned_rows", "value": verified_rows},
+        {"metric": "repository_review_rows_in_final", "value": repository_review_rows_in_final},
         {"metric": "dropped_main_columns", "value": "; ".join(DROP_FROM_MAIN)},
         {"metric": "renamed_columns", "value": "cited_by_count -> citation_count; funder_id -> funder_identifier"},
     ]
@@ -763,6 +796,7 @@ def build_final_common_dataset(
     review_csv: Path = DEFAULT_REVIEW_CSV,
     excluded_csv: Path = DEFAULT_EXCLUDED_CSV,
     verified_csv: Path = DEFAULT_VERIFIED_CSV,
+    include_repository_review_records: bool = False,
 ) -> tuple[pd.DataFrame, int, int]:
     df = pd.read_csv(input_csv, dtype="object", low_memory=False)
     reference_rows = write_reference_sidecar(df, references_csv)
@@ -774,7 +808,17 @@ def build_final_common_dataset(
         excluded_csv=excluded_csv,
         verified_csv=verified_csv,
     )
-    final = cleaned.loc[verified_ownership_mask(cleaned)].copy()
+    repository_rows_in_final = 0
+    if include_repository_review_records:
+        repository_rows_in_final = int(
+            (repository_review_mask(cleaned) & ~verified_ownership_mask(cleaned)).sum()
+        )
+    final = cleaned.loc[
+        final_inclusion_mask(
+            cleaned,
+            include_repository_review_records=include_repository_review_records,
+        )
+    ].copy()
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     final.to_csv(output_csv, index=False)
@@ -793,6 +837,7 @@ def build_final_common_dataset(
         review_rows=review_rows,
         excluded_rows=excluded_rows,
         verified_rows=verified_rows,
+        repository_review_rows_in_final=repository_rows_in_final,
     )
 
     return final, reference_rows, count_audit_rows
@@ -810,6 +855,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--review-csv", type=Path, default=DEFAULT_REVIEW_CSV)
     parser.add_argument("--excluded-csv", type=Path, default=DEFAULT_EXCLUDED_CSV)
     parser.add_argument("--verified-csv", type=Path, default=DEFAULT_VERIFIED_CSV)
+    parser.add_argument(
+        "--include-repository-review-records",
+        action="store_true",
+        help=(
+            "Include repository-provenance REVIEW rows in the main final CSV. "
+            "The verified owned sidecar remains strict INCLUDE-only."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -824,6 +877,7 @@ def main() -> None:
         args.review_csv,
         args.excluded_csv,
         args.verified_csv,
+        include_repository_review_records=args.include_repository_review_records,
     )
 
     print("Done.")
