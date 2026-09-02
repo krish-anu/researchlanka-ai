@@ -12,6 +12,7 @@ BACKEND_API_EXTRA_ARGS ?=
 FRONTEND_HOST ?= 127.0.0.1
 FRONTEND_PORT ?= 3000
 API_BASE_URL ?= http://$(BACKEND_HOST):$(BACKEND_PORT)/api/v1
+API_BASE_URL_ORIGIN := $(origin API_BASE_URL)
 NPM ?= npm
 NEXT_TELEMETRY_DISABLED ?= 1
 FRONTEND_NODE_MAX_OLD_SPACE_MB ?= 1536
@@ -82,8 +83,12 @@ frontend:
 
 dev: $(BACKEND_DIR)/.venv/bin/python
 	@set -e; \
-	( cd $(BACKEND_DIR) && RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=$(DEV_SEMANTIC_EMBEDDINGS) RESEARCHLANKA_SEMANTIC_MODEL_PATH=$(DEV_SEMANTIC_MODEL) $(BACKEND_PYTHON) scripts/api/serve_api.py --host $(BACKEND_HOST) --port $(BACKEND_PORT) $(BACKEND_API_EXTRA_ARGS) ) & backend_pid=$$!; \
-	NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL=$(API_BASE_URL) $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $(FRONTEND_PORT) & frontend_pid=$$!; \
+	backend_port=$$($(SYSTEM_PYTHON) -c 'exec("import socket, sys\nhost = sys.argv[1]\nstart = int(sys.argv[2])\nfor candidate in range(start, 65536):\n    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n    try:\n        in_use = sock.connect_ex((host, candidate)) == 0\n    finally:\n        sock.close()\n    if not in_use:\n        print(candidate)\n        break\nelse:\n    raise SystemExit(\"no free backend port found\")")' "$(BACKEND_HOST)" "$(BACKEND_PORT)"); \
+	if [ "$$backend_port" != "$(BACKEND_PORT)" ]; then echo "Backend port $(BACKEND_PORT) is busy; using $$backend_port."; fi; \
+	api_base_url="$(API_BASE_URL)"; \
+	if [ "$(API_BASE_URL_ORIGIN)" = "file" ]; then api_base_url="http://$(BACKEND_HOST):$$backend_port/api/v1"; fi; \
+	( cd $(BACKEND_DIR) && RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=$(DEV_SEMANTIC_EMBEDDINGS) RESEARCHLANKA_SEMANTIC_MODEL_PATH=$(DEV_SEMANTIC_MODEL) $(BACKEND_PYTHON) scripts/api/serve_api.py --host $(BACKEND_HOST) --port $$backend_port $(BACKEND_API_EXTRA_ARGS) ) & backend_pid=$$!; \
+	NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL=$$api_base_url $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $(FRONTEND_PORT) & frontend_pid=$$!; \
 	trap 'kill $$backend_pid $$frontend_pid 2>/dev/null' INT TERM EXIT; \
 	wait -n $$backend_pid $$frontend_pid; \
 	status=$$?; \
