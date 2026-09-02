@@ -130,6 +130,13 @@ def sample_work(country_code: str = "LK") -> dict:
     }
 
 
+def sri_lanka_owned_work(country_code: str = "LK") -> dict:
+    """Create a sample work that passes the Sri Lanka-owned policy gate."""
+    work = sample_work(country_code)
+    work["authorships"][0]["is_corresponding"] = True
+    return work
+
+
 def test_has_sri_lankan_author_accepts_lk_authorship():
     """A work with an LK authorship should be treated as Sri Lankan-affiliated."""
     assert openalex.has_sri_lankan_author(sample_work("LK")) is True
@@ -231,6 +238,33 @@ def test_sri_lankan_participant_only_is_excluded_when_foreign_corresponding():
     assert row["keep_in_strict_sri_lanka_dataset"] is False
 
 
+def test_iter_sri_lankan_work_pages_rejects_foreign_led_lk_participation(monkeypatch):
+    """Collection should not save foreign-led papers with only LK participation."""
+    owned_work = sri_lanka_owned_work("LK")
+    owned_work["id"] = "https://openalex.org/W-owned"
+    foreign_led_work = sample_work("GB")
+    foreign_led_work["id"] = "https://openalex.org/W-foreign-led"
+    foreign_led_work["authorships"][0]["countries"] = ["GB"]
+    foreign_led_work["authorships"][0]["institutions"][0]["country_code"] = "GB"
+    foreign_led_work["authorships"][0]["is_corresponding"] = True
+    foreign_led_work["authorships"][1]["countries"] = ["LK"]
+    foreign_led_work["authorships"][1]["institutions"][0]["country_code"] = "LK"
+
+    def fake_fetch_works(**_kwargs):
+        return {
+            "results": [owned_work, foreign_led_work],
+            "meta": {"next_cursor": None},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+
+    pages = list(collector.iter_sri_lankan_work_pages(filters=[openalex.LK_AUTHORSHIP_FILTER]))
+
+    assert pages[0].works == [owned_work]
+    assert pages[0].skipped_count == 1
+
+
 def test_conflicting_corresponding_author_countries_require_review():
     work = sample_work("LK")
     work["authorships"][0]["is_corresponding"] = True
@@ -309,11 +343,11 @@ def test_strict_sri_lanka_only_accepts_only_lk_country_codes():
 
 def test_iter_sri_lankan_work_pages_supports_strict_lk_only(monkeypatch):
     """Strict page iteration should keep only records with country-code set LK."""
-    lk_only_work = sample_work("LK")
+    lk_only_work = sri_lanka_owned_work("LK")
     lk_only_work["id"] = "https://openalex.org/W-LK"
     lk_only_work["authorships"] = [lk_only_work["authorships"][0]]
 
-    collaborative_work = sample_work("LK")
+    collaborative_work = sri_lanka_owned_work("LK")
     collaborative_work["id"] = "https://openalex.org/W-COLLAB"
 
     def fake_fetch_works(**_kwargs):
@@ -338,13 +372,13 @@ def test_iter_sri_lankan_work_pages_supports_strict_lk_only(monkeypatch):
 
 def test_iter_sri_lankan_work_pages_requires_unique_openalex_ids(monkeypatch):
     """OpenAlex ID should behave as the required primary key for collected works."""
-    first_work = sample_work("LK")
+    first_work = sri_lanka_owned_work("LK")
     first_work["id"] = "https://openalex.org/W1"
-    duplicate_work = sample_work("LK")
+    duplicate_work = sri_lanka_owned_work("LK")
     duplicate_work["id"] = "https://openalex.org/W1"
-    missing_id_work = sample_work("LK")
+    missing_id_work = sri_lanka_owned_work("LK")
     missing_id_work.pop("id")
-    second_work = sample_work("LK")
+    second_work = sri_lanka_owned_work("LK")
     second_work["id"] = "https://openalex.org/W2"
 
     def fake_fetch_works(**_kwargs):
@@ -625,13 +659,13 @@ def test_collector_fetch_works_sends_openalex_request_metadata():
 
 
 def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
-    """The collector should keep only first-author LK works from 2016 onward."""
-    lk_work = sample_work("LK")
+    """The collector should keep only Sri Lanka-owned works from 2016 onward."""
+    lk_work = sri_lanka_owned_work("LK")
     non_lk_work = sample_work("IN")
     lk_coauthor_work = sample_work("US")
     lk_coauthor_work["authorships"][1]["countries"] = ["LK"]
     lk_coauthor_work["authorships"][1]["institutions"][0]["country_code"] = "LK"
-    old_lk_work = sample_work("LK")
+    old_lk_work = sri_lanka_owned_work("LK")
     old_lk_work["publication_year"] = 2015
     calls = []
 
@@ -681,7 +715,7 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
 
 def test_collector_logs_page_fetch_summary(monkeypatch, caplog):
     """Collector page iteration should log page-level progress information."""
-    lk_work = sample_work("LK")
+    lk_work = sri_lanka_owned_work("LK")
     non_lk_work = sample_work("IN")
 
     def fake_fetch_works(**_kwargs):
@@ -705,11 +739,12 @@ def test_collector_logs_page_fetch_summary(monkeypatch, caplog):
 def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
     """Page iteration should support resuming from a saved OpenAlex cursor."""
     calls = []
+    work = sri_lanka_owned_work("LK")
 
     def fake_fetch_works(**kwargs):
         calls.append(kwargs)
         return {
-            "results": [sample_work("LK")],
+            "results": [work],
             "meta": {"next_cursor": None},
         }
 
@@ -727,7 +762,7 @@ def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
     assert len(pages) == 1
     assert pages[0].cursor == "saved-cursor"
     assert pages[0].next_cursor is None
-    assert pages[0].works == [sample_work("LK")]
+    assert pages[0].works == [work]
     assert calls == [
         {
             "filters": [
@@ -742,9 +777,9 @@ def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
 
 def test_iter_sri_lankan_work_pages_reports_pagination_progress(monkeypatch):
     """Page objects should expose count-based progress details for audit files."""
-    first_work = sample_work("LK")
+    first_work = sri_lanka_owned_work("LK")
     first_work["id"] = "https://openalex.org/W1"
-    second_work = sample_work("LK")
+    second_work = sri_lanka_owned_work("LK")
     second_work["id"] = "https://openalex.org/W2"
     responses = [
         {
@@ -786,9 +821,11 @@ def test_iter_sri_lankan_work_pages_reports_pagination_progress(monkeypatch):
 
 def test_iter_sri_lankan_work_pages_rejects_repeated_cursor(monkeypatch):
     """Pagination should fail loudly if OpenAlex returns a stuck cursor."""
+    work = sri_lanka_owned_work("LK")
+
     def fake_fetch_works(**kwargs):
         return {
-            "results": [sample_work("LK")],
+            "results": [work],
             "meta": {"next_cursor": kwargs["cursor"]},
         }
 

@@ -1,4 +1,4 @@
-"""Reusable OpenAlex API collection helpers for Sri Lanka datasets."""
+"""Reusable OpenAlex API collection helpers for Sri Lanka-owned datasets."""
 
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ def build_filters(
 
 @dataclass
 class OpenAlexWorkPage:
-    """A fetched OpenAlex page after local Sri Lankan-affiliation filtering."""
+    """A fetched OpenAlex page after local Sri Lankan-ownership filtering."""
 
     cursor: str
     next_cursor: str | None
@@ -108,7 +108,7 @@ class OpenAlexWorkPage:
 
 @dataclass
 class OpenAlexCollector:
-    """Collect OpenAlex works with Sri Lankan first-author affiliation metadata."""
+    """Collect OpenAlex works with Sri Lankan ownership/leadership evidence."""
 
     email: str | None = None
     api_key: str | None = None
@@ -204,7 +204,7 @@ class OpenAlexCollector:
         start_cursor: str = "*",
         strict_lk_only: bool = False,
     ) -> Iterator[OpenAlexWorkPage]:
-        """Yield cursor pages after applying year and first-author LK filtering."""
+        """Yield cursor pages after applying year, LK participation, and ownership filtering."""
         built_filters = build_filters(filters, from_year=from_year, to_year=to_year)
         cursor = start_cursor
         seen_ids: set[str] = set()
@@ -247,6 +247,9 @@ class OpenAlexCollector:
                     skipped_count += 1
                     continue
                 if not has_sri_lankan_author(work):
+                    skipped_count += 1
+                    continue
+                if not keep_in_sri_lanka_owned_dataset(work):
                     skipped_count += 1
                     continue
                 work_id = openalex_work_id(work)
@@ -337,7 +340,7 @@ class OpenAlexCollector:
         records_saved: int = 0,
         strict_lk_only: bool = False,
     ) -> Iterator[dict[str, Any]]:
-        """Yield individual first-author LK works from cursor pages."""
+        """Yield individual Sri Lanka-owned works from cursor pages."""
         saved = records_saved
 
         for page in self.iter_sri_lankan_work_pages(
