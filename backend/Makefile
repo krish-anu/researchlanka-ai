@@ -128,6 +128,7 @@ VALIDATE_REPORT_DIR ?= data/reports/validation
 VALIDATE_EXTRA_ARGS ?=
 FINAL_COMMON_INPUT ?= data/processed/common/common_publications_deduplicated.csv
 FINAL_COMMON_OUTPUT ?= data/processed/common/common_publications_final.csv
+OWNERSHIP_VALIDATE_INPUT ?= $(FINAL_COMMON_OUTPUT)
 
 # Google Maps assisted institution-location confirmation.
 MAPS_LOCATION_INPUT ?= data/processed/crossref/crossref_sri_lanka_works.jsonl
@@ -278,7 +279,7 @@ validate-dataset:
 	$(PYTHON) -m src.quality.validate_analysis_dataset --checks $(VALIDATE_CHECKS) --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
 
 validate-ownership:
-	$(PYTHON) -m src.quality.validate_analysis_dataset --checks ownership --strict --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
+	$(PYTHON) -m src.quality.validate_analysis_dataset --checks ownership --strict --input-csv $(OWNERSHIP_VALIDATE_INPUT) --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
 
 final-common:
 	$(PYTHON) scripts/processing/build_final_common_dataset.py --input-csv $(FINAL_COMMON_INPUT) --output-csv $(FINAL_COMMON_OUTPUT)
