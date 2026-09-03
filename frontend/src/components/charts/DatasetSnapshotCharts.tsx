@@ -19,7 +19,13 @@ type ModelEntry = {
 };
 
 function latestCollectionYears(entries: CountEntry[]): CountEntry[] {
-  const recent = entries.filter((entry) => Number(entry.label) >= 2016);
+  const currentYear = new Date().getFullYear();
+  const recent = entries
+    .filter((entry) => {
+      const year = Number(entry.label);
+      return Number.isInteger(year) && year >= 2016 && year <= currentYear;
+    })
+    .sort((a, b) => Number(a.label) - Number(b.label));
   return recent.length > 0 ? recent : entries;
 }
 

@@ -23,6 +23,7 @@ PROJECT_ROOT = next(
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.html_meta_collector import HtmlMetaCollector
+from src.collectors.schema_mapping import has_html_meta_doi
 from src.collectors.repository_registry import load_registry
 
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw"
@@ -80,18 +81,25 @@ def main() -> None:
     )
 
     total = 0
+    skipped_missing_doi = 0
     with output_path.open("w", encoding="utf-8") as output_file:
         for item in collector.iter_items(
-            max_records=args.max_records,
             start_year=start_year,
             end_year=end_year,
         ):
+            if args.max_records is not None and total >= args.max_records:
+                break
+            if not has_html_meta_doi(item):
+                skipped_missing_doi += 1
+                continue
             output_file.write(json.dumps(item, ensure_ascii=False) + "\n")
             total += 1
             if total % 200 == 0:
                 print(f"Collected {total} items...")
 
     print(f"Saved {total} items to {output_path}")
+    if skipped_missing_doi:
+        print(f"Skipped {skipped_missing_doi} items without a valid DOI.")
 
 
 if __name__ == "__main__":

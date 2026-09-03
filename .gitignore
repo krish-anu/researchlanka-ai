@@ -53,6 +53,7 @@ pnpm-debug.log*
 .ipynb_checkpoints/
 notebooks/outputs/
 backend/notebooks/outputs/
+slide_images/
 
 # Generated data and model artifacts
 data/raw/

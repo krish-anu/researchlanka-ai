@@ -28,6 +28,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.collectors.crossref_collector import CrossrefCollector
 from src.preprocessing.crossref_normalizer import reduce_work
+from src.utils.doi import is_valid_doi, normalize_doi
 from src.utils.file_naming import dataset_filename
 
 logger = logging.getLogger(__name__)
@@ -221,20 +222,22 @@ def collect_crossref(
                 affiliation_query=query,
                 filters=date_filters,
                 rows=args.rows,
-                max_records=remaining,
                 require_first_author_lk=not args.include_all_authorships,
                 start_year=from_year,
                 end_year=until_year,
             ):
+                if args.max_records is not None and total >= args.max_records:
+                    break
                 doi = work.get("DOI")
 
-                if doi:
-                    doi_key = doi.casefold()
+                doi_key = normalize_doi(doi)
+                if doi_key is None or not is_valid_doi(doi_key):
+                    continue
 
-                    if doi_key in seen_dois:
-                        continue
+                if doi_key in seen_dois:
+                    continue
 
-                    seen_dois.add(doi_key)
+                seen_dois.add(doi_key)
 
                 output_file.write(json.dumps(work, ensure_ascii=False) + "\n")
                 total += 1
@@ -289,10 +292,10 @@ def enrich_from_dois(
                 except Exception:
                     continue
 
-                doi = record.get("DOI") or record.get("doi")
+                doi = normalize_doi(record.get("DOI") or record.get("doi"))
 
-                if doi:
-                    existing_dois.add(doi.casefold())
+                if doi and is_valid_doi(doi):
+                    existing_dois.add(doi)
 
     # Load DOI list
     with doi_file.open(
@@ -314,8 +317,13 @@ def enrich_from_dois(
         ):
             doi = normalized.get("DOI")
 
+            doi_key = normalize_doi(doi)
+            if doi_key is None or not is_valid_doi(doi_key):
+                skipped += 1
+                continue
+
             # Remove duplicates
-            if doi and doi.casefold() in existing_dois:
+            if doi_key in existing_dois:
                 skipped += 1
                 continue
 
@@ -329,8 +337,7 @@ def enrich_from_dois(
 
             found += 1
 
-            if doi:
-                existing_dois.add(doi.casefold())
+            existing_dois.add(doi_key)
 
             if found % 100 == 0:
                 print(f"Saved: {found} | Skipped duplicates: {skipped}")
