@@ -3,8 +3,8 @@
 This script applies the decisions documented in
 docs/07_last_26_columns_final_dataset_decisions.md:
 
-* keep best-available citation/reference counts in the main dataset
-* keep best-available citation/reference counts in the main dataset
+* keep best-available reference counts in the main dataset
+* drop citation_count and related citation audit fields from the main dataset
 * move source-specific count comparison fields to an audit sidecar
 * normalize funder identifiers
 * deduplicate selected semicolon-separated fields
@@ -26,6 +26,9 @@ docs/09_columns_1_25_final_dataset_decisions.md:
   url, type, and authors exactly
 * drop created_date and published_date from the main dataset because they add
   no coverage beyond publication_date
+* drop publication_year from the main dataset while keeping publication_date
+* drop raw_identifiers from the main dataset because normalized identifiers
+  are kept separately
 * drop subtitle, original_title, and subtype, which are too sparse to analyze
 """
 
@@ -79,7 +82,6 @@ FINAL_MAIN_COLUMNS = [
     "title",
     "abstract",
     "keywords",
-    "publication_year",
     "publication_date",
     "type",
     "authors",
@@ -119,7 +121,6 @@ FINAL_MAIN_COLUMNS = [
     "license_url",
     "oa_status",
     "is_oa",
-    "citation_count",
     "reference_count",
     "concepts",
     "topics",
@@ -132,9 +133,6 @@ FINAL_MAIN_COLUMNS = [
     "funder_identifier",
     "funder_award",
     "source_set_specs",
-    "raw_identifiers",
-    "citation_count_difference_oa_minus_crossref",
-    "citation_count_divergence_flag",
     "reference_count_difference_oa_minus_crossref",
     "reference_count_divergence_flag",
 ]
@@ -167,6 +165,7 @@ DROP_FROM_MAIN = [
     "subtype",
     "publication_type",
     "author_names",
+    "raw_identifiers",
 ]
 
 MULTI_VALUE_COLUMNS = [
@@ -177,7 +176,6 @@ MULTI_VALUE_COLUMNS = [
     "funder_identifier",
     "funder_award",
     "source_set_specs",
-    "raw_identifiers",
 ]
 
 TRAILING_URL_PUNCTUATION = ".,;:)]}"
@@ -542,12 +540,8 @@ def build_count_audit_rows(df: pd.DataFrame) -> list[dict[str, Any]]:
     add_count_comparison_columns(audit)
 
     count_columns = [
-        "citation_count",
-        "is_referenced_by_count",
         "reference_count",
         "referenced_works_count",
-        "citation_count_difference_oa_minus_crossref",
-        "citation_count_divergence_flag",
         "reference_count_difference_oa_minus_crossref",
         "reference_count_divergence_flag",
     ]
@@ -582,12 +576,8 @@ def write_count_audit_sidecar(df: pd.DataFrame, output_path: Path) -> int:
         "source_record_id",
         "doi",
         "title",
-        "citation_count",
-        "is_referenced_by_count",
         "reference_count",
         "referenced_works_count",
-        "citation_count_difference_oa_minus_crossref",
-        "citation_count_divergence_flag",
         "reference_count_difference_oa_minus_crossref",
         "reference_count_divergence_flag",
     ]
@@ -622,17 +612,18 @@ def clean_final_dataset(df: pd.DataFrame) -> pd.DataFrame:
     columns_to_drop = [column for column in DROP_FROM_MAIN if column in cleaned.columns]
     cleaned = cleaned.drop(columns=columns_to_drop)
 
-    if "cited_by_count" in cleaned.columns:
-        cleaned = cleaned.drop(columns=["cited_by_count"])
+    for column in [
+        "cited_by_count",
+        "citation_count",
+        "is_referenced_by_count",
+        "citation_count_difference_oa_minus_crossref",
+        "citation_count_divergence_flag",
+        "publication_year",
+    ]:
+        if column in cleaned.columns:
+            cleaned = cleaned.drop(columns=[column])
     if "funder_id" in cleaned.columns:
         cleaned = cleaned.drop(columns=["funder_id"])
-
-    columns = list(cleaned.columns)
-    if "citation_count" in columns and "reference_count" in columns:
-        columns.remove("citation_count")
-        reference_index = columns.index("reference_count")
-        columns.insert(reference_index, "citation_count")
-        cleaned = cleaned.loc[:, columns]
 
     if "funder_identifier" in cleaned.columns and "funder_award" in cleaned.columns:
         columns = list(cleaned.columns)
@@ -782,7 +773,7 @@ def write_summary(
         {"metric": "verified_sri_lanka_owned_rows", "value": verified_rows},
         {"metric": "repository_review_rows_in_final", "value": repository_review_rows_in_final},
         {"metric": "dropped_main_columns", "value": "; ".join(DROP_FROM_MAIN)},
-        {"metric": "renamed_columns", "value": "cited_by_count -> citation_count; funder_id -> funder_identifier"},
+        {"metric": "renamed_columns", "value": "funder_id -> funder_identifier"},
     ]
     pd.DataFrame(rows).to_csv(output_path, index=False)
 
