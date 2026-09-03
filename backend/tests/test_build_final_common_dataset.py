@@ -67,8 +67,7 @@ def test_clean_final_dataset_applies_last_26_column_decisions():
 
     cleaned = clean_final_dataset(df)
 
-    assert "citation_count" in cleaned.columns
-    assert cleaned.loc[0, "citation_count"] == 5
+    assert "citation_count" not in cleaned.columns
     assert cleaned.loc[0, "reference_count"] == 12
     assert cleaned.loc[0, "citation_count_difference_oa_minus_crossref"] == -12
     assert cleaned.loc[0, "citation_count_divergence_flag"]
@@ -82,6 +81,7 @@ def test_clean_final_dataset_applies_last_26_column_decisions():
 
     for column in [
         "cited_by_count",
+        "citation_count",
         "is_referenced_by_count",
         "referenced_works_count",
         "references_json",
@@ -284,6 +284,7 @@ def test_build_final_common_dataset_writes_sidecars(tmp_path):
     assert len(pd.read_csv(excluded_csv)) == 1
     assert len(pd.read_csv(verified_csv)) == 1
     assert "is_referenced_by_count" not in cleaned.columns
+    assert "citation_count" not in cleaned.columns
     assert "referenced_works_count" not in cleaned.columns
     assert references.loc[0, "publication_key"] == "doi:10.1000/test"
     assert references.loc[0, "reference_doi"] == "10.1000/ref"

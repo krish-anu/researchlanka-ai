@@ -3,8 +3,8 @@
 This script applies the decisions documented in
 docs/07_last_26_columns_final_dataset_decisions.md:
 
-* keep best-available citation/reference counts in the main dataset
-* keep best-available citation/reference counts in the main dataset
+* keep best-available reference counts in the main dataset
+* drop citation_count from the main dataset
 * move source-specific count comparison fields to an audit sidecar
 * normalize funder identifiers
 * deduplicate selected semicolon-separated fields
@@ -119,7 +119,6 @@ FINAL_MAIN_COLUMNS = [
     "license_url",
     "oa_status",
     "is_oa",
-    "citation_count",
     "reference_count",
     "concepts",
     "topics",
@@ -622,17 +621,11 @@ def clean_final_dataset(df: pd.DataFrame) -> pd.DataFrame:
     columns_to_drop = [column for column in DROP_FROM_MAIN if column in cleaned.columns]
     cleaned = cleaned.drop(columns=columns_to_drop)
 
-    if "cited_by_count" in cleaned.columns:
-        cleaned = cleaned.drop(columns=["cited_by_count"])
+    for column in ["cited_by_count", "citation_count"]:
+        if column in cleaned.columns:
+            cleaned = cleaned.drop(columns=[column])
     if "funder_id" in cleaned.columns:
         cleaned = cleaned.drop(columns=["funder_id"])
-
-    columns = list(cleaned.columns)
-    if "citation_count" in columns and "reference_count" in columns:
-        columns.remove("citation_count")
-        reference_index = columns.index("reference_count")
-        columns.insert(reference_index, "citation_count")
-        cleaned = cleaned.loc[:, columns]
 
     if "funder_identifier" in cleaned.columns and "funder_award" in cleaned.columns:
         columns = list(cleaned.columns)

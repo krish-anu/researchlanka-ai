@@ -68,11 +68,11 @@ IDENTIFIER_COLUMNS = [
 NUMERIC_COLUMNS = [
     "publication_year",
     "author_count",
-    "citation_count",
     "reference_count",
     "citation_count_difference_oa_minus_crossref",
     "reference_count_difference_oa_minus_crossref",
 ]
+DROP_FROM_ANALYSIS_READY = ["citation_count"]
 NATURALLY_SPARSE_COLUMNS = [
     "abstract",
     "funder_name",
@@ -547,6 +547,9 @@ def build_analysis_ready_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     cleaned = add_missing_flags(cleaned)
     cleaned = normalize_author_fields(cleaned)
     cleaned = normalize_oa_license_fields(cleaned)
+    columns_to_drop = [column for column in DROP_FROM_ANALYSIS_READY if column in cleaned.columns]
+    if columns_to_drop:
+        cleaned = cleaned.drop(columns=columns_to_drop)
     return cleaned
 
 

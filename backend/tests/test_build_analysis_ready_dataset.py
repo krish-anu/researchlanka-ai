@@ -72,6 +72,7 @@ def test_build_analysis_ready_dataframe_adds_helper_columns_and_converts_types()
     assert cleaned.loc[0, "keywords_search_text"] == "ai"
     assert cleaned.loc[0, "authors_clean"] == "Kalinga Silva"
     assert cleaned.loc[0, "publication_year"] == 2020
+    assert "citation_count" not in cleaned.columns
     assert cleaned.loc[0, "oa_status"] == "unknown"
     assert cleaned.loc[0, "is_oa"] is False
     assert cleaned.loc[0, "license"] == "cc-by"
