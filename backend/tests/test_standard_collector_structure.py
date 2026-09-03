@@ -4,6 +4,11 @@ from src.collectors.dspace_rest_collector import DspaceRestCollector
 from src.collectors.html_meta_collector import HtmlMetaCollector
 from src.collectors.http import create_retry_session
 from src.collectors.oai_pmh_collector import OaiPmhCollector
+from src.collectors.schema_mapping import (
+    has_dspace_rest_doi,
+    has_html_meta_doi,
+    has_oai_dc_doi,
+)
 from src.collectors.sitemap_collector import SitemapCollector
 
 
@@ -383,6 +388,43 @@ def test_oai_pmh_collector_rejects_repeated_resumption_token():
 
     with pytest.raises(RuntimeError, match="resumption token repeated"):
         list(collector.iter_records())
+
+
+def test_raw_repository_doi_helpers_require_valid_doi_values():
+    assert has_oai_dc_doi(
+        {"identifier": ["https://repo.example.edu/1", "doi:10.1000/example"]}
+    )
+    assert not has_oai_dc_doi({"identifier": ["https://repo.example.edu/1"]})
+
+    assert has_dspace_rest_doi(
+        {
+            "metadata": {
+                "dc.identifier.doi": ["https://doi.org/10.1000/rest"],
+            }
+        }
+    )
+    assert not has_dspace_rest_doi(
+        {
+            "metadata": {
+                "dc.identifier.uri": ["https://repo.example.edu/items/1"],
+            }
+        }
+    )
+
+    assert has_html_meta_doi(
+        {
+            "meta": {
+                "DC.identifier": ["DOI: 10.1000/html"],
+            }
+        }
+    )
+    assert not has_html_meta_doi(
+        {
+            "meta": {
+                "DC.identifier": ["not-a-doi"],
+            }
+        }
+    )
 
 
 def test_sitemap_collector_follows_indexes_and_filters_item_urls():

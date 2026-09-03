@@ -31,6 +31,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
 
+from src.collectors.schema_mapping import has_oai_dc_doi
 from src.collectors.oai_pmh_collector import OaiPmhCollector, OaiPmhError
 from src.collectors.repository_registry import harvestable_targets, load_registry
 
@@ -46,6 +47,7 @@ class HarvestOutcome:
     id: str
     name: str
     record_count: int = 0
+    skipped_missing_doi: int = 0
     status: str = "ok"  # ok | empty | error | skipped_existing
     error: str | None = None
     output_path: str | None = None
@@ -104,14 +106,19 @@ def harvest_one(
     verify_ssl = not target.extra.get("ssl_verify_failed", False)
     collector = OaiPmhCollector(base_url=target.oai_endpoint, timeout=timeout, verify_ssl=verify_ssl)
     total = 0
+    skipped_missing_doi = 0
 
     try:
         with output_path.open("w", encoding="utf-8") as output_file:
             for record in collector.iter_records(
-                max_records=max_records,
                 from_date=from_date,
                 until_date=until_date,
             ):
+                if max_records is not None and total >= max_records:
+                    break
+                if not has_oai_dc_doi(record):
+                    skipped_missing_doi += 1
+                    continue
                 output_file.write(json.dumps(record, ensure_ascii=False) + "\n")
                 total += 1
                 if progress_callback and progress_interval > 0 and total % progress_interval == 0:
@@ -123,6 +130,7 @@ def harvest_one(
             id=target.id,
             name=target.name,
             record_count=total,
+            skipped_missing_doi=skipped_missing_doi,
             status="empty" if total == 0 else "ok",
             error=str(exc),
             output_path=str(output_path),
@@ -132,6 +140,7 @@ def harvest_one(
             id=target.id,
             name=target.name,
             record_count=total,
+            skipped_missing_doi=skipped_missing_doi,
             status="error",
             error=str(exc),
             output_path=str(output_path),
@@ -141,6 +150,7 @@ def harvest_one(
         id=target.id,
         name=target.name,
         record_count=total,
+        skipped_missing_doi=skipped_missing_doi,
         status="ok" if total > 0 else "empty",
         output_path=str(output_path),
     )
@@ -233,7 +243,11 @@ def main() -> None:
             print(f"[{i + 1}/{len(targets)}] Harvesting {target.id} ({target.name})...")
             outcome = harvest_or_skip(target)
             outcomes.append(outcome)
-            print(f"  -> {outcome.status}: {outcome.record_count} records" + (f" ({outcome.error})" if outcome.error else ""))
+            print(
+                f"  -> {outcome.status}: {outcome.record_count} records"
+                f" ({outcome.skipped_missing_doi} skipped missing DOI)"
+                + (f" ({outcome.error})" if outcome.error else "")
+            )
             if i < len(targets) - 1:
                 time.sleep(args.delay)
     else:
@@ -259,6 +273,7 @@ def main() -> None:
                 outcomes_by_id[target.id] = outcome
                 print(
                     f"  -> {target.id}: {outcome.status}: {outcome.record_count} records"
+                    f" ({outcome.skipped_missing_doi} skipped missing DOI)"
                     + (f" ({outcome.error})" if outcome.error else "")
                 )
         outcomes = [
@@ -267,13 +282,18 @@ def main() -> None:
             if target.id in outcomes_by_id
         ]
 
-    print(f"\n{'ID':<16}{'Status':<18}{'Records':<10}Notes")
-    print("-" * 78)
+    print(f"\n{'ID':<16}{'Status':<18}{'Records':<10}{'No DOI':<10}Notes")
+    print("-" * 88)
     total_records = 0
+    total_skipped_missing_doi = 0
     for outcome in outcomes:
         total_records += outcome.record_count
+        total_skipped_missing_doi += outcome.skipped_missing_doi
         note = (outcome.error or "")[:50]
-        print(f"{outcome.id:<16}{outcome.status:<18}{outcome.record_count:<10}{note}")
+        print(
+            f"{outcome.id:<16}{outcome.status:<18}{outcome.record_count:<10}"
+            f"{outcome.skipped_missing_doi:<10}{note}"
+        )
 
     yielded_count = sum(1 for o in outcomes if o.status in {"ok", "skipped_existing"})
     skipped_count = sum(1 for o in outcomes if o.status == "skipped_existing")
@@ -281,6 +301,8 @@ def main() -> None:
         f"\n{yielded_count}/{len(outcomes)} targets yielded or reused records. "
         f"{total_records} total records available."
     )
+    if total_skipped_missing_doi:
+        print(f"{total_skipped_missing_doi} record(s) skipped because DOI was missing or invalid.")
     if skipped_count:
         print(f"{skipped_count} target(s) reused existing raw JSONL files.")
 
@@ -294,6 +316,7 @@ def main() -> None:
         "until_date": until_date,
         "target_count": len(outcomes),
         "total_records": total_records,
+        "skipped_missing_doi": total_skipped_missing_doi,
         "results": [asdict(o) for o in outcomes],
     }
     report_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")

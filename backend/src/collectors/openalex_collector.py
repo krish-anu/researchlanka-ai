@@ -38,6 +38,7 @@ from src.preprocessing.openalex_normalizer import (
     unique_join,
     work_to_row,
 )
+from src.utils.doi import is_valid_doi
 
 
 OPENALEX_BASE_URL = "https://api.openalex.org"
@@ -250,6 +251,9 @@ class OpenAlexCollector:
                     skipped_count += 1
                     continue
                 if not keep_in_sri_lanka_owned_dataset(work):
+                    skipped_count += 1
+                    continue
+                if not is_valid_doi(work.get("doi")):
                     skipped_count += 1
                     continue
                 work_id = openalex_work_id(work)
