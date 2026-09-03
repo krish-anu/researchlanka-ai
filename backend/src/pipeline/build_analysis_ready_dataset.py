@@ -66,12 +66,17 @@ IDENTIFIER_COLUMNS = [
     "funder_identifier",
 ]
 NUMERIC_COLUMNS = [
-    "publication_year",
     "author_count",
-    "citation_count",
     "reference_count",
-    "citation_count_difference_oa_minus_crossref",
     "reference_count_difference_oa_minus_crossref",
+]
+DROP_FROM_ANALYSIS_READY = [
+    "citation_count",
+    "citation_count_difference_oa_minus_crossref",
+    "citation_count_divergence_flag",
+    "is_referenced_by_count",
+    "publication_year",
+    "raw_identifiers",
 ]
 NATURALLY_SPARSE_COLUMNS = [
     "abstract",
@@ -87,7 +92,6 @@ NATURALLY_SPARSE_COLUMNS = [
 ]
 BOOLEAN_COLUMNS = [
     "is_oa",
-    "citation_count_divergence_flag",
     "reference_count_divergence_flag",
 ]
 ISSN_RE = re.compile(r"^\d{4}-\d{3}[\dX]$", re.IGNORECASE)
@@ -356,7 +360,7 @@ def normalize_oa_license_fields(df: pd.DataFrame) -> pd.DataFrame:
         cleaned["oa_status"] = cleaned["oa_status"].map(normalize_oa_status)
     if "is_oa" in cleaned.columns:
         cleaned["is_oa"] = cleaned["is_oa"].map(normalize_bool).astype("object")
-    for column in ["citation_count_divergence_flag", "reference_count_divergence_flag"]:
+    for column in ["reference_count_divergence_flag"]:
         if column in cleaned.columns:
             cleaned[column] = cleaned[column].map(normalize_bool).astype("object")
     if "license" in cleaned.columns:
@@ -547,6 +551,9 @@ def build_analysis_ready_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     cleaned = add_missing_flags(cleaned)
     cleaned = normalize_author_fields(cleaned)
     cleaned = normalize_oa_license_fields(cleaned)
+    columns_to_drop = [column for column in DROP_FROM_ANALYSIS_READY if column in cleaned.columns]
+    if columns_to_drop:
+        cleaned = cleaned.drop(columns=columns_to_drop)
     return cleaned
 
 
