@@ -6,6 +6,7 @@ import pytest
 from src.pipeline.build_year_filtered_dataset import (
     build_year_filtered_dataset,
     filter_by_publication_year,
+    publication_years_for_filter,
     year_filter_counts,
 )
 
@@ -23,6 +24,33 @@ def test_filter_by_publication_year_keeps_inclusive_range_only():
     assert filtered["title"].tolist() == ["start", "middle", "end"]
 
 
+def test_filter_by_publication_year_can_derive_year_from_publication_date():
+    df = pd.DataFrame(
+        {
+            "publication_date": ["2015-12-31", "2016-01-01", "2020", "2026-05", "", "unknown"],
+            "title": ["before", "start", "middle", "end", "blank", "invalid"],
+        }
+    )
+
+    filtered = filter_by_publication_year(df, start_year=2016, end_year=2026)
+
+    assert "publication_year" not in filtered.columns
+    assert filtered["title"].tolist() == ["start", "middle", "end"]
+
+
+def test_publication_years_for_filter_prefers_publication_year_column():
+    df = pd.DataFrame(
+        {
+            "publication_year": ["2020", "2021"],
+            "publication_date": ["2015-01-01", "2015-01-01"],
+        }
+    )
+
+    years = publication_years_for_filter(df)
+
+    assert years.tolist() == [2020, 2021]
+
+
 def test_year_filter_counts_reports_dropped_groups():
     df = pd.DataFrame({"publication_year": ["2015", "2016", "2026", "2027", "", "unknown"]})
 
@@ -34,6 +62,20 @@ def test_year_filter_counts_reports_dropped_groups():
         "dropped_before_start_year": 1,
         "dropped_after_end_year": 1,
         "dropped_missing_or_invalid_year": 2,
+    }
+
+
+def test_year_filter_counts_uses_publication_date_when_publication_year_was_dropped():
+    df = pd.DataFrame({"publication_date": ["2015-01-01", "2016-01-01", "2026-06-30", "unknown"]})
+
+    counts = year_filter_counts(df, start_year=2016, end_year=2026)
+
+    assert counts == {
+        "input_rows": 4,
+        "kept_rows": 2,
+        "dropped_before_start_year": 1,
+        "dropped_after_end_year": 0,
+        "dropped_missing_or_invalid_year": 1,
     }
 
 
