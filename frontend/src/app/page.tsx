@@ -71,6 +71,9 @@ const rankingColumns = (
   },
 ];
 
+const TREND_YEAR_MIN = 2016;
+const TREND_YEAR_MAX = new Date().getFullYear();
+
 /* ------------------------------------------------------------------ page */
 
 /**
@@ -148,7 +151,12 @@ export default async function DashboardPage() {
 /* -------------------------------------------------------------- sections */
 
 async function TrendsSection() {
-  const trends = await getAnalyticsTrends({ group_by: "year" });
+  const trendFilters = {
+    group_by: "year" as const,
+    year_min: TREND_YEAR_MIN,
+    year_max: TREND_YEAR_MAX,
+  };
+  const trends = await getAnalyticsTrends(trendFilters);
   const points = trends.ok ? sortByYear(trends.value.data) : [];
 
   const yearTable = (
@@ -179,7 +187,7 @@ async function TrendsSection() {
       <ChartPanel
         title="Publications per year"
         description="Records with a recorded publication year."
-        action={<DownloadLink href={analyticsExportUrl("trends")} />}
+        action={<DownloadLink href={analyticsExportUrl("trends", trendFilters)} />}
         table={points.length > 0 ? yearTable("publication_count", "Publications") : null}
       >
         {!trends.ok ? (

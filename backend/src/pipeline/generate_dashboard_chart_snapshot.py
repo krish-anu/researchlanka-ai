@@ -9,6 +9,7 @@ import re
 import sys
 import unicodedata
 from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,8 @@ SOURCE_LABELS = {
     "repositories_combined": "Repositories",
     "sljol": "SLJOL",
 }
+DEFAULT_YEAR_MIN = 2016
+DEFAULT_YEAR_MAX = date.today().year
 
 
 def raise_csv_field_limit() -> None:
@@ -81,13 +84,39 @@ def read_csv_rows(path: Path):
         yield from csv.DictReader(handle)
 
 
-def final_dataset_charts(path: Path) -> tuple[list[dict[str, int | str]], list[dict[str, int | str]]]:
+def publication_year(row: dict[str, Any]) -> int | None:
+    value = clean_text(row.get("publication_year"))
+    if not value:
+        return None
+    try:
+        return int(float(value))
+    except ValueError:
+        return None
+
+
+def in_year_window(
+    row: dict[str, Any],
+    *,
+    year_min: int,
+    year_max: int,
+) -> bool:
+    year = publication_year(row)
+    return year is not None and year_min <= year <= year_max
+
+
+def final_dataset_charts(
+    path: Path,
+    *,
+    year_min: int,
+    year_max: int,
+) -> tuple[list[dict[str, int | str]], list[dict[str, int | str]]]:
     by_year: Counter[str] = Counter()
     source_combinations: Counter[str] = Counter()
     for row in read_csv_rows(path):
-        year = clean_text(row.get("publication_year"))
-        if year.isdigit():
-            by_year[year] += 1
+        if not in_year_window(row, year_min=year_min, year_max=year_max):
+            continue
+        year = str(publication_year(row))
+        by_year[year] += 1
         source_combinations[clean_text(row.get("source_dataset")) or "unknown"] += 1
 
     publications_by_year = [
@@ -101,12 +130,19 @@ def final_dataset_charts(path: Path) -> tuple[list[dict[str, int | str]], list[d
     return publications_by_year, multi_source
 
 
-def source_and_dedup_charts(path: Path) -> tuple[list[dict[str, int | str]], list[dict[str, int | str]]]:
+def source_and_dedup_charts(
+    path: Path,
+    *,
+    year_min: int,
+    year_max: int,
+) -> tuple[list[dict[str, int | str]], list[dict[str, int | str]]]:
     main_sources: Counter[str] = Counter()
     title_year_dois: dict[tuple[str, str], set[str]] = defaultdict(set)
     doi_details: dict[str, set[tuple[str, str]]] = defaultdict(set)
 
     for row in read_csv_rows(path):
+        if not in_year_window(row, year_min=year_min, year_max=year_max):
+            continue
         source = clean_text(row.get("source_dataset")) or "unknown"
         main_sources[source] += 1
 
@@ -161,10 +197,21 @@ def generate_snapshot(
     final_csv: Path,
     model_comparison_csv: Path,
     output_json: Path,
+    year_min: int = DEFAULT_YEAR_MIN,
+    year_max: int = DEFAULT_YEAR_MAX,
 ) -> dict[str, Any]:
-    publications_by_year, multi_source = final_dataset_charts(final_csv)
-    main_sources, dedup = source_and_dedup_charts(all_records_csv)
+    publications_by_year, multi_source = final_dataset_charts(
+        final_csv,
+        year_min=year_min,
+        year_max=year_max,
+    )
+    main_sources, dedup = source_and_dedup_charts(
+        all_records_csv,
+        year_min=year_min,
+        year_max=year_max,
+    )
     snapshot = {
+        "yearWindow": {"min": year_min, "max": year_max},
         "publicationsByYear": publications_by_year,
         "mainSources": main_sources,
         "multiSourceCombinations": multi_source,
@@ -182,6 +229,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--final-csv", type=Path, default=DEFAULT_FINAL_CSV)
     parser.add_argument("--model-comparison-csv", type=Path, default=DEFAULT_MODEL_COMPARISON_CSV)
     parser.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT_JSON)
+    parser.add_argument("--year-min", type=int, default=DEFAULT_YEAR_MIN)
+    parser.add_argument("--year-max", type=int, default=DEFAULT_YEAR_MAX)
     return parser.parse_args()
 
 
@@ -192,6 +241,8 @@ def main() -> None:
         final_csv=args.final_csv,
         model_comparison_csv=args.model_comparison_csv,
         output_json=args.output_json,
+        year_min=args.year_min,
+        year_max=args.year_max,
     )
     print("Generated chart snapshot.")
     print(f"  Output: {args.output_json}")
