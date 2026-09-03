@@ -30,6 +30,32 @@ DEFAULT_OUTPUT_CSV = (
 DEFAULT_SUMMARY_CSV = (
     PROJECT_ROOT / "data" / "processed" / "common" / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_summary.csv"
 )
+YEAR_SOURCE_COLUMNS = ("publication_year", "publication_date", "published_date", "created_date")
+YEAR_RE = r"(1[5-9]\d{2}|20\d{2})"
+
+
+def publication_years_for_filter(df: pd.DataFrame) -> pd.Series:
+    """Return publication years from the best available year/date column."""
+
+    years = pd.Series(pd.NA, index=df.index, dtype="Float64")
+    found_source = False
+    for column in YEAR_SOURCE_COLUMNS:
+        if column not in df.columns:
+            continue
+
+        found_source = True
+        values = df[column]
+        numeric_years = pd.to_numeric(values, errors="coerce")
+        extracted = values.astype("string").str.extract(YEAR_RE, expand=False)
+        extracted_years = pd.to_numeric(extracted, errors="coerce")
+        candidate_years = numeric_years.fillna(extracted_years)
+        years = years.fillna(candidate_years)
+
+    if not found_source:
+        raise ValueError(
+            "Input dataset must include publication_year or a date column containing a publication year."
+        )
+    return years
 
 
 def year_filter_counts(
@@ -39,10 +65,7 @@ def year_filter_counts(
     end_year: int = DEFAULT_END_YEAR,
 ) -> dict[str, int]:
     end_year = min(end_year, DEFAULT_END_YEAR)
-    if "publication_year" not in df.columns:
-        raise ValueError("Input dataset must include a publication_year column.")
-
-    years = pd.to_numeric(df["publication_year"], errors="coerce")
+    years = publication_years_for_filter(df)
     missing_or_invalid = years.isna()
 
     return {
@@ -64,10 +87,7 @@ def filter_by_publication_year(
     if start_year > end_year:
         raise ValueError("start_year must be less than or equal to end_year.")
 
-    if "publication_year" not in df.columns:
-        raise ValueError("Input dataset must include a publication_year column.")
-
-    years = pd.to_numeric(df["publication_year"], errors="coerce")
+    years = publication_years_for_filter(df)
     keep_mask = years.between(start_year, end_year, inclusive="both")
     return df.loc[keep_mask].copy()
 
