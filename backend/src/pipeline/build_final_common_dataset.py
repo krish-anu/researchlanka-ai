@@ -4,7 +4,7 @@ This script applies the decisions documented in
 docs/07_last_26_columns_final_dataset_decisions.md:
 
 * keep best-available reference counts in the main dataset
-* drop citation_count from the main dataset
+* drop citation_count and related citation audit fields from the main dataset
 * move source-specific count comparison fields to an audit sidecar
 * normalize funder identifiers
 * deduplicate selected semicolon-separated fields
@@ -27,6 +27,8 @@ docs/09_columns_1_25_final_dataset_decisions.md:
 * drop created_date and published_date from the main dataset because they add
   no coverage beyond publication_date
 * drop publication_year from the main dataset while keeping publication_date
+* drop raw_identifiers from the main dataset because normalized identifiers
+  are kept separately
 * drop subtitle, original_title, and subtype, which are too sparse to analyze
 """
 
@@ -131,9 +133,6 @@ FINAL_MAIN_COLUMNS = [
     "funder_identifier",
     "funder_award",
     "source_set_specs",
-    "raw_identifiers",
-    "citation_count_difference_oa_minus_crossref",
-    "citation_count_divergence_flag",
     "reference_count_difference_oa_minus_crossref",
     "reference_count_divergence_flag",
 ]
@@ -166,6 +165,7 @@ DROP_FROM_MAIN = [
     "subtype",
     "publication_type",
     "author_names",
+    "raw_identifiers",
 ]
 
 MULTI_VALUE_COLUMNS = [
@@ -176,7 +176,6 @@ MULTI_VALUE_COLUMNS = [
     "funder_identifier",
     "funder_award",
     "source_set_specs",
-    "raw_identifiers",
 ]
 
 TRAILING_URL_PUNCTUATION = ".,;:)]}"
@@ -541,12 +540,8 @@ def build_count_audit_rows(df: pd.DataFrame) -> list[dict[str, Any]]:
     add_count_comparison_columns(audit)
 
     count_columns = [
-        "citation_count",
-        "is_referenced_by_count",
         "reference_count",
         "referenced_works_count",
-        "citation_count_difference_oa_minus_crossref",
-        "citation_count_divergence_flag",
         "reference_count_difference_oa_minus_crossref",
         "reference_count_divergence_flag",
     ]
@@ -581,12 +576,8 @@ def write_count_audit_sidecar(df: pd.DataFrame, output_path: Path) -> int:
         "source_record_id",
         "doi",
         "title",
-        "citation_count",
-        "is_referenced_by_count",
         "reference_count",
         "referenced_works_count",
-        "citation_count_difference_oa_minus_crossref",
-        "citation_count_divergence_flag",
         "reference_count_difference_oa_minus_crossref",
         "reference_count_divergence_flag",
     ]
@@ -621,7 +612,14 @@ def clean_final_dataset(df: pd.DataFrame) -> pd.DataFrame:
     columns_to_drop = [column for column in DROP_FROM_MAIN if column in cleaned.columns]
     cleaned = cleaned.drop(columns=columns_to_drop)
 
-    for column in ["cited_by_count", "citation_count", "publication_year"]:
+    for column in [
+        "cited_by_count",
+        "citation_count",
+        "is_referenced_by_count",
+        "citation_count_difference_oa_minus_crossref",
+        "citation_count_divergence_flag",
+        "publication_year",
+    ]:
         if column in cleaned.columns:
             cleaned = cleaned.drop(columns=[column])
     if "funder_id" in cleaned.columns:
@@ -775,7 +773,7 @@ def write_summary(
         {"metric": "verified_sri_lanka_owned_rows", "value": verified_rows},
         {"metric": "repository_review_rows_in_final", "value": repository_review_rows_in_final},
         {"metric": "dropped_main_columns", "value": "; ".join(DROP_FROM_MAIN)},
-        {"metric": "renamed_columns", "value": "cited_by_count -> citation_count; funder_id -> funder_identifier"},
+        {"metric": "renamed_columns", "value": "funder_id -> funder_identifier"},
     ]
     pd.DataFrame(rows).to_csv(output_path, index=False)
 
