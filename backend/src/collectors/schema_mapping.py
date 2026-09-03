@@ -24,6 +24,7 @@ from src.preprocessing.crossref_normalizer import (
     has_sri_lankan_affiliated_author,
 )
 from src.preprocessing.ownership import source_only_review
+from src.utils.doi import is_valid_doi
 
 DOI_PATTERN = re.compile(r"10\.\d{4,9}/[^\s\"'<>]+", re.IGNORECASE)
 URL_PATTERN = re.compile(r"https?://\S+")
@@ -72,6 +73,33 @@ def _extract_doi(identifiers: list[str] | None) -> str | None:
         if match:
             return match.group(0).rstrip(".,)")
     return None
+
+
+def has_oai_dc_doi(record: dict[str, Any]) -> bool:
+    """Return True when a raw OAI-DC record contains a valid DOI."""
+    return is_valid_doi(_extract_doi(record.get("identifier")))
+
+
+def has_html_meta_doi(record: dict[str, Any]) -> bool:
+    """Return True when a raw HTML meta record contains a valid DOI."""
+    meta = record.get("meta") or {}
+    identifiers = (
+        meta.get("DC.identifier", [])
+        + meta.get("DCTERMS.identifier", [])
+        + meta.get("citation_doi", [])
+    )
+    return is_valid_doi(_extract_doi(identifiers))
+
+
+def has_dspace_rest_doi(record: dict[str, Any]) -> bool:
+    """Return True when a raw DSpace REST item contains a valid DOI."""
+    metadata = record.get("metadata") or {}
+    identifiers = (
+        metadata.get("dc.identifier.uri", [])
+        + metadata.get("dc.identifier.citation", [])
+        + metadata.get("dc.identifier.doi", [])
+    )
+    return is_valid_doi(_extract_doi(identifiers))
 
 
 def _extract_url(identifiers: list[str] | None) -> str | None:
@@ -230,7 +258,11 @@ def map_html_meta_record(record: dict[str, Any], *, institution_id: str) -> dict
                 return meta[field]
         return []
 
-    identifiers = meta.get("DC.identifier", [])
+    identifiers = (
+        meta.get("DC.identifier", [])
+        + meta.get("DCTERMS.identifier", [])
+        + meta.get("citation_doi", [])
+    )
     issued_date = _first(values("DCTERMS.issued", "citation_date"))
 
     row = {

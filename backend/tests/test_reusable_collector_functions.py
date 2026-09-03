@@ -97,8 +97,16 @@ def test_openalex_work_to_row_falls_back_to_first_topic_when_primary_topic_missi
 
 
 def test_openalex_iter_sri_lankan_works_honors_max_records(monkeypatch):
-    work_one = {"id": "https://openalex.org/W1", "authorships": [{"countries": ["LK"]}]}
-    work_two = {"id": "https://openalex.org/W2", "authorships": [{"countries": ["LK"]}]}
+    work_one = {
+        "id": "https://openalex.org/W1",
+        "doi": "https://doi.org/10.1000/one",
+        "authorships": [{"countries": ["LK"]}],
+    }
+    work_two = {
+        "id": "https://openalex.org/W2",
+        "doi": "https://doi.org/10.1000/two",
+        "authorships": [{"countries": ["LK"]}],
+    }
 
     def fake_pages(**_kwargs):
         yield openalex.OpenAlexWorkPage(
@@ -197,6 +205,30 @@ def test_crossref_iter_works_stops_at_max_records_across_pages(monkeypatch):
 
     assert [work["DOI"] for work in works] == ["10.1000/one", "10.1000/two"]
     assert len(pages) == 1
+
+
+def test_openalex_iter_sri_lankan_works_skips_missing_doi(monkeypatch):
+    work_without_doi = {
+        "id": "https://openalex.org/W1",
+        "authorships": [{"countries": ["LK"]}],
+    }
+    work_with_doi = {
+        "id": "https://openalex.org/W2",
+        "doi": "10.1000/two",
+        "publication_year": 2024,
+        "authorships": [{"countries": ["LK"], "is_corresponding": True}],
+    }
+
+    def fake_fetch_works(**_kwargs):
+        return {
+            "results": [work_without_doi, work_with_doi],
+            "meta": {"next_cursor": None},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+
+    assert list(collector.iter_sri_lankan_works()) == [work_with_doi]
 
 
 def test_crossref_fetch_work_by_doi_url_encodes_doi_and_returns_message():

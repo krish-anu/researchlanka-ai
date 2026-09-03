@@ -23,6 +23,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
 
+from src.collectors.schema_mapping import has_oai_dc_doi
 from src.collectors.oai_pmh_collector import OaiPmhCollector, OaiPmhError
 from src.collectors.repository_registry import harvestable_targets, load_registry
 
@@ -107,14 +108,19 @@ def main() -> None:
     print(f"Harvesting {endpoint} -> {output_path}")
 
     total = 0
+    skipped_missing_doi = 0
     try:
         with output_path.open("w", encoding="utf-8") as output_file:
             for record in collector.iter_records(
                 set_spec=args.set_spec,
                 from_date=args.from_date,
                 until_date=args.until_date,
-                max_records=args.max_records,
             ):
+                if args.max_records is not None and total >= args.max_records:
+                    break
+                if not has_oai_dc_doi(record):
+                    skipped_missing_doi += 1
+                    continue
                 output_file.write(json.dumps(record, ensure_ascii=False) + "\n")
                 total += 1
                 if total % 50 == 0:
@@ -129,6 +135,8 @@ def main() -> None:
         raise SystemExit(1) from exc
 
     print(f"Saved {total} records to {output_path}")
+    if skipped_missing_doi:
+        print(f"Skipped {skipped_missing_doi} records without a valid DOI.")
 
 
 if __name__ == "__main__":

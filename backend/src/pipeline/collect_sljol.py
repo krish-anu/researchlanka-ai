@@ -28,6 +28,7 @@ import requests
 
 from src.collectors.crossref_collector import CrossrefPrefixCollector
 from src.preprocessing.crossref_normalizer import first_author_is_from_sri_lanka
+from src.utils.doi import is_valid_doi, normalize_doi
 
 SLJOL_DOI_PREFIX = "10.4038"
 DEFAULT_FROM_YEAR = 2016
@@ -90,6 +91,7 @@ def main() -> None:
 
     total = 0
     skipped_first_author = 0
+    skipped_missing_doi = 0
     seen_dois: set[str] = set()
     audit_rows: list[dict[str, object]] = []
     try:
@@ -108,6 +110,14 @@ def main() -> None:
                 )
             )
             for work in works:
+                doi = work.get("DOI")
+                doi_key = normalize_doi(doi)
+                if doi_key is None or not is_valid_doi(doi_key):
+                    skipped_missing_doi += 1
+                    continue
+                if doi_key in seen_dois:
+                    continue
+                seen_dois.add(doi_key)
                 if (
                     args.require_first_author_lk
                     and not first_author_is_from_sri_lanka(work)
@@ -133,6 +143,7 @@ def main() -> None:
                 "reported_total": total_available,
                 "saved_total": total,
                 "skipped_first_author_not_lk": skipped_first_author,
+                "skipped_missing_doi": skipped_missing_doi,
                 "from_year": from_year,
                 "until_year": until_year,
                 "slices": audit_rows,
@@ -146,6 +157,8 @@ def main() -> None:
     print(f"Saved {total} works to {args.output}")
     if skipped_first_author:
         print(f"Skipped {skipped_first_author} works without first-author LK evidence.")
+    if skipped_missing_doi:
+        print(f"Skipped {skipped_missing_doi} works without a valid DOI.")
     print(f"Saved audit to {args.audit_output}")
 
 

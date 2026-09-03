@@ -22,6 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
 
+from src.collectors.schema_mapping import has_oai_dc_doi
 from src.collectors.oai_pmh_collector import OaiPmhCollector, OaiPmhError
 from src.collectors.repository_registry import load_registry
 
@@ -64,6 +65,7 @@ def main() -> None:
 
     seen_ids: set[str] = set()
     total = 0
+    skipped_missing_doi = 0
     failed_sets: list[str] = []
 
     with output_path.open("w", encoding="utf-8") as output_file:
@@ -76,6 +78,9 @@ def main() -> None:
                         continue
                     if record_id:
                         seen_ids.add(record_id)
+                    if not has_oai_dc_doi(record):
+                        skipped_missing_doi += 1
+                        continue
                     output_file.write(json.dumps(record, ensure_ascii=False) + "\n")
                     set_count += 1
                     total += 1
@@ -94,6 +99,8 @@ def main() -> None:
             print(f"[{index}/{len(set_specs)}] {set_spec}: {set_count} new records")
 
     print(f"\nSaved {total} unique records to {output_path}")
+    if skipped_missing_doi:
+        print(f"Skipped {skipped_missing_doi} records without a valid DOI.")
     if failed_sets:
         print(f"{len(failed_sets)} set(s) failed:")
         for set_spec in failed_sets:

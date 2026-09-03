@@ -25,6 +25,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
 
+from src.collectors.schema_mapping import has_dspace_rest_doi
 from src.collectors.dspace_rest_collector import DspaceRestCollector
 from src.collectors.repository_registry import load_registry
 
@@ -89,13 +90,18 @@ def main() -> None:
     print(f"Repository reports {total_available} total items.")
 
     total = 0
+    skipped_missing_doi = 0
     try:
         with output_path.open("w", encoding="utf-8") as output_file:
             for item in collector.iter_items(
-                max_records=args.max_records,
                 start_year=start_year,
                 end_year=end_year,
             ):
+                if args.max_records is not None and total >= args.max_records:
+                    break
+                if not has_dspace_rest_doi(item):
+                    skipped_missing_doi += 1
+                    continue
                 output_file.write(json.dumps(item, ensure_ascii=False) + "\n")
                 total += 1
                 if total % 500 == 0:
@@ -106,6 +112,8 @@ def main() -> None:
         raise SystemExit(1) from exc
 
     print(f"Saved {total} items to {output_path}")
+    if skipped_missing_doi:
+        print(f"Skipped {skipped_missing_doi} items without a valid DOI.")
 
 
 if __name__ == "__main__":
