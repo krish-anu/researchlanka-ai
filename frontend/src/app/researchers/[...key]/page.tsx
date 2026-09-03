@@ -50,6 +50,8 @@ export async function generateMetadata({ params }: PageProps) {
 const PAGE_SIZE = 25;
 /** Max page size the API allows; the trend is derived from this window. */
 const TREND_SAMPLE = 100;
+const TREND_YEAR_MIN = 2016;
+const TREND_YEAR_MAX = new Date().getFullYear();
 
 export default async function ResearcherProfilePage({
   params,
@@ -70,7 +72,12 @@ export default async function ResearcherProfilePage({
   const [publications, coauthors, trendSample, network] = await Promise.all([
     getResearcherPublications(researcherKey, { page, page_size: PAGE_SIZE }),
     getResearcherCoauthors(researcherKey, { limit: 25 }),
-    getResearcherPublications(researcherKey, { page: 1, page_size: TREND_SAMPLE }),
+    getResearcherPublications(researcherKey, {
+      page: 1,
+      page_size: TREND_SAMPLE,
+      year_min: TREND_YEAR_MIN,
+      year_max: TREND_YEAR_MAX,
+    }),
     getCollaborationNetwork({
       scope: "researcher",
       researcher: [data.label],

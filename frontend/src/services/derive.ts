@@ -17,10 +17,12 @@ export interface YearBucket {
 
 export function yearHistogram(publications: PublicationSummary[]): YearBucket[] {
   const buckets = new Map<number, YearBucket>();
+  const currentYear = new Date().getFullYear();
 
   for (const publication of publications) {
     const year = publication.publication_year;
     if (year === null || year === undefined) continue;
+    if (year < 2016 || year > currentYear) continue;
     const bucket = buckets.get(year) ?? {
       key: year,
       publication_count: 0,
