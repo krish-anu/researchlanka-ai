@@ -92,7 +92,6 @@ NATURALLY_SPARSE_COLUMNS = [
 ]
 BOOLEAN_COLUMNS = [
     "is_oa",
-    "citation_count_divergence_flag",
     "reference_count_divergence_flag",
 ]
 ISSN_RE = re.compile(r"^\d{4}-\d{3}[\dX]$", re.IGNORECASE)
