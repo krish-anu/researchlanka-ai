@@ -68,10 +68,16 @@ IDENTIFIER_COLUMNS = [
 NUMERIC_COLUMNS = [
     "author_count",
     "reference_count",
-    "citation_count_difference_oa_minus_crossref",
     "reference_count_difference_oa_minus_crossref",
 ]
-DROP_FROM_ANALYSIS_READY = ["citation_count", "publication_year"]
+DROP_FROM_ANALYSIS_READY = [
+    "citation_count",
+    "citation_count_difference_oa_minus_crossref",
+    "citation_count_divergence_flag",
+    "is_referenced_by_count",
+    "publication_year",
+    "raw_identifiers",
+]
 NATURALLY_SPARSE_COLUMNS = [
     "abstract",
     "funder_name",
@@ -355,7 +361,7 @@ def normalize_oa_license_fields(df: pd.DataFrame) -> pd.DataFrame:
         cleaned["oa_status"] = cleaned["oa_status"].map(normalize_oa_status)
     if "is_oa" in cleaned.columns:
         cleaned["is_oa"] = cleaned["is_oa"].map(normalize_bool).astype("object")
-    for column in ["citation_count_divergence_flag", "reference_count_divergence_flag"]:
+    for column in ["reference_count_divergence_flag"]:
         if column in cleaned.columns:
             cleaned[column] = cleaned[column].map(normalize_bool).astype("object")
     if "license" in cleaned.columns:

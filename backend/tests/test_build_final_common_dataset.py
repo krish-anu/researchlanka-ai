@@ -69,20 +69,19 @@ def test_clean_final_dataset_applies_last_26_column_decisions():
 
     assert "citation_count" not in cleaned.columns
     assert cleaned.loc[0, "reference_count"] == 12
-    assert cleaned.loc[0, "citation_count_difference_oa_minus_crossref"] == -12
-    assert cleaned.loc[0, "citation_count_divergence_flag"]
     assert cleaned.loc[0, "reference_count_difference_oa_minus_crossref"] == 3
     assert cleaned.loc[0, "reference_count_divergence_flag"]
     assert cleaned.loc[0, "concepts"] == "Medicine; Biology"
     assert cleaned.loc[0, "funder_doi"] == "10.13039/100008968"
     assert cleaned.loc[0, "funder_identifier"] == "https://ror.org/057p7e749"
     assert cleaned.loc[0, "source_set_specs"] == "set1; set2"
-    assert cleaned.loc[0, "raw_identifiers"] == "10.1000/test"
 
     for column in [
         "cited_by_count",
         "citation_count",
         "is_referenced_by_count",
+        "citation_count_difference_oa_minus_crossref",
+        "citation_count_divergence_flag",
         "referenced_works_count",
         "references_json",
         "funder_id",
@@ -92,6 +91,7 @@ def test_clean_final_dataset_applies_last_26_column_decisions():
         "event_start_date",
         "event_end_date",
         "event_sponsor",
+        "raw_identifiers",
         "raw_source_json",
     ]:
         assert column not in cleaned.columns
@@ -206,12 +206,13 @@ def test_build_count_audit_rows_preserves_source_specific_counts():
 
     assert len(rows) == 1
     assert rows[0]["publication_key"] == "doi:10.1000/test"
-    assert rows[0]["citation_count"] == 5
-    assert rows[0]["is_referenced_by_count"] == 17
     assert rows[0]["reference_count"] == 12
     assert rows[0]["referenced_works_count"] == 15
-    assert rows[0]["citation_count_difference_oa_minus_crossref"] == -12
     assert rows[0]["reference_count_difference_oa_minus_crossref"] == 3
+    assert "citation_count" not in rows[0]
+    assert "is_referenced_by_count" not in rows[0]
+    assert "citation_count_difference_oa_minus_crossref" not in rows[0]
+    assert "citation_count_divergence_flag" not in rows[0]
 
 
 def test_build_final_common_dataset_writes_sidecars(tmp_path):
@@ -286,13 +287,19 @@ def test_build_final_common_dataset_writes_sidecars(tmp_path):
     assert len(pd.read_csv(verified_csv)) == 1
     assert "is_referenced_by_count" not in cleaned.columns
     assert "citation_count" not in cleaned.columns
+    assert "citation_count_difference_oa_minus_crossref" not in cleaned.columns
+    assert "citation_count_divergence_flag" not in cleaned.columns
     assert "publication_year" not in cleaned.columns
     assert "referenced_works_count" not in cleaned.columns
     assert references.loc[0, "publication_key"] == "doi:10.1000/test"
     assert references.loc[0, "reference_doi"] == "10.1000/ref"
     assert references.loc[0, "reference_title"] == "Reference"
     assert count_audit.loc[0, "publication_key"] == "doi:10.1000/test"
-    assert count_audit.loc[0, "is_referenced_by_count"] == 3
+    assert count_audit.loc[0, "reference_count"] == 1
+    assert "citation_count" not in count_audit.columns
+    assert "is_referenced_by_count" not in count_audit.columns
+    assert "citation_count_difference_oa_minus_crossref" not in count_audit.columns
+    assert "citation_count_divergence_flag" not in count_audit.columns
 
 
 def test_verified_ownership_mask_requires_complete_lk_policy_evidence():

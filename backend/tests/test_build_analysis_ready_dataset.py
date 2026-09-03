@@ -75,6 +75,8 @@ def test_build_analysis_ready_dataframe_adds_helper_columns_and_converts_types()
     assert "publication_year" not in cleaned.columns
     assert cleaned.loc[0, "publication_date"] == "2020-01-15"
     assert "citation_count" not in cleaned.columns
+    assert "citation_count_difference_oa_minus_crossref" not in cleaned.columns
+    assert "citation_count_divergence_flag" not in cleaned.columns
     assert cleaned.loc[0, "oa_status"] == "unknown"
     assert cleaned.loc[0, "is_oa"] is False
     assert cleaned.loc[0, "license"] == "cc-by"
