@@ -46,6 +46,7 @@ def test_build_analysis_ready_dataframe_adds_helper_columns_and_converts_types()
             "authors": ["SILVA, KALINGA"],
             "author_orcids": [pd.NA],
             "publication_year": ["2020"],
+            "publication_date": ["2020-01-15"],
             "author_count": ["1"],
             "citation_count": ["2"],
             "reference_count": ["3"],
@@ -71,7 +72,8 @@ def test_build_analysis_ready_dataframe_adds_helper_columns_and_converts_types()
     assert cleaned.loc[0, "abstract_missing_flag"]
     assert cleaned.loc[0, "keywords_search_text"] == "ai"
     assert cleaned.loc[0, "authors_clean"] == "Kalinga Silva"
-    assert cleaned.loc[0, "publication_year"] == 2020
+    assert "publication_year" not in cleaned.columns
+    assert cleaned.loc[0, "publication_date"] == "2020-01-15"
     assert "citation_count" not in cleaned.columns
     assert cleaned.loc[0, "oa_status"] == "unknown"
     assert cleaned.loc[0, "is_oa"] is False
@@ -95,6 +97,7 @@ def test_build_analysis_ready_dataset_writes_separate_issue_files(tmp_path):
             "authors": ["SILVA, KALINGA"],
             "author_orcids": [pd.NA],
             "publication_year": ["2020"],
+            "publication_date": ["2020-01-15"],
             "author_count": ["1"],
             "citation_count": ["2"],
             "reference_count": ["3"],
