@@ -183,6 +183,7 @@ def test_clean_final_dataset_applies_columns_1_25_decisions():
     # The surviving fields keep the analysis-ready value from each dropped duplicate group.
     assert cleaned.loc[0, "url"] == "https://doi.org/10.1000/test"
     assert cleaned.loc[0, "publication_date"] == "2024-01-01"
+    assert "publication_year" not in cleaned.columns
     assert cleaned.loc[0, "type"] == "article"
     assert cleaned.loc[0, "authors"] == "A. Author"
 
@@ -285,6 +286,7 @@ def test_build_final_common_dataset_writes_sidecars(tmp_path):
     assert len(pd.read_csv(verified_csv)) == 1
     assert "is_referenced_by_count" not in cleaned.columns
     assert "citation_count" not in cleaned.columns
+    assert "publication_year" not in cleaned.columns
     assert "referenced_works_count" not in cleaned.columns
     assert references.loc[0, "publication_key"] == "doi:10.1000/test"
     assert references.loc[0, "reference_doi"] == "10.1000/ref"

@@ -66,13 +66,12 @@ IDENTIFIER_COLUMNS = [
     "funder_identifier",
 ]
 NUMERIC_COLUMNS = [
-    "publication_year",
     "author_count",
     "reference_count",
     "citation_count_difference_oa_minus_crossref",
     "reference_count_difference_oa_minus_crossref",
 ]
-DROP_FROM_ANALYSIS_READY = ["citation_count"]
+DROP_FROM_ANALYSIS_READY = ["citation_count", "publication_year"]
 NATURALLY_SPARSE_COLUMNS = [
     "abstract",
     "funder_name",

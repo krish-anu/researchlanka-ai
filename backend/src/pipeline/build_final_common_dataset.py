@@ -26,6 +26,7 @@ docs/09_columns_1_25_final_dataset_decisions.md:
   url, type, and authors exactly
 * drop created_date and published_date from the main dataset because they add
   no coverage beyond publication_date
+* drop publication_year from the main dataset while keeping publication_date
 * drop subtitle, original_title, and subtype, which are too sparse to analyze
 """
 
@@ -79,7 +80,6 @@ FINAL_MAIN_COLUMNS = [
     "title",
     "abstract",
     "keywords",
-    "publication_year",
     "publication_date",
     "type",
     "authors",
@@ -621,7 +621,7 @@ def clean_final_dataset(df: pd.DataFrame) -> pd.DataFrame:
     columns_to_drop = [column for column in DROP_FROM_MAIN if column in cleaned.columns]
     cleaned = cleaned.drop(columns=columns_to_drop)
 
-    for column in ["cited_by_count", "citation_count"]:
+    for column in ["cited_by_count", "citation_count", "publication_year"]:
         if column in cleaned.columns:
             cleaned = cleaned.drop(columns=[column])
     if "funder_id" in cleaned.columns:
