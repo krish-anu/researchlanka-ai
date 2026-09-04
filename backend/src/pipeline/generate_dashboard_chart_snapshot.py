@@ -87,7 +87,12 @@ def read_csv_rows(path: Path):
 def publication_year(row: dict[str, Any]) -> int | None:
     value = clean_text(row.get("publication_year"))
     if not value:
+        value = clean_text(row.get("publication_date"))
+    if not value:
         return None
+    match = re.search(r"\d{4}", value)
+    if match:
+        value = match.group(0)
     try:
         return int(float(value))
     except ValueError:
