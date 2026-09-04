@@ -24,11 +24,16 @@ class GeminiConfig:
     """Runtime settings for Gemini classification."""
 
     api_key: str | None = None
+    provider: str = "google"
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1/chat/completions"
+    ollama_base_url: str = "http://localhost:11434/api/chat"
     model: str = "gemini-3.8-flash"
-    prompt_version: str = "v1"
+    prompt_version: str = "v2"
     max_retries: int = 3
     timeout_seconds: float = 60.0
     max_concurrency: int = 1
+    ollama_seed: int = 42
     input_price_per_million: float = 0.0
     output_price_per_million: float = 0.0
 
@@ -38,11 +43,25 @@ class GeminiConfig:
 
         return cls(
             api_key=os.getenv("GEMINI_API_KEY"),
-            model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
-            prompt_version=os.getenv("AI_PROMPT_VERSION", "v1"),
+            provider=os.getenv("AI_LLM_PROVIDER", "google").strip().casefold(),
+            openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
+            openrouter_base_url=os.getenv(
+                "OPENROUTER_BASE_URL",
+                "https://openrouter.ai/api/v1/chat/completions",
+            ),
+            ollama_base_url=os.getenv(
+                "OLLAMA_BASE_URL",
+                "http://localhost:11434/api/chat",
+            ),
+            model=os.getenv(
+                "AI_LLM_MODEL",
+                os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
+            ),
+            prompt_version=os.getenv("AI_PROMPT_VERSION", "v2"),
             max_retries=int(os.getenv("GEMINI_MAX_RETRIES", "3")),
             timeout_seconds=float(os.getenv("GEMINI_TIMEOUT_SECONDS", "60")),
             max_concurrency=int(os.getenv("GEMINI_MAX_CONCURRENCY", "1")),
+            ollama_seed=int(os.getenv("OLLAMA_SEED", "42")),
             input_price_per_million=float(
                 os.getenv("GEMINI_INPUT_PRICE_PER_MILLION", "0")
             ),

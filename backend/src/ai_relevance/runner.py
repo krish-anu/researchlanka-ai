@@ -21,7 +21,10 @@ from src.ai_relevance.fields import present_metadata_columns, publication_metada
 from src.ai_relevance.gemini_client import (
     GeminiAIClient,
     GeminiClassificationResult,
+    GeminiQuotaExceededError,
     GeminiUsage,
+    OllamaAIClient,
+    OpenRouterAIClient,
     estimated_cost,
 )
 from src.ai_relevance.sampling import select_first_test_records
@@ -177,7 +180,16 @@ def run_gemini_classification(
     )
     save_dataset(selected[["publication_id"]], config.selected_ids_output)
 
-    gemini_client = client or GeminiAIClient(config.gemini)
+    if client is not None:
+        gemini_client = client
+    elif config.gemini.provider == "openrouter":
+        gemini_client = OpenRouterAIClient(config.gemini)
+    elif config.gemini.provider == "google":
+        gemini_client = GeminiAIClient(config.gemini)
+    elif config.gemini.provider == "ollama":
+        gemini_client = OllamaAIClient(config.gemini)
+    else:
+        raise ValueError("AI_LLM_PROVIDER must be 'google', 'openrouter', or 'ollama'")
     existing_rows = _existing_rows(config.output_path) if config.resume else []
     success_ids = _existing_success_ids(config.output_path) if config.resume else set()
     rows = list(existing_rows)
@@ -213,6 +225,14 @@ def run_gemini_classification(
                 error=str(exc),
             )
             LOGGER.warning("Invalid Gemini response publication_id=%s: %s", metadata.publication_id, exc)
+        except GeminiQuotaExceededError as exc:
+            LOGGER.error(
+                "Gemini quota exhausted after %s attempted record(s). "
+                "Checkpoint is preserved at %s; rerun with --resume after quota resets or billing is enabled.",
+                attempted - 1,
+                config.output_path,
+            )
+            break
         except Exception as exc:  # noqa: BLE001 - keep the run moving after one bad record
             failed += 1
             row = _result_row(

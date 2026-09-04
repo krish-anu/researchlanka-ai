@@ -34,6 +34,8 @@ AI_TERMS = (
     "rnn",
     "object detection",
     "image segmentation",
+    "optical character recognition",
+    "character recognition",
     "machine translation",
     "speech recognition",
     "expert system",
