@@ -21,6 +21,7 @@ AI_RESPONSE_SCHEMA: dict[str, Any] = {
         },
     },
     "required": ["label", "confidence", "ai_category", "reason", "evidence"],
+    "additionalProperties": False,
 }
 
 

@@ -26,13 +26,37 @@ The classifier prompt uses only supplied publication metadata. It does not use a
 
 ## Environment
 
-Required for a real Gemini run:
+Required for a direct Google Gemini run:
 
 ```bash
 export GEMINI_API_KEY="..."
 export GEMINI_MODEL="gemini-3.8-flash"
 export AI_PROMPT_VERSION="v1"
 ```
+
+For OpenRouter instead:
+
+```bash
+export AI_LLM_PROVIDER="openrouter"
+export OPENROUTER_API_KEY="..."
+export GEMINI_MODEL="google/gemini-2.5-flash"
+export AI_PROMPT_VERSION="v1"
+```
+
+Use an OpenRouter model slug that supports structured outputs. The OpenRouter client sends requests to `https://openrouter.ai/api/v1/chat/completions` with `response_format.type=json_schema` and `provider.require_parameters=true`.
+
+For local Ollama instead:
+
+```bash
+export AI_LLM_PROVIDER="ollama"
+export AI_LLM_MODEL="llama3.1:8b"
+export OLLAMA_BASE_URL="http://localhost:11434/api/chat"
+export AI_PROMPT_VERSION="v1"
+export GEMINI_MAX_RETRIES="3"
+export GEMINI_TIMEOUT_SECONDS="180"
+```
+
+Use the exact model name shown by `ollama list`. The Ollama client uses local `/api/chat` with JSON-schema formatting. Token counts are read from Ollama's `prompt_eval_count` and `eval_count` fields when available, and estimated cost remains `$0` unless you set price environment variables.
 
 Optional controls:
 

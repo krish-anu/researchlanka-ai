@@ -15,8 +15,11 @@ from src.ai_relevance.fields import normalize_multivalue, publication_metadata
 from src.ai_relevance.gemini_client import (
     GeminiClassificationResult,
     GeminiUsage,
+    OllamaAIClient,
     estimated_cost,
 )
+from src.ai_relevance.config import GeminiConfig
+from src.ai_relevance.prompt import build_classification_prompt
 from src.ai_relevance.review import HumanReviewConfig, build_human_review_sample
 from src.ai_relevance.runner import GeminiRunConfig, run_gemini_classification
 from src.ai_relevance.sampling import CandidateSamplingConfig, build_candidate_sample
@@ -118,6 +121,68 @@ def test_validate_ai_response_enforces_labels_and_categories() -> None:
                 "evidence": [],
             }
         )
+
+
+def test_prompt_v2_calls_ocr_recognition_ai_related() -> None:
+    metadata = publication_metadata(
+        {
+            "publication_id": "https://openalex.org/W2910892492",
+            "title": "Optical Braille Recognition Platform for Sinhala",
+            "topics": "Tactile and Sensory Interactions",
+            "concepts": "Optical character recognition; Artificial intelligence",
+        }
+    )
+
+    prompt = build_classification_prompt(metadata)
+
+    assert "optical character recognition" in prompt
+    assert "Recognition tasks are AI-related" in prompt
+
+
+def test_ollama_client_sends_deterministic_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "message": {
+                    "content": (
+                        '{"label":"AI","confidence":0.8,"ai_category":"OCR",'
+                        '"reason":"Central OCR recognition task.",'
+                        '"evidence":["Optical character recognition"]}'
+                    )
+                },
+                "prompt_eval_count": 10,
+                "eval_count": 5,
+            }
+
+    class FakeRequests:
+        @staticmethod
+        def post(url, *, json, timeout):
+            captured["url"] = url
+            captured["json"] = json
+            captured["timeout"] = timeout
+            return FakeResponse()
+
+    client = OllamaAIClient(GeminiConfig(provider="ollama", model="llama3.1:8b", ollama_seed=123))
+    client._requests = FakeRequests
+
+    result = client.classify(publication_metadata({"publication_id": "1", "title": "OCR paper"}))
+
+    assert result.classification.label == "AI"
+    payload = captured["json"]
+    assert isinstance(payload, dict)
+    assert payload["options"] == {
+        "temperature": 0,
+        "top_k": 1,
+        "top_p": 1,
+        "seed": 123,
+    }
 
 
 def test_candidate_sampling_is_deterministic_and_deduplicated(tmp_path: Path) -> None:
