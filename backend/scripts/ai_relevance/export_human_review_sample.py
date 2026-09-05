@@ -25,6 +25,7 @@ def main() -> None:
     )
     parser.add_argument("--sample-size", type=int, default=500)
     parser.add_argument("--random-seed", type=int, default=42)
+    parser.add_argument("--confidence-threshold", type=float, default=0.75)
     args = parser.parse_args()
     frame = build_human_review_sample(
         HumanReviewConfig(
@@ -32,6 +33,7 @@ def main() -> None:
             output_path=args.output,
             sample_size=args.sample_size,
             random_seed=args.random_seed,
+            confidence_threshold=args.confidence_threshold,
         )
     )
     print(f"Wrote {len(frame)} human-review rows to {args.output}")
