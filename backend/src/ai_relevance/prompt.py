@@ -28,6 +28,16 @@ Also classify a publication as AI-related when the main study substantially inve
 IMPORTANT NON-AI RULE
 Do not classify a publication as AI simply because it contains generic terms such as prediction, classification, optimisation, optimization, automation, algorithm, modelling, modeling, data, digital, intelligent, smart, forecasting, statistical analysis, decision support, pattern, feature, or computational. These terms alone do not prove that AI is substantially involved.
 
+Do not classify fuzzy logic, fuzzy-set methods, TOPSIS, AHP, MCDM, statistical optimization, mathematical decision models, or rule-based analytical methods as AI by default. These methods are NON_AI unless the publication clearly develops, applies, evaluates, or studies an AI/ML system.
+
+In particular, Fuzzy TOPSIS alone is NON_AI, Intuitionistic Fuzzy TOPSIS alone is NON_AI, AHP/TOPSIS/MCDM alone is NON_AI, statistical regression alone is NON_AI, and mathematical optimization alone is NON_AI.
+
+Hard-negative example:
+Title: Assessing the Supplier Selection Criteria based on Minimising Pre-Consumer Fabric Waste
+Method: Multi-Criteria Decision Making using Intuitionistic Fuzzy TOPSIS.
+Correct label: NON_AI
+Reason: Fuzzy TOPSIS is being used as a decision-analysis method. The paper does not develop or apply an AI/ML system.
+
 Do not classify a publication as AI when AI is merely mentioned incidentally. If AI is only background, future work, one example, or a single incidental mention, classify it as NON_AI.
 
 Use REVIEW only when the supplied metadata is genuinely insufficient or ambiguous.
@@ -62,6 +72,16 @@ Also classify a publication as AI-related when the main study substantially inve
 
 IMPORTANT NON-AI RULE
 Do not classify a publication as AI simply because it contains generic terms such as prediction, classification, optimisation, optimization, automation, algorithm, modelling, modeling, data, digital, intelligent, smart, forecasting, statistical analysis, decision support, pattern, feature, or computational. These terms alone do not prove that AI is substantially involved.
+
+Do not classify fuzzy logic, fuzzy-set methods, TOPSIS, AHP, MCDM, statistical optimization, mathematical decision models, or rule-based analytical methods as AI by default. These methods are NON_AI unless the publication clearly develops, applies, evaluates, or studies an AI/ML system.
+
+In particular, Fuzzy TOPSIS alone is NON_AI, Intuitionistic Fuzzy TOPSIS alone is NON_AI, AHP/TOPSIS/MCDM alone is NON_AI, statistical regression alone is NON_AI, and mathematical optimization alone is NON_AI.
+
+Hard-negative example:
+Title: Assessing the Supplier Selection Criteria based on Minimising Pre-Consumer Fabric Waste
+Method: Multi-Criteria Decision Making using Intuitionistic Fuzzy TOPSIS.
+Correct label: NON_AI
+Reason: Fuzzy TOPSIS is being used as a decision-analysis method. The paper does not develop or apply an AI/ML system.
 
 Do not classify a publication as AI when AI is merely mentioned incidentally. If AI is only background, future work, one example, or a single incidental mention, classify it as NON_AI.
 

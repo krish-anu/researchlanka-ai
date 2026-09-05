@@ -139,6 +139,24 @@ def test_prompt_v2_calls_ocr_recognition_ai_related() -> None:
     assert "Recognition tasks are AI-related" in prompt
 
 
+def test_prompt_v2_calls_fuzzy_topsis_a_hard_negative() -> None:
+    metadata = publication_metadata(
+        {
+            "publication_id": "fuzzy-topsis-example",
+            "title": "Assessing the Supplier Selection Criteria based on Minimising Pre-Consumer Fabric Waste",
+            "abstract": "Multi-Criteria Decision Making using Intuitionistic Fuzzy TOPSIS.",
+            "keywords": "Intuitionistic Fuzzy TOPSIS; supplier selection; decision-making",
+        }
+    )
+
+    prompt = build_classification_prompt(metadata)
+
+    assert "Fuzzy TOPSIS alone is NON_AI" in prompt
+    assert "Intuitionistic Fuzzy TOPSIS alone is NON_AI" in prompt
+    assert "Correct label: NON_AI" in prompt
+    assert "does not develop or apply an AI/ML system" in prompt
+
+
 def test_ollama_client_sends_deterministic_options(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
