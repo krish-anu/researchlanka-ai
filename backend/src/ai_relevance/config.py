@@ -29,7 +29,7 @@ class GeminiConfig:
     openrouter_base_url: str = "https://openrouter.ai/api/v1/chat/completions"
     ollama_base_url: str = "http://localhost:11434/api/chat"
     model: str = "gemini-3.8-flash"
-    prompt_version: str = "v2"
+    prompt_version: str = "v3"
     max_retries: int = 3
     timeout_seconds: float = 60.0
     max_concurrency: int = 1
@@ -57,7 +57,7 @@ class GeminiConfig:
                 "AI_LLM_MODEL",
                 os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
             ),
-            prompt_version=os.getenv("AI_PROMPT_VERSION", "v2"),
+            prompt_version=os.getenv("AI_PROMPT_VERSION", "v3"),
             max_retries=int(os.getenv("GEMINI_MAX_RETRIES", "3")),
             timeout_seconds=float(os.getenv("GEMINI_TIMEOUT_SECONDS", "60")),
             max_concurrency=int(os.getenv("GEMINI_MAX_CONCURRENCY", "1")),

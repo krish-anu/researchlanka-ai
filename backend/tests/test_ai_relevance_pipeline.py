@@ -123,7 +123,7 @@ def test_validate_ai_response_enforces_labels_and_categories() -> None:
         )
 
 
-def test_prompt_v2_calls_ocr_recognition_ai_related() -> None:
+def test_prompt_v3_calls_ocr_recognition_ai_related() -> None:
     metadata = publication_metadata(
         {
             "publication_id": "https://openalex.org/W2910892492",
@@ -135,11 +135,11 @@ def test_prompt_v2_calls_ocr_recognition_ai_related() -> None:
 
     prompt = build_classification_prompt(metadata)
 
-    assert "optical character recognition" in prompt
-    assert "Recognition tasks are AI-related" in prompt
+    assert "Optical Character Recognition" in prompt
+    assert "Recognition and perception tasks should be classified as AI" in prompt
 
 
-def test_prompt_v2_calls_fuzzy_topsis_a_hard_negative() -> None:
+def test_prompt_v3_calls_fuzzy_topsis_a_hard_negative() -> None:
     metadata = publication_metadata(
         {
             "publication_id": "fuzzy-topsis-example",
@@ -151,10 +151,10 @@ def test_prompt_v2_calls_fuzzy_topsis_a_hard_negative() -> None:
 
     prompt = build_classification_prompt(metadata)
 
-    assert "Fuzzy TOPSIS alone is NON_AI" in prompt
-    assert "Intuitionistic Fuzzy TOPSIS alone is NON_AI" in prompt
+    assert "Fuzzy TOPSIS" in prompt
+    assert "Intuitionistic Fuzzy TOPSIS" in prompt
     assert "Correct label: NON_AI" in prompt
-    assert "does not develop or apply an AI/ML system" in prompt
+    assert "does not indicate the development or application of an AI/ML system" in prompt
 
 
 def test_ollama_client_sends_deterministic_options(monkeypatch: pytest.MonkeyPatch) -> None:
