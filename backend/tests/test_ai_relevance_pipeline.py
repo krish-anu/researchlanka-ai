@@ -20,7 +20,7 @@ from src.ai_relevance.gemini_client import (
 )
 from src.ai_relevance.config import GeminiConfig
 from src.ai_relevance.prompt import build_classification_prompt
-from src.ai_relevance.review import HumanReviewConfig, build_human_review_sample
+from src.ai_relevance.review import HumanReviewConfig, add_review_flags, build_human_review_sample
 from src.ai_relevance.runner import GeminiRunConfig, run_gemini_classification
 from src.ai_relevance.sampling import CandidateSamplingConfig, build_candidate_sample
 from src.ai_relevance.schema import AIClassification, validate_ai_response
@@ -366,3 +366,73 @@ def test_human_review_sample_and_metrics(tmp_path: Path) -> None:
     assert metrics["rows"] == 2
     assert metrics["ai_precision"] == pytest.approx(0.5)
     assert (tmp_path / "gemini_ai_relevance_false_positives.csv").exists()
+
+
+def test_review_flags_catch_low_confidence_and_fuzzy_false_positive() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "publication_id": "low",
+                "title": "Rainfall prediction with statistical regression",
+                "sampling_bucket": "borderline_ambiguous",
+                "ai_llm_label": "NON_AI",
+                "ai_llm_confidence": "0.62",
+                "ai_llm_status": "success",
+            },
+            {
+                "publication_id": "fuzzy",
+                "title": "Assessing supplier selection criteria",
+                "abstract": "Uses Intuitionistic Fuzzy TOPSIS for multi-criteria decision-making.",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.88",
+                "ai_llm_status": "success",
+            },
+            {
+                "publication_id": "clear",
+                "title": "Deep learning for crop disease detection",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.91",
+                "ai_llm_status": "success",
+            },
+        ]
+    )
+
+    flagged = add_review_flags(frame, confidence_threshold=0.75)
+
+    assert flagged.loc[flagged["publication_id"] == "low", "needs_human_review"].item()
+    assert flagged.loc[flagged["publication_id"] == "fuzzy", "needs_human_review"].item()
+    assert not flagged.loc[flagged["publication_id"] == "clear", "needs_human_review"].item()
+    assert "possible_fuzzy_or_decision_method_false_positive" in flagged.loc[
+        flagged["publication_id"] == "fuzzy", "review_reason"
+    ].item()
+
+
+def test_human_review_sample_prefers_review_queue(tmp_path: Path) -> None:
+    predictions = tmp_path / "predictions.csv"
+    review = tmp_path / "review.csv"
+    pd.DataFrame(
+        [
+            {
+                "publication_id": "review-me",
+                "title": "Fuzzy TOPSIS supplier selection",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.95",
+                "ai_llm_status": "success",
+            },
+            {
+                "publication_id": "skip-me",
+                "title": "Deep learning for vision",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.95",
+                "ai_llm_status": "success",
+            },
+        ]
+    ).to_csv(predictions, index=False)
+
+    sample = build_human_review_sample(
+        HumanReviewConfig(input_path=predictions, output_path=review, sample_size=10)
+    )
+
+    assert sample["publication_id"].tolist() == ["review-me"]
+    assert sample["needs_human_review"].tolist() == [True]
+    assert "review_reason" in sample.columns
