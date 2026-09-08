@@ -52,6 +52,99 @@ AI_METHOD_TERMS = (
 )
 
 
+def _label_quotas(
+    frame: pd.DataFrame,
+    *,
+    sample_size: int,
+    label_order: tuple[str, ...] = ("AI", "NON_AI", "REVIEW"),
+) -> dict[str, int]:
+    """Allocate a near-even sample quota across available LLM labels."""
+
+    if "ai_llm_label" not in frame.columns or sample_size <= 0:
+        return {}
+
+    counts = frame["ai_llm_label"].fillna("").astype(str).value_counts().to_dict()
+    labels = [label for label in label_order if counts.get(label, 0) > 0]
+    labels.extend(sorted(label for label, count in counts.items() if count > 0 and label not in labels))
+    if not labels:
+        return {}
+
+    quotas = {label: 0 for label in labels}
+    remaining = min(sample_size, sum(int(counts[label]) for label in labels))
+    active = labels.copy()
+    while remaining > 0 and active:
+        share = max(remaining // len(active), 1)
+        next_active: list[str] = []
+        for label in active:
+            capacity = int(counts[label]) - quotas[label]
+            take = min(share, capacity, remaining)
+            quotas[label] += take
+            remaining -= take
+            if quotas[label] < int(counts[label]):
+                next_active.append(label)
+            if remaining == 0:
+                break
+        active = next_active
+    return quotas
+
+
+def _balanced_label_sample(
+    frame: pd.DataFrame,
+    *,
+    sample_size: int,
+    random_seed: int,
+    fallback_frame: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Sample rows with balanced LLM labels, preferring rows from ``frame``."""
+
+    quotas = _label_quotas(fallback_frame if fallback_frame is not None else frame, sample_size=sample_size)
+    if not quotas:
+        return frame.sample(n=min(sample_size, len(frame)), random_state=random_seed)
+
+    pieces: list[pd.DataFrame] = []
+    used_indexes: set[object] = set()
+    fallback = fallback_frame if fallback_frame is not None else frame
+    for offset, (label, quota) in enumerate(quotas.items()):
+        if quota <= 0:
+            continue
+        primary_group = frame[frame["ai_llm_label"].fillna("").astype(str) == label]
+        primary_take = min(quota, len(primary_group))
+        if primary_take:
+            sample = primary_group.sample(n=primary_take, random_state=random_seed + offset)
+            pieces.append(sample)
+            used_indexes.update(sample.index)
+
+        remaining = quota - primary_take
+        if remaining > 0:
+            fallback_group = fallback[
+                (fallback["ai_llm_label"].fillna("").astype(str) == label)
+                & ~fallback.index.isin(used_indexes)
+            ]
+            if not fallback_group.empty:
+                sample = fallback_group.sample(
+                    n=min(remaining, len(fallback_group)),
+                    random_state=random_seed + offset + 100,
+                )
+                pieces.append(sample)
+                used_indexes.update(sample.index)
+
+    current = pd.concat(pieces, ignore_index=False).drop_duplicates() if pieces else frame.head(0)
+    if len(current) < sample_size:
+        remaining_frame = fallback.drop(index=current.index, errors="ignore")
+        if not remaining_frame.empty:
+            current = pd.concat(
+                [
+                    current,
+                    remaining_frame.sample(
+                        n=min(sample_size - len(current), len(remaining_frame)),
+                        random_state=random_seed + 200,
+                    ),
+                ],
+                ignore_index=False,
+            )
+    return current.head(sample_size).copy()
+
+
 def _contains_any(text: pd.Series, terms: Iterable[str]) -> pd.Series:
     output = pd.Series(False, index=text.index)
     for term in terms:
@@ -121,60 +214,34 @@ def add_review_flags(frame: pd.DataFrame, *, confidence_threshold: float = 0.75)
 def build_human_review_sample(config: HumanReviewConfig) -> pd.DataFrame:
     """Create a reproducible review CSV with empty human label/note columns."""
 
-    frame = add_review_flags(
+    full_frame = add_review_flags(
         load_dataset(config.input_path),
         confidence_threshold=config.confidence_threshold,
     )
-    review_queue = frame[frame["needs_human_review"]].copy()
+    frame = full_frame
+    review_queue = full_frame[full_frame["needs_human_review"]].copy()
     if not review_queue.empty:
         frame = review_queue
 
     if len(frame) <= config.sample_size:
         sample = frame.copy()
     else:
-        pieces: list[pd.DataFrame] = []
-        if "ai_llm_label" in frame.columns:
-            for label in ("AI", "NON_AI", "REVIEW"):
-                group = frame[frame["ai_llm_label"] == label]
-                if not group.empty:
-                    pieces.append(
-                        group.sample(
-                            n=min(max(config.sample_size // 8, 1), len(group)),
-                            random_state=config.random_seed + len(pieces),
-                        )
-                    )
-        if "ai_llm_confidence" in frame.columns:
-            confidence = pd.to_numeric(frame["ai_llm_confidence"], errors="coerce")
-            low = frame[confidence <= 0.65]
-            if not low.empty:
-                pieces.append(
-                    low.sample(
-                        n=min(max(config.sample_size // 5, 1), len(low)),
-                        random_state=config.random_seed + 50,
-                    )
-                )
-        current = pd.concat(pieces, ignore_index=False).drop_duplicates() if pieces else frame.head(0)
-        remaining = frame.drop(index=current.index, errors="ignore")
-        if len(current) < config.sample_size and not remaining.empty:
-            current = pd.concat(
-                [
-                    current,
-                    remaining.sample(
-                        n=min(config.sample_size - len(current), len(remaining)),
-                        random_state=config.random_seed + 100,
-                    ),
-                ],
-                ignore_index=False,
-            )
-        sample = current.head(config.sample_size).copy()
+        sample = _balanced_label_sample(
+            frame,
+            sample_size=config.sample_size,
+            random_seed=config.random_seed,
+            fallback_frame=full_frame,
+        )
 
     columns = [
         column
         for column in (
             "publication_id",
+            "ai_llm_label",
+            "human_label",
+            "human_notes",
             *PRESERVED_METADATA_COLUMNS,
             "sampling_bucket",
-            "ai_llm_label",
             "ai_llm_confidence",
             "ai_llm_category",
             "ai_llm_reason",
@@ -186,7 +253,11 @@ def build_human_review_sample(config: HumanReviewConfig) -> pd.DataFrame:
         if column in sample.columns
     ]
     sample = sample[columns].copy()
-    sample["human_label"] = ""
-    sample["human_notes"] = ""
+    if "human_label" not in sample.columns:
+        sample["human_label"] = ""
+    if "human_notes" not in sample.columns:
+        sample["human_notes"] = ""
+    review_columns = ["publication_id", "ai_llm_label", "human_label", "human_notes"]
+    sample = sample[review_columns + [column for column in sample.columns if column not in review_columns]]
     save_dataset(sample, config.output_path)
     return sample

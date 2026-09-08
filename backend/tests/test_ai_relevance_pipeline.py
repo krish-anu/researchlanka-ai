@@ -357,6 +357,12 @@ def test_human_review_sample_and_metrics(tmp_path: Path) -> None:
     sample = build_human_review_sample(
         HumanReviewConfig(input_path=predictions, output_path=review, sample_size=2)
     )
+    assert sample.columns[:4].tolist() == [
+        "publication_id",
+        "ai_llm_label",
+        "human_label",
+        "human_notes",
+    ]
     assert "human_label" in sample.columns
     assert "human_notes" in sample.columns
 
@@ -436,3 +442,60 @@ def test_human_review_sample_prefers_review_queue(tmp_path: Path) -> None:
     assert sample["publication_id"].tolist() == ["review-me"]
     assert sample["needs_human_review"].tolist() == [True]
     assert "review_reason" in sample.columns
+
+
+def test_human_review_sample_balances_llm_labels(tmp_path: Path) -> None:
+    predictions = tmp_path / "predictions.csv"
+    review = tmp_path / "review.csv"
+    rows = []
+    for index in range(12):
+        rows.append(
+            {
+                "publication_id": f"non-ai-{index}",
+                "title": "Non AI borderline record",
+                "sampling_bucket": "borderline_ambiguous",
+                "ai_llm_label": "NON_AI",
+                "ai_llm_confidence": "0.95",
+                "ai_llm_status": "success",
+            }
+        )
+    for index in range(3):
+        rows.append(
+            {
+                "publication_id": f"ai-review-{index}",
+                "title": "Fuzzy TOPSIS artificial intelligence decision support",
+                "abstract": "Uses fuzzy TOPSIS.",
+                "sampling_bucket": "borderline_ambiguous",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.95",
+                "ai_llm_status": "success",
+            }
+        )
+    for index in range(5):
+        rows.append(
+            {
+                "publication_id": f"ai-clear-{index}",
+                "title": "Deep learning for crop disease detection",
+                "sampling_bucket": "strong_ai_text",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.95",
+                "ai_llm_status": "success",
+            }
+        )
+    rows.append(
+        {
+            "publication_id": "model-review",
+            "title": "Ambiguous artificial intelligence publication",
+            "sampling_bucket": "field_stratified_random",
+            "ai_llm_label": "REVIEW",
+            "ai_llm_confidence": "0.5",
+            "ai_llm_status": "success",
+        }
+    )
+    pd.DataFrame(rows).to_csv(predictions, index=False)
+
+    sample = build_human_review_sample(
+        HumanReviewConfig(input_path=predictions, output_path=review, sample_size=9)
+    )
+
+    assert sample["ai_llm_label"].value_counts().to_dict() == {"AI": 4, "NON_AI": 4, "REVIEW": 1}
