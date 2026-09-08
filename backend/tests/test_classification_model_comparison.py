@@ -73,10 +73,39 @@ def write_comparison_csv(path: Path) -> None:
         writer.writerows(rows)
 
 
-def test_compare_classification_models_trains_and_ranks_all_families(tmp_path: Path) -> None:
+def write_comparison_csv_with_unusable_rows(path: Path) -> None:
+    rows = [
+        {
+            "title": "Blank label row",
+            "abstract": "This row has text but no target label",
+            "keywords": "ignored",
+            "primary_domain": "",
+        },
+        {
+            "title": "",
+            "abstract": "",
+            "keywords": "",
+            "primary_domain": "Health Sciences",
+        },
+        {
+            "title": "Single small class",
+            "abstract": "Only one row should be removed by min class count",
+            "keywords": "small",
+            "primary_domain": "Social Sciences",
+        },
+    ]
+    with path.open("a", newline="", encoding="utf-8") as output_file:
+        writer = csv.DictWriter(output_file, fieldnames=FIELDNAMES)
+        writer.writerows(rows)
+
+
+def test_compare_classification_models_trains_and_ranks_all_families_on_shared_rows(
+    tmp_path: Path,
+) -> None:
     input_csv = tmp_path / "publications.csv"
     output_dir = tmp_path / "comparison"
     write_comparison_csv(input_csv)
+    write_comparison_csv_with_unusable_rows(input_csv)
 
     result = compare_classification_models(
         ClassificationComparisonConfig(
@@ -99,14 +128,22 @@ def test_compare_classification_models_trains_and_ranks_all_families(tmp_path: P
     comparison_rows = list(csv.DictReader(result.comparison_output.open(encoding="utf-8")))
     manifest = json.loads(result.manifest_output.read_text(encoding="utf-8"))
 
-    assert result.model_count == 2
+    assert result.model_count == 3
     assert {row["model_family"] for row in comparison_rows} == {
         "logistic_regression",
+        "multinomial_nb",
         "linear_svm",
     }
     assert comparison_rows[0]["rank"] == "1"
     assert manifest["best_model_family"] == result.best_model_family
     assert manifest["ranking_metric"] == "macro_f1"
+    assert result.shared_training_rows == 8
+    assert result.shared_training_input.exists()
+    assert manifest["source_input_rows"] == 11
+    assert manifest["shared_training_rows"] == 8
+    assert {row["usable_rows"] for row in comparison_rows} == {"8"}
+    assert {row["train_rows"] for row in comparison_rows} == {"6"}
+    assert {row["test_rows"] for row in comparison_rows} == {"2"}
 
     for row in comparison_rows:
         assert Path(row["model_path"]).exists()

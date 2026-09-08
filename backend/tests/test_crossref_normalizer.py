@@ -1,6 +1,8 @@
 """Tests for Crossref data normalization."""
 
 from src.preprocessing.crossref_normalizer import (
+    affiliation_is_sri_lankan,
+    classify_sri_lanka_ownership,
     first_author_is_from_sri_lanka,
     reduce_work,
 )
@@ -53,7 +55,9 @@ def test_reduce_work_marks_first_author_lk_from_registry_affiliation():
     assert result["first_author_affiliation"] == "University of Colombo"
     assert result["first_author_country"] == "LK"
     assert result["has_sri_lankan_participant"] is True
-    assert result["keep_in_strict_sri_lanka_dataset"] is True
+    assert result["ownership_decision"] == "REVIEW"
+    assert result["ownership_class"] == "FIRST_AUTHOR_ONLY_LK_EVIDENCE"
+    assert result["keep_in_strict_sri_lanka_dataset"] is False
 
 
 def test_first_author_lk_rejects_sri_lankan_later_author_only():
@@ -102,7 +106,82 @@ def test_sljol_crossref_mapping_carries_first_author_lk_fields():
     assert mapped["first_author_name"] == "A. Author"
     assert mapped["first_author_affiliation"] == "University of Peradeniya, Sri Lanka"
     assert mapped["first_author_country"] == "LK"
-    assert mapped["keep_in_strict_sri_lanka_dataset"] is True
+    assert mapped["ownership_decision"] == "REVIEW"
+    assert mapped["ownership_class"] == "SLJOL_VENUE_ONLY_EVIDENCE"
+    assert mapped["keep_in_strict_sri_lanka_dataset"] is False
+
+
+def test_crossref_lk_corresponding_with_foreign_collaborator_is_include():
+    work = {
+        "author": [
+            {
+                "given": "A.",
+                "family": "Lead",
+                "affiliation": [{"name": "University of Colombo, Sri Lanka"}],
+                "is_corresponding": True,
+            },
+            {
+                "given": "B.",
+                "family": "Writer",
+                "affiliation": [{"name": "Example University, Australia"}],
+            },
+        ],
+    }
+
+    ownership = classify_sri_lanka_ownership(work)
+
+    assert ownership["ownership_decision"] == "INCLUDE"
+    assert ownership["ownership_confidence"] == "MEDIUM"
+    assert ownership["has_foreign_participant"] is True
+
+
+def test_crossref_foreign_corresponding_with_lk_participant_is_exclude():
+    work = {
+        "author": [
+            {
+                "given": "A.",
+                "family": "Lead",
+                "affiliation": [{"name": "Example University, Australia"}],
+                "is_corresponding": True,
+            },
+            {
+                "given": "B.",
+                "family": "Collaborator",
+                "affiliation": [{"name": "University of Colombo, Sri Lanka"}],
+            },
+        ],
+    }
+
+    ownership = classify_sri_lanka_ownership(work)
+
+    assert ownership["ownership_decision"] == "EXCLUDE"
+    assert ownership["ownership_class"] == "FOREIGN_PROJECT_WITH_SL_PARTICIPATION"
+
+
+def test_crossref_later_lk_participant_without_leadership_is_review():
+    work = {
+        "author": [
+            {
+                "given": "A.",
+                "family": "Lead",
+                "affiliation": [{"name": "Example University, Australia"}],
+            },
+            {
+                "given": "B.",
+                "family": "Collaborator",
+                "affiliation": [{"name": "University of Colombo, Sri Lanka"}],
+            },
+        ],
+    }
+
+    ownership = classify_sri_lanka_ownership(work)
+
+    assert ownership["ownership_decision"] == "REVIEW"
+    assert ownership["ownership_class"] == "MISSING_LEADERSHIP_EVIDENCE"
+
+
+def test_affiliation_match_uses_token_boundaries():
+    assert affiliation_is_sri_lankan("Department of Colombology, Example University") is False
 
 
 def test_reduce_work_handles_missing_fields():

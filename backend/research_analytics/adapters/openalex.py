@@ -8,7 +8,7 @@ from typing import Iterator
 
 from src.collectors.openalex_collector import OpenAlexCollector, build_filters
 from src.preprocessing.openalex_normalizer import detected_country_codes
-from src.preprocessing.openalex_normalizer import keep_in_country_owned_dataset
+from src.preprocessing.openalex_normalizer import has_sri_lankan_author
 from src.preprocessing.openalex_normalizer import work_to_row
 
 from research_analytics.adapters.base import SourceAdapter
@@ -146,7 +146,9 @@ class OpenAlexAdapter(SourceAdapter):
     def _matches_country_scope(self, work: dict[str, Any]) -> bool:
         if not self.country_code:
             return False
-        if not keep_in_country_owned_dataset(work, self.country_code):
+        if self.country_code.upper() == "LK" and not has_sri_lankan_author(work):
+            return False
+        if self.country_code.upper() != "LK" and self.country_code.upper() not in detected_country_codes(work):
             return False
         if not self.strict_country_only:
             return True

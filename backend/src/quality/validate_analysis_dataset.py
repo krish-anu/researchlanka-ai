@@ -13,6 +13,8 @@ records so a number can always be traced back to rows.
                    publication year?
     collaboration  Do the derived collaboration fields agree with the
                    institutions and countries they were derived from?
+    ownership      Does the verified final dataset contain only Sri Lanka-led
+                   INCLUDE records with non-low confidence and review rows removed?
 
 Nothing here changes data. A validator that finds a problem reports it; fixing
 it belongs to the pipeline stage that produced the column.
@@ -117,6 +119,8 @@ COLLABORATION_TYPES = frozenset(
 )
 COLLABORATION_SCOPES = frozenset({"local", "international", "unknown"})
 NATIONAL_COUNTRY_CODE = "LK"
+OWNERSHIP_DECISIONS = frozenset({"INCLUDE", "REVIEW", "EXCLUDE"})
+VERIFIED_CONFIDENCES = frozenset({"HIGH", "MEDIUM"})
 
 ISSUE_FIELDNAMES = ["record_id", "column", "issue", "value", "detail"]
 SUMMARY_FIELDNAMES = ["metric", "value"]
@@ -1013,9 +1017,121 @@ class CollaborationValidator(FieldValidator):
         return self._base_report(metrics, gates)
 
 
+# --- ownership --------------------------------------------------------------
+
+
+class OwnershipValidator(FieldValidator):
+    """Verified-final ownership gate."""
+
+    name = "ownership"
+
+    def __init__(self, *, max_issues: int = DEFAULT_MAX_ISSUES) -> None:
+        super().__init__(max_issues=max_issues)
+        self.total_candidates = 0
+        self.verified_included = 0
+        self.manual_review = 0
+        self.excluded = 0
+        self.verified_non_include_rows = 0
+        self.verified_manual_review_rows = 0
+        self.verified_low_confidence_rows = 0
+        self.verified_missing_decision_reason_rows = 0
+        self.verified_foreign_led_rows = 0
+        self.unknown_ownership_in_verified_dataset = 0
+        self.missing_leadership_evidence = 0
+        self.first_author_only = 0
+        self.source_only_evidence = 0
+        self.conflicting_evidence = 0
+        self.source_counts: Counter[str] = Counter()
+        self.reason_counts: Counter[str] = Counter()
+
+    def add_row(self, row: Mapping[str, Any], *, record_id: str) -> None:
+        self.rows += 1
+        self.total_candidates += 1
+        source = _clean(row.get("source_dataset")) or "unknown"
+        self.source_counts[source] += 1
+
+        decision = (_clean(row.get("ownership_decision")) or "").upper()
+        confidence = (_clean(row.get("ownership_confidence")) or "").upper()
+        ownership_class = (_clean(row.get("ownership_class")) or "").upper()
+        reason = _clean(row.get("ownership_reason"))
+        needs_review = str(row.get("needs_manual_review", "")).strip().casefold()
+        lead_country = set(split_multi_value(row.get("lead_country")))
+
+        if reason:
+            self.reason_counts[reason] += 1
+        if "MISSING_LEADERSHIP" in ownership_class:
+            self.missing_leadership_evidence += 1
+        if "FIRST_AUTHOR_ONLY" in ownership_class:
+            self.first_author_only += 1
+        if "SOURCE_ONLY" in str(row.get("ownership_evidence", "")).upper() or "ONLY_EVIDENCE" in ownership_class:
+            self.source_only_evidence += 1
+        if "CONFLICT" in ownership_class:
+            self.conflicting_evidence += 1
+
+        if decision == "INCLUDE" and confidence in VERIFIED_CONFIDENCES and needs_review not in {"true", "1", "yes", "y"}:
+            self.verified_included += 1
+        elif decision == "REVIEW":
+            self.manual_review += 1
+        elif decision == "EXCLUDE":
+            self.excluded += 1
+
+        if decision not in OWNERSHIP_DECISIONS:
+            self.unknown_ownership_in_verified_dataset += 1
+            self.add_issue(record_id, "ownership_decision", "unknown_ownership_in_verified_dataset", decision)
+            return
+        if decision != "INCLUDE":
+            self.verified_non_include_rows += 1
+            self.add_issue(record_id, "ownership_decision", "verified_non_include_rows", decision)
+        if needs_review in {"true", "1", "yes", "y"}:
+            self.verified_manual_review_rows += 1
+            self.add_issue(record_id, "needs_manual_review", "verified_manual_review_rows", needs_review)
+        if confidence not in VERIFIED_CONFIDENCES:
+            self.verified_low_confidence_rows += 1
+            self.add_issue(record_id, "ownership_confidence", "verified_low_confidence_rows", confidence)
+        if reason is None:
+            self.verified_missing_decision_reason_rows += 1
+            self.add_issue(record_id, "ownership_reason", "verified_missing_decision_reason_rows", "")
+        if decision == "INCLUDE" and lead_country and NATIONAL_COUNTRY_CODE not in lead_country:
+            self.verified_foreign_led_rows += 1
+            self.add_issue(record_id, "lead_country", "verified_foreign_led_rows", row.get("lead_country"))
+
+    def report(self) -> FieldValidationReport:
+        metrics: list[tuple[str, Any]] = [
+            ("total_candidates", self.total_candidates),
+            ("verified_included", self.verified_included),
+            ("manual_review", self.manual_review),
+            ("excluded", self.excluded),
+            ("missing_leadership_evidence", self.missing_leadership_evidence),
+            ("first_author_only", self.first_author_only),
+            ("source-only evidence", self.source_only_evidence),
+            ("conflicting evidence", self.conflicting_evidence),
+        ]
+        metrics.extend((f"source:{name}", count) for name, count in sorted(self.source_counts.items()))
+        metrics.extend((f"ownership_reason:{name}", count) for name, count in sorted(self.reason_counts.items()))
+        gates = [
+            Gate("verified_non_include_rows", self.verified_non_include_rows, 0, comparison="=="),
+            Gate("verified_manual_review_rows", self.verified_manual_review_rows, 0, comparison="=="),
+            Gate("verified_low_confidence_rows", self.verified_low_confidence_rows, 0, comparison="=="),
+            Gate(
+                "verified_missing_decision_reason_rows",
+                self.verified_missing_decision_reason_rows,
+                0,
+                comparison="==",
+            ),
+            Gate("verified_foreign_led_rows", self.verified_foreign_led_rows, 0, comparison="=="),
+            Gate(
+                "unknown_ownership_in_verified_dataset",
+                self.unknown_ownership_in_verified_dataset,
+                0,
+                comparison="==",
+            ),
+        ]
+        return self._base_report(metrics, gates)
+
+
 # --- runner -----------------------------------------------------------------
 
-VALIDATOR_NAMES = ("authors", "institutions", "citations", "collaboration")
+VALIDATOR_NAMES = ("authors", "institutions", "citations", "collaboration", "ownership")
 
 
 def default_input_csv() -> Path:
@@ -1047,6 +1163,8 @@ def build_validators(
             validators.append(CitationValidator(max_issues=max_issues))
         elif name == "collaboration":
             validators.append(CollaborationValidator(max_issues=max_issues))
+        elif name == "ownership":
+            validators.append(OwnershipValidator(max_issues=max_issues))
         else:
             raise ValueError(f"unknown check: {name}. Choose from {', '.join(VALIDATOR_NAMES)}")
     return validators

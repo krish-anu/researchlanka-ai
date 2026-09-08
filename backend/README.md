@@ -188,6 +188,16 @@ Reference:
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
 
+Run source-specific LK affiliation audits for publication-time Sri Lankan
+institutional authorship evidence:
+
+```bash
+make lk-affiliation-audits PYTHON=python
+```
+
+This writes OpenAlex and Crossref review queues, verified-authorship files,
+summary JSON, and Markdown reports under `data/reports/`.
+
 ## Sri Lanka National Framework Mode
 
 The Sri Lanka national framework code lives in `research_analytics/`.

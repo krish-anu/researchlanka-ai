@@ -12,14 +12,18 @@ dependencies = [
     "fastapi==0.135.2",
     "httpx==0.28.1",
     "joblib==1.5.3",
-    "pandas==3.0.3",
+    "numpy==2.0.2; python_version < '3.14'",
+    "numpy==2.5.1; python_version >= '3.14'",
+    "pandas==2.2.2; python_version < '3.14'",
+    "pandas==3.0.3; python_version >= '3.14'",
     "pyarrow==22.0.0",
     "psycopg[binary]>=3.2,<4",
     "python-dotenv==1.2.2",
     # Required by research_analytics.duplicate_analysis (fuzzy title matching).
     "rapidfuzz==3.14.3",
-    "requests==2.34.2",
+    "requests==2.32.4",
     "scikit-learn==1.8.0",
+    "scipy==1.16.1",
     "uvicorn[standard]==0.40.0",
 ]
 

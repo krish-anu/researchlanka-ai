@@ -17,6 +17,8 @@ import pytest
 from src.pipeline import kaggle_collect_openalex_sri_lanka as openalex_script
 from src.collectors import openalex_collector as openalex
 
+DEFAULT_OPENALEX_YEAR_FILTER = f"publication_year:2016-{openalex.DEFAULT_TO_YEAR}"
+
 
 def sample_work(country_code: str = "LK") -> dict:
     """Create a minimal OpenAlex-like work record for collector tests."""
@@ -128,6 +130,13 @@ def sample_work(country_code: str = "LK") -> dict:
     }
 
 
+def sri_lanka_owned_work(country_code: str = "LK") -> dict:
+    """Create a sample work that passes the Sri Lanka-owned policy gate."""
+    work = sample_work(country_code)
+    work["authorships"][0]["is_corresponding"] = True
+    return work
+
+
 def test_has_sri_lankan_author_accepts_lk_authorship():
     """A work with an LK authorship should be treated as Sri Lankan-affiliated."""
     assert openalex.has_sri_lankan_author(sample_work("LK")) is True
@@ -174,8 +183,9 @@ def test_first_author_filter_ignores_lk_in_unstructured_urls_and_text():
     assert row["first_author_countries"] == "GB"
     assert row["corresponding_author_countries"] == "GB"
     assert row["country_owner"] == "GB"
-    assert row["ownership_class"] == "NON_SL"
-    assert row["ownership_classification"] == "NON_SL"
+    assert row["ownership_decision"] == "EXCLUDE"
+    assert row["ownership_class"] == "NO_LK_PUBLICATION_AFFILIATION"
+    assert row["ownership_classification"] == "NO_LK_PUBLICATION_AFFILIATION"
     assert row["ownership_confidence"] == "HIGH"
     assert row["keep_in_sri_lanka_owned_dataset"] is False
     assert row["keep_in_strict_sri_lanka_dataset"] is False
@@ -200,6 +210,7 @@ def test_corresponding_author_is_preferred_over_first_author_for_ownership():
     assert row["first_author_country"] == "GB"
     assert row["corresponding_author_country"] == "LK"
     assert row["country_owner"] == "LK"
+    assert row["ownership_decision"] == "INCLUDE"
     assert row["ownership_class"] == "SL_OWNED_INTERNATIONAL"
     assert row["ownership_confidence"] == "MEDIUM"
     assert row["keep_in_sri_lanka_owned_dataset"] is True
@@ -222,7 +233,64 @@ def test_sri_lankan_participant_only_is_excluded_when_foreign_corresponding():
 
     row = openalex.work_to_row(work)
     assert row["has_sri_lankan_participant"] is True
+    assert row["ownership_decision"] == "EXCLUDE"
     assert row["ownership_class"] == "FOREIGN_PROJECT_WITH_SL_PARTICIPATION"
+    assert row["keep_in_strict_sri_lanka_dataset"] is False
+
+
+def test_iter_sri_lankan_work_pages_rejects_foreign_led_lk_participation(monkeypatch):
+    """Collection should not save foreign-led papers with only LK participation."""
+    owned_work = sri_lanka_owned_work("LK")
+    owned_work["id"] = "https://openalex.org/W-owned"
+    foreign_led_work = sample_work("GB")
+    foreign_led_work["id"] = "https://openalex.org/W-foreign-led"
+    foreign_led_work["authorships"][0]["countries"] = ["GB"]
+    foreign_led_work["authorships"][0]["institutions"][0]["country_code"] = "GB"
+    foreign_led_work["authorships"][0]["is_corresponding"] = True
+    foreign_led_work["authorships"][1]["countries"] = ["LK"]
+    foreign_led_work["authorships"][1]["institutions"][0]["country_code"] = "LK"
+
+    def fake_fetch_works(**_kwargs):
+        return {
+            "results": [owned_work, foreign_led_work],
+            "meta": {"next_cursor": None},
+        }
+
+    collector = openalex.OpenAlexCollector()
+    monkeypatch.setattr(collector, "fetch_works", fake_fetch_works)
+
+    pages = list(collector.iter_sri_lankan_work_pages(filters=[openalex.LK_AUTHORSHIP_FILTER]))
+
+    assert pages[0].works == [owned_work]
+    assert pages[0].skipped_count == 1
+
+
+def test_conflicting_corresponding_author_countries_require_review():
+    work = sample_work("LK")
+    work["authorships"][0]["is_corresponding"] = True
+    work["authorships"][1]["is_corresponding"] = True
+
+    row = openalex.work_to_row(work)
+
+    assert row["corresponding_author_countries"] == "LK; US"
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "CONFLICTING_CORRESPONDING_LEADERSHIP"
+    assert row["needs_manual_review"] is True
+    assert row["keep_in_strict_sri_lanka_dataset"] is False
+
+
+def test_first_author_dual_affiliation_requires_review():
+    work = sample_work("LK")
+    work["authorships"][0]["countries"] = ["LK", "GB"]
+    work["authorships"][0]["institutions"].append(
+        {"display_name": "University of Oxford", "country_code": "GB"}
+    )
+
+    row = openalex.work_to_row(work)
+
+    assert row["first_author_country"] == "GB; LK"
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "FIRST_AUTHOR_ONLY_LK_EVIDENCE"
     assert row["keep_in_strict_sri_lanka_dataset"] is False
 
 
@@ -245,7 +313,8 @@ def test_missing_leadership_evidence_with_lk_participant_needs_review():
 
     row = openalex.work_to_row(work)
 
-    assert row["ownership_class"] == "REVIEW_REQUIRED"
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "MISSING_LEADERSHIP_EVIDENCE"
     assert row["needs_manual_review"] is True
     assert row["keep_in_sri_lanka_owned_dataset"] is False
 
@@ -274,11 +343,11 @@ def test_strict_sri_lanka_only_accepts_only_lk_country_codes():
 
 def test_iter_sri_lankan_work_pages_supports_strict_lk_only(monkeypatch):
     """Strict page iteration should keep only records with country-code set LK."""
-    lk_only_work = sample_work("LK")
+    lk_only_work = sri_lanka_owned_work("LK")
     lk_only_work["id"] = "https://openalex.org/W-LK"
     lk_only_work["authorships"] = [lk_only_work["authorships"][0]]
 
-    collaborative_work = sample_work("LK")
+    collaborative_work = sri_lanka_owned_work("LK")
     collaborative_work["id"] = "https://openalex.org/W-COLLAB"
 
     def fake_fetch_works(**_kwargs):
@@ -303,13 +372,13 @@ def test_iter_sri_lankan_work_pages_supports_strict_lk_only(monkeypatch):
 
 def test_iter_sri_lankan_work_pages_requires_unique_openalex_ids(monkeypatch):
     """OpenAlex ID should behave as the required primary key for collected works."""
-    first_work = sample_work("LK")
+    first_work = sri_lanka_owned_work("LK")
     first_work["id"] = "https://openalex.org/W1"
-    duplicate_work = sample_work("LK")
+    duplicate_work = sri_lanka_owned_work("LK")
     duplicate_work["id"] = "https://openalex.org/W1"
-    missing_id_work = sample_work("LK")
+    missing_id_work = sri_lanka_owned_work("LK")
     missing_id_work.pop("id")
-    second_work = sample_work("LK")
+    second_work = sri_lanka_owned_work("LK")
     second_work["id"] = "https://openalex.org/W2"
 
     def fake_fetch_works(**_kwargs):
@@ -366,11 +435,13 @@ def test_work_to_row_flattens_expected_openalex_fields():
     assert row["all_author_countries"] == "LK; US"
     assert row["has_sri_lankan_participant"] is True
     assert row["has_foreign_participant"] is True
-    assert row["ownership_class"] == "SL_OWNED_INTERNATIONAL"
-    assert row["ownership_classification"] == "SL_OWNED_INTERNATIONAL"
+    assert row["ownership_decision"] == "REVIEW"
+    assert row["ownership_class"] == "FIRST_AUTHOR_ONLY_LK_EVIDENCE"
+    assert row["ownership_classification"] == "FIRST_AUTHOR_ONLY_LK_EVIDENCE"
     assert row["ownership_confidence"] == "LOW"
-    assert row["keep_in_strict_sri_lanka_dataset"] is True
-    assert row["keep_in_sri_lanka_owned_dataset"] is True
+    assert row["keep_in_strict_sri_lanka_dataset"] is False
+    assert row["keep_in_sri_lanka_owned_dataset"] is False
+    assert row["needs_manual_review"] is True
     assert row["source_name"] == "Example Journal"
     assert row["publisher"] == "Example Publisher"
     assert row["is_retracted"] is False
@@ -436,6 +507,30 @@ def test_work_to_row_defaults_missing_retraction_status_to_false():
     row = openalex.work_to_row(work)
 
     assert row["is_retracted"] is False
+
+
+def test_iter_flat_rows_from_jsonl_skips_stale_unowned_records(tmp_path):
+    """Rebuilt CSV/Parquet outputs should not resurrect old participation-only records."""
+    owned_work = sri_lanka_owned_work("LK")
+    owned_work["id"] = "https://openalex.org/W-owned"
+    foreign_led_work = sample_work("GB")
+    foreign_led_work["id"] = "https://openalex.org/W-foreign-led"
+    foreign_led_work["authorships"][0]["countries"] = ["GB"]
+    foreign_led_work["authorships"][0]["institutions"][0]["country_code"] = "GB"
+    foreign_led_work["authorships"][0]["is_corresponding"] = True
+    foreign_led_work["authorships"][1]["countries"] = ["LK"]
+    foreign_led_work["authorships"][1]["institutions"][0]["country_code"] = "LK"
+
+    jsonl_output = tmp_path / "works.jsonl"
+    jsonl_output.write_text(
+        json.dumps(owned_work) + "\n" + json.dumps(foreign_led_work) + "\n",
+        encoding="utf-8",
+    )
+
+    rows = list(openalex_script.iter_flat_rows_from_jsonl(jsonl_output))
+
+    assert [row["openalex_id"] for row in rows] == ["https://openalex.org/W-owned"]
+    assert rows[0]["keep_in_sri_lanka_owned_dataset"] is True
 
 
 def test_work_to_row_normalizes_publication_year_and_date():
@@ -509,11 +604,23 @@ def test_build_filters_adds_publication_year_range():
     ]
 
 
-def test_build_filters_defaults_to_2016_2026_year_range():
-    """Default collection should cover publication years 2016 through 2026."""
+def test_build_filters_defaults_to_2016_current_year_range():
+    """Default collection should cover publication years 2016 through the current year."""
     assert openalex.build_filters([openalex.LK_AUTHORSHIP_FILTER]) == [
         openalex.LK_AUTHORSHIP_FILTER,
-        "publication_year:2016-2026",
+        DEFAULT_OPENALEX_YEAR_FILTER,
+    ]
+
+
+def test_build_filters_clamps_start_year_to_2016():
+    """Collection should never request publication years before 2016."""
+    assert openalex.build_filters(
+        [openalex.LK_AUTHORSHIP_FILTER],
+        from_year=2010,
+        to_year=2024,
+    ) == [
+        openalex.LK_AUTHORSHIP_FILTER,
+        "publication_year:2016-2024",
     ]
 
 
@@ -576,13 +683,13 @@ def test_collector_fetch_works_sends_openalex_request_metadata():
 
 
 def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
-    """The collector should keep only first-author LK works from 2016 onward."""
-    lk_work = sample_work("LK")
+    """The collector should keep only Sri Lanka-owned works from 2016 onward."""
+    lk_work = sri_lanka_owned_work("LK")
     non_lk_work = sample_work("IN")
     lk_coauthor_work = sample_work("US")
     lk_coauthor_work["authorships"][1]["countries"] = ["LK"]
     lk_coauthor_work["authorships"][1]["institutions"][0]["country_code"] = "LK"
-    old_lk_work = sample_work("LK")
+    old_lk_work = sri_lanka_owned_work("LK")
     old_lk_work["publication_year"] = 2015
     calls = []
 
@@ -622,7 +729,7 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
         {
             "filters": [
                 openalex.LK_AUTHORSHIP_FILTER,
-                "publication_year:2016-2026",
+                DEFAULT_OPENALEX_YEAR_FILTER,
             ],
             "cursor": "*",
             "per_page": 25,
@@ -632,7 +739,7 @@ def test_iter_sri_lankan_works_uses_sample_records_without_network(monkeypatch):
 
 def test_collector_logs_page_fetch_summary(monkeypatch, caplog):
     """Collector page iteration should log page-level progress information."""
-    lk_work = sample_work("LK")
+    lk_work = sri_lanka_owned_work("LK")
     non_lk_work = sample_work("IN")
 
     def fake_fetch_works(**_kwargs):
@@ -656,11 +763,12 @@ def test_collector_logs_page_fetch_summary(monkeypatch, caplog):
 def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
     """Page iteration should support resuming from a saved OpenAlex cursor."""
     calls = []
+    work = sri_lanka_owned_work("LK")
 
     def fake_fetch_works(**kwargs):
         calls.append(kwargs)
         return {
-            "results": [sample_work("LK")],
+            "results": [work],
             "meta": {"next_cursor": None},
         }
 
@@ -678,12 +786,12 @@ def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
     assert len(pages) == 1
     assert pages[0].cursor == "saved-cursor"
     assert pages[0].next_cursor is None
-    assert pages[0].works == [sample_work("LK")]
+    assert pages[0].works == [work]
     assert calls == [
         {
             "filters": [
                 openalex.LK_AUTHORSHIP_FILTER,
-                "publication_year:2016-2026",
+                DEFAULT_OPENALEX_YEAR_FILTER,
             ],
             "cursor": "saved-cursor",
             "per_page": 25,
@@ -693,9 +801,9 @@ def test_iter_sri_lankan_work_pages_can_start_from_saved_cursor(monkeypatch):
 
 def test_iter_sri_lankan_work_pages_reports_pagination_progress(monkeypatch):
     """Page objects should expose count-based progress details for audit files."""
-    first_work = sample_work("LK")
+    first_work = sri_lanka_owned_work("LK")
     first_work["id"] = "https://openalex.org/W1"
-    second_work = sample_work("LK")
+    second_work = sri_lanka_owned_work("LK")
     second_work["id"] = "https://openalex.org/W2"
     responses = [
         {
@@ -737,9 +845,11 @@ def test_iter_sri_lankan_work_pages_reports_pagination_progress(monkeypatch):
 
 def test_iter_sri_lankan_work_pages_rejects_repeated_cursor(monkeypatch):
     """Pagination should fail loudly if OpenAlex returns a stuck cursor."""
+    work = sri_lanka_owned_work("LK")
+
     def fake_fetch_works(**kwargs):
         return {
-            "results": [sample_work("LK")],
+            "results": [work],
             "meta": {"next_cursor": kwargs["cursor"]},
         }
 
@@ -752,9 +862,9 @@ def test_iter_sri_lankan_work_pages_rejects_repeated_cursor(monkeypatch):
 
 def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatch):
     """Resume should append new records and skip records already in the JSONL."""
-    existing_work = sample_work("LK")
+    existing_work = sri_lanka_owned_work("LK")
     existing_work["id"] = "https://openalex.org/W1"
-    new_work = sample_work("LK")
+    new_work = sri_lanka_owned_work("LK")
     new_work["id"] = "https://openalex.org/W2"
     new_work["doi"] = "https://doi.org/10.1234/new"
 
@@ -770,7 +880,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
         progress_output,
         next_cursor="saved-cursor",
         records_saved=0,
-        filters=[openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        filters=[openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
     )
 
     class FakeCollector:
@@ -834,7 +944,7 @@ def test_kaggle_script_resume_appends_without_duplicate_ids(tmp_path, monkeypatc
     assert progress == {
         "next_cursor": None,
         "records_saved": 2,
-        "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        "filters": [openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
         "strict_lk_only": False,
     }
     pagination_audit = json.loads(pagination_output.read_text(encoding="utf-8"))
@@ -892,7 +1002,7 @@ def test_kaggle_script_writes_initial_resume_metadata(tmp_path, monkeypatch):
     assert openalex_script.load_progress(progress_output) == {
         "next_cursor": "*",
         "records_saved": 0,
-        "filters": [openalex.LK_AUTHORSHIP_FILTER, "publication_year:2016-2026"],
+        "filters": [openalex.LK_AUTHORSHIP_FILTER, DEFAULT_OPENALEX_YEAR_FILTER],
         "strict_lk_only": True,
     }
     with doi_conflicts_output.open("r", encoding="utf-8", newline="") as csv_file:
@@ -977,24 +1087,24 @@ def test_setup_logging_can_write_to_log_file(tmp_path):
 
 def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
     """The collection report should summarize the final JSONL dataset."""
-    first_work = sample_work("LK")
+    first_work = sri_lanka_owned_work("LK")
     first_work["id"] = "https://openalex.org/W1"
     first_work["doi"] = "https://doi.org/10.1234/duplicate"
     first_work["publication_year"] = 2022
 
-    duplicate_work = sample_work("LK")
+    duplicate_work = sri_lanka_owned_work("LK")
     duplicate_work["id"] = "https://openalex.org/W1"
     duplicate_work["doi"] = "https://doi.org/10.1234/DUPLICATE"
     duplicate_work["publication_year"] = 2024
     duplicate_work["is_retracted"] = True
 
-    conflict_work = sample_work("LK")
+    conflict_work = sri_lanka_owned_work("LK")
     conflict_work["id"] = "https://openalex.org/W4"
     conflict_work["doi"] = "10.1234/duplicate"
     conflict_work["title"] = "Different OpenAlex Record With Same DOI"
     conflict_work["publication_year"] = 2025
 
-    missing_work = sample_work("LK")
+    missing_work = sri_lanka_owned_work("LK")
     missing_work["id"] = "https://openalex.org/W3"
     missing_work["doi"] = None
     missing_work["title"] = None
@@ -1034,17 +1144,17 @@ def test_collect_quality_report_summarizes_saved_jsonl(tmp_path):
 
 def test_write_doi_conflict_report_outputs_different_ids_for_same_doi(tmp_path):
     """DOI conflicts should be exported separately from the main works dataset."""
-    first_work = sample_work("LK")
+    first_work = sri_lanka_owned_work("LK")
     first_work["id"] = "https://openalex.org/W1"
     first_work["doi"] = "https://doi.org/10.1234/conflict"
     first_work["title"] = "First DOI Record"
 
-    second_work = sample_work("LK")
+    second_work = sri_lanka_owned_work("LK")
     second_work["id"] = "https://openalex.org/W2"
     second_work["doi"] = "10.1234/CONFLICT"
     second_work["title"] = "Second DOI Record"
 
-    same_id_duplicate = sample_work("LK")
+    same_id_duplicate = sri_lanka_owned_work("LK")
     same_id_duplicate["id"] = "https://openalex.org/W1"
     same_id_duplicate["doi"] = "10.1234/conflict"
 
@@ -1084,14 +1194,22 @@ def test_write_doi_conflict_report_outputs_different_ids_for_same_doi(tmp_path):
 
 def test_extract_openalex_dois_returns_unique_normalized_values(tmp_path):
     jsonl_output = tmp_path / "works.jsonl"
+    first_work = sri_lanka_owned_work("LK")
+    first_work["doi"] = "https://doi.org/10.1234/Example"
+    duplicate_work = sri_lanka_owned_work("LK")
+    duplicate_work["doi"] = "10.1234/example"
+    missing_doi_work = sri_lanka_owned_work("LK")
+    missing_doi_work["doi"] = None
+    other_work = sri_lanka_owned_work("LK")
+    other_work["doi"] = "DOI: 10.5678/Other"
     jsonl_output.write_text(
         "\n".join(
             [
-                json.dumps({"doi": "https://doi.org/10.1234/Example"}),
-                json.dumps({"doi": "10.1234/example"}),
-                json.dumps({"doi": None}),
+                json.dumps(first_work),
+                json.dumps(duplicate_work),
+                json.dumps(missing_doi_work),
                 "not-json",
-                json.dumps({"doi": "DOI: 10.5678/Other"}),
+                json.dumps(other_work),
             ]
         )
         + "\n",
@@ -1107,12 +1225,18 @@ def test_extract_openalex_dois_returns_unique_normalized_values(tmp_path):
 def test_enrich_crossref_from_openalex_skips_existing_and_writes_found(tmp_path):
     openalex_jsonl = tmp_path / "openalex.jsonl"
     crossref_output = tmp_path / "crossref_enriched.jsonl"
+    existing_work = sri_lanka_owned_work("LK")
+    existing_work["doi"] = "10.1234/existing"
+    found_work = sri_lanka_owned_work("LK")
+    found_work["doi"] = "https://doi.org/10.1234/found"
+    missing_work = sri_lanka_owned_work("LK")
+    missing_work["doi"] = "10.1234/missing"
     openalex_jsonl.write_text(
         "\n".join(
             [
-                json.dumps({"doi": "10.1234/existing"}),
-                json.dumps({"doi": "https://doi.org/10.1234/found"}),
-                json.dumps({"doi": "10.1234/missing"}),
+                json.dumps(existing_work),
+                json.dumps(found_work),
+                json.dumps(missing_work),
             ]
         )
         + "\n",
@@ -1240,7 +1364,7 @@ def test_kaggle_script_runs_crossref_enrichment_when_enabled(tmp_path, monkeypat
 
 def test_write_parquet_from_jsonl_writes_flat_rows(tmp_path, monkeypatch):
     """Parquet export should write the same flattened rows as the CSV path."""
-    work = sample_work("LK")
+    work = sri_lanka_owned_work("LK")
     jsonl_output = tmp_path / "works.jsonl"
     parquet_output = tmp_path / "works.parquet"
     jsonl_output.write_text(json.dumps(work) + "\n", encoding="utf-8")

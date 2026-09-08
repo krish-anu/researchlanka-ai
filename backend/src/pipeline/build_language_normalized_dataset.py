@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -19,22 +20,25 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
+DEFAULT_START_YEAR = 2016
+DEFAULT_END_YEAR = date.today().year
+DEFAULT_YEAR_SUFFIX = f"{DEFAULT_START_YEAR}_{DEFAULT_END_YEAR}"
 DEFAULT_INPUT_CSV = (
-    PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026.csv"
+    PROJECT_ROOT / "data" / "processed" / "common" / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}.csv"
 )
 DEFAULT_OUTPUT_CSV = (
     PROJECT_ROOT
     / "data"
     / "processed"
     / "common"
-    / "common_publications_final_2016_2026_language_normalized.csv"
+    / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_language_normalized.csv"
 )
 DEFAULT_SUMMARY_CSV = (
     PROJECT_ROOT
     / "data"
     / "processed"
     / "common"
-    / "common_publications_final_2016_2026_language_normalized_summary.csv"
+    / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_language_normalized_summary.csv"
 )
 
 LANGUAGE_ALIASES = {

@@ -5,9 +5,11 @@ httpx==0.28.1
 idna==3.18
 iniconfig==2.3.0
 joblib==1.5.3
-numpy==2.5.1
+numpy==2.0.2; python_version < "3.14"
+numpy==2.5.1; python_version >= "3.14"
 packaging==26.2
-pandas==3.0.3
+pandas==2.2.2; python_version < "3.14"
+pandas==3.0.3; python_version >= "3.14"
 pyarrow==22.0.0
 pluggy==1.6.0
 psycopg[binary]>=3.2,<4
@@ -15,7 +17,7 @@ Pygments==2.20.0
 pytest==9.1.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
-requests==2.34.2
+requests==2.32.4
 scikit-learn==1.8.0
 six==1.17.0
 uvicorn[standard]==0.40.0

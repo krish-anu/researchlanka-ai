@@ -53,6 +53,7 @@ pnpm-debug.log*
 .ipynb_checkpoints/
 notebooks/outputs/
 backend/notebooks/outputs/
+slide_images/
 
 # Generated data and model artifacts
 data/raw/
@@ -63,6 +64,11 @@ data/models/
 data/reports/*.json
 outputs/
 pipeline/
+!backend/src/pipeline/
+!backend/src/pipeline/**
+backend/src/pipeline/__pycache__/
+backend/src/pipeline/**/*.py[cod]
+tools/google-maps-scraper-kit/
 backend/data/raw/
 backend/data/processed/
 backend/data/interim/

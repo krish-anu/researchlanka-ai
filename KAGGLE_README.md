@@ -247,12 +247,13 @@ The notebook sections are:
 4. **Copy Uploaded Raw Data Into Backend**
 5. **Install Dependencies**
 6. **Run Dagster Pipeline Without Data Collection**
-7. **Verify Preprocessing Outputs**
-8. **Build Best-Quality Embeddings**
-9. **Train Best-Quality Logistic Regression**
-10. **Train Best-Quality Linear SVM**
-11. **Compare Models**
-12. **Zip Outputs For Download**
+7. **Run LK Affiliation Audits**
+8. **Verify Preprocessing Outputs**
+9. **Build Best-Quality Embeddings**
+10. **Train Best-Quality Logistic Regression**
+11. **Train Best-Quality Linear SVM**
+12. **Compare Models**
+13. **Zip Outputs For Download**
 
 Do not skip cells unless you know that the output already exists.
 
@@ -281,7 +282,30 @@ data/models/logistic_regression_primary_domain.joblib
 data/models/logistic_regression_primary_domain_metrics.txt
 data/models/linear_svm_primary_domain.joblib
 data/models/linear_svm_primary_domain_metrics.txt
+data/models/classification_comparison/model_comparison.csv
 ```
+
+Use `data/models/classification_comparison/model_comparison.csv` for the fair
+model comparison. Those runs are trained and evaluated on the same shared
+eligible row set, so the held-out row counts should match across model families.
+
+The LK affiliation audit step should write source-specific review files in:
+
+```text
+data/reports/openalex_lk_affiliation_audit/
+data/reports/crossref_lk_affiliation_audit/
+```
+
+Run both audits locally with:
+
+```bash
+cd backend
+make lk-affiliation-audits PYTHON=python
+```
+
+The Crossref audit checks raw Crossref author affiliation strings and separates
+strict LK authorships, multi-affiliated authorships, manual-review rows,
+work-level-only evidence, and query false positives.
 
 ## Step 9: Download The Final Zip File
 
@@ -298,6 +322,7 @@ The zip file contains:
 ```text
 data/processed/
 data/models/
+data/reports/
 ```
 
 The most important final dataset is:
@@ -338,9 +363,10 @@ resolution issues.
 The notebook uses a Kaggle-friendly install:
 
 ```python
-!pip install "dagster==1.13.16" "dagster-webserver==1.13.16" "rapidfuzz==3.14.3" "psycopg[binary]>=3.2,<4"
-!pip install -e . --no-deps
-!pip install -e dagster-quickstart --no-deps
+!python -m pip install -r requirements.txt "protobuf<6" "google-cloud-bigquery-storage>=2.30,<3"
+!python -m pip install "dagster==1.13.16" "dagster-webserver==1.13.16" "protobuf<6" "google-cloud-bigquery-storage>=2.30,<3"
+!python -m pip install -e . --no-deps
+!python -m pip install -e dagster-quickstart --no-deps
 ```
 
 If Kaggle prints warnings but the install finishes successfully, continue.
@@ -392,6 +418,7 @@ Use this checklist when running on Kaggle:
 - Check `DATASET_DATA_DIR`.
 - Run all cells from top to bottom.
 - Confirm the processed CSV files exist.
+- Confirm OpenAlex and Crossref LK affiliation audit summaries exist.
 - Confirm model metrics files exist if training was run.
 - Download `/kaggle/working/researchlanka-kaggle-outputs.zip`.
 

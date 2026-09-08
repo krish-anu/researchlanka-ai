@@ -114,8 +114,11 @@ def build_tfidf(
     return vectorizer, X
 
 
+DEFAULT_NMF_MAX_ITER = 1000
+
+
 def fit_nmf(
-    X, k: int, random_state: int = 42, max_iter: int = 500
+    X, k: int, random_state: int = 42, max_iter: int = DEFAULT_NMF_MAX_ITER
 ) -> tuple[NMF, np.ndarray]:
     model = NMF(
         n_components=k,
@@ -258,8 +261,9 @@ def evaluate_k(
     k: int,
     n_words: int = 15,
     random_state: int = 42,
+    max_iter: int = DEFAULT_NMF_MAX_ITER,
 ) -> dict:
-    model, W = fit_nmf(X, k, random_state=random_state)
+    model, W = fit_nmf(X, k, random_state=random_state, max_iter=max_iter)
     topic_words = get_topic_keywords(model, feature_names, n_words=n_words)
     return {
         "k": k,
@@ -282,6 +286,7 @@ def evaluate_k_range(
     vectorizer: Optional[TfidfVectorizer] = None,
     n_words: int = 15,
     random_state: int = 42,
+    max_iter: int = DEFAULT_NMF_MAX_ITER,
 ) -> tuple[pd.DataFrame, dict]:
     """Runs evaluate_k() for every k in k_range. Returns (summary_df, {k: full_result_dict}).
 
@@ -308,6 +313,7 @@ def evaluate_k_range(
             k,
             n_words=n_words,
             random_state=random_state,
+            max_iter=max_iter,
         )
         results[k] = res
         rows.append(
@@ -376,6 +382,7 @@ def run_final_pipeline(
     year_col: Optional[str] = None,
     tfidf_kwargs: Optional[dict] = None,
     random_state: int = 42,
+    max_iter: int = DEFAULT_NMF_MAX_ITER,
     clean: bool = True,
 ) -> dict:
     """Fits NMF at a fixed k and writes every artifact to output_dir:
@@ -421,7 +428,7 @@ def run_final_pipeline(
     vectorizer, X = build_tfidf(texts[has_text], **(tfidf_kwargs or {}))
     feature_names = vectorizer.get_feature_names_out()
 
-    model, W = fit_nmf(X, k, random_state=random_state)
+    model, W = fit_nmf(X, k, random_state=random_state, max_iter=max_iter)
     topic_words = get_topic_keywords(model, feature_names, n_words=n_words)
     topic_names = name_topics(topic_words, n=naming_words)
 
