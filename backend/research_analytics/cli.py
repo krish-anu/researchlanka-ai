@@ -21,6 +21,8 @@ STAGES = (
     "deduplicate",
     "analyze",
     "load_database",
+    "classify",
+    "topic_modeling",
     "export",
     "all",
 )
@@ -127,6 +129,8 @@ def main(argv: list[str] | None = None) -> None:
         "clean",
         "deduplicate",
         "analyze",
+        "classify",
+        "topic_modeling",
         "load_database",
         "run-all",
     ):
@@ -393,6 +397,16 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Loaded {loaded} records into PostgreSQL.")
         return
 
+    if args.command == "classify":
+        result = pipeline.classify()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
+    if args.command == "topic_modeling":
+        result = pipeline.run_topic_modeling()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
     result = pipeline.run_all()
     print(
         "Run complete: "
@@ -500,6 +514,12 @@ def run_stage(
         pipeline.deduplicate()
         loaded = pipeline.load_database()
         return f"Loaded {loaded} records into PostgreSQL."
+
+    if stage == "classify":
+        return pipeline.classify()
+
+    if stage == "topic_modeling":
+        return pipeline.run_topic_modeling()
 
     result = pipeline.run_all()
     return (

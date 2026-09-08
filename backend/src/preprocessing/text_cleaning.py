@@ -17,7 +17,7 @@ content it has, and provides an expanded stopword list for the generic
 academic language that dominated Topic 1 ("study", "using", "data", ...).
 
 Usage:
-    from src.modeling.text_cleaning import clean_text_series, CUSTOM_STOP_WORDS, cleaning_report
+    from src.preprocessing.text_cleaning import clean_text_series, CUSTOM_STOP_WORDS, cleaning_report
 
 `combined_text()` in nmf_topic_modeling.py calls clean_text_series() by
 default - see its `clean=` flag to opt out and reproduce the original
@@ -143,11 +143,36 @@ DOMAIN_STOPWORDS = {
     "proposed",
     "present",
     "presents",
-    "available",  # leftover after boilerplate phrase-stripping (e.g. "editorial abstract" -> "available")
-    # Geographic / corpus-common tokens that dominate every cluster
+    "available",
     "sri",
     "lanka",
     "srilanka",
+    "lankan",
+    "south",
+    "asia",
+    "asian",
+    "universtiy",
+    "conference",
+    "international_conference",
+    "international",
+    "text",
+    "pre",
+    "proceedings",
+    "conference_proceedings",
+    "2023",
+    "2024",
+    "moratuwa",
+    "pre text",
+    "19",
+    "review",
+    "sri lankan",
+    "development",
+    "design",
+    "conduct",
+    "conducted",
+    "different",
+
+  
 }
 
 # Extra function words to drop even if an analyzer/token_pattern miss
@@ -180,6 +205,7 @@ FUNCTION_STOPWORDS = {
     "have",
     "has",
     "had",
+
 }
 
 # sklearn's TfidfVectorizer(stop_words=...) accepts a list; sorted for a

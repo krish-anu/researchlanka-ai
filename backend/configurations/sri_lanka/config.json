@@ -5,7 +5,7 @@
   },
   "coverage": {
     "start_year": 2016,
-    "end_year": 2026
+    "end_year": null
   },
   "project": {
     "name": "Sri Lankan Research Analytics",
@@ -29,7 +29,7 @@
   },
   "collection": {
     "start_year": 2016,
-    "end_year": 2026,
+    "end_year": null,
     "batch_size": 200,
     "retry_limit": 3,
     "request_delay_seconds": 1
@@ -41,7 +41,7 @@
     "openalex": {
       "enabled": true,
       "options": {
-        "strict_country_only": true
+        "strict_country_only": false
       }
     },
     "crossref": {
@@ -54,6 +54,17 @@
     "university_repositories": {
       "enabled": true
     }
+  },
+  "ownership_policy": {
+    "mode": "sri_lanka_led",
+    "allow_foreign_collaborators": true,
+    "first_author_only_action": "review",
+    "venue_only_action": "review",
+    "repository_only_action": "review",
+    "missing_leadership_action": "review",
+    "conflicting_evidence_action": "review",
+    "fail_closed": true,
+    "policy_version": "1.0"
   },
   "pipeline": {
     "collect": true,
@@ -123,7 +134,7 @@
     "normalize_institutions": true,
     "valid_year": {
       "minimum": 1950,
-      "maximum": 2026
+      "maximum": null
     },
     "required_fields": ["title"],
     "optional_fields": ["doi", "abstract", "keywords"]

@@ -17,6 +17,25 @@ make dev
 This starts the backend API at `http://127.0.0.1:8080/api/v1` and the
 frontend at `http://127.0.0.1:3000`.
 
+Google Maps institution-location confirmation is an offline data-quality step.
+It does not run during `make dev`, `make backend`, or `make frontend`; run
+`make maps-location-confirm` only when you intentionally want to collect new
+location evidence.
+
+## Dataset Ownership Policy
+
+`common_publications_all_records.csv` is the broad candidate/source-evidence
+dataset. The final application/database dataset is gated separately and contains
+only records with `ownership_decision=INCLUDE`,
+`ownership_confidence` of `HIGH` or `MEDIUM`, and
+`needs_manual_review=False`.
+
+"Sri Lanka-led" means publication-specific leadership evidence points to Sri
+Lanka, for example a Sri Lankan corresponding/project-lead affiliation.
+International collaborators are allowed. First-author-only, SLJOL venue-only,
+repository-only, missing, weak, or conflicting evidence is kept for REVIEW and
+does not enter the verified final dataset.
+
 ## Fresh Clone Setup With Data
 
 Use these commands when setting up the full project on a new machine.

@@ -51,6 +51,7 @@ import pandas as pd
 # "src." prefix - this mirrors the same fix needed in the test notebook.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.modeling.nmf_topic_modeling import (  # noqa: E402
+    DEFAULT_NMF_MAX_ITER,
     TEXT_COLUMNS,
     build_tfidf,
     combined_text,
@@ -99,6 +100,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=3,
         help="Words used to auto-name each topic (default: 3).",
+    )
+    p.add_argument(
+        "--max-iter",
+        type=int,
+        default=DEFAULT_NMF_MAX_ITER,
+        help=f"Maximum NMF iterations (default: {DEFAULT_NMF_MAX_ITER}).",
     )
     p.add_argument(
         "--year-col",
@@ -163,6 +170,7 @@ def main() -> None:
             args.k_range,
             vectorizer=vectorizer,
             n_words=args.n_words,
+            max_iter=args.max_iter,
         )
         output_dir.mkdir(parents=True, exist_ok=True)
         summary_df.to_csv(output_dir / "nmf_k_sweep_evaluation.csv", index=False)
@@ -180,6 +188,7 @@ def main() -> None:
         n_words=args.n_words,
         naming_words=args.naming_words,
         year_col=args.year_col,
+        max_iter=args.max_iter,
         clean=clean,
     )
 
@@ -190,7 +199,7 @@ if __name__ == "__main__":
 
 
 # cd researchlanka-ai/backend
-# python scripts/run_nmf_pipeline.py \
-#   --data data/processed/common/common_publications_final_with_linearsvm.csv \
+# python scripts/modeling/run_nmf_topic_modeling.py \
+#   --data data/processed/common/common_publications_final.csv \
 #   --output-dir data/processed/common/nmf \
-#   --k 20
+#   --k 25

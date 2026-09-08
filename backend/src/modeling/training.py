@@ -33,6 +33,7 @@ from src.modeling.evaluation import (
     per_class_rows,
     render_evaluation,
 )
+from src.preprocessing.text_cleaning import clean_text_series
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -51,12 +52,12 @@ DEFAULT_INPUT = (
 )
 DEFAULT_MODEL_DIR = PROJECT_ROOT / "data" / "models"
 
-DEFAULT_LABEL_COLUMN = "primary_field"
-DEFAULT_TEXT_COLUMNS = ["title", "abstract", "topics", "keywords", "concepts"]
+DEFAULT_LABEL_COLUMN = "primary_domain"
+DEFAULT_TEXT_COLUMNS = ["title", "abstract", "keywords"]
 DEFAULT_MODEL_FAMILY = "logistic_regression"
 # Best Logistic Regression defaults (aligned text cols with Linear SVM)
 DEFAULT_NGRAM_MAX = 2
-DEFAULT_TEST_SIZE = 0.15
+DEFAULT_TEST_SIZE = 0.2
 DEFAULT_CLASS_WEIGHT: str | None = "balanced"
 DEFAULT_MAX_ITER = 1000
 
@@ -239,8 +240,12 @@ def default_manifest_output(
 
 
 def combined_text(frame: pd.DataFrame, text_columns: Iterable[str]) -> pd.Series:
-    text = frame[list(text_columns)].astype(str).agg(" ".join, axis=1)
-    return text.str.replace(r"\s+", " ", regex=True).str.strip()
+    available_columns = [column for column in text_columns if column in frame.columns]
+    if not available_columns:
+        return pd.Series("", index=frame.index)
+    text = frame[available_columns].astype(str).agg(" ".join, axis=1)
+    text = text.str.replace(r"\s+", " ", regex=True).str.strip()
+    return clean_text_series(text)
 
 
 def load_training_frame(
@@ -593,7 +598,7 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
         stratify=training_frame["label"],
     )
 
-    pipeline = build_pipeline(
+    eval_pipeline = build_pipeline(
         max_features=config.max_features,
         min_df=config.min_df,
         max_df=config.max_df,
@@ -606,9 +611,9 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
         alpha=config.alpha,
         fit_prior=config.fit_prior,
     )
-    pipeline.fit(train_text, train_labels)
+    eval_pipeline.fit(train_text, train_labels)
 
-    predictions = pipeline.predict(test_text)
+    predictions = eval_pipeline.predict(test_text)
     accuracy = accuracy_score(test_labels, predictions)
     macro_f1 = f1_score(test_labels, predictions, average="macro", zero_division=0)
     weighted_f1 = f1_score(
@@ -642,6 +647,21 @@ def train_text_classifier(config: TextTrainingConfig) -> TrainingResult:
     assert config.manifest_output is not None
     assert config.confusion_matrix_output is not None
     assert config.per_class_output is not None
+
+    pipeline = build_pipeline(
+        max_features=config.max_features,
+        min_df=config.min_df,
+        max_df=config.max_df,
+        ngram_max=config.ngram_max,
+        keep_stop_words=config.keep_stop_words,
+        class_weight=config.class_weight,
+        max_iter=config.max_iter,
+        random_state=config.random_state,
+        model_family=config.model_family,
+        alpha=config.alpha,
+        fit_prior=config.fit_prior,
+    )
+    pipeline.fit(training_frame["text"], training_frame["label"])
 
     metrics_text = render_metrics(
         input_path=config.input_path,
@@ -840,7 +860,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--label-column",
         default=DEFAULT_LABEL_COLUMN,
-        help="Target label column to predict. Default: primary_domain",
+        help=f"Target label column to predict. Default: {DEFAULT_LABEL_COLUMN}",
     )
     parser.add_argument(
         "--text-columns",

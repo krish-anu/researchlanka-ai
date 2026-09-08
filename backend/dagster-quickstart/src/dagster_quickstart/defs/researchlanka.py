@@ -5,11 +5,12 @@ from __future__ import annotations
 import csv
 import json
 import os
+import shutil
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import asdict, replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Iterator
@@ -24,6 +25,7 @@ CONFIG_PATH = BACKEND_DIR / "configurations" / "sri_lanka" / "config.json"
 RAW_DIR = BACKEND_DIR / "data" / "raw"
 PROCESSED_DIR = BACKEND_DIR / "data" / "processed"
 REPORT_DIR = BACKEND_DIR / "data" / "reports"
+KAGGLE_OUTPUT_DIR = BACKEND_DIR / "researchlanka-kaggle-outputs"
 CROSSREF_JSONL_OUTPUT = PROCESSED_DIR / "crossref" / "crossref_sri_lanka_works.jsonl"
 CROSSREF_CSV_OUTPUT = PROCESSED_DIR / "crossref" / "crossref_sri_lanka_works.csv"
 SLJOL_JSONL_OUTPUT = RAW_DIR / "sljol" / "crossref_works.jsonl"
@@ -40,31 +42,46 @@ COMMON_FINAL_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final.csv"
 COMMON_REFERENCES_OUTPUT = COMMON_OUTPUT_DIR / "publication_references.csv"
 COMMON_COUNT_AUDIT_OUTPUT = COMMON_OUTPUT_DIR / "publication_count_audit.csv"
 COMMON_FINAL_SUMMARY_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_summary.csv"
-COMMON_YEAR_FILTERED_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_2016_2026.csv"
-COMMON_YEAR_FILTERED_SUMMARY_OUTPUT = COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_summary.csv"
+DEFAULT_COLLECTION_START_YEAR = 2016
+DEFAULT_COLLECTION_END_YEAR = date.today().year
+DEFAULT_COLLECTION_YEAR_SUFFIX = f"{DEFAULT_COLLECTION_START_YEAR}_{DEFAULT_COLLECTION_END_YEAR}"
+COMMON_YEAR_FILTERED_OUTPUT = (
+    COMMON_OUTPUT_DIR / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}.csv"
+)
+COMMON_YEAR_FILTERED_SUMMARY_OUTPUT = (
+    COMMON_OUTPUT_DIR / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_summary.csv"
+)
 COMMON_LANGUAGE_NORMALIZED_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_language_normalized.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_language_normalized.csv"
 )
 COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_language_normalized_summary.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_language_normalized_summary.csv"
 )
 COMMON_MULTIVALUE_NORMALIZED_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_multivalue_normalized.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_multivalue_normalized.csv"
 )
-COMMON_MULTIVALUE_ITEMS_OUTPUT = COMMON_OUTPUT_DIR / "publication_multivalue_items_2016_2026.csv"
+COMMON_MULTIVALUE_ITEMS_OUTPUT = (
+    COMMON_OUTPUT_DIR / f"publication_multivalue_items_{DEFAULT_COLLECTION_YEAR_SUFFIX}.csv"
+)
 COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_multivalue_normalized_summary.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_multivalue_normalized_summary.csv"
 )
 COMMON_ANALYSIS_READY_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_analysis_ready.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_analysis_ready.csv"
 )
-COMMON_ANALYSIS_READY_ISSUE_DIR = COMMON_OUTPUT_DIR / "preprocessing_issues_2016_2026"
+COMMON_ANALYSIS_READY_ISSUE_DIR = (
+    COMMON_OUTPUT_DIR / f"preprocessing_issues_{DEFAULT_COLLECTION_YEAR_SUFFIX}"
+)
 COMMON_ANALYSIS_READY_SUMMARY_OUTPUT = (
-    COMMON_OUTPUT_DIR / "common_publications_final_2016_2026_analysis_ready_summary.csv"
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_analysis_ready_summary.csv"
 )
 ALL_SOURCES_SOURCE_NAME = "researchlanka_all_sources_common_dataset"
-DEFAULT_COLLECTION_START_YEAR = 2016
-DEFAULT_COLLECTION_END_YEAR = 2026
 DEFAULT_REPOSITORY_WORKERS = 3
 
 if str(BACKEND_DIR) not in sys.path:
@@ -80,6 +97,10 @@ from src.pipeline.collect_crossref import DEFAULT_AFFILIATION_QUERIES, collect_c
 from src.pipeline.collect_sljol import SLJOL_DOI_PREFIX  # noqa: E402
 from src.pipeline.build_analysis_ready_dataset import build_analysis_ready_dataset  # noqa: E402
 from src.pipeline.build_final_common_dataset import build_final_common_dataset  # noqa: E402
+from src.quality.validate_analysis_dataset import (  # noqa: E402
+    OwnershipValidator,
+    run_validators,
+)
 from src.pipeline.build_language_normalized_dataset import build_language_normalized_dataset  # noqa: E402
 from src.pipeline.build_multivalue_normalized_dataset import build_multivalue_normalized_dataset  # noqa: E402
 from src.pipeline.build_year_filtered_dataset import build_year_filtered_dataset  # noqa: E402
@@ -93,6 +114,7 @@ from src.pipeline.kaggle_merge_common_dataset import (  # noqa: E402
     is_blank,
     normalize_doi as normalize_common_doi,
     normalize_source_frame,
+    resolve_merged_ownership_records,
     split_multi_value,
     write_run_log,
     write_schema,
@@ -104,6 +126,8 @@ from src.pipeline.kaggle_collect_openalex_sri_lanka import (  # noqa: E402
     main as collect_openalex_main,
     rebuild_csv_from_jsonl as rebuild_openalex_csv_from_jsonl,
 )
+from src.quality.audit_openalex_lk_affiliations import run_audit as run_openalex_lk_audit  # noqa: E402
+from src.quality.audit_crossref_lk_affiliations import run_audit as run_crossref_lk_audit  # noqa: E402
 from src.processing.convert_repositories_jsonl_to_csv import (  # noqa: E402
     DEFAULT_OUTPUT_PATH as REPOSITORIES_CSV_OUTPUT,
     convert as convert_repositories_to_csv,
@@ -118,6 +142,28 @@ OPENALEX_CSV_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_works.csv"
 OPENALEX_PARQUET_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_works.parquet"
 OPENALEX_DOI_CONFLICTS_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_doi_conflicts.csv"
 OPENALEX_PAGINATION_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_pagination_audit.json"
+OPENALEX_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "openalex_lk_affiliation_audit"
+CROSSREF_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "crossref_lk_affiliation_audit"
+KAGGLE_REPORT_DIR = KAGGLE_OUTPUT_DIR / "data" / "reports"
+
+
+def stage_report_dir_for_kaggle_outputs(source_dir: Path, report_name: str) -> dict[str, Any]:
+    """Copy report artifacts into the Kaggle output bundle staging directory."""
+
+    destination_dir = KAGGLE_REPORT_DIR / report_name
+    destination_dir.mkdir(parents=True, exist_ok=True)
+
+    copied_paths: list[str] = []
+    for source_path in sorted(path for path in source_dir.iterdir() if path.is_file()):
+        destination_path = destination_dir / source_path.name
+        shutil.copy2(source_path, destination_path)
+        copied_paths.append(str(destination_path))
+
+    return {
+        "kaggle_report_dir": str(destination_dir),
+        "kaggle_report_files": len(copied_paths),
+        "kaggle_report_file_list": copied_paths,
+    }
 
 
 @contextmanager
@@ -463,6 +509,7 @@ def new_common_merge_group(first_row_number: int) -> dict[str, Any]:
         "group_size": 0,
         "scalar": {},
         "multi": {column: [] for column in MULTI_VALUE_COLUMNS},
+        "ownership_rows": [],
     }
 
 
@@ -495,6 +542,24 @@ def deduplicate_common_csv_streaming(
             group["group_size"] += 1
             completeness = common_row_completeness(common_row)
             source_dataset = str(common_row.get("source_dataset") or "")
+            group["ownership_rows"].append(
+                {
+                    column: common_row.get(column, "")
+                    for column in (
+                        "ownership_decision",
+                        "ownership_class",
+                        "ownership_confidence",
+                        "ownership_reason",
+                        "ownership_evidence",
+                        "lead_country",
+                        "corresponding_author_countries",
+                        "has_sri_lankan_participant",
+                        "has_foreign_participant",
+                        "needs_manual_review",
+                        "ownership_policy_version",
+                    )
+                }
+            )
 
             for column in COMMON_COLUMNS:
                 value = common_row.get(column)
@@ -541,6 +606,10 @@ def deduplicate_common_csv_streaming(
 
                 output_row[column] = clean_csv_value(group["scalar"].get(column, (None, ""))[1])
 
+            ownership = resolve_merged_ownership_records(group["ownership_rows"])
+            for column, value in ownership.items():
+                if column in output_row:
+                    output_row[column] = clean_csv_value(value)
             writer.writerow(output_row)
             if context and output_row_number % 25_000 == 0:
                 context.log.info(f"Common deduplication wrote {output_row_number:,} rows.")
@@ -587,9 +656,19 @@ def researchlanka_openalex_api_collection(context) -> dict[str, Any]:
         "--pagination-output",
         str(OPENALEX_PAGINATION_OUTPUT),
         "--from-year",
-        str(config.collection.start_year or DEFAULT_COLLECTION_START_YEAR),
+        str(
+            max(
+                config.collection.start_year or DEFAULT_COLLECTION_START_YEAR,
+                DEFAULT_COLLECTION_START_YEAR,
+            )
+        ),
         "--to-year",
-        str(config.collection.end_year or DEFAULT_COLLECTION_END_YEAR),
+        str(
+            min(
+                config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
+                DEFAULT_COLLECTION_END_YEAR,
+            )
+        ),
         "--per-page",
         str(config.collection.batch_size),
     ]
@@ -625,6 +704,56 @@ def researchlanka_openalex_api_collection(context) -> dict[str, Any]:
 
 
 @asset(group_name="researchlanka")
+def researchlanka_openalex_lk_affiliation_audit(
+    context,
+    researchlanka_openalex_api_collection: dict[str, Any],
+) -> dict[str, Any]:
+    """Audit publication-time LK affiliation evidence from stored OpenAlex works."""
+
+    collection_metadata = researchlanka_openalex_api_collection
+    if not env_bool("RESEARCHLANKA_RUN_OPENALEX_LK_AUDIT", True):
+        metadata = {
+            "status": "skipped",
+            "reason": "RESEARCHLANKA_RUN_OPENALEX_LK_AUDIT is disabled",
+            "collection_status": collection_metadata.get("status", ""),
+        }
+        context.add_output_metadata(metadata)
+        return metadata
+    if not OPENALEX_JSONL_OUTPUT.exists():
+        raise FileNotFoundError(
+            f"Cannot run OpenAlex LK affiliation audit; missing {OPENALEX_JSONL_OUTPUT}"
+        )
+
+    with backend_working_directory():
+        summary = run_openalex_lk_audit(OPENALEX_JSONL_OUTPUT, OPENALEX_LK_AUDIT_OUTPUT_DIR)
+
+    metadata = {
+        "status": "audited",
+        "input": str(OPENALEX_JSONL_OUTPUT),
+        "output_dir": str(OPENALEX_LK_AUDIT_OUTPUT_DIR),
+        "total_works": int(summary["overall"]["unique_openalex_work_ids"]),
+        "total_authorships": int(summary["overall"]["total_authorships"]),
+        "currently_lk_authorships": int(summary["overall"]["currently_lk_authorships"]),
+        "strict_verified_dataset_size": int(
+            summary["publication_impact"]["strict_verified_dataset_size"]
+        ),
+        "percentage_retained": float(summary["publication_impact"]["percentage_retained"]),
+        "review_records": int(summary["publication_impact"]["records_sent_to_review"]),
+        "issue_authorships": int(
+            summary["potential_problems"]["at_least_one_issue_authorships"]["count"]
+        ),
+        "normalized_lk_only_authorships": int(
+            summary["potential_problems"]["normalized_lk_only_authorships"]["count"]
+        ),
+        "explicit_conflict_authorships": int(
+            summary["potential_problems"]["explicit_country_conflict_authorships"]["count"]
+        ),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
 def researchlanka_crossref_api_collection(context) -> dict[str, Any]:
     """Collect Crossref records for Sri Lanka-related affiliation queries."""
 
@@ -643,8 +772,15 @@ def researchlanka_crossref_api_collection(context) -> dict[str, Any]:
         max_records=max_records,
         output=CROSSREF_JSONL_OUTPUT,
         email=os.getenv("CROSSREF_EMAIL"),
-        from_year=config.collection.start_year or DEFAULT_COLLECTION_START_YEAR,
-        until_year=config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
+        from_year=max(
+            config.collection.start_year or DEFAULT_COLLECTION_START_YEAR,
+            DEFAULT_COLLECTION_START_YEAR,
+        ),
+        until_year=min(
+            config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
+            DEFAULT_COLLECTION_END_YEAR,
+        ),
+        include_all_authorships=True,
     )
 
     with backend_working_directory():
@@ -665,6 +801,61 @@ def researchlanka_crossref_api_collection(context) -> dict[str, Any]:
 
 
 @asset(group_name="researchlanka")
+def researchlanka_crossref_lk_affiliation_audit(
+    context,
+    researchlanka_crossref_api_collection: dict[str, Any],
+) -> dict[str, Any]:
+    """Audit publication-time LK affiliation evidence from stored Crossref works."""
+
+    collection_metadata = researchlanka_crossref_api_collection
+    if not env_bool("RESEARCHLANKA_RUN_CROSSREF_LK_AUDIT", True):
+        metadata = {
+            "status": "skipped",
+            "reason": "RESEARCHLANKA_RUN_CROSSREF_LK_AUDIT is disabled",
+            "collection_status": collection_metadata.get("status", ""),
+        }
+        context.add_output_metadata(metadata)
+        return metadata
+    if not CROSSREF_JSONL_OUTPUT.exists():
+        raise FileNotFoundError(
+            f"Cannot run Crossref LK affiliation audit; missing {CROSSREF_JSONL_OUTPUT}"
+        )
+
+    with backend_working_directory():
+        summary = run_crossref_lk_audit(CROSSREF_JSONL_OUTPUT, CROSSREF_LK_AUDIT_OUTPUT_DIR)
+    kaggle_report_metadata = stage_report_dir_for_kaggle_outputs(
+        CROSSREF_LK_AUDIT_OUTPUT_DIR,
+        "crossref_lk_affiliation_audit",
+    )
+
+    metadata = {
+        "status": "audited",
+        "input": str(CROSSREF_JSONL_OUTPUT),
+        "output_dir": str(CROSSREF_LK_AUDIT_OUTPUT_DIR),
+        **kaggle_report_metadata,
+        "total_works": int(summary["overall"]["unique_crossref_work_ids"]),
+        "total_author_rows": int(summary["overall"]["audit_rows_including_authorless_works"]),
+        "candidate_lk_authorships": int(summary["overall"]["candidate_lk_authorships"]),
+        "strict_verified_dataset_size": int(
+            summary["publication_impact"]["strict_verified_dataset_size"]
+        ),
+        "percentage_retained": float(summary["publication_impact"]["percentage_retained"]),
+        "review_records": int(summary["publication_impact"]["records_sent_to_review"]),
+        "issue_author_rows": int(
+            summary["potential_problems"]["at_least_one_issue_authorship_rows"]["count"]
+        ),
+        "work_level_only_works": int(
+            summary["potential_problems"]["work_level_only_works"]["count"]
+        ),
+        "query_false_positive_rows": int(
+            summary["potential_problems"]["query_false_positive_rows"]["count"]
+        ),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
 def researchlanka_sljol_api_collection(context) -> dict[str, Any]:
     """Collect SLJOL metadata via Crossref's public prefix API."""
 
@@ -676,8 +867,16 @@ def researchlanka_sljol_api_collection(context) -> dict[str, Any]:
 
     max_records = env_int("RESEARCHLANKA_SLJOL_MAX_RECORDS")
     rows = env_int("RESEARCHLANKA_SLJOL_ROWS", 500) or 500
-    from_year = env_int("RESEARCHLANKA_SLJOL_FROM_YEAR", DEFAULT_COLLECTION_START_YEAR) or DEFAULT_COLLECTION_START_YEAR
-    until_year = env_int("RESEARCHLANKA_SLJOL_UNTIL_YEAR", DEFAULT_COLLECTION_END_YEAR) or DEFAULT_COLLECTION_END_YEAR
+    from_year = max(
+        env_int("RESEARCHLANKA_SLJOL_FROM_YEAR", DEFAULT_COLLECTION_START_YEAR)
+        or DEFAULT_COLLECTION_START_YEAR,
+        DEFAULT_COLLECTION_START_YEAR,
+    )
+    until_year = min(
+        env_int("RESEARCHLANKA_SLJOL_UNTIL_YEAR", DEFAULT_COLLECTION_END_YEAR)
+        or DEFAULT_COLLECTION_END_YEAR,
+        DEFAULT_COLLECTION_END_YEAR,
+    )
     use_date_slicing = env_bool("RESEARCHLANKA_SLJOL_DATE_SLICING", True)
     collector = CrossrefPrefixCollector(
         prefix=SLJOL_DOI_PREFIX,
@@ -689,7 +888,11 @@ def researchlanka_sljol_api_collection(context) -> dict[str, Any]:
     total = 0
     with backend_working_directory(), SLJOL_JSONL_OUTPUT.open("w", encoding="utf-8") as output_file:
         works = (
-            collector.iter_works(max_records=max_records)
+            collector.iter_works(
+                max_records=max_records,
+                start_year=from_year,
+                end_year=until_year,
+            )
             if not use_date_slicing
             else collector.iter_works_by_publication_date(
                 start_year=from_year,
@@ -741,8 +944,14 @@ def researchlanka_repository_collection(context) -> dict[str, Any]:
         env_int("RESEARCHLANKA_REPOSITORY_WORKERS", DEFAULT_REPOSITORY_WORKERS) or 1,
         1,
     )
-    from_year = config.collection.start_year or DEFAULT_COLLECTION_START_YEAR
-    until_year = config.collection.end_year or DEFAULT_COLLECTION_END_YEAR
+    from_year = max(
+        config.collection.start_year or DEFAULT_COLLECTION_START_YEAR,
+        DEFAULT_COLLECTION_START_YEAR,
+    )
+    until_year = min(
+        config.collection.end_year or DEFAULT_COLLECTION_END_YEAR,
+        DEFAULT_COLLECTION_END_YEAR,
+    )
     from_date = f"{from_year}-01-01"
     until_date = f"{until_year}-12-31"
     all_targets = harvestable_targets(load_registry(), phase=phase)
@@ -1088,13 +1297,39 @@ def researchlanka_common_final_dataset(
 
 
 @asset(group_name="researchlanka")
-def researchlanka_common_year_filtered_dataset(
+def researchlanka_common_ownership_validated(
     context,
     researchlanka_common_final_dataset: dict[str, Any],
 ) -> dict[str, Any]:
-    """Filter the final dataset to the configured 2016-2026 publication window."""
+    """Block downstream outputs unless the final dataset passes ownership gates."""
 
     _ = researchlanka_common_final_dataset
+    reports = run_validators(
+        COMMON_FINAL_OUTPUT,
+        [OwnershipValidator()],
+    )
+    report = reports[0]
+    if not report.passed:
+        failed = "; ".join(gate.name for gate in report.failed_gates)
+        raise ValueError(f"Ownership validation failed before downstream publishing: {failed}")
+    metadata = {
+        "status": "validated",
+        "path": str(COMMON_FINAL_OUTPUT),
+        "rows": report.rows,
+        **{name: value for name, value in report.metrics},
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_common_year_filtered_dataset(
+    context,
+    researchlanka_common_ownership_validated: dict[str, Any],
+) -> dict[str, Any]:
+    """Filter the final dataset to the configured 2016-current-year publication window."""
+
+    _ = researchlanka_common_ownership_validated
     filtered = build_year_filtered_dataset(
         COMMON_FINAL_OUTPUT,
         COMMON_YEAR_FILTERED_OUTPUT,
@@ -1207,6 +1442,8 @@ def harvest_repository_rest(
     *,
     max_records: int | None,
     timeout: int,
+    start_year: int | None,
+    end_year: int | None,
     context: Any | None = None,
     log_every: int = 500,
 ) -> HarvestOutcome:
@@ -1231,7 +1468,11 @@ def harvest_repository_rest(
     total = 0
     try:
         with output_path.open("w", encoding="utf-8") as output_file:
-            for item in collector.iter_items(max_records=max_records):
+            for item in collector.iter_items(
+                max_records=max_records,
+                start_year=start_year,
+                end_year=end_year,
+            ):
                 output_file.write(json.dumps(item, ensure_ascii=False) + "\n")
                 total += 1
                 if context and log_every > 0 and total % log_every == 0:
@@ -1263,6 +1504,8 @@ def harvest_repository_html(
     max_records: int | None,
     timeout: int,
     delay: float,
+    start_year: int | None,
+    end_year: int | None,
     context: Any | None = None,
     log_every: int = 500,
 ) -> HarvestOutcome:
@@ -1282,7 +1525,11 @@ def harvest_repository_html(
     total = 0
     try:
         with output_path.open("w", encoding="utf-8") as output_file:
-            for item in collector.iter_items(max_records=max_records):
+            for item in collector.iter_items(
+                max_records=max_records,
+                start_year=start_year,
+                end_year=end_year,
+            ):
                 output_file.write(json.dumps(item, ensure_ascii=False) + "\n")
                 total += 1
                 if context and log_every > 0 and total % log_every == 0:
@@ -1331,6 +1578,8 @@ def harvest_repository_target(
             target,
             max_records=max_records,
             timeout=timeout,
+            start_year=int(from_date[:4]) if from_date else None,
+            end_year=int(until_date[:4]) if until_date else None,
             context=context,
             log_every=log_every,
         )
@@ -1340,6 +1589,8 @@ def harvest_repository_target(
             max_records=max_records,
             timeout=timeout,
             delay=delay,
+            start_year=int(from_date[:4]) if from_date else None,
+            end_year=int(until_date[:4]) if until_date else None,
             context=context,
             log_every=log_every,
         )
@@ -1623,6 +1874,24 @@ researchlanka_database_job = define_asset_job(
 researchlanka_source_check_job = define_asset_job(
     name="researchlanka_source_check_job",
     selection=AssetSelection.keys("researchlanka_source_validation").upstream(),
+)
+
+researchlanka_openalex_lk_audit_job = define_asset_job(
+    name="researchlanka_openalex_lk_audit_job",
+    selection=AssetSelection.keys("researchlanka_openalex_lk_affiliation_audit").upstream(),
+)
+
+researchlanka_crossref_lk_audit_job = define_asset_job(
+    name="researchlanka_crossref_lk_audit_job",
+    selection=AssetSelection.keys("researchlanka_crossref_lk_affiliation_audit").upstream(),
+)
+
+researchlanka_lk_affiliation_audit_job = define_asset_job(
+    name="researchlanka_lk_affiliation_audit_job",
+    selection=(
+        AssetSelection.keys("researchlanka_openalex_lk_affiliation_audit").upstream()
+        | AssetSelection.keys("researchlanka_crossref_lk_affiliation_audit").upstream()
+    ),
 )
 
 researchlanka_common_preprocessing_job = define_asset_job(

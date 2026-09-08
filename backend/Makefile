@@ -23,6 +23,11 @@ OPENALEX_DOI_CONFLICTS ?= $(OPENALEX_DIR)/openalex_sri_lanka_doi_conflicts.csv
 OPENALEX_PROGRESS ?= $(OPENALEX_JSONL).progress.json
 OPENALEX_PAGINATION ?= $(OPENALEX_DIR)/openalex_sri_lanka_pagination_audit.json
 OPENALEX_LOG ?= $(OPENALEX_DIR)/openalex_collection.log
+OPENALEX_LK_AUDIT_DIR ?= data/reports/openalex_lk_affiliation_audit
+OPENALEX_LK_AUDIT_EXTRA_ARGS ?=
+CROSSREF_JSONL ?= data/processed/crossref/crossref_sri_lanka_works.jsonl
+CROSSREF_LK_AUDIT_DIR ?= data/reports/crossref_lk_affiliation_audit
+CROSSREF_LK_AUDIT_EXTRA_ARGS ?=
 
 # OpenAlex collection settings.
 # Use OPENALEX_EXTRA_ARGS for optional flags such as --strict-lk-only.
@@ -49,7 +54,7 @@ MODEL_TFIDF_NGRAM_MAX ?= 2
 MODEL_TFIDF_TOP_FEATURES_PER_RECORD ?= 50
 LOGREG_INPUT ?= $(MODEL_TEXT_INPUT)
 LOGREG_LABEL_COLUMN ?= primary_domain
-LOGREG_TEXT_COLUMNS ?= title,abstract,keywords
+LOGREG_TEXT_COLUMNS ?= title,abstract,topics,keywords,concepts
 LOGREG_MODEL_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN).joblib
 LOGREG_METRICS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_metrics.txt
 LOGREG_LABEL_COUNTS_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_labels.csv
@@ -113,14 +118,32 @@ NB_TEST_SIZE ?= $(LOGREG_TEST_SIZE)
 NB_EXTRA_ARGS ?=
 
 # Evaluation. Point EVAL_PREDICTIONS at one or more predictions CSVs.
-EVAL_PREDICTIONS ?= --predictions-csv data/models/multinomial_nb_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_predictions.csv
+EVAL_PREDICTIONS ?= --predictions-csv data/models/multinomial_nb_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_predictions.csv --predictions-csv data/models/linear_svm_$(LOGREG_LABEL_COLUMN)_predictions.csv
 EVAL_OUTPUT_DIR ?= data/models
 EVAL_EXTRA_ARGS ?=
 
 # Dataset field validation.
-VALIDATE_CHECKS ?= authors,institutions,citations,collaboration
+VALIDATE_CHECKS ?= authors,institutions,citations,collaboration,ownership
 VALIDATE_REPORT_DIR ?= data/reports/validation
 VALIDATE_EXTRA_ARGS ?=
+FINAL_COMMON_INPUT ?= data/processed/common/common_publications_deduplicated.csv
+FINAL_COMMON_OUTPUT ?= data/processed/common/common_publications_final.csv
+FINAL_COMMON_EXTRA_ARGS ?=
+FINAL_REPOSITORY_APPEND_SUMMARY ?= data/processed/common/common_publications_final_repository_append_summary.csv
+FRONTEND_CHART_SNAPSHOT ?= ../frontend/src/data/datasetCharts.json
+OWNERSHIP_VALIDATE_INPUT ?= $(FINAL_COMMON_OUTPUT)
+
+# Google Maps assisted institution-location confirmation.
+MAPS_LOCATION_INPUT ?= data/processed/crossref/crossref_sri_lanka_works.jsonl
+MAPS_LOCATION_REGISTRY ?= configurations/sri_lanka/institutions.csv
+MAPS_LOCATION_EVIDENCE ?= data/reports/validation/google_maps_institution_location_evidence.csv
+MAPS_LOCATION_REGISTRY_REPORT ?= data/reports/validation/google_maps_registry_alias_application.csv
+MAPS_LOCATION_LIMIT ?= 50
+MAPS_LOCATION_BATCH_SIZE ?= 5
+MAPS_LOCATION_DEPTH ?= 1
+MAPS_LOCATION_EXIT_ON_INACTIVITY ?= 3m
+MAPS_LOCATION_CONFIRM_EXTRA_ARGS ?=
+MAPS_LOCATION_APPLY_EXTRA_ARGS ?=
 
 # Build optional/email args only when values are provided.
 OPENALEX_EMAIL_ARG = $(if $(OPENALEX_EMAIL),--email $(OPENALEX_EMAIL),)
@@ -145,7 +168,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -178,7 +201,11 @@ help:
 	@echo "  make train-logreg            Train TF-IDF + Logistic Regression classifier"
 	@echo "  make train-nb                Train the TF-IDF + Multinomial Naive Bayes baseline"
 	@echo "  make evaluate-models         Score predictions: confusion matrix, per-class, comparison"
-	@echo "  make validate-dataset        Validate author, institution, citation and collaboration fields"
+	@echo "  make validate-dataset        Validate author, institution, citation, collaboration and ownership fields"
+	@echo "  make validate-ownership      Run strict ownership validation only"
+	@echo "  make final-common            Build verified final dataset and ownership sidecars"
+	@echo "  make final-common-add-repositories  Append repository review rows to the final dataset with low memory"
+	@echo "  make dashboard-chart-snapshot  Generate frontend JSON for dashboard chart panels"
 	@echo "  make predict-logreg          Run saved classifier inference on publication text"
 	@echo "  make model-api               Serve FastAPI model endpoints"
 	@echo ""
@@ -256,6 +283,18 @@ evaluate-models:
 validate-dataset:
 	$(PYTHON) -m src.quality.validate_analysis_dataset --checks $(VALIDATE_CHECKS) --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
 
+validate-ownership:
+	$(PYTHON) -m src.quality.validate_analysis_dataset --checks ownership --strict --input-csv $(OWNERSHIP_VALIDATE_INPUT) --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
+
+final-common:
+	$(PYTHON) scripts/processing/build_final_common_dataset.py --input-csv $(FINAL_COMMON_INPUT) --output-csv $(FINAL_COMMON_OUTPUT) $(FINAL_COMMON_EXTRA_ARGS)
+
+final-common-add-repositories:
+	$(PYTHON) scripts/processing/add_repository_records_to_final.py --deduplicated-csv $(FINAL_COMMON_INPUT) --final-csv $(FINAL_COMMON_OUTPUT) --summary-csv $(FINAL_REPOSITORY_APPEND_SUMMARY)
+
+dashboard-chart-snapshot:
+	$(PYTHON) scripts/processing/generate_dashboard_chart_snapshot.py --all-records-csv data/processed/common/common_publications_all_records.csv --final-csv $(FINAL_COMMON_OUTPUT) --output-json $(FRONTEND_CHART_SNAPSHOT)
+
 predict-logreg:
 	$(PYTHON) scripts/modeling/predict_publication_classifier.py --input $(LOGREG_INFERENCE_INPUT) --model $(LOGREG_MODEL_OUTPUT) --model-manifest $(LOGREG_MANIFEST_OUTPUT) --output $(LOGREG_INFERENCE_OUTPUT) --inference-manifest $(LOGREG_INFERENCE_MANIFEST_OUTPUT) --text-columns $(LOGREG_TEXT_COLUMNS) --metadata-columns $(LOGREG_INFERENCE_METADATA_COLUMNS) $(LOGREG_INFERENCE_EXTRA_ARGS)
 
@@ -284,6 +323,34 @@ openalex-rebuild:
 # Rebuild only the DOI conflict CSV from existing raw JSONL.
 openalex-doi-conflicts:
 	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report; count=write_doi_conflict_report(Path('$(OPENALEX_JSONL)'), Path('$(OPENALEX_DOI_CONFLICTS)')); print(f'DOI conflicts: {count:,}')"
+
+# Confirm unresolved Crossref affiliation/institution strings against Google
+# Maps. Uses direct Docker runner by default; keep batches small to avoid rate
+# limiting and review the CSV before applying aliases.
+maps-location-confirm:
+	$(PYTHON) scripts/quality/confirm_institution_locations_google_maps.py \
+	--input $(MAPS_LOCATION_INPUT) \
+	--registry-csv $(MAPS_LOCATION_REGISTRY) \
+	--output $(MAPS_LOCATION_EVIDENCE) \
+	--limit $(MAPS_LOCATION_LIMIT) \
+	--batch-size $(MAPS_LOCATION_BATCH_SIZE) \
+	--depth $(MAPS_LOCATION_DEPTH) \
+	--exit-on-inactivity $(MAPS_LOCATION_EXIT_ON_INACTIVITY) $(MAPS_LOCATION_CONFIRM_EXTRA_ARGS)
+
+# Re-score an existing evidence CSV with the current conservative matching
+# rules. Does not call Google Maps.
+maps-location-rescore:
+	$(PYTHON) scripts/quality/confirm_institution_locations_google_maps.py \
+	--output $(MAPS_LOCATION_EVIDENCE) \
+	--rescore-existing
+
+# Promote reviewed confirmed evidence into the institution registry as aliases.
+# Run with MAPS_LOCATION_APPLY_EXTRA_ARGS=--dry-run first if you want a report only.
+maps-location-apply:
+	$(PYTHON) scripts/processing/apply_google_maps_location_evidence.py \
+	--evidence-csv $(MAPS_LOCATION_EVIDENCE) \
+	--registry-csv $(MAPS_LOCATION_REGISTRY) \
+	--report-csv $(MAPS_LOCATION_REGISTRY_REPORT) $(MAPS_LOCATION_APPLY_EXTRA_ARGS)
 
 # Regenerate the national institution registry from the merged dataset.
 # Writes configurations/sri_lanka/institutions.csv for review -- read the diff
@@ -324,3 +391,23 @@ author-decisions:
 # Print a quality summary from existing raw JSONL.
 openalex-report:
 	$(PYTHON) -c "from pathlib import Path; from scripts.collection.kaggle_collect_openalex_sri_lanka import collect_quality_report, print_collection_report; print_collection_report(collect_quality_report(Path('$(OPENALEX_JSONL)'), records_skipped=0))"
+
+# Audit publication-time Sri Lankan institutional authorship evidence.
+# This does not change production OpenAlex filtering or rebuilt datasets.
+openalex-lk-audit:
+	$(PYTHON) -m src.quality.audit_openalex_lk_affiliations \
+	--input $(OPENALEX_JSONL) \
+	--output-dir $(OPENALEX_LK_AUDIT_DIR) \
+	--log-level $(OPENALEX_LOG_LEVEL) \
+	$(OPENALEX_LK_AUDIT_EXTRA_ARGS)
+
+# Audit publication-time Sri Lankan institutional authorship evidence in
+# Crossref author affiliation strings.
+crossref-lk-audit:
+	$(PYTHON) -m src.quality.audit_crossref_lk_affiliations \
+	--input $(CROSSREF_JSONL) \
+	--output-dir $(CROSSREF_LK_AUDIT_DIR) \
+	--log-level $(OPENALEX_LOG_LEVEL) \
+	$(CROSSREF_LK_AUDIT_EXTRA_ARGS)
+
+lk-affiliation-audits: openalex-lk-audit crossref-lk-audit

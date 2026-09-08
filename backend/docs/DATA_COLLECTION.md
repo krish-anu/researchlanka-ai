@@ -27,6 +27,12 @@ All raw data lands in `data/raw/<institution_id>/`, gets mapped into a
 single common schema in `data/processed/repositories/<id>.jsonl`, and is
 also exported as one combined CSV for easy review in Excel.
 
+Repository provenance is candidate evidence, not proof that the research was
+Sri Lanka-led. Repository-only records are classified `REVIEW, LOW` until a DOI
+join or explicit leadership affiliation supplies stronger evidence. The same
+principle applies to SLJOL/Crossref DOI-prefix `10.4038` records: SLJOL proves
+venue/source provenance, not project ownership.
+
 ## Directory Layout
 
 ```
