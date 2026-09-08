@@ -71,10 +71,14 @@ backend/data/models/
 backend/data/reports/
 backend/outputs/
 backend/pipeline/
+tools/google-maps-scraper-kit/
 backend/researchlanka-kaggle-outputs/
 backend/researchlanka-kaggle-outputs (1)/*
+backend/researchlanka-kaggle-outputs*/
+backend/ollama_5k_results_with_human_verification/
 
 backend/researchlanka-kaggle-outputs*.zip
+researchlanka-ai-5k-candidates.zip
 kaggle-output/
 
 # Local Dagster runtime state
