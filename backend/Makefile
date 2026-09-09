@@ -98,6 +98,26 @@ DB_LOAD_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
 DB_LOAD_BATCH_SIZE ?= 1000
 DB_LOAD_YEAR_MIN ?= 2016
 DB_LOAD_YEAR_MAX ?= 2026
+INCREMENTAL_STATE ?= outputs/incremental/state.json
+INCREMENTAL_OUTPUT_ROOT ?= outputs/incremental/runs
+INCREMENTAL_INITIAL_FROM_DATE ?= 2016-01-01
+INCREMENTAL_TO_DATE ?=
+INCREMENTAL_FROM_DATE ?=
+INCREMENTAL_PER_PAGE ?= 200
+INCREMENTAL_MAX_RECORDS ?=
+INCREMENTAL_MODEL ?=
+INCREMENTAL_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
+INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?=
+INCREMENTAL_DB_LABELS ?= AI
+INCREMENTAL_EXTRA_ARGS ?=
+AI_DATASET_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
+AI_DATASET_CLASSIFIED_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_classified.csv
+AI_DATASET_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_only.csv
+AI_DATASET_MODEL ?=
+AI_DATASET_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
+AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD ?=
+AI_DATASET_DB_LABELS ?= AI
+AI_DATASET_EXTRA_ARGS ?=
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
 LOGREG_MAX_DF ?= 0.95
@@ -168,7 +188,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -180,6 +200,9 @@ help:
 	@echo "  make load-db-2016-now        Load only 2016-2026 records into final_publications"
 	@echo "  make reset-db-2016-now       Clear final_publications, then load 2016-2026 records"
 	@echo "  make load-full-db-2016-now   Load only 2016-2026 records into all database tables"
+	@echo "  make ai-dataset              Classify historical final CSV and write AI-only dataset"
+	@echo "  make reset-db-ai             Reset PostgreSQL and load AI-only historical dataset"
+	@echo "  make incremental-update      Collect since checkpoint, classify, upsert, and save checkpoint"
 	@echo "  make reset-full-db-2016-now  Clear database tables, then load 2016-2026 records"
 	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
@@ -244,6 +267,55 @@ load-full-db-2016-now:
 
 reset-full-db-2016-now:
 	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
+
+AI_DATASET_MODEL_ARG = $(if $(AI_DATASET_MODEL),--model $(AI_DATASET_MODEL),$(error Set AI_DATASET_MODEL=data/models/your_model.joblib))
+AI_DATASET_CONFIDENCE_ARG = $(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),)
+
+ai-dataset:
+	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
+		--input $(AI_DATASET_INPUT) \
+		--classified-output $(AI_DATASET_CLASSIFIED_OUTPUT) \
+		--ai-output $(AI_DATASET_OUTPUT) \
+		$(AI_DATASET_MODEL_ARG) \
+		--text-columns $(AI_DATASET_TEXT_COLUMNS) \
+		--db-labels $(AI_DATASET_DB_LABELS) \
+		$(AI_DATASET_CONFIDENCE_ARG) \
+		$(AI_DATASET_EXTRA_ARGS)
+
+reset-db-ai:
+	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
+		--input $(AI_DATASET_INPUT) \
+		--classified-output $(AI_DATASET_CLASSIFIED_OUTPUT) \
+		--ai-output $(AI_DATASET_OUTPUT) \
+		$(AI_DATASET_MODEL_ARG) \
+		--text-columns $(AI_DATASET_TEXT_COLUMNS) \
+		--db-labels $(AI_DATASET_DB_LABELS) \
+		--batch-size $(DB_LOAD_BATCH_SIZE) \
+		--load-db \
+		$(AI_DATASET_CONFIDENCE_ARG) \
+		$(AI_DATASET_EXTRA_ARGS)
+
+INCREMENTAL_FROM_DATE_ARG = $(if $(INCREMENTAL_FROM_DATE),--from-date $(INCREMENTAL_FROM_DATE),)
+INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_TO_DATE),--to-date $(INCREMENTAL_TO_DATE),)
+INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
+INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
+INCREMENTAL_CONFIDENCE_ARG = $(if $(INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD),)
+
+incremental-update:
+	$(PYTHON) -m src.pipeline.incremental_update \
+		--state $(INCREMENTAL_STATE) \
+		--output-root $(INCREMENTAL_OUTPUT_ROOT) \
+		--initial-from-date $(INCREMENTAL_INITIAL_FROM_DATE) \
+		--per-page $(INCREMENTAL_PER_PAGE) \
+		--batch-size $(DB_LOAD_BATCH_SIZE) \
+		--text-columns $(INCREMENTAL_TEXT_COLUMNS) \
+		--db-labels $(INCREMENTAL_DB_LABELS) \
+		$(INCREMENTAL_FROM_DATE_ARG) \
+		$(INCREMENTAL_TO_DATE_ARG) \
+		$(INCREMENTAL_MAX_RECORDS_ARG) \
+		$(INCREMENTAL_MODEL_ARG) \
+		$(INCREMENTAL_CONFIDENCE_ARG) \
+		$(INCREMENTAL_EXTRA_ARGS)
 
 # Export model-ready text and TF-IDF features from the final dataset.
 model-text: model-titles model-abstracts model-keywords model-tfidf

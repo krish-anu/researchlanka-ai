@@ -1,13 +1,93 @@
 # AWS Monthly Automation
 
-This guide covers two monthly automation options:
+This guide covers three monthly automation options:
 
+- Incremental EC2 refresh: EC2 collects only records since the last successful
+  checkpoint, classifies them, upserts them, and advances the checkpoint.
 - EC2-only: EC2 runs collection, processing, embeddings, and model training.
 - Kaggle build + EC2 deploy: Kaggle runs the heavy notebook, then EC2 downloads
   and deploys the finished artifacts.
 
-Use the Kaggle option when your EC2 instance is too small for the model and
-embedding build.
+Use the incremental option for normal monthly updates. Use the Kaggle option
+when your EC2 instance is too small for the model and embedding build.
+
+## AI-Only Dataset Flow
+
+The public app database is intended to contain AI-related publications only, not
+the full 41k publication pool. After the historical AI classifier is ready, run
+one reset load to classify the existing final CSV and replace PostgreSQL with
+only AI-labelled rows:
+
+```bash
+cd ~/researchlanka-ai/backend
+DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchlanka" \
+make reset-db-ai \
+  AI_DATASET_MODEL="data/models/ai_publication_classifier_5k.joblib" \
+  AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD="0.65"
+```
+
+This writes:
+
+```text
+data/processed/common/common_publications_final_2016_2026_ai_classified.csv
+data/processed/common/common_publications_final_2016_2026_ai_only.csv
+```
+
+`*_ai_classified.csv` is the audit file with AI, non-AI, and review labels.
+`*_ai_only.csv` is the final dataset loaded into PostgreSQL, so the frontend
+shows only AI-related publications.
+
+## Incremental Monthly Flow
+
+Run once manually:
+
+```bash
+cd ~/researchlanka-ai
+DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchlanka" \
+OPENALEX_EMAIL="you@example.com" \
+RESTART_SERVICE="researchlanka-api" \
+./scripts/aws_incremental_pipeline.sh
+```
+
+When the AI/non-AI/review model is ready, pass it through the backend make
+target variables:
+
+```bash
+DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchlanka" \
+INCREMENTAL_MODEL="data/models/ai_publication_classifier_5k.joblib" \
+INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD="0.65" \
+./scripts/aws_incremental_pipeline.sh
+```
+
+The checkpoint is stored at `backend/outputs/incremental/state.json`. Each
+successful run updates `last_collected_date`; the next run collects from that
+date through the current date, predicts every collected record, and upserts only
+AI-labelled rows into PostgreSQL. The full classified audit CSV is still saved
+under `backend/outputs/incremental/runs/<run-id>/`, but
+`openalex_incremental_db_load.csv` is the final AI-only dataset loaded into the
+app database. Until a model is configured, new records are marked `review` with
+`ai_classification_reason=model_not_configured`, so the default AI-only DB load
+will insert zero rows.
+
+For monthly cron:
+
+```cron
+0 2 1 * * cd /home/ubuntu/researchlanka-ai && DATABASE_URL='postgresql://researchlanka_user:change_me@localhost:5433/researchlanka' OPENALEX_EMAIL='you@example.com' RESTART_SERVICE='researchlanka-api' ./scripts/aws_incremental_pipeline.sh
+```
+
+Manual one-off runs can override the date window:
+
+```bash
+cd ~/researchlanka-ai/backend
+DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchlanka" \
+make incremental-update INCREMENTAL_FROM_DATE=2026-08-01 INCREMENTAL_TO_DATE=2026-09-01
+```
+
+To include uncertain records in the database review queue, override the default:
+
+```bash
+make incremental-update INCREMENTAL_MODEL="data/models/ai_publication_classifier_5k.joblib" INCREMENTAL_DB_LABELS="AI,review"
+```
 
 ## Recommended Flow
 
