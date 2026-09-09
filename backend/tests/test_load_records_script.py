@@ -356,7 +356,7 @@ def test_build_final_publication_row_rejects_year_only_dates():
         "src.database.loader", fromlist=["build_final_publication_row"]
     ).build_final_publication_row(row, 1)
 
-    assert normalized["publication_year"] == 2016
+    assert "publication_year" not in normalized
     assert normalized["publication_date"] is None
 
 
