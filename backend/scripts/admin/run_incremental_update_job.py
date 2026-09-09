@@ -81,7 +81,7 @@ def main() -> None:
     )
     base_status: dict[str, Any] = {
         "status": "running",
-        "pid": os.getpid(),
+        "pid": os.getpid(), 
         "started_at": utc_now(),
         "finished_at": None,
         "message": "Incremental AI publication update is running.",
