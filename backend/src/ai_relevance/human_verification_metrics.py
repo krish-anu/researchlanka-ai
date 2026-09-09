@@ -50,7 +50,7 @@ class BinaryMetrics:
 
 
 def normalize_human_label(value: object) -> bool | None:
-    """Map human labels to True for AI, False for non-AI, and None for blank."""
+    """Map direct human labels to True for AI, False for non-AI, and None for blank."""
 
     if pd.isna(value):
         return None
@@ -78,6 +78,38 @@ def normalize_model_label(value: object) -> bool | None:
         return None
 
     raise ValueError(f"Unsupported ai_llm_label value: {value!r}")
+
+
+def verified_label_from_human_verification(
+    reference_model_label: object,
+    human_verification: object,
+) -> str | None:
+    """Derive the true AI label from a human correctness check of a reference model.
+
+    In the review sheet, ``human_label`` is a verification flag for the Llama/Ollama
+    prediction: TRUE means the reference prediction is correct, FALSE means the
+    opposite binary label is correct.
+    """
+
+    reference_ai = normalize_model_label(reference_model_label)
+    if reference_ai is None:
+        return None
+
+    if pd.isna(human_verification):
+        return None
+    text = str(human_verification).strip().casefold()
+    if not text:
+        return None
+    if text in {"true", "1", "yes", "y"}:
+        verified_ai = reference_ai
+    elif text in {"false", "0", "no", "n"}:
+        verified_ai = not reference_ai
+    elif text in {"ai", "non_ai", "non-ai", "non ai"}:
+        return AI_LABEL if normalize_human_label(text) else NON_AI_LABEL
+    else:
+        raise ValueError(f"Unsupported human verification value: {human_verification!r}")
+
+    return AI_LABEL if verified_ai else NON_AI_LABEL
 
 
 def calculate_human_verification_metrics(frame: pd.DataFrame) -> BinaryMetrics:
@@ -131,4 +163,3 @@ def load_and_calculate_human_verification_metrics(path: str | Path) -> BinaryMet
 
 def _safe_divide(numerator: float, denominator: float) -> float:
     return numerator / denominator if denominator else 0.0
-
