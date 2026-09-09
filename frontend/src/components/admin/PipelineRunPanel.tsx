@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { runIncrementalUpdate } from "@/app/actions/admin";
 import { ActionResult, SubmitButton } from "@/components/admin/ActionResult";
 import { IDLE } from "@/services/forms/state";
-import type { IncrementalJobStatus } from "@/services/pipeline/incremental";
+import type { IncrementalJobStatus } from "@/services/admin/incremental";
 import { formatDate, formatNumber } from "@/services/format";
 
 export function PipelineRunPanel({

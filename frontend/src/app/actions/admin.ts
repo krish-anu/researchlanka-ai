@@ -13,7 +13,7 @@ import {
 import { decideCandidate } from "@/services/workspace/resolution";
 import { recordAudit, resolveFlag } from "@/services/workspace/store";
 import { isAccountRole } from "@/types/auth";
-import { startIncrementalJob } from "@/services/pipeline/incremental";
+import { startIncrementalJob } from "@/services/admin/incremental";
 
 /* ---------------------------------------------------------- pipeline runs */
 

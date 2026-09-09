@@ -7,7 +7,7 @@ import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import { getDataQuality, getDatasetMeta, getHealth } from "@/services/api";
 import { listUsers } from "@/services/auth/store";
 import { formatDate, formatNumber, formatPercent } from "@/services/format";
-import { readIncrementalJobStatus } from "@/services/pipeline/incremental";
+import { readIncrementalJobStatus } from "@/services/admin/incremental";
 import { countPendingCandidates } from "@/services/workspace/resolution";
 import { countOpenFlags, listAudit } from "@/services/workspace/store";
 import type { AuditEntry } from "@/services/workspace/types";
