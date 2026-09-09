@@ -21,6 +21,7 @@ export type Capability =
   /* Administrators only. */
   | "admin.access"
   | "admin.pipeline.view"
+  | "admin.pipeline.run"
   | "admin.flags.triage"
   | "admin.resolution.decide"
   | "admin.users.manage";
@@ -35,6 +36,7 @@ const GRANTS: Record<Capability, Role[]> = {
 
   "admin.access": ["admin"],
   "admin.pipeline.view": ["admin"],
+  "admin.pipeline.run": ["admin"],
   "admin.flags.triage": ["admin"],
   "admin.resolution.decide": ["admin"],
   "admin.users.manage": ["admin"],

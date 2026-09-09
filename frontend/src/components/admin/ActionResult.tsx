@@ -34,12 +34,14 @@ export function SubmitButton({
   tone = "neutral",
   name,
   value,
+  disabled = false,
 }: {
   label: string;
   pendingLabel?: string;
   tone?: "primary" | "neutral" | "danger";
   name?: string;
   value?: string;
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
 
@@ -55,7 +57,7 @@ export function SubmitButton({
       type="submit"
       name={name}
       value={value}
-      disabled={pending}
+      disabled={pending || disabled}
       className={`rounded border px-3 py-1.5 text-body-sm font-medium transition-colors disabled:opacity-60 ${style}`}
     >
       {pending ? pendingLabel : label}
