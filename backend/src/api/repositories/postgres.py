@@ -20,6 +20,7 @@ from src.api.repositories.aggregates import aggregate_profile, normalized_key, p
 from src.api.repositories.sql import (
     BASE_COLUMNS,
     PUBLICATION_SEARCH_VECTOR_SQL,
+    PUBLICATION_YEAR_SQL,
     SORT_SQL,
     build_where,
     quote_identifier,
@@ -178,13 +179,13 @@ class PostgresPublicationRepository:
             f"""
             SELECT
                 count(*) AS publication_count,
-                min(publication_year) AS min_publication_year,
-                max(publication_year) AS max_publication_year,
+                min({PUBLICATION_YEAR_SQL}) AS min_publication_year,
+                max({PUBLICATION_YEAR_SQL}) AS max_publication_year,
                 max(loaded_at) AS max_loaded_at,
                 max(updated_at) AS max_updated_at
             FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
-            WHERE publication_year >= %s
-              AND publication_year <= %s
+            WHERE {PUBLICATION_YEAR_SQL} >= %s
+              AND {PUBLICATION_YEAR_SQL} <= %s
             """,
             [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR],
         )
@@ -212,8 +213,11 @@ class PostgresPublicationRepository:
                     {search_vector},
                     plainto_tsquery('english', %s)
                 ) DESC,
-                publication_year DESC NULLS LAST
-            """.format(search_vector=PUBLICATION_SEARCH_VECTOR_SQL)
+                {publication_year} DESC NULLS LAST
+            """.format(
+                search_vector=PUBLICATION_SEARCH_VECTOR_SQL,
+                publication_year=PUBLICATION_YEAR_SQL,
+            )
             where_clause_for_select, select_params = build_where(filters)
             # WHERE parameters appear before the ORDER BY rank parameter.
             rows = self._fetch_all(
@@ -288,18 +292,18 @@ class PostgresPublicationRepository:
             return []
         pattern = f"%{query}%"
         rows = self._fetch_all(
-            """
+            f"""
             SELECT title AS value, 'publication' AS type, publication_key AS key
             FROM final_publications
             WHERE title ILIKE %s
-              AND publication_year >= %s
-              AND publication_year <= %s
+              AND {PUBLICATION_YEAR_SQL} >= %s
+              AND {PUBLICATION_YEAR_SQL} <= %s
             UNION ALL
             SELECT journal AS value, 'journal' AS type, journal AS key
             FROM final_publications
             WHERE journal ILIKE %s
-              AND publication_year >= %s
-              AND publication_year <= %s
+              AND {PUBLICATION_YEAR_SQL} >= %s
+              AND {PUBLICATION_YEAR_SQL} <= %s
             LIMIT %s
             """,
             [
@@ -853,10 +857,14 @@ class PostgresPublicationRepository:
         return self._fetch_all(
             f"""
             WITH matched_publications AS (
-                SELECT publication_key, authors, author_ids, publication_year
+                SELECT
+                    publication_key,
+                    authors,
+                    author_ids,
+                    {PUBLICATION_YEAR_SQL} AS publication_year
                 FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
-                WHERE publication_year >= %s
-                  AND publication_year <= %s
+                WHERE {PUBLICATION_YEAR_SQL} >= %s
+                  AND {PUBLICATION_YEAR_SQL} <= %s
                   AND authors ILIKE %s
                   AND EXISTS (
                       SELECT 1
@@ -1453,9 +1461,9 @@ class PostgresPublicationRepository:
                     WHERE btrim(split.value) ILIKE %s
                       AND {author_value_sql_filter("split.value")}
                 )
-                  AND publication_year >= %s
-                  AND publication_year <= %s
-                ORDER BY publication_year DESC NULLS LAST, title ASC NULLS LAST
+                  AND {PUBLICATION_YEAR_SQL} >= %s
+                  AND {PUBLICATION_YEAR_SQL} <= %s
+                ORDER BY {PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST
                 """,
                 [
                     f"%{value}%",
@@ -1475,9 +1483,9 @@ class PostgresPublicationRepository:
             SELECT {select_columns(BASE_COLUMNS)}
             FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
             WHERE ({" OR ".join(clauses)})
-              AND publication_year >= %s
-              AND publication_year <= %s
-            ORDER BY publication_year DESC NULLS LAST, title ASC NULLS LAST
+              AND {PUBLICATION_YEAR_SQL} >= %s
+              AND {PUBLICATION_YEAR_SQL} <= %s
+            ORDER BY {PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST
             """,
             [*params, PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR],
         )
