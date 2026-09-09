@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.ai_relevance.human_verification_metrics import calculate_human_verification_metrics
+from src.ai_relevance.human_verification_metrics import (
+    calculate_human_verification_metrics,
+    verified_label_from_human_verification,
+)
 
 
 def test_calculate_human_verification_metrics_excludes_review_and_blank_rows() -> None:
@@ -33,3 +36,12 @@ def test_calculate_human_verification_metrics_excludes_review_and_blank_rows() -
     assert metrics.precision == 0.5
     assert metrics.recall == 0.5
     assert metrics.f1_score == 0.5
+
+
+def test_verified_label_from_human_verification_uses_reference_prediction() -> None:
+    assert verified_label_from_human_verification("AI", True) == "AI"
+    assert verified_label_from_human_verification("NON_AI", True) == "NON_AI"
+    assert verified_label_from_human_verification("AI", False) == "NON_AI"
+    assert verified_label_from_human_verification("NON_AI", False) == "AI"
+    assert verified_label_from_human_verification("REVIEW", True) is None
+    assert verified_label_from_human_verification("AI", "") is None
