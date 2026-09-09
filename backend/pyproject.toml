@@ -19,6 +19,7 @@ dependencies = [
     "pyarrow==22.0.0",
     "psycopg[binary]>=3.2,<4",
     "python-dotenv==1.2.2",
+    "google-genai>=1.0.0",
     # Required by research_analytics.duplicate_analysis (fuzzy title matching).
     "rapidfuzz==3.14.3",
     "requests==2.32.4",
@@ -44,6 +45,8 @@ evaluate-publication-classifier = "src.modeling.evaluation:main"
 validate-analysis-dataset = "src.quality.validate_analysis_dataset:main"
 create-publication-dataset-splits = "src.modeling.dataset_splits:main"
 generate-publication-embeddings = "src.modeling.embeddings:main"
+build-ai-candidate-sample = "src.ai_relevance.sampling:main"
+run-gemini-ai-relevance = "src.ai_relevance.runner:main"
 
 [tool.setuptools.packages.find]
 include = ["research_analytics*", "src*"]
