@@ -17,7 +17,7 @@ export function formatCompact(value: number | null | undefined): string {
     ? COMPACT.format(value).replace(/[a-z]\b/g, (suffix) => suffix.toUpperCase())
     : NUMBER.format(value);
 }
-
+ 
 export function formatDecimal(
   value: number | null | undefined,
   digits = 2,
