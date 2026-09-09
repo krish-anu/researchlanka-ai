@@ -77,6 +77,8 @@ export interface PublicationSummary {
   oa_status: string | null;
   primary_field: string | null;
   primary_subfield: string | null;
+  ai_classification_label: "AI" | "non-AI" | "review" | null;
+  ai_classification_confidence: string | null;
   source_dataset: string[];
   quality_flags: QualityFlag[];
   semantic_score?: number;
@@ -129,6 +131,10 @@ export interface PublicationDetail extends PublicationSummary {
     primary_field: string | null;
     primary_subfield: string | null;
     primary_domain: string | null;
+    ai_label: "AI" | "non-AI" | "review" | null;
+    ai_confidence: string | null;
+    ai_model: string | null;
+    ai_reason: string | null;
   };
   funding: {
     funder_name: string[];
