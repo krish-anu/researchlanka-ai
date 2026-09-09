@@ -10,9 +10,10 @@ from src.pipeline.build_final_common_dataset import FINAL_MAIN_COLUMNS
 
 def test_final_publication_columns_use_latest_final_dataset_contract():
     assert list(FINAL_PUBLICATION_COLUMNS) == FINAL_MAIN_COLUMNS
-    assert len(FINAL_PUBLICATION_COLUMNS) == 69
+    assert len(FINAL_PUBLICATION_COLUMNS) == 64
     assert "ownership_decision" in FINAL_PUBLICATION_COLUMNS
     assert "ownership_reason" in FINAL_PUBLICATION_COLUMNS
+    assert "publication_year" not in FINAL_PUBLICATION_COLUMNS
 
 
 def test_build_final_publication_row_maps_aliases_and_coerces_values():
@@ -25,13 +26,11 @@ def test_build_final_publication_row_maps_aliases_and_coerces_values():
             "open_access_status": "gold",
             "doi": "https://doi.org/10.1000/ABC",
             "title": "A publication",
-            "publication_year": "2024.0",
             "publication_date": "2024-01-15T00:00:00",
             "source_datestamp": datetime(2024, 1, 16, 12, 30),
             "authors": ["A. Author", "B. Author"],
             "institutions": ["University of Colombo", "University of Peradeniya"],
             "is_oa": "true",
-            "citation_count": "7",
             "reference_count": "12",
         },
         row_number=1,
@@ -44,12 +43,11 @@ def test_build_final_publication_row_maps_aliases_and_coerces_values():
     assert row["type"] == "journal-article"
     assert row["oa_status"] == "gold"
     assert row["doi"] == "10.1000/abc"
-    assert row["publication_year"] == 2024
+    assert "publication_year" not in row
     assert row["publication_date"] == "2024-01-15"
     assert row["authors"] == "A. Author; B. Author"
     assert row["institutions"] == "University of Colombo; University of Peradeniya"
     assert row["is_oa"] is True
-    assert row["citation_count"] == 7
     assert row["reference_count"] == 12
 
 
@@ -64,16 +62,12 @@ def test_build_final_publication_row_uses_nested_source_metadata_fallbacks():
                 "reference_count": "9",
                 "publisher": "Nested Publisher",
             },
-            "raw_record": {
-                "publication_year": "2026",
-            },
         },
         row_number=1,
     )
 
     assert row["reference_count"] == 9
     assert row["publisher"] == "Nested Publisher"
-    assert row["publication_year"] == 2026
 
 
 def test_final_publications_upsert_sql_includes_every_final_column():
