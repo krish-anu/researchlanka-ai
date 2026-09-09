@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.database import get_connection
-from src.database.final_schema import FINAL_PUBLICATION_COLUMNS, FINAL_PUBLICATION_TABLE
+from src.database.final_schema import DATABASE_PUBLICATION_COLUMNS, FINAL_PUBLICATION_TABLE
 
 EXPECTED_TABLES = [
     "countries",
@@ -86,7 +86,7 @@ def main() -> None:
             )
             final_columns = [row[0] for row in cursor.fetchall()]
 
-        expected_final_columns = ["publication_key", *FINAL_PUBLICATION_COLUMNS]
+        expected_final_columns = ["publication_key", *DATABASE_PUBLICATION_COLUMNS]
         missing_final_columns = [
             column for column in expected_final_columns if column not in final_columns
         ]
@@ -97,7 +97,7 @@ def main() -> None:
             )
 
         print(f"Schema OK: {len(EXPECTED_TABLES)} expected tables exist.")
-        print(f"Final publication columns found: {len(FINAL_PUBLICATION_COLUMNS)}")
+        print(f"Final publication columns found: {len(DATABASE_PUBLICATION_COLUMNS)}")
         print(f"Foreign keys found: {foreign_key_count}")
     finally:
         connection.close()
