@@ -34,13 +34,11 @@ def test_build_final_publication_row_maps_aliases_and_coerces_values():
             "open_access_status": "gold",
             "doi": "https://doi.org/10.1000/ABC",
             "title": "A publication",
-            "publication_year": "2024.0",
             "publication_date": "2024-01-15T00:00:00",
             "source_datestamp": datetime(2024, 1, 16, 12, 30),
             "authors": ["A. Author", "B. Author"],
             "institutions": ["University of Colombo", "University of Peradeniya"],
             "is_oa": "true",
-            "citation_count": "7",
             "reference_count": "12",
         },
         row_number=1,
@@ -70,9 +68,6 @@ def test_build_final_publication_row_uses_nested_source_metadata_fallbacks():
             "source_specific_metadata": {
                 "reference_count": "9",
                 "publisher": "Nested Publisher",
-            },
-            "raw_record": {
-                "publication_year": "2026",
             },
         },
         row_number=1,
