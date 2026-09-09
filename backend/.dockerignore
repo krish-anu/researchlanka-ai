@@ -1,0 +1,15 @@
+.venv
+__pycache__
+.pytest_cache
+*.pyc
+*.pyo
+*.pyd
+.env
+outputs
+researchlanka-kaggle-outputs*
+data/raw
+data/processed
+data/models
+data/reports
+dagster-quickstart/.venv
+dagster-quickstart/.tmp_dagster_home_*

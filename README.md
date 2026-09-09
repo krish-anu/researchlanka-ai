@@ -128,3 +128,10 @@ notebooks/kaggle_run_main_full_pipeline.ipynb
 ## Frontend
 
 Frontend code should be added inside `frontend/`.
+
+## AWS Deployment
+
+For the EC2 Docker Compose deployment path, see
+[`docs/aws-ec2-app-deployment.md`](docs/aws-ec2-app-deployment.md). For monthly
+data/model refresh automation on AWS, see
+[`docs/aws-monthly-automation.md`](docs/aws-monthly-automation.md).
