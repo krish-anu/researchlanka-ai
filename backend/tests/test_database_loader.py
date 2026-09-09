@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from src.database.final_schema import FINAL_PUBLICATION_COLUMNS
+from src.database.final_schema import AI_CLASSIFICATION_COLUMNS, FINAL_PUBLICATION_COLUMNS
 from src.database.loader import (
     build_final_publication_row,
     final_publications_upsert_sql,
