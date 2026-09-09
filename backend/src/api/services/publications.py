@@ -370,6 +370,8 @@ class ResearchLankaAPI:
             filters,
             dimension="institutions",
             metric=first(query, "metric") or "publications",
+            page=page,
+            page_size=page_size,
         )
         return list_response(
             result.get("records", []),
