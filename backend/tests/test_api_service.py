@@ -10,6 +10,7 @@ from src.api.repositories.postgres import (
     PostgresPublicationRepository,
     is_institution_like_author,
 )
+from src.api.repositories.sql import PUBLICATION_YEAR_SQL
 from src.api.repository import build_where
 from src.api.routes import route_get
 from src.api.service import APIError, ResearchLankaAPI
@@ -426,7 +427,7 @@ def test_postgres_semantic_search_hydrates_embedding_hits_from_database(monkeypa
     assert rows[0]["similarity_score"] == 0.925432
     assert rows[1]["publication_key"] == "source:repositories:thesis-1"
     assert rows[1]["similarity_rank"] == 2
-    assert "publication_year >= %s" in calls[0]["sql"]
+    assert f"{PUBLICATION_YEAR_SQL} >= %s" in calls[0]["sql"]
     assert 2020 in calls[0]["params"]
 
 
@@ -475,8 +476,8 @@ def test_postgres_metadata_counts_public_dataset_coverage(monkeypatch):
     metadata = repository.metadata()
 
     assert metadata["publication_count"] == 1
-    assert "publication_year >= %s" in calls[0]["sql"]
-    assert "publication_year <= %s" in calls[0]["sql"]
+    assert f"{PUBLICATION_YEAR_SQL} >= %s" in calls[0]["sql"]
+    assert f"{PUBLICATION_YEAR_SQL} <= %s" in calls[0]["sql"]
     assert calls[0]["params"] == [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR]
 
 
@@ -875,8 +876,8 @@ def test_build_where_covers_core_filters():
         }
     )
 
-    assert "publication_year >= %s" in sql
-    assert "publication_year <= %s" in sql
+    assert f"{PUBLICATION_YEAR_SQL} >= %s" in sql
+    assert f"{PUBLICATION_YEAR_SQL} <= %s" in sql
     assert '"type" = ANY(%s)' in sql
     assert '"institutions" ILIKE %s' in sql
     assert "doi IS NOT NULL" in sql

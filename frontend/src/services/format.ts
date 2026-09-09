@@ -13,7 +13,9 @@ export function formatNumber(value: number | null | undefined): string {
 
 export function formatCompact(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
-  return Math.abs(value) >= 10_000 ? COMPACT.format(value) : NUMBER.format(value);
+  return Math.abs(value) >= 10_000
+    ? COMPACT.format(value).replace(/[a-z]\b/g, (suffix) => suffix.toUpperCase())
+    : NUMBER.format(value);
 }
 
 export function formatDecimal(
