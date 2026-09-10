@@ -228,9 +228,11 @@ def run_gemini_classification(
         except GeminiQuotaExceededError as exc:
             LOGGER.error(
                 "Gemini quota exhausted after %s attempted record(s). "
-                "Checkpoint is preserved at %s; rerun with --resume after quota resets or billing is enabled.",
+                "Checkpoint is preserved at %s; rerun with --resume after quota resets or billing is enabled. "
+                "Provider message: %s",
                 attempted - 1,
                 config.output_path,
+                exc,
             )
             break
         except Exception as exc:  # noqa: BLE001 - keep the run moving after one bad record
