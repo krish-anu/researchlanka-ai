@@ -63,6 +63,7 @@ data/external/
 data/models/
 data/reports/*.json
 *.zip
+kaggle_ai_relevance_svm_dataset/
 outputs/
 pipeline/
 !backend/src/pipeline/
