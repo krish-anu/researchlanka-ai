@@ -85,6 +85,11 @@ backend/ollama_5k_results_with_human_verification/
 
 backend/researchlanka-kaggle-outputs*.zip
 researchlanka-ai-5k-candidates.zip
+kaggle_ai_relevance_model_selection_dataset.zip
+kaggle_ai_relevance_svm_dataset.zip
+kaggle_ai_relevance_svm_dataset/
+ai_relevance_model_selection_outputs.zip
+ai_relevance_model_selection_outputs/
 kaggle-output/
 
 # Local Dagster runtime state
