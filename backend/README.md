@@ -5,6 +5,14 @@ A Sri Lanka national-level research analytics framework.
 The framework collects, integrates, cleans, analyses, and exports scholarly
 publication data for Sri Lanka.
 
+## AI Relevance Filtering
+
+The Gemini-based AI relevance pipeline is documented in
+[`docs/AI_RELEVANCE_PIPELINE.md`](docs/AI_RELEVANCE_PIPELINE.md). It builds a
+reproducible 5,000-publication candidate set, supports an exactly 10-record
+first Gemini sanity test, writes separate checkpointed outputs under
+`data/processed/ai/`, and never overwrites the canonical publication datasets.
+
 ## Main Outputs
 
 - Consolidated national research publication dataset.

@@ -17,6 +17,7 @@ Pygments==2.20.0
 pytest==9.1.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
+google-genai>=1.0.0
 requests==2.32.4
 scikit-learn==1.8.0
 six==1.17.0
