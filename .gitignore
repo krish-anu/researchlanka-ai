@@ -62,6 +62,7 @@ data/interim/
 data/external/
 data/models/
 data/reports/*.json
+*.zip
 outputs/
 pipeline/
 !backend/src/pipeline/
