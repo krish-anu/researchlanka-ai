@@ -59,7 +59,11 @@ class GeminiAIClient:
             prompt_version=self.config.prompt_version,
         )
         last_error: Exception | None = None
-        for attempt in range(1, self.config.max_retries + 1):
+        max_attempts = max(
+            self.config.max_retries,
+            self.config.openrouter_rate_limit_retries + 1,
+        )
+        for attempt in range(1, max_attempts + 1):
             try:
                 response = self._client.models.generate_content(
                     model=self.config.model,
@@ -145,6 +149,24 @@ class OpenRouterAIClient:
                     timeout=self.config.timeout_seconds,
                 )
                 if response.status_code == 429:
+                    retry_after = _retry_after_seconds(response)
+                    wait_seconds = (
+                        retry_after
+                        if retry_after is not None
+                        else self.config.openrouter_rate_limit_wait_seconds
+                    )
+                    if attempt <= self.config.openrouter_rate_limit_retries:
+                        LOGGER.warning(
+                            "OpenRouter rate-limited publication_id=%s attempt=%s/%s; "
+                            "waiting %.0fs before retrying: %s",
+                            publication.publication_id,
+                            attempt,
+                            self.config.openrouter_rate_limit_retries,
+                            wait_seconds,
+                            response.text[:500],
+                        )
+                        time.sleep(wait_seconds)
+                        continue
                     raise GeminiQuotaExceededError(response.text)
                 if response.status_code >= 500:
                     raise RuntimeError(response.text)
@@ -308,6 +330,16 @@ def _is_quota_exhausted(error: Exception) -> bool:
         "generaterequestsperdayperprojectpermodel-freetier",
     )
     return any(marker in text for marker in quota_markers)
+
+
+def _retry_after_seconds(response: Any) -> float | None:
+    retry_after = getattr(response, "headers", {}).get("Retry-After")
+    if retry_after is None:
+        return None
+    try:
+        return max(float(retry_after), 0.0)
+    except ValueError:
+        return None
 
 
 def estimated_cost(

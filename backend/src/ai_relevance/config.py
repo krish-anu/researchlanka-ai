@@ -33,6 +33,8 @@ class GeminiConfig:
     max_retries: int = 3
     timeout_seconds: float = 60.0
     max_concurrency: int = 1
+    openrouter_rate_limit_retries: int = 12
+    openrouter_rate_limit_wait_seconds: float = 300.0
     ollama_seed: int = 42
     input_price_per_million: float = 0.0
     output_price_per_million: float = 0.0
@@ -61,6 +63,12 @@ class GeminiConfig:
             max_retries=int(os.getenv("GEMINI_MAX_RETRIES", "3")),
             timeout_seconds=float(os.getenv("GEMINI_TIMEOUT_SECONDS", "60")),
             max_concurrency=int(os.getenv("GEMINI_MAX_CONCURRENCY", "1")),
+            openrouter_rate_limit_retries=int(
+                os.getenv("OPENROUTER_RATE_LIMIT_RETRIES", "12")
+            ),
+            openrouter_rate_limit_wait_seconds=float(
+                os.getenv("OPENROUTER_RATE_LIMIT_WAIT_SECONDS", "300")
+            ),
             ollama_seed=int(os.getenv("OLLAMA_SEED", "42")),
             input_price_per_million=float(
                 os.getenv("GEMINI_INPUT_PRICE_PER_MILLION", "0")
