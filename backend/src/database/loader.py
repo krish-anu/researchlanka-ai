@@ -17,6 +17,7 @@ from src.database.apply_database_migrations import (
 from src.database.connection import get_connection
 from src.database.final_schema import (
     BOOLEAN_COLUMNS,
+    DATABASE_PUBLICATION_COLUMNS,
     DATE_COLUMNS,
     FINAL_PUBLICATION_COLUMNS,
     FINAL_PUBLICATION_TABLE,
@@ -79,7 +80,7 @@ def load_final_publications(
         values = [
             [
                 row["publication_key"],
-                *[row[column] for column in FINAL_PUBLICATION_COLUMNS],
+                *[row[column] for column in DATABASE_PUBLICATION_COLUMNS],
                 adapt_jsonb(row["raw_record"]),
             ]
             for row in rows
@@ -104,7 +105,7 @@ def build_final_publication_row(record: dict[str, Any], row_number: int) -> dict
 
     row = {
         column: coerce_column_value(column, first_available_value(record, column))
-        for column in FINAL_PUBLICATION_COLUMNS
+        for column in DATABASE_PUBLICATION_COLUMNS
     }
 
     doi = normalize_doi(row.get("doi"))
@@ -264,14 +265,14 @@ def adapt_jsonb(value: Any) -> Any:
 def final_publications_upsert_sql() -> str:
     insert_columns = [
         "publication_key",
-        *FINAL_PUBLICATION_COLUMNS,
+        *DATABASE_PUBLICATION_COLUMNS,
         "raw_record",
     ]
     placeholders = ", ".join(["%s"] * len(insert_columns))
     quoted_columns = ", ".join(quote_identifier(column) for column in insert_columns)
     update_assignments = ", ".join(
         f"{quote_identifier(column)} = EXCLUDED.{quote_identifier(column)}"
-        for column in [*FINAL_PUBLICATION_COLUMNS, "raw_record"]
+        for column in [*DATABASE_PUBLICATION_COLUMNS, "raw_record"]
     )
     return (
         f"INSERT INTO {quote_identifier(FINAL_PUBLICATION_TABLE)} ({quoted_columns}) "

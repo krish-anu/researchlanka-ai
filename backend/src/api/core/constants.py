@@ -65,6 +65,8 @@ PUBLICATION_SUMMARY_FIELDS = [
     "oa_status",
     "primary_field",
     "primary_subfield",
+    "ai_classification_label",
+    "ai_classification_confidence",
     "source_dataset",
     "quality_flags",
     "nmf_topic_id",

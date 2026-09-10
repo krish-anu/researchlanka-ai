@@ -1,11 +1,13 @@
 import Link from "next/link";
 
+import { PipelineRunPanel } from "@/components/admin/PipelineRunPanel";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import { getDataQuality, getDatasetMeta, getHealth } from "@/services/api";
 import { listUsers } from "@/services/auth/store";
 import { formatDate, formatNumber, formatPercent } from "@/services/format";
+import { readIncrementalJobStatus } from "@/services/admin/incremental";
 import { countPendingCandidates } from "@/services/workspace/resolution";
 import { countOpenFlags, listAudit } from "@/services/workspace/store";
 import type { AuditEntry } from "@/services/workspace/types";
@@ -22,7 +24,16 @@ export const metadata = { title: "Overview" };
  * the platform can change the corpus from this screen, which it cannot.
  */
 export default async function AdminOverviewPage() {
-  const [health, meta, quality, users, openFlags, pendingCandidates, audit] =
+  const [
+    health,
+    meta,
+    quality,
+    users,
+    openFlags,
+    pendingCandidates,
+    audit,
+    incrementalStatus,
+  ] =
     await Promise.all([
       getHealth(),
       getDatasetMeta(),
@@ -31,6 +42,7 @@ export default async function AdminOverviewPage() {
       countOpenFlags(),
       countPendingCandidates(),
       listAudit(8),
+      readIncrementalJobStatus(),
     ]);
 
   const apiUp = health.ok && health.value.data.status === "ok";
@@ -79,6 +91,21 @@ export default async function AdminOverviewPage() {
             />
           </StatTileGrid>
         )}
+      </section>
+
+      <section>
+        <SectionHeading
+          title="AI update"
+          description="Manual incremental collection and AI-only database loading."
+        />
+        <PipelineRunPanel
+          status={incrementalStatus}
+          defaultModel={
+            process.env.RESEARCHLANKA_AI_MODEL ??
+            process.env.INCREMENTAL_MODEL ??
+            ""
+          }
+        />
       </section>
 
       <section>

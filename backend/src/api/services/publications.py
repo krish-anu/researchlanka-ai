@@ -33,7 +33,7 @@ from src.api.core.serializers import (
 )
 from src.api.repositories.postgres import is_institution_like_author
 from src.api.services.nmf_topics import TOPIC_DIRECTORY_QUERY_PARAMS, NmfTopicService
-from src.database.final_schema import FINAL_PUBLICATION_COLUMNS
+from src.database.final_schema import DATABASE_PUBLICATION_COLUMNS
 
 
 FILTER_QUERY_PARAMS = set(LIST_FILTERS)
@@ -91,7 +91,7 @@ class ResearchLankaAPI:
         return {
             "data": {
                 "publication_summary_fields": PUBLICATION_SUMMARY_FIELDS,
-                "final_publication_columns": ["publication_key", *FINAL_PUBLICATION_COLUMNS],
+                "final_publication_columns": ["publication_key", *DATABASE_PUBLICATION_COLUMNS],
                 "array_fields": sorted(ARRAY_FIELDS),
             },
             "meta": self._meta(),
