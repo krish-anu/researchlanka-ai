@@ -41,6 +41,8 @@ export async function runIncrementalUpdate(
       subject: "incremental-ai-update",
       summary: `Started AI-only incremental update with labels ${status.db_labels.join(", ")}`,
       actor,
+    }).catch((error) => {
+      console.error("Could not record incremental update audit entry", error);
     });
 
     revalidatePath("/admin");
