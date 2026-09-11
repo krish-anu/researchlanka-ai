@@ -86,7 +86,7 @@ class FakePublicationRepository:
     def get_count_audit(self, publication_key):
         return {"publication_key": publication_key, "citation_count": 12}
 
-    def suggest(self, query, *, limit):
+    def suggest(self, query, *, limit, types=None):
         return [{"type": "publication", "value": self.publication["title"], "key": self.publication["publication_key"]}]
 
     def semantic_search(self, query, *, filters, limit, min_score):

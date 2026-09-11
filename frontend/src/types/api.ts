@@ -206,7 +206,7 @@ export type Facets = Record<string, Record<string, number>>;
 
 export interface Suggestion {
   value: string;
-  type: "publication" | "journal" | string;
+  type: "publication" | "journal" | "researcher" | "institution" | string;
   key: string;
 }
 

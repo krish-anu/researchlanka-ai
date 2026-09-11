@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 TEXT_FILTER_COLUMNS = {
@@ -24,6 +25,8 @@ PUBLICATION_SEARCH_VECTOR_SQL = (
     "coalesce(title, '') || ' ' || "
     "coalesce(abstract, '') || ' ' || "
     "coalesce(authors, '') || ' ' || "
+    "coalesce(institutions, '') || ' ' || "
+    "coalesce(sri_lankan_institutions, '') || ' ' || "
     "coalesce(keywords, '') || ' ' || "
     "coalesce(journal, '') || ' ' || "
     "coalesce(publisher, '') || ' ' || "
@@ -34,6 +37,7 @@ PUBLICATION_SEARCH_VECTOR_SQL = (
 
 PUBLICATION_YEAR_SQL = "COALESCE(publication_year, EXTRACT(YEAR FROM publication_date)::int)"
 PUBLIC_AI_CLASSIFICATION_LABELS = ("AI",)
+SEARCH_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9]+")
 
 SORT_SQL = {
     "relevance": f"{PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST",
@@ -122,9 +126,9 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
     params: list[Any] = [list(PUBLIC_AI_CLASSIFICATION_LABELS)]
     if filters.get("q"):
         clauses.append(
-            f"{PUBLICATION_SEARCH_VECTOR_SQL} @@ plainto_tsquery('english', %s)"
+            f"{PUBLICATION_SEARCH_VECTOR_SQL} @@ to_tsquery('english', %s)"
         )
-        params.append(filters["q"])
+        params.append(prefix_tsquery(filters["q"]))
     if filters.get("year_min") is not None:
         clauses.append(f"{PUBLICATION_YEAR_SQL} >= %s")
         params.append(filters["year_min"])
@@ -179,6 +183,15 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
     if not clauses:
         return "", params
     return "WHERE " + " AND ".join(clauses), params
+
+
+def search_tokens(value: Any) -> list[str]:
+    return SEARCH_TOKEN_PATTERN.findall(str(value or "").casefold())
+
+
+def prefix_tsquery(value: Any) -> str:
+    tokens = search_tokens(value)
+    return " & ".join(f"{token}:*" for token in tokens) or "__no_search_terms__"
 
 
 def select_columns(columns: list[str]) -> str:
