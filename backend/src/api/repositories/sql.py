@@ -33,6 +33,7 @@ PUBLICATION_SEARCH_VECTOR_SQL = (
 )
 
 PUBLICATION_YEAR_SQL = "EXTRACT(YEAR FROM publication_date)::int"
+PUBLIC_AI_CLASSIFICATION_LABELS = ("AI",)
 
 SORT_SQL = {
     "relevance": f"{PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST",
@@ -113,8 +114,8 @@ BASE_COLUMNS = [
 
 
 def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
-    clauses: list[str] = []
-    params: list[Any] = []
+    clauses: list[str] = ['"ai_classification_label" = ANY(%s)']
+    params: list[Any] = [list(PUBLIC_AI_CLASSIFICATION_LABELS)]
     if filters.get("q"):
         clauses.append(
             f"{PUBLICATION_SEARCH_VECTOR_SQL} @@ plainto_tsquery('english', %s)"
