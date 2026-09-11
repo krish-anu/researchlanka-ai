@@ -32,7 +32,7 @@ PUBLICATION_SEARCH_VECTOR_SQL = (
     ")"
 )
 
-PUBLICATION_YEAR_SQL = "EXTRACT(YEAR FROM publication_date)::int"
+PUBLICATION_YEAR_SQL = "COALESCE(publication_year, EXTRACT(YEAR FROM publication_date)::int)"
 PUBLIC_AI_CLASSIFICATION_LABELS = ("AI",)
 
 SORT_SQL = {
