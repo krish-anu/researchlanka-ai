@@ -19,7 +19,7 @@ FRONTEND_NODE_MAX_OLD_SPACE_MB ?= 1536
 DEV_SEMANTIC_EMBEDDINGS ?= data/models/publication_text_embeddings_cli_sample.parquet
 DEV_SEMANTIC_MODEL ?= data/models/publication_text_embedding_model_cli_sample.joblib
 
-.PHONY: help install install-backend install-frontend backend api frontend dev load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update maps-location-confirm maps-location-rescore maps-location-apply test check check-backend check-frontend
+.PHONY: help install install-backend install-frontend backend api frontend dev load-db-2016-now reset-db-2016-now ai-dataset reset-db-ai load-full-db-2016-now reset-full-db-2016-now incremental-update maps-location-confirm maps-location-rescore maps-location-apply test check check-backend check-frontend
 
 help:
 	@echo "ResearchLanka development shortcuts"
@@ -28,6 +28,7 @@ help:
 	@echo "  make dev                Run backend API and frontend together"
 	@echo "  make load-db-2016-now   Load only 2016-2026 records into PostgreSQL"
 	@echo "  make reset-db-2016-now  Clear PostgreSQL records, then load 2016-2026"
+	@echo "  make reset-db-ai        Clear PostgreSQL records, then load AI-only records"
 	@echo "  make incremental-update Collect since checkpoint, classify, upsert, and save checkpoint"
 	@echo "  make maps-location-confirm  Confirm institution locations with Google Maps evidence"
 	@echo "  make maps-location-apply    Add confirmed Maps aliases to the registry"
@@ -63,6 +64,12 @@ load-db-2016-now:
 
 reset-db-2016-now:
 	$(MAKE) -C $(BACKEND_DIR) reset-db-2016-now
+
+ai-dataset:
+	$(MAKE) -C $(BACKEND_DIR) ai-dataset
+
+reset-db-ai:
+	$(MAKE) -C $(BACKEND_DIR) reset-db-ai
 
 incremental-update:
 	$(MAKE) -C $(BACKEND_DIR) incremental-update
