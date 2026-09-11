@@ -1,6 +1,7 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { RoleBadge } from "@/components/auth/RoleBadge";
 import { requireCapability } from "@/services/auth/server";
+import { countPendingAIReviewCandidates } from "@/services/workspace/aiReview";
 import { countPendingCandidates } from "@/services/workspace/resolution";
 import { countOpenFlags } from "@/services/workspace/store";
 
@@ -25,9 +26,10 @@ export default async function AdminLayout({
 }) {
   const user = await requireCapability("admin.access", "/admin");
 
-  const [flags, review] = await Promise.all([
+  const [flags, review, aiReview] = await Promise.all([
     countOpenFlags(),
     countPendingCandidates(),
+    countPendingAIReviewCandidates(),
   ]);
 
   return (
@@ -49,7 +51,7 @@ export default async function AdminLayout({
         </div>
       </header>
 
-      <AdminNav badges={{ flags, review }} />
+      <AdminNav badges={{ flags, review, aiReview }} />
 
       {children}
     </div>
