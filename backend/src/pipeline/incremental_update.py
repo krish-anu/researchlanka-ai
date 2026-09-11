@@ -42,6 +42,7 @@ from src.pipeline.kaggle_collect_openalex_sri_lanka import (
     write_doi_conflict_report,
 )
 from src.preprocessing.openalex_normalizer import CSV_COLUMNS, work_to_row
+from src.utils.doi import is_valid_doi, normalize_doi
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -348,11 +349,16 @@ def filter_rows_for_database(
     labels: tuple[str, ...],
 ) -> list[dict[str, Any]]:
     allowed = set(labels)
-    return [
-        row
-        for row in rows
-        if str(row.get("ai_classification_label") or "").strip() in allowed
-    ]
+    selected = []
+    for row in rows:
+        if str(row.get("ai_classification_label") or "").strip() not in allowed:
+            continue
+        doi = normalize_doi(row.get("doi"))
+        if not is_valid_doi(doi):
+            continue
+        row["doi"] = doi
+        selected.append(row)
+    return selected
 
 
 def run_incremental_update(
