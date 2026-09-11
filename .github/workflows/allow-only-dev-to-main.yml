@@ -1,0 +1,28 @@
+name: Validate source branch
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-source-branch:
+    name: Only dev can merge into main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check source branch
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref }}
+        run: |
+          if [ "$SOURCE_BRANCH" != "dev" ]; then
+            echo "Only the dev branch can be merged into main."
+            echo "Current source branch: $SOURCE_BRANCH"
+            exit 1
+          fi
+
+          echo "Source branch is dev. Merge is allowed."
