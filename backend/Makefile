@@ -153,7 +153,6 @@ FINAL_COMMON_INPUT ?= data/processed/common/common_publications_deduplicated.csv
 FINAL_COMMON_OUTPUT ?= data/processed/common/common_publications_final.csv
 FINAL_COMMON_EXTRA_ARGS ?=
 FINAL_REPOSITORY_APPEND_SUMMARY ?= data/processed/common/common_publications_final_repository_append_summary.csv
-FRONTEND_CHART_SNAPSHOT ?= ../frontend/src/data/datasetCharts.json
 OWNERSHIP_VALIDATE_INPUT ?= $(FINAL_COMMON_OUTPUT)
 
 # Google Maps assisted institution-location confirmation.
@@ -191,7 +190,7 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-add-repositories train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -231,7 +230,6 @@ help:
 	@echo "  make validate-ownership      Run strict ownership validation only"
 	@echo "  make final-common            Build verified final dataset and ownership sidecars"
 	@echo "  make final-common-add-repositories  Append repository review rows to the final dataset with low memory"
-	@echo "  make dashboard-chart-snapshot  Generate frontend JSON for dashboard chart panels"
 	@echo "  make predict-logreg          Run saved classifier inference on publication text"
 	@echo "  make model-api               Serve FastAPI model endpoints"
 	@echo ""
@@ -368,9 +366,6 @@ final-common:
 
 final-common-add-repositories:
 	$(PYTHON) scripts/processing/add_repository_records_to_final.py --deduplicated-csv $(FINAL_COMMON_INPUT) --final-csv $(FINAL_COMMON_OUTPUT) --summary-csv $(FINAL_REPOSITORY_APPEND_SUMMARY)
-
-dashboard-chart-snapshot:
-	$(PYTHON) scripts/processing/generate_dashboard_chart_snapshot.py --all-records-csv data/processed/common/common_publications_all_records.csv --final-csv $(FINAL_COMMON_OUTPUT) --output-json $(FRONTEND_CHART_SNAPSHOT)
 
 predict-logreg:
 	$(PYTHON) scripts/modeling/predict_publication_classifier.py --input $(LOGREG_INFERENCE_INPUT) --model $(LOGREG_MODEL_OUTPUT) --model-manifest $(LOGREG_MANIFEST_OUTPUT) --output $(LOGREG_INFERENCE_OUTPUT) --inference-manifest $(LOGREG_INFERENCE_MANIFEST_OUTPUT) --text-columns $(LOGREG_TEXT_COLUMNS) --metadata-columns $(LOGREG_INFERENCE_METADATA_COLUMNS) $(LOGREG_INFERENCE_EXTRA_ARGS)

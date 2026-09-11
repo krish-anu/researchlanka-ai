@@ -74,10 +74,10 @@ backend/data/models/publication_text_embeddings_cli_sample.parquet
 backend/data/models/publication_text_embedding_model_cli_sample.joblib
 ```
 
-Load the database and start the backend and frontend:
+Load the AI-only database and start the backend and frontend:
 
 ```bash
-make reset-db-2016-now
+make reset-db-ai
 make dev
 ```
 
