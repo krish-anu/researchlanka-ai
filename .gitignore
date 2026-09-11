@@ -1,6 +1,11 @@
 .venv/
 venv/
 env/
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+frontend/.next.stale/
 
 __pycache__/
 *.py[cod]
@@ -46,6 +51,7 @@ data/external/
 data/models/
 data/reports/*.json
 outputs/
+frontend/.data/
 
 backend/data/raw/
 backend/data/processed/
@@ -61,6 +67,8 @@ backend/outputs/
 *.sqlite
 *.sqlite3
 *.db
+*.zip
+*.tsbuildinfo
 
 !data/.gitkeep
 !data/sample/
@@ -87,3 +95,12 @@ Thumbs.db
 
 notebooks/outputs/
 backend/notebooks/outputs/
+
+# Local/generated experiment artifacts
+ai_relevance_model_selection_outputs/
+kaggle_ai_relevance_svm_dataset/
+backend/ollama_5k_results_with_human_verification/
+backend/researchlanka-kaggle-outputs*/
+researchlanka-kaggle-outputs*/
+tools/google-maps-scraper-kit/
+image.png
