@@ -2,6 +2,12 @@
 .venv/
 venv/
 env/
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+frontend/.next.stale/
+
 __pycache__/
 *.py[cod]
 *.pyo
@@ -66,12 +72,8 @@ data/reports/*.json
 kaggle_ai_relevance_svm_dataset/
 ai_relevance_model_selection_outputs/
 outputs/
-pipeline/
-!backend/src/pipeline/
-!backend/src/pipeline/**
-backend/src/pipeline/__pycache__/
-backend/src/pipeline/**/*.py[cod]
-tools/google-maps-scraper-kit/
+frontend/.data/
+
 backend/data/raw/
 backend/data/processed/
 backend/data/interim/
@@ -108,6 +110,8 @@ image.png
 *.sqlite
 *.sqlite3
 *.db
+*.zip
+*.tsbuildinfo
 
 # Keep checked-in examples and configuration
 !data/.gitkeep
@@ -144,3 +148,15 @@ Thumbs.db
 # Track GitHub Actions and work-plan configuration
 !/.github/
 !/.github/**
+
+notebooks/outputs/
+backend/notebooks/outputs/
+
+# Local/generated experiment artifacts
+ai_relevance_model_selection_outputs/
+kaggle_ai_relevance_svm_dataset/
+backend/ollama_5k_results_with_human_verification/
+backend/researchlanka-kaggle-outputs*/
+researchlanka-kaggle-outputs*/
+tools/google-maps-scraper-kit/
+image.png
