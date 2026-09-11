@@ -13,6 +13,7 @@ import argparse
 import csv
 import json
 import logging
+import math
 import os
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -252,6 +253,12 @@ def prediction_text(frame: pd.DataFrame, text_columns: tuple[str, ...]) -> pd.Se
     return combined_text(frame[available_columns].fillna(""), available_columns)
 
 
+def confidence_from_margin(margin: float) -> float:
+    """Convert a binary classifier decision margin into a bounded score."""
+
+    return 1.0 / (1.0 + math.exp(-abs(margin)))
+
+
 def normalize_prediction_label(value: Any) -> tuple[str, str]:
     text = str(value or "").strip()
     normalized = text.casefold().replace("_", "-")
@@ -294,6 +301,14 @@ def apply_ai_classification(
     confidences: list[float | None]
     if hasattr(model, "predict_proba") and len(text):
         confidences = [float(values.max()) for values in model.predict_proba(text)]
+    elif hasattr(model, "decision_function") and len(text):
+        margins = model.decision_function(text)
+        if getattr(margins, "ndim", 1) == 1:
+            confidences = [confidence_from_margin(float(value)) for value in margins]
+        else:
+            confidences = [
+                confidence_from_margin(float(max(row, key=abs))) for row in margins
+            ]
     else:
         confidences = [None] * len(predictions)
 
