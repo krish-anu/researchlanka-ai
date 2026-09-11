@@ -25,6 +25,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-researchlanka_user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-researchlanka}
       RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH: ${RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH:-data/models/publication_text_embeddings_cli_sample.parquet}
       RESEARCHLANKA_SEMANTIC_MODEL_PATH: ${RESEARCHLANKA_SEMANTIC_MODEL_PATH:-data/models/publication_text_embedding_model_cli_sample.joblib}
+      RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH: ${RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH:-data/models/ai_relevance/ai_relevance_linear_svm.joblib}
+      RESEARCHLANKA_INCREMENTAL_STATE_BACKEND: ${RESEARCHLANKA_INCREMENTAL_STATE_BACKEND:-database}
+      RESEARCHLANKA_INCREMENTAL_STATE_KEY: ${RESEARCHLANKA_INCREMENTAL_STATE_KEY:-openalex_incremental}
+      OPENALEX_EMAIL: ${OPENALEX_EMAIL:-}
     volumes:
       - ./backend/data:/app/data:ro
     depends_on:

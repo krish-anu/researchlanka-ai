@@ -100,11 +100,6 @@ export default async function AdminOverviewPage() {
         />
         <PipelineRunPanel
           status={incrementalStatus}
-          defaultModel={
-            process.env.RESEARCHLANKA_AI_MODEL ??
-            process.env.INCREMENTAL_MODEL ??
-            ""
-          }
         />
       </section>
 

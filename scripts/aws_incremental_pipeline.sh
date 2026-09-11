@@ -4,6 +4,8 @@ set -euo pipefail
 # Manual/monthly incremental ResearchLanka refresh for AWS EC2.
 # Cron example:
 #   0 2 1 * * RESEARCHLANKA_ROOT=/srv/researchlanka-ai DATABASE_URL=... /srv/researchlanka-ai/scripts/aws_incremental_pipeline.sh
+# Manual month-end example:
+#   INCREMENTAL_END_DATE=2026-09-30 ./scripts/aws_incremental_pipeline.sh
 
 ROOT_DIR="${RESEARCHLANKA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 BACKEND_DIR="${ROOT_DIR}/backend"
@@ -26,6 +28,8 @@ fi
 trap 'rm -rf "${LOCK_DIR}"' EXIT
 
 echo "Starting ResearchLanka incremental pipeline: ${RUN_ID}"
+echo "Incremental state backend: ${RESEARCHLANKA_INCREMENTAL_STATE_BACKEND:-database}"
+echo "AI relevance model: ${RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH:-${INCREMENTAL_MODEL:-backend default}}"
 cd "${BACKEND_DIR}"
 
 if [[ ! -x "${PYTHON}" ]]; then
