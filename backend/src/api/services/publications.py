@@ -196,10 +196,19 @@ class ResearchLankaAPI:
         )
 
     def suggestions(self, query: dict[str, list[str]]) -> dict[str, Any]:
-        validate_query_params(query, {"q", "limit"})
+        validate_query_params(query, {"q", "limit", "type"})
         text = first(query, "q") or ""
         limit = min(parse_positive_int(query, "limit", default=10), 50)
-        return {"data": self.repository.suggest(text, limit=limit), "meta": self._meta()}
+        types = {
+            item
+            for value in query.get("type", [])
+            for item in split_values(value)
+            if item in {"publication", "journal", "researcher", "institution"}
+        }
+        return {
+            "data": self.repository.suggest(text, limit=limit, types=types or None),
+            "meta": self._meta(),
+        }
 
     def facets(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, FILTER_QUERY_PARAMS)
