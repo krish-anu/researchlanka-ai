@@ -1,10 +1,14 @@
 """Shared constants for the ResearchLanka API."""
 
+from datetime import date
+
 DEFAULT_PAGE_SIZE = 25
 MAX_PAGE_SIZE = 100
 DATASET_STAGE = "final_publications"
 API_VERSION = "v1"
 API_PREFIX = "/api/v1"
+PUBLICATION_COVERAGE_START_YEAR = 2016
+PUBLICATION_COVERAGE_END_YEAR = date.today().year
 
 LIST_FILTERS = {
     "q",
@@ -14,8 +18,11 @@ LIST_FILTERS = {
     "institution",
     "country",
     "field",
+    "researcher",
     "subfield",
     "topic",
+    "nmf_topic",
+    "nmf_topic_id",
     "journal",
     "source_dataset",
     "is_oa",
@@ -58,6 +65,15 @@ PUBLICATION_SUMMARY_FIELDS = [
     "oa_status",
     "primary_field",
     "primary_subfield",
+    "ai_classification_label",
+    "ai_classification_confidence",
     "source_dataset",
     "quality_flags",
+    "nmf_topic_id",
+    "nmf_topic_name",
+    "nmf_topic_weight",
+    "semantic_score",
+    "semantic_rank",
+    "similarity_score",
+    "similarity_rank",
 ]

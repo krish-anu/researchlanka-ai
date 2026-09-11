@@ -31,12 +31,14 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import requests
 
+from src.collectors.schema_mapping import has_oai_dc_doi
+from src.collectors.http import create_retry_session
 from src.collectors.oai_pmh_collector import OaiPmhCollector, OaiPmhError
 from src.collectors.repository_registry import load_registry
 
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 DEFAULT_START_YEAR = 2016
-DEFAULT_END_YEAR = 2026
+DEFAULT_END_YEAR = date.today().year
 MAX_SPLIT_DEPTH = 10
 
 
@@ -68,14 +70,15 @@ def harvest_range(
     output_file,
     seen_ids: set[str],
     depth: int = 0,
-) -> tuple[int, list[str]]:
-    """Harvest one date range. Returns (records_written, failed_ranges_description)."""
+) -> tuple[int, int, list[str]]:
+    """Harvest one date range. Returns written, DOI-skipped, and failed ranges."""
 
     indent = "  " * depth
     range_label = f"{from_date.isoformat()}..{until_date.isoformat()}"
 
     try:
         count = 0
+        skipped_missing_doi = 0
         for record in collector.iter_records(
             from_date=from_date.isoformat(), until_date=until_date.isoformat()
         ):
@@ -84,40 +87,43 @@ def harvest_range(
                 continue
             if record_id:
                 seen_ids.add(record_id)
+            if not has_oai_dc_doi(record):
+                skipped_missing_doi += 1
+                continue
             output_file.write(json.dumps(record, ensure_ascii=False) + "\n")
             count += 1
-        print(f"{indent}{range_label}: {count} records")
-        return count, []
+        print(f"{indent}{range_label}: {count} records, {skipped_missing_doi} skipped missing DOI")
+        return count, skipped_missing_doi, []
     except OaiPmhError as exc:
         if exc.code == "noRecordsMatch":
             # Genuinely nothing in this slice -- not the pagination bug,
             # don't split further and don't count it as a failure.
             print(f"{indent}{range_label}: 0 records (none in range)")
-            return 0, []
+            return 0, 0, []
         error = exc
-    except requests.HTTPError as exc:
+    except requests.RequestException as exc:
         error = exc
 
     if from_date >= until_date or depth >= MAX_SPLIT_DEPTH:
         print(f"{indent}{range_label}: FAILED, giving up ({error})")
-        return 0, [range_label]
+        return 0, 0, [range_label]
 
     span_days = (until_date - from_date).days
     midpoint = from_date + timedelta(days=span_days // 2)
     print(f"{indent}{range_label}: hit server error at this granularity, splitting at {midpoint.isoformat()}")
 
-    count_a, failed_a = harvest_range(
+    count_a, skipped_a, failed_a = harvest_range(
         collector, from_date=from_date, until_date=midpoint, output_file=output_file,
         seen_ids=seen_ids, depth=depth + 1,
     )
     next_start = midpoint + timedelta(days=1)
     if next_start > until_date:
-        return count_a, failed_a
-    count_b, failed_b = harvest_range(
+        return count_a, skipped_a, failed_a
+    count_b, skipped_b, failed_b = harvest_range(
         collector, from_date=next_start, until_date=until_date, output_file=output_file,
         seen_ids=seen_ids, depth=depth + 1,
     )
-    return count_a + count_b, failed_a + failed_b
+    return count_a + count_b, skipped_a + skipped_b, failed_a + failed_b
 
 
 def main() -> None:
@@ -130,23 +136,53 @@ def main() -> None:
         raise SystemExit(f"Target {args.id!r} has no OAI endpoint on record.")
 
     verify_ssl = not target.extra.get("ssl_verify_failed", False)
-    collector = OaiPmhCollector(base_url=target.oai_endpoint, timeout=args.timeout, verify_ssl=verify_ssl)
+    collector = OaiPmhCollector(
+        base_url=target.oai_endpoint,
+        timeout=args.timeout,
+        verify_ssl=verify_ssl,
+        session=create_retry_session(total_retries=1, backoff_factor=0.5),
+    )
 
     output_path = args.output or DEFAULT_RAW_DIR / target.id / "oai_dc.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    from_date = date(args.start_year, 1, 1)
-    until_date = date(args.end_year, 12, 31)
+    start_year = max(args.start_year, DEFAULT_START_YEAR)
+    end_year = min(args.end_year, DEFAULT_END_YEAR)
+    from_date = date(start_year, 1, 1)
+    until_date = date(end_year, 12, 31)
 
     print(f"Harvesting {target.id} ({target.name}) from {from_date} to {until_date} -> {output_path}")
 
-    seen_ids: set[str] = set()
-    with output_path.open("w", encoding="utf-8") as output_file:
-        total, failed_ranges = harvest_range(
-            collector, from_date=from_date, until_date=until_date, output_file=output_file, seen_ids=seen_ids,
-        )
+    temp_output_path = output_path.with_name(f"{output_path.name}.tmp")
 
-    print(f"\nSaved {total} unique records to {output_path}")
+    seen_ids: set[str] = set()
+    total = 0
+    skipped_missing_doi = 0
+    failed_ranges: list[str] = []
+    with temp_output_path.open("w", encoding="utf-8") as output_file:
+        for year in range(start_year, end_year + 1):
+            year_from = max(from_date, date(year, 1, 1))
+            year_until = min(until_date, date(year, 12, 31))
+            count, year_skipped_missing_doi, year_failed_ranges = harvest_range(
+                collector,
+                from_date=year_from,
+                until_date=year_until,
+                output_file=output_file,
+                seen_ids=seen_ids,
+            )
+            total += count
+            skipped_missing_doi += year_skipped_missing_doi
+            failed_ranges.extend(year_failed_ranges)
+
+    if total > 0 or not output_path.exists():
+        temp_output_path.replace(output_path)
+        print(f"\nSaved {total} unique records to {output_path}")
+        if skipped_missing_doi:
+            print(f"Skipped {skipped_missing_doi} records without a valid DOI.")
+    else:
+        temp_output_path.unlink()
+        print(f"\nCollected 0 records; kept existing output at {output_path}")
+
     if failed_ranges:
         print(f"{len(failed_ranges)} date range(s) could not be harvested even at minimum granularity:")
         for r in failed_ranges:

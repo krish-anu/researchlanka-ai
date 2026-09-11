@@ -19,7 +19,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from utils.column_resolve import clean_str, is_present
+from src.utils.column_resolve import clean_str, is_present
 
 __all__ = [
     "extract_title",

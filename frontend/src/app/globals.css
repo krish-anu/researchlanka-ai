@@ -1,0 +1,305 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — "SL Research Portfolio" (Stitch design system).
+ *
+ * The system is Academic Rigor meets Machine Intelligence: a "Paper & Ink"
+ * petrol/off-white foundation, strictly flat (depth comes from tonal steps and
+ * 1px hairline rules, never shadows), on a 4px baseline with a 4px radius.
+ *
+ * Three colour tiers carry meaning and must not be used decoratively:
+ *   - brand (petrol)    primary actions and the default chart series
+ *   - machine (violet)  anything AI-generated, so synthesis is never mistaken
+ *                       for human-authored metadata
+ *   - provenance (src)  one hue per source dataset, used by the stripe
+ *
+ * Dark values are the design system's own inverse/fixed-dim steps rather than
+ * an automatic inversion of the light palette.
+ *
+ * The three categorical series slots are checked by
+ * `scripts/check-series-contrast.mjs`, which is the authority on them: every
+ * pair clears ΔE2000 20 under normal vision and all three dichromacies, and
+ * every slot clears 3:1 against both surfaces, in both modes. Change a series
+ * value and run that script — the margins are not large enough to eyeball.
+ * Charts still ship a table view (`TableDisclosure`) regardless, as a
+ * non-colour route to the same numbers.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Paper & ink foundation. */
+  --page: #f3faff;
+  --surface: #ffffff;
+  --sunk: #d3e5ef;
+  --ink: #0d1e25;
+  --ink-secondary: #3f484a;
+  --muted: #6f797a;
+  --rule: #bfc8c9;
+  --grid: #d9ebf5;
+  --baseline: #bfc8c9;
+  --wash: #e6f6ff;
+
+  /* Brand — petrol. */
+  --primary: #004349;
+  --primary-hover: #0e5c63;
+  --on-primary: #ffffff;
+  --primary-container: #0e5c63;
+  --primary-muted: #cce4e7;
+
+  /* Highlight — turmeric. Citations and secondary focus. */
+  --accent: #7f5600;
+  --accent-container: #fec56a;
+
+  /* Machine — violet. Reserved for AI-generated content. */
+  --machine: #4b297b;
+  --machine-strong: #563587;
+  --machine-container: #ecdcff;
+
+  /* Provenance — one hue per source dataset. */
+  --src-openalex: #0e5c63;
+  --src-crossref: #8a5f07;
+  --src-sljol: #6d4c9f;
+  --src-repository: #4d9aa4;
+  --src-other: #6f797a;
+
+  /*
+   * Chart series. Petrol and turmeric are the brand hues; the third slot is a
+   * deep plum rather than the brand violet, because violet is reserved for the
+   * machine tier and a violet series would read as "this data is AI-generated".
+   * Series petrol runs lighter than `--primary`: the UI needs text contrast,
+   * charts need separation from each other, and those pull in opposite ways.
+   */
+  --series-1: #18818b;
+  --series-2: #7f5600;
+  --series-3: #3d0a33;
+
+  /* Single-hue sequential ramp (petrol), light -> dark. */
+  --seq-200: #aceef6;
+  --seq-300: #90d1d9;
+  --seq-450: #20676f;
+  --seq-550: #0e5c63;
+  --seq-650: #004349;
+
+  --good: #1c6b3f;
+  --warning: #7f5600;
+  --serious: #a8481b;
+  --critical: #ba1a1a;
+  --success-text: #1c6b3f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --page: #0e1f26;
+    --surface: #16303a;
+    --sunk: #0a181e;
+    --ink: #e1f4fd;
+    --ink-secondary: #bfc8c9;
+    --muted: #94a1a3;
+    --rule: #3f484a;
+    --grid: #2a3d45;
+    --baseline: #3f484a;
+    --wash: #22333a;
+
+    --primary: #90d1d9;
+    --primary-hover: #aceef6;
+    --on-primary: #002023;
+    --primary-container: #004f55;
+    --primary-muted: #00363b;
+
+    --accent: #f5bd63;
+    --accent-container: #604100;
+
+    --machine: #d6baff;
+    --machine-strong: #ecdcff;
+    --machine-container: #37206b;
+
+    --src-openalex: #90d1d9;
+    --src-crossref: #f5bd63;
+    --src-sljol: #d6baff;
+    --src-repository: #4d9aa4;
+    --src-other: #94a1a3;
+
+    --series-1: #aceef6;
+    --series-2: #f5bd63;
+    --series-3: #d1478c;
+
+    --seq-200: #00363b;
+    --seq-300: #004f55;
+    --seq-450: #20676f;
+    --seq-550: #90d1d9;
+    --seq-650: #aceef6;
+
+    --good: #6bd39a;
+    --warning: #f5bd63;
+    --serious: #ffb59a;
+    --critical: #ffb4ab;
+    --success-text: #6bd39a;
+  }
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-sunk: var(--sunk);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-grid: var(--grid);
+  --color-baseline: var(--baseline);
+  --color-wash: var(--wash);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-primary-muted: var(--primary-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-container: var(--accent-container);
+
+  --color-machine: var(--machine);
+  --color-machine-strong: var(--machine-strong);
+  --color-machine-container: var(--machine-container);
+
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --color-success-text: var(--success-text);
+
+  /* Archivo for headings, IBM Plex Sans for prose, IBM Plex Mono for IDs. */
+  --font-sans: var(--font-plex-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-archivo), var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "Cascadia Mono", monospace;
+
+  /* Type scale from the design system. */
+  --text-h1: 40px;
+  --text-h1--line-height: 1.1;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h1--font-weight: 700;
+  --text-h2: 24px;
+  --text-h2--line-height: 1.2;
+  --text-h2--font-weight: 600;
+  --text-h3: 20px;
+  --text-h3--line-height: 1.2;
+  --text-h3--font-weight: 600;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 1.6;
+  --text-body-md: 16px;
+  --text-body-md--line-height: 1.5;
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.4;
+  --text-mono: 13px;
+  --text-mono--line-height: 1;
+  --text-mono--letter-spacing: 0.02em;
+  --text-label: 12px;
+  --text-label--line-height: 1;
+  --text-label--font-weight: 700;
+
+  /* 4px baseline. */
+  --spacing: 4px;
+
+  /* Disciplined geometry: a single 4px radius on every container and control. */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--page);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Headings carry the display face; sizes stay with the utilities per use. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
+
+  /* Axis ticks and table columns align vertically; prose keeps proportional figures. */
+  th,
+  td,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Flat by rule: a card is a surface plus a hairline, never a shadow. */
+  .panel {
+    background-color: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+  }
+
+  /* Recessed areas — inputs, code blocks, nested metadata — are cut into the page. */
+  .sunk {
+    background-color: var(--sunk);
+    border-radius: 4px;
+  }
+
+  /*
+   * AI-generated panels are tinted violet so synthesis is never read as
+   * human-verified metadata.
+   */
+  .machine-panel {
+    background-color: var(--machine-container);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--machine);
+    border-radius: 4px;
+  }
+
+  /* DOIs, ORCIDs and other machine identifiers. */
+  .data-mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Small-caps category headers and short UI labels. */
+  .label-caps {
+    font-family: var(--font-display);
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Wide content must scroll inside its own box; the page never scrolls sideways. */
+  .scroll-x {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+}

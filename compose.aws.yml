@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-researchlanka}
+      POSTGRES_USER: ${POSTGRES_USER:-researchlanka_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-researchlanka_user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-researchlanka}
+      RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH: ${RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH:-data/models/publication_text_embeddings_cli_sample.parquet}
+      RESEARCHLANKA_SEMANTIC_MODEL_PATH: ${RESEARCHLANKA_SEMANTIC_MODEL_PATH:-data/models/publication_text_embedding_model_cli_sample.joblib}
+      RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH: ${RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH:-data/models/ai_relevance/ai_relevance_linear_svm.joblib}
+      RESEARCHLANKA_INCREMENTAL_STATE_BACKEND: ${RESEARCHLANKA_INCREMENTAL_STATE_BACKEND:-database}
+      RESEARCHLANKA_INCREMENTAL_STATE_KEY: ${RESEARCHLANKA_INCREMENTAL_STATE_KEY:-openalex_incremental}
+      OPENALEX_EMAIL: ${OPENALEX_EMAIL:-}
+    volumes:
+      - ./backend/data:/app/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import json, urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)); raise SystemExit(0 if data.get('data', {}).get('status') == 'ok' else 1)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:8080/api/v1
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      SEED_TEST_ACCOUNTS: "false"
+      APP_DATA_DIR: /app/.data
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - frontend_app_data:/app/.data
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  frontend_app_data:

@@ -11,10 +11,13 @@ This report set documents metadata quality, cleaning decisions, and interpretati
 | Final 26-column dataset decisions | [07_last_26_columns_final_dataset_decisions.md](07_last_26_columns_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_final_26_columns.py` | `data/reports/column_analysis/` |
 | Column 26-50 dataset decisions | [08_columns_26_50_final_dataset_decisions.md](08_columns_26_50_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_second_25_columns.py` | `data/reports/column_analysis/` |
 | Column 1-25 dataset decisions | [09_columns_1_25_final_dataset_decisions.md](09_columns_1_25_final_dataset_decisions.md) | `scripts/analysis/columns/analyze_first_25_columns.py` | `data/reports/column_analysis/` |
-| Institution, affiliation and country standardization | [10_institution_and_affiliation_standardization.md](10_institution_and_affiliation_standardization.md) | `src/pipeline/build_institution_normalized_dataset.py` | `data/processed/common/` |
+| Institution, affiliation and country standardization | [10_institution_and_affiliation_standardization.md](10_institution_and_affiliation_standardization.md) | `src/pipeline/build_institution_normalized_dataset.py` | `data/processed/common/` | 
 | Publication type and venue standardization | [11_publication_type_and_venue_standardization.md](11_publication_type_and_venue_standardization.md) | `src/pipeline/build_type_journal_normalized_dataset.py` | `data/processed/common/` |
 | False duplicate match analysis | [12_false_duplicate_match_analysis.md](12_false_duplicate_match_analysis.md) | `src/quality/analyze_false_duplicate_matches.py` | `data/processed/common/duplicate_match_analysis/` |
 | Missed duplicate record analysis | [13_missed_duplicate_record_analysis.md](13_missed_duplicate_record_analysis.md) | `src/quality/analyze_missed_duplicate_records.py` | `data/processed/common/missed_duplicate_analysis/` |
+| Author disambiguation and review | [14_author_disambiguation.md](14_author_disambiguation.md) | `src/pipeline/build_author_disambiguated_dataset.py`, `src/quality/review_ambiguous_authors.py` | `data/processed/common/` |
+| Author, institution, citation and collaboration validation | [15_dataset_field_validation.md](15_dataset_field_validation.md) | `src/quality/validate_analysis_dataset.py` | `data/reports/validation/` |
+| Model evaluation and the Naive Bayes baseline | [16_model_evaluation_and_baselines.md](16_model_evaluation_and_baselines.md) | `src/modeling/training.py`, `src/modeling/evaluation.py` | `data/models/` |
 
 ## Running the pipeline
 

@@ -14,6 +14,7 @@ TEXT_FILTER_COLUMNS = {
 MULTIVALUE_FILTER_COLUMNS = {
     "institution": ("institutions", "sri_lankan_institutions"),
     "country": ("countries",),
+    "researcher": ("authors", "sri_lankan_authors"),
     "topic": ("topics", "concepts", "primary_topic"),
     "source_dataset": ("source_dataset",),
 }
@@ -31,12 +32,14 @@ PUBLICATION_SEARCH_VECTOR_SQL = (
     ")"
 )
 
+PUBLICATION_YEAR_SQL = "EXTRACT(YEAR FROM publication_date)::int"
+
 SORT_SQL = {
-    "relevance": "publication_year DESC NULLS LAST, title ASC NULLS LAST",
-    "year_desc": "publication_year DESC NULLS LAST, title ASC NULLS LAST",
-    "year_asc": "publication_year ASC NULLS LAST, title ASC NULLS LAST",
-    "citations_desc": "citation_count DESC NULLS LAST, publication_year DESC NULLS LAST",
-    "title_asc": "title ASC NULLS LAST, publication_year DESC NULLS LAST",
+    "relevance": f"{PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST",
+    "year_desc": f"{PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST",
+    "year_asc": f"{PUBLICATION_YEAR_SQL} ASC NULLS LAST, title ASC NULLS LAST",
+    "citations_desc": f"citation_count DESC NULLS LAST, {PUBLICATION_YEAR_SQL} DESC NULLS LAST",
+    "title_asc": f"title ASC NULLS LAST, {PUBLICATION_YEAR_SQL} DESC NULLS LAST",
 }
 
 BASE_COLUMNS = [
@@ -56,9 +59,11 @@ BASE_COLUMNS = [
     "publication_date",
     "type",
     "authors",
+    "author_ids",
     "author_count",
     "author_affiliations",
     "author_orcids",
+    "author_disambiguation_level",
     "sri_lankan_authors",
     "contributors",
     "institutions",
@@ -87,6 +92,10 @@ BASE_COLUMNS = [
     "primary_field",
     "primary_subfield",
     "primary_domain",
+    "ai_classification_label",
+    "ai_classification_confidence",
+    "ai_classification_model",
+    "ai_classification_reason",
     "funder_name",
     "funder_doi",
     "funder_identifier",
@@ -112,10 +121,10 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
         )
         params.append(filters["q"])
     if filters.get("year_min") is not None:
-        clauses.append("publication_year >= %s")
+        clauses.append(f"{PUBLICATION_YEAR_SQL} >= %s")
         params.append(filters["year_min"])
     if filters.get("year_max") is not None:
-        clauses.append("publication_year <= %s")
+        clauses.append(f"{PUBLICATION_YEAR_SQL} <= %s")
         params.append(filters["year_max"])
     for key, column in TEXT_FILTER_COLUMNS.items():
         values = filters.get(key)
@@ -153,13 +162,26 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
                 flag_clauses.append("abstract IS NULL")
         if flag_clauses:
             clauses.append("(" + " OR ".join(flag_clauses) + ")")
+    publication_keys = filters.get("publication_keys")
+    if publication_keys is not None:
+        if publication_keys:
+            clauses.append("publication_key = ANY(%s)")
+            params.append(publication_keys)
+        else:
+            clauses.append("FALSE")
     if not clauses:
         return "", params
     return "WHERE " + " AND ".join(clauses), params
 
 
 def select_columns(columns: list[str]) -> str:
-    return ", ".join(quote_identifier(column) for column in columns)
+    selected = []
+    for column in columns:
+        if column == "publication_year":
+            selected.append(f"{PUBLICATION_YEAR_SQL} AS {quote_identifier(column)}")
+        else:
+            selected.append(quote_identifier(column))
+    return ", ".join(selected)
 
 
 def quote_identifier(identifier: str) -> str:

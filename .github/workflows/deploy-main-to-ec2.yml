@@ -1,0 +1,55 @@
+name: Deploy Main To EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Promote Dev To Main"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main-to-ec2
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Compose Stack
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Prepare SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          test -n "$EC2_HOST"
+          test -n "$EC2_SSH_KEY"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/researchlanka_ec2
+          chmod 600 ~/.ssh/researchlanka_ec2
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
+        run: |
+          USER_NAME="${EC2_USER:-ubuntu}"
+          APP_DIR="${EC2_APP_DIR:-/home/ubuntu/researchlanka-ai}"
+          ssh -i ~/.ssh/researchlanka_ec2 "$USER_NAME@$EC2_HOST" "APP_DIR='$APP_DIR' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$APP_DIR"
+          git fetch origin main
+          git reset --hard origin/main
+          docker compose -f compose.aws.yml up -d --build --force-recreate --remove-orphans
+          docker compose -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
+          docker compose -f compose.aws.yml restart api frontend
+          docker image prune -f
+          docker compose -f compose.aws.yml ps
+          REMOTE

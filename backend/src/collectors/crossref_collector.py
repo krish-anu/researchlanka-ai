@@ -31,14 +31,19 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from src.collectors.http import create_retry_session
-from src.preprocessing.crossref_normalizer import reduce_work
+from src.preprocessing.crossref_normalizer import (
+    author_affiliation_names,
+    first_author_is_from_sri_lanka,
+    first_author_record,
+    reduce_work,
+)
 
 
 CROSSREF_BASE_URL = "https://api.crossref.org"
 
 USER_AGENT = "SriLankaCollector/1.0"
 DEFAULT_PUBLICATION_START_YEAR = 2016
-DEFAULT_PUBLICATION_END_YEAR = 2026
+DEFAULT_PUBLICATION_END_YEAR = date.today().year
 
 
 logger = logging.getLogger(__name__)
@@ -89,13 +94,13 @@ class CrossrefCollector:
     # =====================================================
 
     def fetch_works(
-    self,
-    *,
-    affiliation_query: str,
-    filters: list[str] | None = None,
-    rows: int = 100,
-    cursor: str = "*",
-) -> dict[str, Any]:
+        self,
+        *,
+        affiliation_query: str,
+        filters: list[str] | None = None,
+        rows: int = 100,
+        cursor: str = "*",
+    ) -> dict[str, Any]:
         """
         Query Crossref works using affiliation.
 
@@ -109,7 +114,7 @@ class CrossrefCollector:
             "cursor": cursor,
         }
         if filters:
-         params["filter"] = ",".join(filters)    
+            params["filter"] = ",".join(filters)
 
         response = self.session.get(
             f"{self.base_url}/works", params=params, timeout=self.timeout
@@ -119,18 +124,39 @@ class CrossrefCollector:
 
         return response.json()
 
-    def iter_works(
+    def iter_affiliation_works(
         self,
         *,
         affiliation_query: str,
         filters: list[str] | None = None,
         rows: int = 100,
         max_records: int | None = None,
+        require_first_author_lk: bool = False,
+        start_year: int | None = DEFAULT_PUBLICATION_START_YEAR,
+        end_year: int | None = DEFAULT_PUBLICATION_END_YEAR,
     ) -> Iterator[dict[str, Any]]:
-        """
-        Collect all works matching affiliation.
+        """Yield normalized works whose affiliations match ``affiliation_query``.
 
-        Uses Crossref cursor pagination.
+        Walks Crossref cursor pagination until the API stops returning a
+        ``next-cursor`` (or ``max_records`` is reached), keeps only
+        ``journal-article`` entries, and yields each one through
+        :func:`~src.preprocessing.crossref_normalizer.reduce_work`. Records
+        whose normalization raises are logged and skipped rather than aborting
+        the scan, so one malformed payload cannot end a long collection.
+
+        Args:
+            affiliation_query: Free-text affiliation, e.g. "University of
+                Moratuwa Sri Lanka".
+            filters: Optional raw Crossref filter expressions, joined with
+                commas, e.g. ``["from-pub-date:2016-01-01"]``.
+            rows: Page size requested from the API.
+            max_records: Stop after yielding this many records; ``None``
+                collects everything the query matches.
+            start_year: Earliest publication year to yield. Defaults to 2016.
+            end_year: Latest publication year to yield. Defaults to the current year.
+
+        Yields:
+            One normalized work dict per matching journal article.
         """
 
         cursor = "*"
@@ -161,6 +187,14 @@ class CrossrefCollector:
 
                 if work.get("type") != "journal-article":
                     continue
+                if not is_crossref_work_in_publication_year_range(
+                    work,
+                    start_year=start_year,
+                    end_year=end_year,
+                ):
+                    continue
+                if require_first_author_lk and not first_author_is_from_sri_lanka(work):
+                    continue
 
                 try:
                     normalized = reduce_work(work)
@@ -177,14 +211,31 @@ class CrossrefCollector:
             time.sleep(0.2)
 
     def iter_works(
-        self, *, affiliation_query: str, rows: int = 100, max_records: int | None = None
+        self,
+        *,
+        affiliation_query: str,
+        filters: list[str] | None = None,
+        rows: int = 100,
+        max_records: int | None = None,
+        require_first_author_lk: bool = False,
+        start_year: int | None = DEFAULT_PUBLICATION_START_YEAR,
+        end_year: int | None = DEFAULT_PUBLICATION_END_YEAR,
     ) -> Iterator[dict[str, Any]]:
-        """Backward-compatible alias for affiliation-based work iteration."""
+        """Backward-compatible alias for :meth:`iter_affiliation_works`.
+
+        Kept because callers and tests still use the older, less specific name.
+        It forwards every argument unchanged -- notably ``filters``, which the
+        date-windowed pipelines rely on.
+        """
 
         yield from self.iter_affiliation_works(
             affiliation_query=affiliation_query,
+            filters=filters,
             rows=rows,
             max_records=max_records,
+            require_first_author_lk=require_first_author_lk,
+            start_year=start_year,
+            end_year=end_year,
         )
 
     # =====================================================
@@ -282,6 +333,8 @@ class CrossrefPrefixCollector:
         max_records: int | None = None,
         filters: list[str] | None = None,
         repeated_cursor_policy: str = "stop",
+        start_year: int | None = DEFAULT_PUBLICATION_START_YEAR,
+        end_year: int | None = DEFAULT_PUBLICATION_END_YEAR,
     ) -> Iterator[dict[str, Any]]:
         """Yield raw Crossref work records using cursor pagination."""
 
@@ -311,6 +364,12 @@ class CrossrefPrefixCollector:
                 break
 
             for work in items:
+                if not is_crossref_work_in_publication_year_range(
+                    work,
+                    start_year=start_year,
+                    end_year=end_year,
+                ):
+                    continue
                 if max_records is not None and records_seen >= max_records:
                     return
                 records_seen += 1
@@ -344,8 +403,9 @@ class CrossrefPrefixCollector:
     ) -> Iterator[dict[str, Any]]:
         """Yield prefix works using recursive date windows to avoid cursor loops."""
 
-        final_year = end_year or DEFAULT_PUBLICATION_END_YEAR
-        start_date = date(start_year, 1, 1)
+        effective_start_year = max(start_year, DEFAULT_PUBLICATION_START_YEAR)
+        final_year = min(end_year or DEFAULT_PUBLICATION_END_YEAR, DEFAULT_PUBLICATION_END_YEAR)
+        start_date = date(effective_start_year, 1, 1)
         end_date = date(final_year, 12, 31)
         seen_keys: set[str] = set()
         yielded_count = 0
@@ -368,6 +428,8 @@ class CrossrefPrefixCollector:
                     max_records=remaining,
                     filters=filters,
                     repeated_cursor_policy="raise",
+                    start_year=effective_start_year,
+                    end_year=final_year,
                 ):
                     key = crossref_work_key(work)
                     if key in seen_keys:
@@ -420,6 +482,31 @@ def crossref_work_key(work: dict[str, Any]) -> str:
         title_text = "" if title is None else str(title).strip()
     year = _first_year(work)
     return f"title-year:{title_text.casefold()}:{year or ''}"
+
+
+def is_crossref_work_in_publication_year_range(
+    work: dict[str, Any],
+    *,
+    start_year: int | None = DEFAULT_PUBLICATION_START_YEAR,
+    end_year: int | None = DEFAULT_PUBLICATION_END_YEAR,
+) -> bool:
+    """Return True only for Crossref works inside the publication-year window."""
+
+    if start_year is None and end_year is None:
+        return True
+    effective_start_year = max(
+        start_year or DEFAULT_PUBLICATION_START_YEAR,
+        DEFAULT_PUBLICATION_START_YEAR,
+    )
+    year = _first_year(work)
+    if year is None:
+        return False
+    if year < effective_start_year:
+        return False
+    effective_end_year = min(end_year or DEFAULT_PUBLICATION_END_YEAR, DEFAULT_PUBLICATION_END_YEAR)
+    if year > effective_end_year:
+        return False
+    return True
 
 
 def _first_year(work: dict[str, Any]) -> int | None:

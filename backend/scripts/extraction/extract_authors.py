@@ -4,17 +4,19 @@ Extract author information (collapses authors/author_names into one
 canonical field per record).
 
 Usage:
-    python scripts/extract_authors.py --input path/to/dataset.csv --output outputs/author_info.csv
+    python scripts/extraction/extract_authors.py --input path/to/dataset.csv --output outputs/author_info.csv
 """
 
 import argparse
-import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Allow `python scripts/extraction/<script>.py` from anywhere by putting the
+# backend root (two levels up) on sys.path before importing `src.*`.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from utils.io_utils import load_dataset, save_dataset
-from utils.author_utils import extract_authors_batch
+from src.utils.io_utils import load_dataset, save_dataset
+from src.utils.author_utils import extract_authors_batch
 
 
 def main():
@@ -35,7 +37,8 @@ def main():
     )
     args = parser.parse_args()
 
-    df = load_dataset(args.input, check_full_schema=True)
+    # extract_authors reads these; every other column is passed through.
+    df = load_dataset(args.input, required_columns=["authors"])
     result = extract_authors_batch(df, batch_size=args.batch_size)
 
     combined = df.join(result, rsuffix="_extracted")
