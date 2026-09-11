@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Promote Dev To Main"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -17,6 +20,7 @@ jobs:
     name: Deploy Compose Stack
     runs-on: ubuntu-latest
     environment: production
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Prepare SSH
         env:
