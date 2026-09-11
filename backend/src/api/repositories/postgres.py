@@ -15,7 +15,7 @@ from src.api.core.constants import (
     PUBLICATION_COVERAGE_START_YEAR,
 )
 from src.analytics import network
-from src.api.core.serializers import quality_flags, split_semicolon_value
+from src.api.core.serializers import split_semicolon_value
 from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.repositories.sql import (
     BASE_COLUMNS,

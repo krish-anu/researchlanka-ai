@@ -9,7 +9,6 @@ exclude, and work-level query-leakage cases.
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import logging
 import random

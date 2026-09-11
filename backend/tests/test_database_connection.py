@@ -5,7 +5,6 @@ import pytest
 
 from src.database.connection import (
     DEFAULT_DATABASE_URL,
-    check_connection,
     get_connection,
     get_database_url,
 )

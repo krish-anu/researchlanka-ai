@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { CompareBarChart } from "@/components/charts/CompareBarChart";
 import { ChartPanel } from "@/components/ui/ChartPanel";
-import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
+import { DataTable } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { compareInstitutions, listInstitutions } from "@/services/api";
 import type { SearchParams } from "@/services/filters";
