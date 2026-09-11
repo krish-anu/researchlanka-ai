@@ -43,6 +43,10 @@ SORT_SQL = {
     "title_asc": f"title ASC NULLS LAST, {PUBLICATION_YEAR_SQL} DESC NULLS LAST",
 }
 
+
+def nonempty_condition(column: str) -> str:
+    return f"NULLIF(btrim(coalesce({quote_identifier(column)}::text, '')), '') IS NOT NULL"
+
 BASE_COLUMNS = [
     "publication_key",
     "source_dataset",
@@ -146,9 +150,11 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
     if filters.get("is_oa") is not None:
         clauses.append("is_oa IS %s" % ("TRUE" if filters["is_oa"] else "FALSE"))
     if filters.get("has_doi") is not None:
-        clauses.append("doi IS %s NULL" % ("NOT" if filters["has_doi"] else ""))
+        condition = nonempty_condition("doi")
+        clauses.append(condition if filters["has_doi"] else f"NOT ({condition})")
     if filters.get("has_abstract") is not None:
-        clauses.append("abstract IS %s NULL" % ("NOT" if filters["has_abstract"] else ""))
+        condition = nonempty_condition("abstract")
+        clauses.append(condition if filters["has_abstract"] else f"NOT ({condition})")
     quality_values = filters.get("quality_flag")
     if quality_values:
         flag_clauses = []
@@ -158,9 +164,9 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
             elif flag == "reference_count_divergence":
                 flag_clauses.append("reference_count_divergence_flag IS TRUE")
             elif flag == "missing_doi":
-                flag_clauses.append("doi IS NULL")
+                flag_clauses.append(f"NOT ({nonempty_condition('doi')})")
             elif flag == "missing_abstract":
-                flag_clauses.append("abstract IS NULL")
+                flag_clauses.append(f"NOT ({nonempty_condition('abstract')})")
         if flag_clauses:
             clauses.append("(" + " OR ".join(flag_clauses) + ")")
     publication_keys = filters.get("publication_keys")
