@@ -1,0 +1,134 @@
+{
+  "yearWindow": {
+    "min": 2016,
+    "max": 2026
+  },
+  "publicationsByYear": [
+    {
+      "label": "2016",
+      "value": 2069
+    },
+    {
+      "label": "2017",
+      "value": 2315
+    },
+    {
+      "label": "2018",
+      "value": 2732
+    },
+    {
+      "label": "2019",
+      "value": 3053
+    },
+    {
+      "label": "2020",
+      "value": 3726
+    },
+    {
+      "label": "2021",
+      "value": 5181
+    },
+    {
+      "label": "2022",
+      "value": 4485
+    },
+    {
+      "label": "2023",
+      "value": 4126
+    },
+    {
+      "label": "2024",
+      "value": 3898
+    },
+    {
+      "label": "2025",
+      "value": 5400
+    },
+    {
+      "label": "2026",
+      "value": 4078
+    }
+  ],
+  "mainSources": [
+    {
+      "label": "Repositories",
+      "value": 42261
+    },
+    {
+      "label": "OpenAlex",
+      "value": 53672
+    },
+    {
+      "label": "Crossref",
+      "value": 48507
+    },
+    {
+      "label": "SLJOL",
+      "value": 18362
+    }
+  ],
+  "multiSourceCombinations": [
+    {
+      "label": "OpenAlex",
+      "value": 22787
+    },
+    {
+      "label": "OpenAlex + SLJOL",
+      "value": 8166
+    },
+    {
+      "label": "OpenAlex + Crossref",
+      "value": 6394
+    },
+    {
+      "label": "OpenAlex + Repositories",
+      "value": 2317
+    },
+    {
+      "label": "OpenAlex + Crossref + Repositories",
+      "value": 1159
+    },
+    {
+      "label": "OpenAlex + SLJOL + Repositories",
+      "value": 206
+    },
+    {
+      "label": "Crossref + OpenAlex",
+      "value": 33
+    },
+    {
+      "label": "Crossref + OpenAlex + Repositories",
+      "value": 1
+    }
+  ],
+  "deduplication": [
+    {
+      "label": "Exact title + year, different DOIs",
+      "value": 2015
+    },
+    {
+      "label": "Same DOI, title/year differs",
+      "value": 747
+    }
+  ],
+  "modelComparison": [
+    {
+      "label": "Linear SVM",
+      "accuracy": 88.53,
+      "macroF1": 87.38,
+      "weightedF1": 88.52
+    },
+    {
+      "label": "Logistic Regression",
+      "accuracy": 86.86,
+      "macroF1": 85.78,
+      "weightedF1": 86.88
+    },
+    {
+      "label": "Multinomial NB",
+      "accuracy": 81.8,
+      "macroF1": 79.09,
+      "weightedF1": 81.41
+    }
+  ]
+}

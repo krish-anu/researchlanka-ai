@@ -8,6 +8,10 @@ from urllib.parse import unquote
 
 from src.api.core.constants import API_PREFIX
 from src.api.core.errors import APIError
+from src.api.services.incremental_admin import (
+    read_incremental_status,
+    start_incremental_update,
+)
 from src.api.services.publications import ResearchLankaAPI
 
 
@@ -28,6 +32,10 @@ def route_get(
         return service.list_publications(query)
     if path == f"{API_PREFIX}/search/suggest":
         return service.suggestions(query)
+    if path == f"{API_PREFIX}/search/semantic":
+        return service.semantic_search(query)
+    if path in {f"{API_PREFIX}/search/similarity", f"{API_PREFIX}/search/similar"}:
+        return service.similarity_search(query)
     if path == f"{API_PREFIX}/search/facets":
         return service.facets(query)
     if path == f"{API_PREFIX}/researchers":
@@ -52,6 +60,8 @@ def route_get(
         return service.collaboration_network(query)
     if path == f"{API_PREFIX}/analytics/data-quality":
         return service.data_quality(query)
+    if path == f"{API_PREFIX}/admin/incremental/status":
+        return {"data": read_incremental_status(), "meta": service._meta()}
     if path == f"{API_PREFIX}/exports/publications.csv":
         return service.export_publications(query, file_format="csv")
     if path == f"{API_PREFIX}/exports/publications.jsonl":
@@ -61,12 +71,16 @@ def route_get(
     if match:
         return service.export_analytics(query, name=match.group(1))
 
-    match = re.fullmatch(rf"{API_PREFIX}/publications/(.+)/(references|count-audit)", path)
+    match = re.fullmatch(rf"{API_PREFIX}/publications/(.+)/(references|count-audit|related|similar)", path)
     if match:
         publication_key = unquote(match.group(1))
         child = match.group(2)
         if child == "references":
             return service.publication_references(publication_key, query)
+        if child == "related":
+            return service.related_publications(publication_key, query)
+        if child == "similar":
+            return service.similar_publications(publication_key, query)
         return service.publication_count_audit(publication_key)
 
     match = re.fullmatch(rf"{API_PREFIX}/publications/(.+)/raw", path)
@@ -104,5 +118,19 @@ def route_get(
     match = re.fullmatch(rf"{API_PREFIX}/topics/(.+)/publications", path)
     if match:
         return service.topic_publications(unquote(match.group(1)), query)
+
+    raise APIError("not_found", "Endpoint not found.", status=404)
+
+
+def route_post(
+    service: ResearchLankaAPI,
+    path: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if path == f"{API_PREFIX}/admin/incremental/run":
+        return {
+            "data": start_incremental_update(payload),
+            "meta": service._meta(),
+        }
 
     raise APIError("not_found", "Endpoint not found.", status=404)

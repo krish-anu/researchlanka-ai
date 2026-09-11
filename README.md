@@ -5,6 +5,95 @@ This repository is organized into two top-level workspaces:
 - `backend/` - Python research analytics pipeline, API, database scripts, docs, tests, and data configuration.
 - `frontend/` - Frontend application workspace.
 
+## Quick Start
+
+From the repository root:
+
+```bash
+make install
+make dev
+```
+
+This starts the backend API at `http://127.0.0.1:8080/api/v1` and the
+frontend at `http://127.0.0.1:3000`.
+
+Google Maps institution-location confirmation is an offline data-quality step.
+It does not run during `make dev`, `make backend`, or `make frontend`; run
+`make maps-location-confirm` only when you intentionally want to collect new
+location evidence.
+
+## Dataset Ownership Policy
+
+`common_publications_all_records.csv` is the broad candidate/source-evidence
+dataset. The final application/database dataset is gated separately and contains
+only records with `ownership_decision=INCLUDE`,
+`ownership_confidence` of `HIGH` or `MEDIUM`, and
+`needs_manual_review=False`.
+
+"Sri Lanka-led" means publication-specific leadership evidence points to Sri
+Lanka, for example a Sri Lankan corresponding/project-lead affiliation.
+International collaborators are allowed. First-author-only, SLJOL venue-only,
+repository-only, missing, weak, or conflicting evidence is kept for REVIEW and
+does not enter the verified final dataset.
+
+## Fresh Clone Setup With Data
+
+Use these commands when setting up the full project on a new machine.
+
+```bash
+git clone <repository-url>
+cd researchlanka-ai
+make install
+```
+
+Start PostgreSQL and create the backend environment file:
+
+```bash
+cd backend
+printf "DATABASE_URL=postgresql://researchlanka_user:change_me@localhost:5433/researchlanka\n" > .env
+docker compose up -d db
+.venv/bin/python scripts/database/check_database_connection.py
+.venv/bin/python scripts/database/apply_database_migrations.py
+.venv/bin/python scripts/database/verify_database_schema.py
+cd ..
+```
+
+The large data and model files are not committed to git. To restore the
+prepared dataset, place `researchlanka-share-data.zip` in the repository root
+and unzip it:
+
+```bash
+unzip researchlanka-share-data.zip
+```
+
+The zip should restore these files:
+
+```text
+backend/data/processed/common/common_publications_final_2016_2026.csv
+backend/data/models/publication_text_embeddings_cli_sample.parquet
+backend/data/models/publication_text_embedding_model_cli_sample.joblib
+```
+
+Load the database and start the backend and frontend:
+
+```bash
+make reset-db-2016-now
+make dev
+```
+
+You can also run each side separately:
+
+```bash
+make backend
+make frontend
+```
+
+Use port overrides when needed:
+
+```bash
+BACKEND_PORT=8082 FRONTEND_PORT=3001 make dev
+```
+
 ## Backend
 
 Run backend commands from the backend folder:
@@ -19,6 +108,30 @@ pytest
 
 The full backend README is in `backend/README.md`.
 
+## Kaggle Run
+
+For a complete Kaggle guide from uploading the dataset to downloading the final
+outputs, see `KAGGLE_README.md`.
+
+Recommended Kaggle notebook:
+
+```text
+dse-project.ipynb
+```
+
+Alternative copy:
+
+```text
+notebooks/kaggle_run_main_full_pipeline.ipynb
+```
+
 ## Frontend
 
 Frontend code should be added inside `frontend/`.
+
+## AWS Deployment
+
+For the EC2 Docker Compose deployment path, see
+[`docs/aws-ec2-app-deployment.md`](docs/aws-ec2-app-deployment.md). For monthly
+data/model refresh automation on AWS, see
+[`docs/aws-monthly-automation.md`](docs/aws-monthly-automation.md).

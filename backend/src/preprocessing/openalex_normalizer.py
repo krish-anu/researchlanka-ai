@@ -5,6 +5,10 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
+from src.preprocessing.ownership import (
+    OWNERSHIP_POLICY_VERSION,
+    openalex_publication_ownership,
+)
 from src.utils.doi import normalize_doi
 
 
@@ -26,6 +30,40 @@ CSV_COLUMNS = [
     "raw_affiliation_strings",
     "sri_lankan_raw_affiliation_strings",
     "countries",
+    "first_author_countries",
+    "corresponding_author_countries",
+    "first_author_name",
+    "first_author_institution",
+    "first_author_country",
+    "corresponding_author_name",
+    "corresponding_author_institution",
+    "corresponding_author_country",
+    "last_author_name",
+    "last_author_institution",
+    "last_author_country",
+    "project_pi",
+    "project_lead_institution",
+    "project_lead_country",
+    "degree_awarding_institution",
+    "repository_institution",
+    "funder",
+    "grant_award",
+    "all_author_countries",
+    "has_sri_lankan_participant",
+    "has_foreign_participant",
+    "venue_is_sri_lankan",
+    "ownership_decision",
+    "country_owner",
+    "ownership_class",
+    "ownership_classification",
+    "ownership_confidence",
+    "ownership_reason",
+    "ownership_evidence",
+    "lead_country",
+    "keep_in_strict_sri_lanka_dataset",
+    "keep_in_sri_lanka_owned_dataset",
+    "needs_manual_review",
+    "ownership_policy_version",
     "source_name",
     "publisher",
     "is_retracted",
@@ -87,6 +125,76 @@ def authorships(work: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def first_authorship(work: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the first author authorship from an OpenAlex work."""
+    valid_authorships = authorships(work)
+    if not valid_authorships:
+        return None
+    first = next(
+        (
+            authorship
+            for authorship in valid_authorships
+            if authorship.get("author_position") == "first"
+        ),
+        None,
+    )
+    if first is not None:
+        return first
+    if any(authorship.get("author_position") for authorship in valid_authorships):
+        return None
+    return valid_authorships[0]
+
+
+def last_authorship(work: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the last/senior author authorship from an OpenAlex work."""
+    valid_authorships = authorships(work)
+    if not valid_authorships:
+        return None
+    last = next(
+        (
+            authorship
+            for authorship in valid_authorships
+            if authorship.get("author_position") == "last"
+        ),
+        None,
+    )
+    if last is not None:
+        return last
+    if any(authorship.get("author_position") for authorship in valid_authorships):
+        return None
+    return valid_authorships[-1]
+
+
+def corresponding_authorships(work: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return authorships OpenAlex marks as corresponding authors."""
+    marked = [
+        authorship
+        for authorship in authorships(work)
+        if authorship.get("is_corresponding") is True
+    ]
+    if marked:
+        return marked
+
+    institution_ids = {
+        str(value)
+        for value in as_list(work.get("corresponding_institution_ids"))
+        if value
+    }
+    if not institution_ids:
+        return []
+
+    return [
+        authorship
+        for authorship in authorships(work)
+        if any(
+            isinstance(institution, dict)
+            and institution.get("id") is not None
+            and str(institution["id"]) in institution_ids
+            for institution in as_list(authorship.get("institutions"))
+        )
+    ]
+
+
 def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
     """Collect country codes from both authorship countries and institutions."""
     codes = {
@@ -100,9 +208,75 @@ def country_codes_from_authorship(authorship: dict[str, Any]) -> set[str]:
     return codes
 
 
+def country_codes_from_authorships(authorships_: list[dict[str, Any]]) -> set[str]:
+    """Collect country codes from several authorships."""
+    codes: set[str] = set()
+    for authorship in authorships_:
+        codes.update(country_codes_from_authorship(authorship))
+    return codes
+
+
+def first_author_country_codes(work: dict[str, Any]) -> set[str]:
+    """Return affiliation country codes from only the first authorship."""
+    first = first_authorship(work)
+    if first is None:
+        return set()
+    return country_codes_from_authorship(first)
+
+
+def corresponding_author_country_codes(work: dict[str, Any]) -> set[str]:
+    """Return affiliation country codes from corresponding authorships only."""
+    return country_codes_from_authorships(corresponding_authorships(work))
+
+
+def affiliation_institution_names(authorship: dict[str, Any] | None) -> str:
+    """Flatten publication-specific institution names for one authorship."""
+    if authorship is None:
+        return ""
+    return unique_join(
+        institution.get("display_name")
+        for institution in as_list(authorship.get("institutions"))
+        if isinstance(institution, dict)
+    )
+
+
+def affiliation_country_codes(authorship: dict[str, Any] | None) -> str:
+    """Flatten publication-specific affiliation country codes for one authorship."""
+    if authorship is None:
+        return ""
+    return unique_join(sorted(country_codes_from_authorship(authorship)))
+
+
+def corresponding_author_names(work: dict[str, Any]) -> str:
+    """Flatten names for all corresponding authors OpenAlex identifies."""
+    return unique_join(
+        author_name(authorship) for authorship in corresponding_authorships(work)
+    )
+
+
+def corresponding_author_institutions(work: dict[str, Any]) -> str:
+    """Flatten publication-specific institutions for all corresponding authors."""
+    names: list[str] = []
+    for authorship in corresponding_authorships(work):
+        text = affiliation_institution_names(authorship)
+        if text:
+            names.extend(text.split("; "))
+    return unique_join(names)
+
+
 def is_sri_lankan_authorship(authorship: dict[str, Any]) -> bool:
     """Check whether one authorship has a Sri Lankan affiliation signal."""
     return SRI_LANKA_COUNTRY_CODE in country_codes_from_authorship(authorship)
+
+
+def is_first_authorship_from_country(work: dict[str, Any], country_code: str) -> bool:
+    """Check whether the first author has an affiliation signal for a country."""
+    return country_code.upper() in first_author_country_codes(work)
+
+
+def has_sri_lankan_first_author(work: dict[str, Any]) -> bool:
+    """Check whether a work's first author has a Sri Lankan affiliation signal."""
+    return is_first_authorship_from_country(work, SRI_LANKA_COUNTRY_CODE)
 
 
 def has_sri_lankan_author(work: dict[str, Any]) -> bool:
@@ -178,6 +352,47 @@ def raw_affiliation_strings(
 def country_codes(work: dict[str, Any]) -> str:
     """Flatten all detected country codes into a stable semicolon-separated value."""
     return unique_join(sorted(detected_country_codes(work)))
+
+
+def country_owner(work: dict[str, Any]) -> str:
+    """Return the best available country leadership proxy for OpenAlex data."""
+    classification = classify_sri_lanka_ownership(work)
+    return classification["lead_country"]
+
+
+def ownership_classification(work: dict[str, Any]) -> str:
+    """Classify Sri Lanka ownership/leadership from structured affiliation metadata."""
+    return classify_sri_lanka_ownership(work)["ownership_class"]
+
+
+def keep_in_sri_lanka_owned_dataset(work: dict[str, Any]) -> bool:
+    """Return True only for records that satisfy the Sri Lankan ownership rule."""
+    return keep_in_country_owned_dataset(work, SRI_LANKA_COUNTRY_CODE)
+
+
+def keep_in_country_owned_dataset(work: dict[str, Any], country_code: str) -> bool:
+    """Return True for works owned/led by the configured country."""
+    return classify_country_ownership(work, country_code)["keep_in_strict_dataset"]
+
+
+def classify_sri_lanka_ownership(work: dict[str, Any]) -> dict[str, Any]:
+    """Classify Sri Lanka ownership/leadership using OpenAlex structured fields."""
+    return classify_country_ownership(work, SRI_LANKA_COUNTRY_CODE)
+
+
+def classify_country_ownership(work: dict[str, Any], country_code: str) -> dict[str, Any]:
+    """Classify project ownership using corresponding-author evidence before first author.
+
+    OpenAlex does not expose PI, grant-administering, degree-awarding, or project
+    host fields in the records handled here, so journal-article classification
+    uses publication-specific affiliations only and leaves weak cases for review.
+    """
+    return openalex_publication_ownership(
+        target_country=country_code,
+        all_countries=detected_country_codes(work),
+        first_author_countries=first_author_country_codes(work),
+        corresponding_author_countries=corresponding_author_country_codes(work),
+    ).as_dict()
 
 
 def detected_country_codes(work: dict[str, Any]) -> set[str]:
@@ -282,6 +497,9 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
     primary_location = work.get("primary_location") or {}
     open_access = work.get("open_access") or {}
     biblio = work.get("biblio") or {}
+    first = first_authorship(work)
+    last = last_authorship(work)
+    ownership = classify_sri_lanka_ownership(work)
     primary_topic = work.get("primary_topic")
     # Older or partial OpenAlex records may not include primary_topic, so use
     # the first topic as a best-effort classification fallback.
@@ -319,6 +537,50 @@ def work_to_row(work: dict[str, Any]) -> dict[str, Any]:
             sri_lankan_only=True,
         ),
         "countries": country_codes(work),
+        "first_author_countries": unique_join(sorted(first_author_country_codes(work))),
+        "corresponding_author_countries": unique_join(
+            sorted(corresponding_author_country_codes(work))
+        ),
+        "first_author_name": author_name(first) if first else "",
+        "first_author_institution": affiliation_institution_names(first),
+        "first_author_country": affiliation_country_codes(first),
+        "corresponding_author_name": corresponding_author_names(work),
+        "corresponding_author_institution": corresponding_author_institutions(work),
+        "corresponding_author_country": unique_join(
+            sorted(corresponding_author_country_codes(work))
+        ),
+        "last_author_name": author_name(last) if last else "",
+        "last_author_institution": affiliation_institution_names(last),
+        "last_author_country": affiliation_country_codes(last),
+        "project_pi": "",
+        "project_lead_institution": "",
+        "project_lead_country": "",
+        "degree_awarding_institution": "",
+        "repository_institution": "",
+        "funder": display_names(work.get("grants")),
+        "grant_award": unique_join(
+            grant.get("award_id")
+            for grant in as_list(work.get("grants"))
+            if isinstance(grant, dict)
+        ),
+        "all_author_countries": country_codes(work),
+        "has_sri_lankan_participant": has_sri_lankan_author(work),
+        "has_foreign_participant": bool(
+            detected_country_codes(work) - {SRI_LANKA_COUNTRY_CODE}
+        ),
+        "venue_is_sri_lankan": "",
+        "ownership_decision": ownership["ownership_decision"],
+        "country_owner": ownership["country_owner"],
+        "ownership_class": ownership["ownership_class"],
+        "ownership_classification": ownership["ownership_class"],
+        "ownership_confidence": ownership["ownership_confidence"],
+        "ownership_reason": ownership["ownership_reason"],
+        "ownership_evidence": ownership["ownership_evidence"],
+        "lead_country": ownership["lead_country"],
+        "keep_in_strict_sri_lanka_dataset": ownership["keep_in_strict_dataset"],
+        "keep_in_sri_lanka_owned_dataset": ownership["keep_in_strict_dataset"],
+        "needs_manual_review": ownership["needs_manual_review"],
+        "ownership_policy_version": OWNERSHIP_POLICY_VERSION,
         "source_name": source.get("display_name"),
         "publisher": source.get("host_organization_name"),
         "is_retracted": work.get("is_retracted") is True,

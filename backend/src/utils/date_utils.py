@@ -27,7 +27,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from utils.column_resolve import clean_str
+from src.utils.column_resolve import clean_str
 
 __all__ = [
     "extract_publication_date",
@@ -119,13 +119,14 @@ def extract_publication_date_batch(
     Apply extract_publication_date across an entire DataFrame, optionally
     in chunks.
     """
+    # Must stay in sync with the keys returned by extract_publication_date --
+    # this list is the schema used for the empty-DataFrame case, so any drift
+    # makes an empty result differ in shape from a populated one.
     cols = [
         "publication_date_clean",
         "publication_date_source",
         "publication_year_clean",
         "publication_date",
-        "published_date",
-        "created_date",
         "publication_year",
     ]
 

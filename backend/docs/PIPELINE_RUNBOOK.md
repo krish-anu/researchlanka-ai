@@ -221,6 +221,31 @@ Writes 7 files to `data/processed/common/`: `common_publications_all_records.csv
 `common_publications_manual_review_candidates.csv`, `common_publications_schema.csv`,
 `common_publications_summary.csv`, `common_publications_run_log.txt`.
 
+`common_publications_all_records.csv` is the broad candidate/source-evidence
+dataset. It intentionally keeps SLJOL-only, repository-only, first-author-only,
+and weak-affiliation records so they can be reviewed or joined by DOI to
+stronger evidence.
+
+Ownership is resolved after deduplication using a fail-closed Sri Lanka-led
+policy. Sri Lankan corresponding/project-lead evidence becomes `INCLUDE`;
+foreign corresponding/project-lead evidence with only LK participation becomes
+`EXCLUDE`; missing, first-author-only, SLJOL venue-only, repository-only, and
+conflicting evidence becomes `REVIEW`.
+
+Build and validate the verified final dataset:
+
+```bash
+make final-common PYTHON=python
+make validate-ownership PYTHON=python
+```
+
+The final filename remains `common_publications_final.csv`, but it contains only
+`INCLUDE` rows with `HIGH` or `MEDIUM` confidence and
+`needs_manual_review=False`. Sidecars preserve the non-final evidence:
+`common_publications_ownership_review.csv`,
+`common_publications_ownership_excluded.csv`, and
+`common_publications_verified_sri_lanka_owned.csv`.
+
 **Optional** — adjudicate the 2,344 manual-review candidate groups in a browser at `http://127.0.0.1:8765`:
 
 ```bash
@@ -296,6 +321,8 @@ By default this predicts `primary_domain` from `title`, `abstract`, and
 - `logistic_regression_<label>_metrics.txt` - accuracy, F1, class distribution, and classification report
 - `logistic_regression_<label>_labels.csv` - label counts after filtering small classes
 - `logistic_regression_<label>_predictions.csv` - held-out predictions for review
+- `logistic_regression_<label>_confusion_matrix.csv` - true label against predicted label, with per-row support and accuracy
+- `logistic_regression_<label>_per_class.csv` - precision, recall, F1 and support per class, with the class each one is most confused with
 - `logistic_regression_<label>_manifest.json` - run configuration, metrics, artifact paths, byte sizes, and SHA-256 checksums
 
 Use `LOGREG_LABEL_COLUMN=primary_field` or `LOGREG_LABEL_COLUMN=type` to train a
@@ -303,6 +330,27 @@ different target. Tune the reusable pipeline with `LOGREG_TEXT_COLUMNS`,
 `LOGREG_MIN_CLASS_COUNT`, `LOGREG_TEST_SIZE`, `LOGREG_MAX_FEATURES`,
 `LOGREG_MIN_DF`, `LOGREG_MAX_DF`, `LOGREG_NGRAM_MAX`, `LOGREG_MAX_ITER`, and
 `LOGREG_EXTRA_ARGS`.
+
+Train the Multinomial Naive Bayes baseline the same way:
+
+```bash
+make train-nb PYTHON=python
+```
+
+It shares the training pipeline and the TF-IDF stage with the run above, so the
+two are directly comparable, and writes the same artifact set under
+`multinomial_nb_<label>_*`. Tune it with `NB_ALPHA`, `NB_MIN_CLASS_COUNT`,
+`NB_TEST_SIZE`, and `NB_EXTRA_ARGS` (for example `NB_EXTRA_ARGS=--no-fit-prior`).
+
+Score and compare saved runs:
+
+```bash
+make evaluate-models PYTHON=python
+```
+
+This writes `<run>_confusion_matrix.csv`, `<run>_per_class.csv` and
+`<run>_evaluation.json` per run, plus `model_comparison.csv` when more than one
+run is passed. Details: [16_model_evaluation_and_baselines.md](16_model_evaluation_and_baselines.md).
 
 Model artifacts are saved through a temp-file-and-atomic-replace process. This
 keeps partially written `.joblib`, CSV, text, and manifest files out of normal
@@ -340,6 +388,12 @@ model without a training manifest for local experiments.
 
 ```bash
 make institution-registry PYTHON=python
+# Optional, review-assisted location confirmation for unresolved Crossref affiliations:
+make maps-location-confirm PYTHON=python
+make maps-location-rescore PYTHON=python
+make maps-location-apply PYTHON=python MAPS_LOCATION_APPLY_EXTRA_ARGS=--dry-run
+# review data/reports/validation/google_maps_registry_alias_application.csv, then:
+make maps-location-apply PYTHON=python
 # review the diff to configurations/sri_lanka/institutions.csv, then:
 make institution-normalize PYTHON=python
 make type-journal-normalize PYTHON=python
@@ -349,13 +403,53 @@ Without `make`:
 
 ```bash
 python -m src.pipeline.build_institution_registry
+python scripts/quality/confirm_institution_locations_google_maps.py \
+  --input data/processed/crossref/crossref_sri_lanka_works.jsonl \
+  --limit 50 --batch-size 5 --depth 1 --exit-on-inactivity 3m
+python scripts/quality/confirm_institution_locations_google_maps.py --rescore-existing
+python scripts/processing/apply_google_maps_location_evidence.py --dry-run
+python scripts/processing/apply_google_maps_location_evidence.py
 python -m src.pipeline.build_institution_normalized_dataset
 python -m src.pipeline.build_type_journal_normalized_dataset
 ```
 
 `build_institution_registry` **rewrites** `configurations/sri_lanka/institutions.csv`. It preserves existing `LK###` identifiers, but read the diff before committing — it also prints institution pairs whose names nest inside one another for manual review.
 
+`maps-location-confirm` is a review aid for Crossref affiliation strings that do
+not resolve by existing aliases. It uses the local `gosom/google-maps-scraper`
+Docker image in direct CLI mode and writes evidence to
+`data/reports/validation/google_maps_institution_location_evidence.csv`. It
+does not modify the registry and is not part of app runtime commands such as
+`make dev`, `make backend`, or `make api`. `maps-location-apply` only promotes
+rows whose Maps result is `confirmed` and whose matched title resolves to an
+existing registry institution; skipped rows are listed in
+`data/reports/validation/google_maps_registry_alias_application.csv`.
+
 Details: [10_institution_and_affiliation_standardization.md](10_institution_and_affiliation_standardization.md) and [11_publication_type_and_venue_standardization.md](11_publication_type_and_venue_standardization.md).
+
+---
+
+## 5a. Disambiguate authors
+
+Reads the institution-normalized dataset, so run section 5 first.
+
+```bash
+make author-disambiguate PYTHON=python
+make author-review PYTHON=python        # what the rules could not settle
+```
+
+Without `make`:
+
+```bash
+python -m src.pipeline.build_author_disambiguated_dataset
+python -m src.quality.review_ambiguous_authors
+```
+
+Adds `author_ids`, `author_match_methods`, `author_disambiguation_level` and `ambiguous_author_flag` to the dataset, and writes `author_registry.csv`, a summary, and `author_review_candidates.csv`.
+
+To act on the review queue: fill in `decision` / `reviewer` / `note` in `author_review_candidates.csv`, run `make author-decisions PYTHON=python` to promote and validate them, then re-run `make author-disambiguate PYTHON=python`. Verdicts live in `configurations/sri_lanka/author_decisions.csv` and are keyed on name-variant keys, so they survive between runs.
+
+Details: [14_author_disambiguation.md](14_author_disambiguation.md).
 
 ---
 
@@ -400,7 +494,10 @@ python scripts/quality/validate_repositories.py --ids kln,pgim  # force-check bl
 python scripts/quality/validate_harvested_data.py               # coverage per institution (takes no arguments)
 python scripts/quality/compare_dois.py                          # OpenAlex vs Crossref DOI overlap (takes no arguments)
 make publication-counts PYTHON=python                           # per-source record counts
+make validate-dataset PYTHON=python                             # author, institution, citation, collaboration fields
 ```
+
+Field validation reads the most-normalized dataset present and writes a summary, a gate table and an issue sample per check into `data/reports/validation/`. Add `--strict` to exit non-zero on a failed gate. Details: [15_dataset_field_validation.md](15_dataset_field_validation.md).
 
 Reports land in `data/reports/` with a UTC timestamp in the filename.
 

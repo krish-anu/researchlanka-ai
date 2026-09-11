@@ -15,6 +15,17 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from src.preprocessing.crossref_normalizer import (
+    author_affiliation_names,
+    classify_sri_lanka_ownership,
+    crossref_author_name,
+    first_author_is_from_sri_lanka,
+    first_author_record,
+    has_sri_lankan_affiliated_author,
+)
+from src.preprocessing.ownership import source_only_review
+from src.utils.doi import is_valid_doi
+
 DOI_PATTERN = re.compile(r"10\.\d{4,9}/[^\s\"'<>]+", re.IGNORECASE)
 URL_PATTERN = re.compile(r"https?://\S+")
 YEAR_PATTERN = re.compile(r"(1[5-9]\d{2}|20\d{2})")
@@ -64,6 +75,33 @@ def _extract_doi(identifiers: list[str] | None) -> str | None:
     return None
 
 
+def has_oai_dc_doi(record: dict[str, Any]) -> bool:
+    """Return True when a raw OAI-DC record contains a valid DOI."""
+    return is_valid_doi(_extract_doi(record.get("identifier")))
+
+
+def has_html_meta_doi(record: dict[str, Any]) -> bool:
+    """Return True when a raw HTML meta record contains a valid DOI."""
+    meta = record.get("meta") or {}
+    identifiers = (
+        meta.get("DC.identifier", [])
+        + meta.get("DCTERMS.identifier", [])
+        + meta.get("citation_doi", [])
+    )
+    return is_valid_doi(_extract_doi(identifiers))
+
+
+def has_dspace_rest_doi(record: dict[str, Any]) -> bool:
+    """Return True when a raw DSpace REST item contains a valid DOI."""
+    metadata = record.get("metadata") or {}
+    identifiers = (
+        metadata.get("dc.identifier.uri", [])
+        + metadata.get("dc.identifier.citation", [])
+        + metadata.get("dc.identifier.doi", [])
+    )
+    return is_valid_doi(_extract_doi(identifiers))
+
+
 def _extract_url(identifiers: list[str] | None) -> str | None:
     for identifier in identifiers or []:
         match = URL_PATTERN.search(identifier)
@@ -90,7 +128,7 @@ def map_oai_dc_record(record: dict[str, Any], *, institution_id: str) -> dict[st
     dates = record.get("date")
     issued_date = _pick_issued_date(dates)
 
-    return {
+    row = {
         "source": "institutional_repository",
         "source_institution_id": institution_id,
         "source_record_id": record.get("oai_identifier"),
@@ -112,6 +150,17 @@ def map_oai_dc_record(record: dict[str, Any], *, institution_id: str) -> dict[st
         "url": _extract_url(record.get("identifier")),
         "raw_identifiers": record.get("identifier", []),
     }
+    row.update(
+        source_only_review(
+            source="repository",
+            ownership_class="REPOSITORY_ONLY_EVIDENCE",
+            reason=(
+                "Record appears in a Sri Lankan university repository, but "
+                "repository provenance is not project ownership evidence."
+            ),
+        )
+    )
+    return row
 
 
 JATS_TAG_RE = re.compile(r"</?jats:[^>]+>|</?[a-z]+:?[^>]*>")
@@ -131,22 +180,37 @@ def map_crossref_record(record: dict[str, Any], *, institution_id: str) -> dict[
     common publication schema. Used for SLJOL (prefix 10.4038).
     """
 
-    def author_name(author: dict[str, Any]) -> str | None:
-        if author.get("name"):
-            return author["name"]
-        parts = [author.get("given"), author.get("family")]
-        joined = " ".join(p for p in parts if p)
-        return joined or None
-
-    authors = [name for a in record.get("author", []) if (name := author_name(a))]
+    authors = [
+        name
+        for author in record.get("author", [])
+        if (name := crossref_author_name(author))
+    ]
+    first_author = first_author_record(record)
 
     date_parts = (record.get("issued") or {}).get("date-parts") or [[]]
     issued = date_parts[0]
-    publication_date = "-".join(f"{part:02d}" if i else str(part) for i, part in enumerate(issued)) or None
+    publication_date = (
+        "-".join(f"{part:02d}" if i else str(part) for i, part in enumerate(issued))
+        or None
+    )
     publication_year = issued[0] if issued else None
 
     doi = record.get("DOI")
     container_titles = record.get("container-title") or []
+
+    ownership = classify_sri_lanka_ownership(record)
+    if ownership["ownership_decision"] == "REVIEW":
+        ownership.update(
+            source_only_review(
+                source="sljol",
+                ownership_class="SLJOL_VENUE_ONLY_EVIDENCE",
+                reason=(
+                    "SLJOL DOI-prefix or venue provenance is only venue evidence; "
+                    "leadership must come from author/project evidence or a DOI join."
+                ),
+                has_sri_lankan_participant=ownership["has_sri_lankan_participant"],
+            )
+        )
 
     return {
         "source": "sljol_via_crossref",
@@ -159,6 +223,13 @@ def map_crossref_record(record: dict[str, Any], *, institution_id: str) -> dict[
         "abstract": _strip_jats(record.get("abstract")),
         "keywords": record.get("subject", []),
         "authors": authors,
+        "first_author_name": crossref_author_name(first_author),
+        "first_author_affiliation": "; ".join(author_affiliation_names(first_author)),
+        "first_author_country": (
+            "LK" if first_author_is_from_sri_lanka(record) else ""
+        ),
+        "has_sri_lankan_participant": has_sri_lankan_affiliated_author(record),
+        **ownership,
         "contributors": [],
         "publication_date": publication_date,
         "publication_year": publication_year,
@@ -187,10 +258,14 @@ def map_html_meta_record(record: dict[str, Any], *, institution_id: str) -> dict
                 return meta[field]
         return []
 
-    identifiers = meta.get("DC.identifier", [])
+    identifiers = (
+        meta.get("DC.identifier", [])
+        + meta.get("DCTERMS.identifier", [])
+        + meta.get("citation_doi", [])
+    )
     issued_date = _first(values("DCTERMS.issued", "citation_date"))
 
-    return {
+    row = {
         "source": "institutional_repository",
         "source_institution_id": institution_id,
         "source_record_id": record.get("handle_path"),
@@ -212,6 +287,17 @@ def map_html_meta_record(record: dict[str, Any], *, institution_id: str) -> dict
         "url": record.get("url") or _extract_url(identifiers),
         "raw_identifiers": identifiers,
     }
+    row.update(
+        source_only_review(
+            source="repository",
+            ownership_class="REPOSITORY_ONLY_EVIDENCE",
+            reason=(
+                "Record appears in a Sri Lankan university repository, but "
+                "repository provenance is not project ownership evidence."
+            ),
+        )
+    )
+    return row
 
 
 def map_dspace_rest_record(record: dict[str, Any], *, institution_id: str) -> dict[str, Any]:
@@ -234,7 +320,7 @@ def map_dspace_rest_record(record: dict[str, Any], *, institution_id: str) -> di
     issued_date = _first(values("dc.date.issued"))
     abstract = _first(values("dc.description.abstract")) or _first(values("dc.description"))
 
-    return {
+    row = {
         "source": "institutional_repository",
         "source_institution_id": institution_id,
         "source_record_id": record.get("uuid"),
@@ -256,3 +342,14 @@ def map_dspace_rest_record(record: dict[str, Any], *, institution_id: str) -> di
         "url": _extract_url(values("dc.identifier.uri")),
         "raw_identifiers": identifiers,
     }
+    row.update(
+        source_only_review(
+            source="repository",
+            ownership_class="REPOSITORY_ONLY_EVIDENCE",
+            reason=(
+                "Record appears in a Sri Lankan university repository, but "
+                "repository provenance is not project ownership evidence."
+            ),
+        )
+    )
+    return row

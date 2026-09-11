@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -20,14 +21,41 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 DEFAULT_START_YEAR = 2016
-DEFAULT_END_YEAR = 2026
+DEFAULT_END_YEAR = date.today().year
+DEFAULT_YEAR_SUFFIX = f"{DEFAULT_START_YEAR}_{DEFAULT_END_YEAR}"
 DEFAULT_INPUT_CSV = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
 DEFAULT_OUTPUT_CSV = (
-    PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026.csv"
+    PROJECT_ROOT / "data" / "processed" / "common" / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}.csv"
 )
 DEFAULT_SUMMARY_CSV = (
-    PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_summary.csv"
+    PROJECT_ROOT / "data" / "processed" / "common" / f"common_publications_final_{DEFAULT_YEAR_SUFFIX}_summary.csv"
 )
+YEAR_SOURCE_COLUMNS = ("publication_year", "publication_date", "published_date", "created_date")
+YEAR_RE = r"(1[5-9]\d{2}|20\d{2})"
+
+
+def publication_years_for_filter(df: pd.DataFrame) -> pd.Series:
+    """Return publication years from the best available year/date column."""
+
+    years = pd.Series(pd.NA, index=df.index, dtype="Float64")
+    found_source = False
+    for column in YEAR_SOURCE_COLUMNS:
+        if column not in df.columns:
+            continue
+
+        found_source = True
+        values = df[column]
+        numeric_years = pd.to_numeric(values, errors="coerce")
+        extracted = values.astype("string").str.extract(YEAR_RE, expand=False)
+        extracted_years = pd.to_numeric(extracted, errors="coerce")
+        candidate_years = numeric_years.fillna(extracted_years)
+        years = years.fillna(candidate_years)
+
+    if not found_source:
+        raise ValueError(
+            "Input dataset must include publication_year or a date column containing a publication year."
+        )
+    return years
 
 
 def year_filter_counts(
@@ -36,10 +64,8 @@ def year_filter_counts(
     start_year: int = DEFAULT_START_YEAR,
     end_year: int = DEFAULT_END_YEAR,
 ) -> dict[str, int]:
-    if "publication_year" not in df.columns:
-        raise ValueError("Input dataset must include a publication_year column.")
-
-    years = pd.to_numeric(df["publication_year"], errors="coerce")
+    end_year = min(end_year, DEFAULT_END_YEAR)
+    years = publication_years_for_filter(df)
     missing_or_invalid = years.isna()
 
     return {
@@ -57,13 +83,11 @@ def filter_by_publication_year(
     start_year: int = DEFAULT_START_YEAR,
     end_year: int = DEFAULT_END_YEAR,
 ) -> pd.DataFrame:
+    end_year = min(end_year, DEFAULT_END_YEAR)
     if start_year > end_year:
         raise ValueError("start_year must be less than or equal to end_year.")
 
-    if "publication_year" not in df.columns:
-        raise ValueError("Input dataset must include a publication_year column.")
-
-    years = pd.to_numeric(df["publication_year"], errors="coerce")
+    years = publication_years_for_filter(df)
     keep_mask = years.between(start_year, end_year, inclusive="both")
     return df.loc[keep_mask].copy()
 
@@ -98,6 +122,7 @@ def build_year_filtered_dataset(
     start_year: int = DEFAULT_START_YEAR,
     end_year: int = DEFAULT_END_YEAR,
 ) -> pd.DataFrame:
+    end_year = min(end_year, DEFAULT_END_YEAR)
     df = pd.read_csv(input_csv, dtype="object", low_memory=False)
     counts = year_filter_counts(df, start_year=start_year, end_year=end_year)
     filtered = filter_by_publication_year(df, start_year=start_year, end_year=end_year)

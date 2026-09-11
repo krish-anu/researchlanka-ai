@@ -64,8 +64,16 @@ def model_serving_config_from_env(environ: Mapping[str, str] | None = None) -> M
         str(default_manifest_output(label_column, model_family)),
     ).strip()
     model_manifest_path = None if manifest_value.casefold() in {"", "none", "null"} else Path(manifest_value)
-    verify_checksum = parse_env_bool(environ.get("RESEARCHLANKA_MODEL_VERIFY_CHECKSUM"), default=True)
-    max_batch_size = int(environ.get("RESEARCHLANKA_MODEL_MAX_BATCH_SIZE", DEFAULT_MAX_BATCH_SIZE))
+    verify_checksum = parse_env_bool(
+        environ.get("RESEARCHLANKA_MODEL_VERIFY_CHECKSUM"),
+        default=True,
+        field="RESEARCHLANKA_MODEL_VERIFY_CHECKSUM",
+    )
+    max_batch_size = parse_env_positive_int(
+        environ.get("RESEARCHLANKA_MODEL_MAX_BATCH_SIZE"),
+        default=DEFAULT_MAX_BATCH_SIZE,
+        field="RESEARCHLANKA_MODEL_MAX_BATCH_SIZE",
+    )
     return ModelServingConfig(
         label_column=label_column,
         model_family=model_family,
@@ -83,14 +91,41 @@ def split_csv(value: str | None) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def parse_env_bool(value: str | None, *, default: bool) -> bool:
+def parse_env_bool(value: str | None, *, default: bool, field: str = "value") -> bool:
     if value is None or value == "":
         return default
     if value.casefold() in {"true", "t", "yes", "y", "1"}:
         return True
     if value.casefold() in {"false", "f", "no", "n", "0"}:
         return False
-    raise ValueError(f"Invalid boolean environment value: {value}")
+    raise APIError(
+        "invalid_model_configuration",
+        f"{field} must be a boolean value.",
+        status=500,
+        details={"field": field, "value": value},
+    )
+
+
+def parse_env_positive_int(value: str | None, *, default: int, field: str) -> int:
+    if value is None or value == "":
+        return default
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise APIError(
+            "invalid_model_configuration",
+            f"{field} must be an integer.",
+            status=500,
+            details={"field": field},
+        ) from exc
+    if parsed < 1:
+        raise APIError(
+            "invalid_model_configuration",
+            f"{field} must be at least 1.",
+            status=500,
+            details={"field": field},
+        )
+    return parsed
 
 
 def default_model_loader(
@@ -115,6 +150,7 @@ class PublicationClassifierService:
         model_loader: ModelLoader = default_model_loader,
     ) -> None:
         self.config = config or model_serving_config_from_env()
+        validate_model_serving_config(self.config)
         self.model_loader = model_loader
         self._model: Any | None = None
         self._model_sha256: str | None = None
@@ -222,8 +258,27 @@ class PublicationClassifierService:
         ]
         model, model_sha256 = self._load_model()
         texts = [item["text"] for item in prepared]
-        labels = [str(label) for label in model.predict(texts)]
-        probabilities = prediction_probabilities(model, texts)
+        try:
+            labels = [str(label) for label in model.predict(texts)]
+            probabilities = prediction_probabilities(model, texts)
+        except Exception as exc:
+            raise APIError(
+                "model_prediction_failed",
+                "Publication classifier prediction failed.",
+                status=500,
+                details={"error": str(exc)},
+            ) from exc
+        if len(labels) != len(prepared) or len(probabilities) != len(prepared):
+            raise APIError(
+                "model_prediction_failed",
+                "Publication classifier returned an invalid prediction shape.",
+                status=500,
+                details={
+                    "records": len(prepared),
+                    "labels": len(labels),
+                    "probabilities": len(probabilities),
+                },
+            )
         rows = []
         for item, label, probability in zip(prepared, labels, probabilities, strict=True):
             scores = probability.get("scores")
@@ -365,6 +420,30 @@ def model_classes(model: Any) -> list[Any] | None:
     if classes is None:
         return None
     return list(classes)
+
+
+def validate_model_serving_config(config: ModelServingConfig) -> None:
+    if not config.model_id.strip():
+        raise APIError(
+            "invalid_model_configuration",
+            "Model id must be a non-empty value.",
+            status=500,
+            details={"field": "model_id"},
+        )
+    if config.max_batch_size < 1:
+        raise APIError(
+            "invalid_model_configuration",
+            "max_batch_size must be at least 1.",
+            status=500,
+            details={"field": "max_batch_size"},
+        )
+    if not config.text_columns:
+        raise APIError(
+            "invalid_model_configuration",
+            "At least one configured text column is required.",
+            status=500,
+            details={"field": "text_columns"},
+        )
 
 
 def label_count_rows(label_counts: Any) -> list[dict[str, Any]]:
