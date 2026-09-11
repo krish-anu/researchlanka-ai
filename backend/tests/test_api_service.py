@@ -880,6 +880,6 @@ def test_build_where_covers_core_filters():
     assert f"{PUBLICATION_YEAR_SQL} <= %s" in sql
     assert '"type" = ANY(%s)' in sql
     assert '"institutions" ILIKE %s' in sql
-    assert "doi IS NOT NULL" in sql
+    assert "NULLIF(btrim(coalesce(\"doi\"::text, '')), '') IS NOT NULL" in sql
     assert "reference_count_divergence_flag IS TRUE" in sql
     assert params[:5] == [["AI"], "malaria", 2020, 2024, ["journal-article"]]
