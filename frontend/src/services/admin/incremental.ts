@@ -32,11 +32,10 @@ export interface IncrementalJobStatus {
 }
 
 export interface StartIncrementalJobInput {
-  model: string;
+  model?: string;
   fromDate?: string;
   toDate?: string;
   confidenceReviewThreshold?: string;
-  dbLabels?: string;
 }
 
 const REPO_ROOT = process.env.RESEARCHLANKA_ROOT
@@ -76,10 +75,11 @@ export async function startIncrementalJob(
     throw new Error("An incremental update is already running.");
   }
 
-  const model = input.model.trim();
-  if (!model) {
-    throw new Error("Model path is required before loading AI-only records.");
-  }
+  const model =
+    input.model?.trim() ||
+    process.env.RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH ||
+    process.env.INCREMENTAL_MODEL ||
+    "";
 
   const python = await resolvePython();
   const logPath = path.join(
@@ -98,11 +98,10 @@ export async function startIncrementalJob(
     STATUS_PATH,
     "--log-path",
     logPath,
-    "--model",
-    model,
     "--db-labels",
-    input.dbLabels?.trim() || "AI",
+    "AI",
   ];
+  if (model) args.push("--model", model);
   if (input.fromDate?.trim()) args.push("--from-date", input.fromDate.trim());
   if (input.toDate?.trim()) args.push("--to-date", input.toDate.trim());
   if (input.confidenceReviewThreshold?.trim()) {
@@ -127,8 +126,8 @@ export async function startIncrementalJob(
     started_at: new Date().toISOString(),
     finished_at: null,
     message: "Incremental AI publication update started.",
-    model,
-    db_labels: [input.dbLabels?.trim() || "AI"],
+    model: model || null,
+    db_labels: ["AI"],
     log_path: logPath,
   };
 }

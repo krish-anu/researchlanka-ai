@@ -16,6 +16,7 @@ from src.pipeline.incremental_update import (
     DEFAULT_DB_LABELS,
     DEFAULT_TEXT_COLUMNS,
     apply_ai_classification,
+    configured_model_path,
     filter_rows_for_database,
     parse_label_set,
 )
@@ -91,7 +92,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--classified-output", type=Path, default=DEFAULT_CLASSIFIED_OUTPUT)
     parser.add_argument("--ai-output", type=Path, default=DEFAULT_AI_OUTPUT)
-    parser.add_argument("--model", type=Path, required=True)
+    parser.add_argument("--model", type=Path, default=configured_model_path())
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
     parser.add_argument("--confidence-review-threshold", type=float, default=None)
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
