@@ -11,10 +11,8 @@ import { formatDate, formatNumber } from "@/services/format";
 
 export function PipelineRunPanel({
   status,
-  defaultModel,
 }: {
   status: IncrementalJobStatus;
-  defaultModel: string;
 }) {
   const [state, formAction] = useActionState(runIncrementalUpdate, IDLE);
   const router = useRouter();
@@ -32,27 +30,6 @@ export function PipelineRunPanel({
     <div className="panel p-4">
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <form action={formAction} className="flex flex-col gap-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-1 text-body-sm text-ink">
-              <span className="label-caps text-muted">Model path</span>
-              <input
-                name="model"
-                defaultValue={defaultModel}
-                required
-                className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
-                placeholder="data/models/ai_publication_classifier_5k.joblib"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-body-sm text-ink">
-              <span className="label-caps text-muted">DB labels</span>
-              <input
-                name="db_labels"
-                defaultValue="AI"
-                required
-                className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
-              />
-            </label>
-          </div>
           <div className="grid gap-3 md:grid-cols-3">
             <label className="flex flex-col gap-1 text-body-sm text-ink">
               <span className="label-caps text-muted">From date</span>

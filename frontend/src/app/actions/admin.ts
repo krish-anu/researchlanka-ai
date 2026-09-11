@@ -23,21 +23,17 @@ export async function runIncrementalUpdate(
 ): Promise<ActionState> {
   const actor = await requireCapability("admin.pipeline.run", "/admin");
 
-  const model = String(formData.get("model") ?? "");
   const fromDate = String(formData.get("from_date") ?? "");
   const toDate = String(formData.get("to_date") ?? "");
   const confidenceReviewThreshold = String(
     formData.get("confidence_review_threshold") ?? "",
   );
-  const dbLabels = String(formData.get("db_labels") ?? "AI");
 
   try {
     const status = await startIncrementalJob({
-      model,
       fromDate,
       toDate,
       confidenceReviewThreshold,
-      dbLabels,
     });
 
     await recordAudit({
