@@ -136,10 +136,15 @@ export async function readSessionToken(
 
 /** Cookie attributes shared by the sign-in and sign-out paths. */
 export function sessionCookieOptions(maxAge: number) {
+  const secure =
+    process.env.AUTH_COOKIE_SECURE === undefined
+      ? process.env.NODE_ENV === "production"
+      : process.env.AUTH_COOKIE_SECURE !== "false";
+
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge,
   };
