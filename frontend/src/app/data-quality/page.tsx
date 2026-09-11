@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { DatasetSnapshotCharts } from "@/components/charts/DatasetSnapshotCharts";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable } from "@/components/ui/DataTable";
@@ -97,8 +96,6 @@ export default async function DataQualityPage() {
           />
         </StatTileGrid>
       ) : null}
-
-      <DatasetSnapshotCharts />
 
       <section>
         <SectionHeading
