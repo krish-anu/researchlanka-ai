@@ -6,7 +6,6 @@ import argparse
 import csv
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -73,8 +72,6 @@ def build_ai_publication_dataset(
 
     loaded = 0
     if load_db:
-        if not os.getenv("DATABASE_URL"):
-            raise RuntimeError("DATABASE_URL is not set.")
         loaded = load_record_file(ai_output, batch_size=batch_size, reset=True)
 
     return {
