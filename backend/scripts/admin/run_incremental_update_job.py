@@ -22,13 +22,16 @@ from src.modeling.training import parse_text_columns  # noqa: E402
 from src.pipeline.incremental_update import (  # noqa: E402
     DEFAULT_DB_LABELS,
     DEFAULT_INITIAL_FROM_DATE,
+    DEFAULT_STATE_BACKEND,
     DEFAULT_OUTPUT_ROOT,
     DEFAULT_STATE_PATH,
     DEFAULT_TEXT_COLUMNS,
+    configured_model_path,
     parse_iso_date,
     parse_label_set,
     run_incremental_update,
 )
+from src.database.pipeline_state import DEFAULT_INCREMENTAL_STATE_KEY  # noqa: E402
 
 
 DEFAULT_STATUS_PATH = PROJECT_ROOT / "outputs" / "incremental" / "ui_status.json"
@@ -50,16 +53,37 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--status", type=Path, default=DEFAULT_STATUS_PATH)
     parser.add_argument("--log-path", type=Path, default=None)
     parser.add_argument("--state", type=Path, default=DEFAULT_STATE_PATH)
+    parser.add_argument(
+        "--state-backend",
+        choices=("database", "json"),
+        default=os.getenv(
+            "RESEARCHLANKA_INCREMENTAL_STATE_BACKEND",
+            DEFAULT_STATE_BACKEND,
+        ),
+    )
+    parser.add_argument(
+        "--state-key",
+        default=os.getenv(
+            "RESEARCHLANKA_INCREMENTAL_STATE_KEY",
+            DEFAULT_INCREMENTAL_STATE_KEY,
+        ),
+    )
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--from-date", type=parse_iso_date, default=None)
     parser.add_argument("--initial-from-date", type=parse_iso_date, default=DEFAULT_INITIAL_FROM_DATE)
-    parser.add_argument("--to-date", type=parse_iso_date, default=date.today())
+    parser.add_argument(
+        "--to-date",
+        "--end-date",
+        dest="to_date",
+        type=parse_iso_date,
+        default=date.today(),
+    )
     parser.add_argument("--per-page", type=int, default=200)
     parser.add_argument("--max-records", type=int, default=None)
     parser.add_argument("--email", default=os.getenv("OPENALEX_EMAIL"))
     parser.add_argument("--api-key", default=os.getenv("OPENALEX_API_KEY"))
     parser.add_argument("--strict-lk-only", action="store_true")
-    parser.add_argument("--model", type=Path, required=True)
+    parser.add_argument("--model", type=Path, default=configured_model_path())
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
     parser.add_argument("--confidence-review-threshold", type=float, default=None)
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
@@ -94,6 +118,8 @@ def main() -> None:
     try:
         result = run_incremental_update(
             state_path=args.state,
+            state_backend=args.state_backend,
+            state_key=args.state_key,
             output_root=args.output_root,
             explicit_from_date=args.from_date,
             initial_from_date=args.initial_from_date,
