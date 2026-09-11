@@ -24,7 +24,6 @@ from src.preprocessing.ownership import (
     DECISION_EXCLUDE,
     DECISION_INCLUDE,
     DECISION_REVIEW,
-    OWNERSHIP_POLICY_VERSION,
     OwnershipDecision,
 )
 
