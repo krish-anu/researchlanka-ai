@@ -34,7 +34,13 @@ class PublicationRepository(Protocol):
     def get_count_audit(self, publication_key: str) -> dict[str, Any] | None:
         """Return count-audit sidecar evidence for a publication."""
 
-    def suggest(self, query: str, *, limit: int) -> list[dict[str, Any]]:
+    def suggest(
+        self,
+        query: str,
+        *,
+        limit: int,
+        types: set[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """Return autocomplete suggestions."""
 
     def semantic_search(

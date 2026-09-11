@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
+import { SearchBox } from "@/components/search/SearchBox";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
 import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
@@ -8,6 +9,7 @@ import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { analyticsExportUrl, listInstitutions } from "@/services/api";
 import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
+import { formatNumber } from "@/services/format";
 import { institutionHref } from "@/services/links";
 
 export const metadata = {
@@ -24,6 +26,7 @@ export default async function InstitutionsPage({
   const params = await searchParams;
   const filters = extractFilters(params);
   const page = extractPage(params);
+  const query = typeof params.q === "string" ? params.q : "";
   const result = await listInstitutions({ ...filters, page, page_size: 25 });
 
   return (
@@ -44,12 +47,25 @@ export default async function InstitutionsPage({
         </Link>
       </div>
 
+      <div className="max-w-2xl">
+        <SearchBox
+          initialQuery={query}
+          targetPath="/institutions"
+          label="Search institutions"
+          placeholder="Search institution names..."
+        />
+      </div>
+
       {!result.ok ? (
         <ApiErrorPanel error={result.error} what="the institution directory" />
       ) : result.value.data.length === 0 ? (
         <EmptyState
-          title="No institutions found"
-          description="No institution aggregates matched the current filters."
+          title={query ? "No institutions match this search" : "No institutions found"}
+          description={
+            query
+              ? "Try a broader institution name or search the publications directory."
+              : "No institution aggregates matched the current filters."
+          }
         />
       ) : (
         <>
@@ -71,7 +87,15 @@ export default async function InstitutionsPage({
           <section>
             <SectionHeading
               title="All institutions"
-              description="Ranked by publication count."
+              description={
+                query
+                  ? `${formatNumber(result.value.pagination.total)} ${
+                      result.value.pagination.total === 1
+                        ? "institution"
+                        : "institutions"
+                    } matching ${query}.`
+                  : "Ranked by publication count."
+              }
             />
             <div className="panel p-1">
               <RankingTable

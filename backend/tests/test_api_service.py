@@ -116,7 +116,7 @@ class FakeRepository:
             return {"publication_key": publication_key, "citation_count": 12}
         return None
 
-    def suggest(self, query, *, limit):
+    def suggest(self, query, *, limit, types=None):
         return [{"type": "publication", "value": PUBLICATIONS[0]["title"], "key": PUBLICATIONS[0]["publication_key"]}][:limit]
 
     def semantic_search(self, query, *, filters, limit, min_score):
@@ -578,6 +578,54 @@ def test_postgres_researcher_rankings_filter_institution_like_author_values(monk
     assert INSTITUTION_LIKE_AUTHOR_SQL_PATTERN in calls[0]["params"]
 
 
+def test_postgres_rankings_apply_query_to_multivalue_labels(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        calls.append({"sql": " ".join(sql.split()), "params": params})
+        return [{"label": "University of Colombo", "publication_count": 3, "citation_total": 21}]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    rows = repository.paginated_analytics_rankings(
+        {"q": "Uni Col"},
+        dimension="institutions",
+        metric="publications",
+        page=1,
+        page_size=10,
+    )
+
+    assert rows["records"][0]["label"] == "University of Colombo"
+    assert "btrim(split.value) ILIKE %s" in calls[0]["sql"]
+    assert "%uni%" in calls[0]["params"]
+    assert "%col%" in calls[0]["params"]
+
+
+def test_postgres_suggestions_can_scope_to_institutions(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        calls.append({"sql": " ".join(sql.split()), "params": params})
+        return [
+            {"value": "University of Colombo", "type": "institution", "key": "University of Colombo"},
+        ]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    suggestions = repository.suggest("Uni Col", limit=8, types={"institution"})
+
+    assert [suggestion["type"] for suggestion in suggestions] == ["institution"]
+    assert "regexp_split_to_table(coalesce(authors::text, ''), ';')" in calls[0]["sql"]
+    assert "sri_lankan_institutions" in calls[0]["sql"]
+    assert False in calls[0]["params"]
+    assert True in calls[0]["params"]
+    assert "%uni%" in calls[0]["params"]
+    assert "%col%" in calls[0]["params"]
+    assert INSTITUTION_LIKE_AUTHOR_SQL_PATTERN in calls[0]["params"]
+
+
 def test_postgres_researcher_profile_rejects_institution_like_keys(monkeypatch):
     repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
 
@@ -882,4 +930,4 @@ def test_build_where_covers_core_filters():
     assert '"institutions" ILIKE %s' in sql
     assert "NULLIF(btrim(coalesce(\"doi\"::text, '')), '') IS NOT NULL" in sql
     assert "reference_count_divergence_flag IS TRUE" in sql
-    assert params[:5] == [["AI"], "malaria", 2020, 2024, ["journal-article"]]
+    assert params[:5] == [["AI"], "malaria:*", 2020, 2024, ["journal-article"]]
