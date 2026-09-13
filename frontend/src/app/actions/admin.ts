@@ -35,6 +35,12 @@ export async function runIncrementalUpdate(
       toDate,
       confidenceReviewThreshold,
     });
+    if (!status.ok) {
+      return {
+        status: "error",
+        message: status.message,
+      };
+    }
 
     await recordAudit({
       action: "pipeline.incremental_started",

@@ -14,12 +14,27 @@ export interface IncrementalRunSnapshot {
   reviewThreshold?: number | string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
   collected?: number | null;
   selected?: number | null;
   loaded?: number | null;
-  message?: string | null;
+  message: string;
   error?: string | null;
   logPath?: string | null;
+  log_path?: string | null;
+  result?: IncrementalRunResult | null;
+  db_labels?: string[];
+}
+
+export interface IncrementalRunResult {
+  from_date?: string | null;
+  to_date?: string | null;
+  csv_output?: string | null;
+  db_load_output?: string | null;
+  records_collected?: number | null;
+  records_selected_for_db?: number | null;
+  records_loaded?: number | null;
 }
 
 type StageState = "completed" | "current" | "remaining" | "failed";
@@ -137,38 +152,45 @@ function buildStages(run: IncrementalRunSnapshot): Stage[] {
   const failed = status === "failed";
   const done = status === "succeeded";
   const running = status === "running" || status === "queued";
+  const collected = run.collected ?? run.result?.records_collected;
+  const selected = run.selected ?? run.result?.records_selected_for_db;
+  const loaded = run.loaded ?? run.result?.records_loaded;
+  const logPath = run.logPath ?? run.log_path;
 
-  const collectedDone = typeof run.collected === "number";
-  const selectedDone = typeof run.selected === "number";
-  const loadedDone = typeof run.loaded === "number";
+  const collectedDone = typeof collected === "number";
+  const selectedDone = typeof selected === "number";
+  const loadedDone = typeof loaded === "number";
 
   return [
     {
       label: "Prepare window",
-      detail: dateWindow(run.fromDate, run.toDate),
+      detail: dateWindow(
+        run.fromDate ?? run.result?.from_date,
+        run.toDate ?? run.result?.to_date,
+      ),
       state: failed || done || running ? "completed" : "remaining",
     },
     {
       label: "Collect publications",
       detail: "Fetch Sri Lanka publication records from the configured source window.",
-      metric: metric(run.collected, "records collected"),
+      metric: metric(collected, "records collected"),
       state: stageState({ failed, done: collectedDone || done, running }),
     },
     {
       label: "Classify AI relevance",
       detail: "Score title, abstract, keywords, topics and concepts with the AI relevance model.",
-      metric: metric(run.selected, "records selected"),
+      metric: metric(selected, "records selected"),
       state: stageState({ failed, done: selectedDone || done, running: collectedDone && running }),
     },
     {
       label: "Load or update records",
       detail: "Insert new AI records and update matching existing records by DOI, OpenAlex ID or source ID.",
-      metric: metric(run.loaded, "records loaded"),
+      metric: metric(loaded, "records loaded"),
       state: stageState({ failed, done: loadedDone || done, running: selectedDone && running }),
     },
     {
       label: "Save result",
-      detail: run.logPath ? `Run log: ${run.logPath}` : "Write checkpoint, message and final status for the admin console.",
+      detail: logPath ? `Run log: ${logPath}` : "Write checkpoint, message and final status for the admin console.",
       state: failed ? "failed" : done ? "completed" : "remaining",
     },
   ];

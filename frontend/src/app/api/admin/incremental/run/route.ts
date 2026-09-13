@@ -8,6 +8,10 @@ interface RunRequest {
   fromDate?: string;
   toDate?: string;
   reviewThreshold?: string;
+  from_date?: string;
+  to_date?: string;
+  confidenceReviewThreshold?: string;
+  confidence_review_threshold?: string;
 }
 
 export async function POST(request: Request) {
@@ -35,5 +39,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ data: result }, { status: 202 });
+  return NextResponse.json({ ...result.status, data: result.status, job: result }, { status: 202 });
 }

@@ -4,6 +4,7 @@ import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type {
+  IncrementalRunResult,
   IncrementalRunSnapshot,
   IncrementalRunStatus,
 } from "@/components/admin/IncrementalUpdateDiagram";
@@ -16,18 +17,11 @@ interface RawIncrementalStatus {
   message?: string | null;
   error?: string | null;
   log_path?: string | null;
+  db_labels?: string[] | null;
   review_threshold?: number | string | null;
   requested_from_date?: string | null;
   requested_to_date?: string | null;
-  result?: {
-    from_date?: string | null;
-    to_date?: string | null;
-    csv_output?: string | null;
-    db_load_output?: string | null;
-    records_collected?: number | null;
-    records_selected_for_db?: number | null;
-    records_loaded?: number | null;
-  } | null;
+  result?: IncrementalRunResult | null;
 }
 
 export type IncrementalJobStatus = IncrementalRunSnapshot;
@@ -36,6 +30,11 @@ export interface StartIncrementalJobInput {
   fromDate?: string | null;
   toDate?: string | null;
   reviewThreshold?: string | number | null;
+  from_date?: string | null;
+  to_date?: string | null;
+  review_threshold?: string | number | null;
+  confidenceReviewThreshold?: string | number | null;
+  confidence_review_threshold?: string | number | null;
 }
 
 export type StartIncrementalJobResult =
@@ -45,6 +44,7 @@ export type StartIncrementalJobResult =
       message: string;
       pid?: number;
       logPath: string;
+      db_labels: string[];
     }
   | {
       ok: false;
@@ -74,7 +74,11 @@ export async function readIncrementalRunSnapshot(): Promise<IncrementalRunSnapsh
     if (code !== "ENOENT") {
       console.warn("Could not read incremental update status", error);
     }
-    return { status: "idle" };
+    return {
+      status: "idle",
+      message: "No incremental AI update has been started from this console.",
+      db_labels: ["AI"],
+    };
   }
 }
 
@@ -96,9 +100,16 @@ export async function startIncrementalJob(
     };
   }
 
-  const fromDate = request.fromDate?.trim() || undefined;
-  const toDate = request.toDate?.trim() || undefined;
-  const reviewThreshold = String(request.reviewThreshold ?? "0.6").trim() || "0.6";
+  const fromDate = (request.fromDate ?? request.from_date)?.trim() || undefined;
+  const toDate = (request.toDate ?? request.to_date)?.trim() || undefined;
+  const reviewThreshold =
+    String(
+      request.reviewThreshold ??
+        request.confidenceReviewThreshold ??
+        request.review_threshold ??
+        request.confidence_review_threshold ??
+        "0.6",
+    ).trim() || "0.6";
   const threshold = Number(reviewThreshold);
 
   if (fromDate && !isIsoDate(fromDate)) {
@@ -147,6 +158,7 @@ export async function startIncrementalJob(
     pid: child.pid,
     started_at: startedAt,
     message: "Incremental AI publication update is running.",
+    db_labels: ["AI"],
     review_threshold: threshold,
     requested_from_date: fromDate ?? null,
     requested_to_date: toDate ?? null,
@@ -173,6 +185,7 @@ export async function startIncrementalJob(
         code === 0
           ? "Incremental AI publication update completed."
           : `Incremental AI publication update failed with exit code ${code}.`,
+      db_labels: ["AI"],
       review_threshold: threshold,
       requested_from_date: fromDate ?? null,
       requested_to_date: toDate ?? null,
@@ -188,6 +201,7 @@ export async function startIncrementalJob(
     message: "Incremental AI publication update started.",
     pid: child.pid,
     logPath,
+    db_labels: ["AI"],
   };
 }
 
@@ -201,20 +215,32 @@ async function normalizeSnapshot(
   const selected =
     numberOrNull(result.records_selected_for_db) ??
     (await countCsvRows(result.db_load_output));
+  const status = normalizeStatus(payload.status);
+  const message = payload.message ?? defaultStatusMessage(status);
+  const fromDate = result.from_date ?? payload.requested_from_date ?? null;
+  const toDate = result.to_date ?? payload.requested_to_date ?? null;
+  const startedAt = payload.started_at ?? null;
+  const finishedAt = payload.finished_at ?? null;
+  const logPath = payload.log_path ?? null;
 
   return {
-    status: normalizeStatus(payload.status),
-    fromDate: result.from_date ?? payload.requested_from_date ?? null,
-    toDate: result.to_date ?? payload.requested_to_date ?? null,
+    status,
+    fromDate,
+    toDate,
     reviewThreshold: payload.review_threshold ?? null,
-    startedAt: payload.started_at ?? null,
-    finishedAt: payload.finished_at ?? null,
+    startedAt,
+    finishedAt,
+    started_at: startedAt,
+    finished_at: finishedAt,
     collected,
     selected,
     loaded: numberOrNull(result.records_loaded),
-    message: payload.message ?? null,
+    message,
     error: payload.error ?? null,
-    logPath: payload.log_path ?? null,
+    logPath,
+    log_path: logPath,
+    result,
+    db_labels: payload.db_labels ?? ["AI"],
   };
 }
 
@@ -239,6 +265,14 @@ function normalizeStatus(value: string | undefined): IncrementalRunStatus {
     return value;
   }
   return "idle";
+}
+
+function defaultStatusMessage(status: IncrementalRunStatus): string {
+  if (status === "queued") return "Incremental AI publication update is queued.";
+  if (status === "running") return "Incremental AI publication update is running.";
+  if (status === "succeeded") return "Incremental AI publication update completed.";
+  if (status === "failed") return "Incremental AI publication update failed.";
+  return "No incremental AI update has been started from this console.";
 }
 
 function numberOrNull(value: number | null | undefined): number | null {
@@ -269,6 +303,8 @@ function normalizeStartInput(
       toDate: stringFormValue(input, "toDate") ?? stringFormValue(input, "to_date"),
       reviewThreshold:
         stringFormValue(input, "reviewThreshold") ??
+        stringFormValue(input, "confidenceReviewThreshold") ??
+        stringFormValue(input, "confidence_review_threshold") ??
         stringFormValue(input, "review_threshold"),
     };
   }

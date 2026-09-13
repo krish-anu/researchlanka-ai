@@ -13,5 +13,6 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({ data: await readIncrementalRunSnapshot() });
+  const status = await readIncrementalRunSnapshot();
+  return NextResponse.json({ ...status, data: status });
 }
