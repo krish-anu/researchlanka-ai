@@ -74,10 +74,10 @@ backend/data/models/publication_text_embeddings_cli_sample.parquet
 backend/data/models/publication_text_embedding_model_cli_sample.joblib
 ```
 
-Load the database and start the backend and frontend:
+Load the AI-only database and start the backend and frontend:
 
 ```bash
-make reset-db-2016-now
+make reset-db-ai
 make dev
 ```
 
@@ -128,3 +128,10 @@ notebooks/kaggle_run_main_full_pipeline.ipynb
 ## Frontend
 
 Frontend code should be added inside `frontend/`.
+
+## AWS Deployment
+
+For the EC2 Docker Compose deployment path, see
+[`docs/aws-ec2-app-deployment.md`](docs/aws-ec2-app-deployment.md). For monthly
+data/model refresh automation on AWS, see
+[`docs/aws-monthly-automation.md`](docs/aws-monthly-automation.md).

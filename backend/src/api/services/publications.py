@@ -33,7 +33,7 @@ from src.api.core.serializers import (
 )
 from src.api.repositories.postgres import is_institution_like_author
 from src.api.services.nmf_topics import TOPIC_DIRECTORY_QUERY_PARAMS, NmfTopicService
-from src.database.final_schema import FINAL_PUBLICATION_COLUMNS
+from src.database.final_schema import DATABASE_PUBLICATION_COLUMNS
 
 
 FILTER_QUERY_PARAMS = set(LIST_FILTERS)
@@ -91,7 +91,7 @@ class ResearchLankaAPI:
         return {
             "data": {
                 "publication_summary_fields": PUBLICATION_SUMMARY_FIELDS,
-                "final_publication_columns": ["publication_key", *FINAL_PUBLICATION_COLUMNS],
+                "final_publication_columns": ["publication_key", *DATABASE_PUBLICATION_COLUMNS],
                 "array_fields": sorted(ARRAY_FIELDS),
             },
             "meta": self._meta(),
@@ -196,10 +196,19 @@ class ResearchLankaAPI:
         )
 
     def suggestions(self, query: dict[str, list[str]]) -> dict[str, Any]:
-        validate_query_params(query, {"q", "limit"})
+        validate_query_params(query, {"q", "limit", "type"})
         text = first(query, "q") or ""
         limit = min(parse_positive_int(query, "limit", default=10), 50)
-        return {"data": self.repository.suggest(text, limit=limit), "meta": self._meta()}
+        types = {
+            item
+            for value in query.get("type", [])
+            for item in split_values(value)
+            if item in {"publication", "journal", "researcher", "institution"}
+        }
+        return {
+            "data": self.repository.suggest(text, limit=limit, types=types or None),
+            "meta": self._meta(),
+        }
 
     def facets(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, FILTER_QUERY_PARAMS)
@@ -370,6 +379,8 @@ class ResearchLankaAPI:
             filters,
             dimension="institutions",
             metric=first(query, "metric") or "publications",
+            page=page,
+            page_size=page_size,
         )
         return list_response(
             result.get("records", []),

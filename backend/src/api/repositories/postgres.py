@@ -15,14 +15,17 @@ from src.api.core.constants import (
     PUBLICATION_COVERAGE_START_YEAR,
 )
 from src.analytics import network
-from src.api.core.serializers import quality_flags, split_semicolon_value
+from src.api.core.serializers import split_semicolon_value
 from src.api.repositories.aggregates import aggregate_profile, normalized_key, percentage, ratio
 from src.api.repositories.sql import (
     BASE_COLUMNS,
     PUBLICATION_SEARCH_VECTOR_SQL,
+    PUBLICATION_YEAR_SQL,
     SORT_SQL,
     build_where,
+    prefix_tsquery,
     quote_identifier,
+    search_tokens,
     select_columns,
 )
 from src.database.connection import get_connection
@@ -132,6 +135,16 @@ def author_value_sql_filter(expression: str) -> str:
     )
 
 
+def ilike_token_patterns(query: Any) -> list[str]:
+    return [f"%{token}%" for token in search_tokens(query)]
+
+
+def ilike_all_tokens_sql(expression: str, count: int) -> str:
+    if count <= 0:
+        return "TRUE"
+    return " AND ".join(f"{expression} ILIKE %s" for _ in range(count))
+
+
 def _network_publication_year(value: Any) -> int | None:
     if value in (None, ""):
         return None
@@ -178,13 +191,13 @@ class PostgresPublicationRepository:
             f"""
             SELECT
                 count(*) AS publication_count,
-                min(publication_year) AS min_publication_year,
-                max(publication_year) AS max_publication_year,
+                min({PUBLICATION_YEAR_SQL}) AS min_publication_year,
+                max({PUBLICATION_YEAR_SQL}) AS max_publication_year,
                 max(loaded_at) AS max_loaded_at,
                 max(updated_at) AS max_updated_at
             FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
-            WHERE publication_year >= %s
-              AND publication_year <= %s
+            WHERE {PUBLICATION_YEAR_SQL} >= %s
+              AND {PUBLICATION_YEAR_SQL} <= %s
             """,
             [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR],
         )
@@ -210,10 +223,13 @@ class PostgresPublicationRepository:
             order_sql = """
                 ts_rank_cd(
                     {search_vector},
-                    plainto_tsquery('english', %s)
+                    to_tsquery('english', %s)
                 ) DESC,
-                publication_year DESC NULLS LAST
-            """.format(search_vector=PUBLICATION_SEARCH_VECTOR_SQL)
+                {publication_year} DESC NULLS LAST
+            """.format(
+                search_vector=PUBLICATION_SEARCH_VECTOR_SQL,
+                publication_year=PUBLICATION_YEAR_SQL,
+            )
             where_clause_for_select, select_params = build_where(filters)
             # WHERE parameters appear before the ORDER BY rank parameter.
             rows = self._fetch_all(
@@ -224,7 +240,7 @@ class PostgresPublicationRepository:
                 ORDER BY {order_sql}
                 LIMIT %s OFFSET %s
                 """,
-                [*select_params, filters["q"], page_size, (page - 1) * page_size],
+                [*select_params, prefix_tsquery(filters["q"]), page_size, (page - 1) * page_size],
             )
         else:
             rows = self._fetch_all(
@@ -283,32 +299,97 @@ class PostgresPublicationRepository:
             [publication_key],
         )
 
-    def suggest(self, query: str, *, limit: int) -> list[dict[str, Any]]:
+    def suggest(
+        self,
+        query: str,
+        *,
+        limit: int,
+        types: set[str] | None = None,
+    ) -> list[dict[str, Any]]:
         if not query:
             return []
-        pattern = f"%{query}%"
+        patterns = ilike_token_patterns(query)
+        if not patterns:
+            return []
+        enabled_types = types or {"publication", "journal", "researcher", "institution"}
+        title_match = ilike_all_tokens_sql("title", len(patterns))
+        journal_match = ilike_all_tokens_sql("journal", len(patterns))
+        author_match = ilike_all_tokens_sql("btrim(author.value)", len(patterns))
+        institution_match = ilike_all_tokens_sql("btrim(institution.value)", len(patterns))
         rows = self._fetch_all(
-            """
-            SELECT title AS value, 'publication' AS type, publication_key AS key
-            FROM final_publications
-            WHERE title ILIKE %s
-              AND publication_year >= %s
-              AND publication_year <= %s
-            UNION ALL
-            SELECT journal AS value, 'journal' AS type, journal AS key
-            FROM final_publications
-            WHERE journal ILIKE %s
-              AND publication_year >= %s
-              AND publication_year <= %s
+            f"""
+            WITH scoped AS (
+                SELECT
+                    publication_key,
+                    title,
+                    journal,
+                    authors,
+                    institutions,
+                    sri_lankan_institutions
+                FROM final_publications
+                WHERE {PUBLICATION_YEAR_SQL} >= %s
+                  AND {PUBLICATION_YEAR_SQL} <= %s
+            )
+            SELECT value, type, key
+            FROM (
+                SELECT title AS value, 'publication' AS type, publication_key AS key, 1 AS priority
+                FROM scoped
+                WHERE %s
+                  AND {title_match}
+
+                UNION ALL
+
+                SELECT journal AS value, 'journal' AS type, journal AS key, 2 AS priority
+                FROM scoped
+                WHERE %s
+                  AND {journal_match}
+
+                UNION ALL
+
+                SELECT btrim(author.value) AS value,
+                       'researcher' AS type,
+                       btrim(author.value) AS key,
+                       3 AS priority
+                FROM scoped
+                CROSS JOIN LATERAL regexp_split_to_table(coalesce(authors::text, ''), ';') AS author(value)
+                WHERE %s
+                  AND {author_match}
+                  AND {author_value_sql_filter("author.value")}
+                GROUP BY btrim(author.value)
+
+                UNION ALL
+
+                SELECT btrim(institution.value) AS value,
+                       'institution' AS type,
+                       btrim(institution.value) AS key,
+                       4 AS priority
+                FROM scoped
+                CROSS JOIN LATERAL regexp_split_to_table(
+                    concat_ws(';', institutions::text, sri_lankan_institutions::text),
+                    ';'
+                ) AS institution(value)
+                WHERE %s
+                  AND {institution_match}
+                  AND btrim(institution.value) <> ''
+                GROUP BY btrim(institution.value)
+            ) suggestions
+            WHERE value IS NOT NULL
+              AND btrim(value) <> ''
+            ORDER BY priority, value
             LIMIT %s
             """,
             [
-                pattern,
                 PUBLICATION_COVERAGE_START_YEAR,
                 PUBLICATION_COVERAGE_END_YEAR,
-                pattern,
-                PUBLICATION_COVERAGE_START_YEAR,
-                PUBLICATION_COVERAGE_END_YEAR,
+                "publication" in enabled_types,
+                *patterns,
+                "journal" in enabled_types,
+                *patterns,
+                "researcher" in enabled_types,
+                *patterns,
+                INSTITUTION_LIKE_AUTHOR_SQL_PATTERN,
+                "institution" in enabled_types,
+                *patterns,
                 limit,
             ],
         )
@@ -522,15 +603,22 @@ class PostgresPublicationRepository:
         offset = (page - 1) * page_size
         if dimension in MULTIVALUE_ANALYTICS_COLUMNS:
             value_filter = "btrim(split.value) <> ''"
-            query_params = [*params, page_size, offset]
+            query_params = [*params]
             if dimension == "authors":
                 value_filter = author_value_sql_filter("split.value")
                 query_params = [
                     *params,
                     INSTITUTION_LIKE_AUTHOR_SQL_PATTERN,
-                    page_size,
-                    offset,
                 ]
+            if filters.get("q"):
+                patterns = ilike_token_patterns(filters["q"])
+                if patterns:
+                    value_filter = (
+                        f"({value_filter}) "
+                        f"AND {ilike_all_tokens_sql('btrim(split.value)', len(patterns))}"
+                    )
+                    query_params.extend(patterns)
+            query_params.extend([page_size, offset])
             rows = self._fetch_all(
                 f"""
                 {cte_sql}
@@ -853,10 +941,14 @@ class PostgresPublicationRepository:
         return self._fetch_all(
             f"""
             WITH matched_publications AS (
-                SELECT publication_key, authors, author_ids, publication_year
+                SELECT
+                    publication_key,
+                    authors,
+                    author_ids,
+                    {PUBLICATION_YEAR_SQL} AS publication_year
                 FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
-                WHERE publication_year >= %s
-                  AND publication_year <= %s
+                WHERE {PUBLICATION_YEAR_SQL} >= %s
+                  AND {PUBLICATION_YEAR_SQL} <= %s
                   AND authors ILIKE %s
                   AND EXISTS (
                       SELECT 1
@@ -1453,9 +1545,9 @@ class PostgresPublicationRepository:
                     WHERE btrim(split.value) ILIKE %s
                       AND {author_value_sql_filter("split.value")}
                 )
-                  AND publication_year >= %s
-                  AND publication_year <= %s
-                ORDER BY publication_year DESC NULLS LAST, title ASC NULLS LAST
+                  AND {PUBLICATION_YEAR_SQL} >= %s
+                  AND {PUBLICATION_YEAR_SQL} <= %s
+                ORDER BY {PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST
                 """,
                 [
                     f"%{value}%",
@@ -1475,9 +1567,9 @@ class PostgresPublicationRepository:
             SELECT {select_columns(BASE_COLUMNS)}
             FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
             WHERE ({" OR ".join(clauses)})
-              AND publication_year >= %s
-              AND publication_year <= %s
-            ORDER BY publication_year DESC NULLS LAST, title ASC NULLS LAST
+              AND {PUBLICATION_YEAR_SQL} >= %s
+              AND {PUBLICATION_YEAR_SQL} <= %s
+            ORDER BY {PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST
             """,
             [*params, PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR],
         )

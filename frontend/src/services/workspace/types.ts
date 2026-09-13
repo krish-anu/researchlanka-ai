@@ -76,6 +76,7 @@ export type AuditAction =
   | "flag.rejected"
   | "resolution.merged"
   | "resolution.rejected"
+  | "pipeline.incremental_started"
   | "user.role_changed"
   | "user.disabled"
   | "user.enabled";

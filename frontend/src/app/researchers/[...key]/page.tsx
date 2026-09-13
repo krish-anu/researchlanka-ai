@@ -30,7 +30,6 @@ import {
   decodeKeySegments,
   publicationSearchHref,
   researcherHref,
-  topicHref,
 } from "@/services/links";
 
 interface PageProps {

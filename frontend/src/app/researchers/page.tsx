@@ -2,8 +2,10 @@ import { ApiErrorPanel, EmptyState } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
+import { SearchBox } from "@/components/search/SearchBox";
 import { listResearchers } from "@/services/api";
 import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
+import { formatNumber } from "@/services/format";
 import { researcherHref } from "@/services/links";
 
 export const metadata = {
@@ -20,6 +22,7 @@ export default async function ResearchersPage({
   const params = await searchParams;
   const filters = extractFilters(params);
   const page = extractPage(params);
+  const query = typeof params.q === "string" ? params.q : "";
   const result = await listResearchers({ ...filters, page, page_size: 25 });
 
   return (
@@ -30,6 +33,15 @@ export default async function ResearchersPage({
           Author aggregates ranked by publication count. Open a profile for the
           full publication list, co-author network, and output over time.
         </p>
+      </div>
+
+      <div className="max-w-2xl">
+        <SearchBox
+          initialQuery={query}
+          targetPath="/researchers"
+          label="Search researchers"
+          placeholder="Search researcher names..."
+        />
       </div>
 
       <div className="panel border-warning/40 p-3">
@@ -52,11 +64,27 @@ export default async function ResearchersPage({
         <ApiErrorPanel error={result.error} what="the researcher directory" />
       ) : result.value.data.length === 0 ? (
         <EmptyState
-          title="No researchers found"
-          description="No author aggregates matched the current filters."
+          title={query ? "No researchers match this search" : "No researchers found"}
+          description={
+            query
+              ? "Try a broader name spelling or search the publications directory."
+              : "No author aggregates matched the current filters."
+          }
         />
       ) : (
         <>
+          <p className="text-body-sm text-ink-secondary">
+            <span className="font-medium text-ink">
+              {formatNumber(result.value.pagination.total)}
+            </span>{" "}
+            {result.value.pagination.total === 1 ? "researcher" : "researchers"}
+            {query ? (
+              <>
+                {" "}
+                matching <span className="font-medium text-ink">{query}</span>
+              </>
+            ) : null}
+          </p>
           <div className="panel p-1">
             <RankingTable
               entries={result.value.data}

@@ -27,6 +27,8 @@ def publication_summary(row: dict[str, Any]) -> dict[str, Any]:
         "oa_status": normalized.get("oa_status"),
         "primary_field": normalized.get("primary_field"),
         "primary_subfield": normalized.get("primary_subfield"),
+        "ai_classification_label": normalized.get("ai_classification_label"),
+        "ai_classification_confidence": normalized.get("ai_classification_confidence"),
         "source_dataset": normalized.get("source_dataset", []),
         "quality_flags": quality_flags(normalized),
     }
@@ -83,6 +85,10 @@ def publication_detail(row: dict[str, Any]) -> dict[str, Any]:
             "primary_field": normalized.get("primary_field"),
             "primary_subfield": normalized.get("primary_subfield"),
             "primary_domain": normalized.get("primary_domain"),
+            "ai_label": normalized.get("ai_classification_label"),
+            "ai_confidence": normalized.get("ai_classification_confidence"),
+            "ai_model": normalized.get("ai_classification_model"),
+            "ai_reason": normalized.get("ai_classification_reason"),
         },
         "funding": {
             "funder_name": normalized.get("funder_name", []),

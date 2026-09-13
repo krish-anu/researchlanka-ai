@@ -10,6 +10,7 @@ from src.api.repositories.postgres import (
     PostgresPublicationRepository,
     is_institution_like_author,
 )
+from src.api.repositories.sql import PUBLICATION_YEAR_SQL
 from src.api.repository import build_where
 from src.api.routes import route_get
 from src.api.service import APIError, ResearchLankaAPI
@@ -115,7 +116,7 @@ class FakeRepository:
             return {"publication_key": publication_key, "citation_count": 12}
         return None
 
-    def suggest(self, query, *, limit):
+    def suggest(self, query, *, limit, types=None):
         return [{"type": "publication", "value": PUBLICATIONS[0]["title"], "key": PUBLICATIONS[0]["publication_key"]}][:limit]
 
     def semantic_search(self, query, *, filters, limit, min_score):
@@ -426,7 +427,7 @@ def test_postgres_semantic_search_hydrates_embedding_hits_from_database(monkeypa
     assert rows[0]["similarity_score"] == 0.925432
     assert rows[1]["publication_key"] == "source:repositories:thesis-1"
     assert rows[1]["similarity_rank"] == 2
-    assert "publication_year >= %s" in calls[0]["sql"]
+    assert f"{PUBLICATION_YEAR_SQL} >= %s" in calls[0]["sql"]
     assert 2020 in calls[0]["params"]
 
 
@@ -475,8 +476,8 @@ def test_postgres_metadata_counts_public_dataset_coverage(monkeypatch):
     metadata = repository.metadata()
 
     assert metadata["publication_count"] == 1
-    assert "publication_year >= %s" in calls[0]["sql"]
-    assert "publication_year <= %s" in calls[0]["sql"]
+    assert f"{PUBLICATION_YEAR_SQL} >= %s" in calls[0]["sql"]
+    assert f"{PUBLICATION_YEAR_SQL} <= %s" in calls[0]["sql"]
     assert calls[0]["params"] == [PUBLICATION_COVERAGE_START_YEAR, PUBLICATION_COVERAGE_END_YEAR]
 
 
@@ -574,6 +575,54 @@ def test_postgres_researcher_rankings_filter_institution_like_author_values(monk
         }
     ]
     assert "split.value) ~* %s" in calls[0]["sql"]
+    assert INSTITUTION_LIKE_AUTHOR_SQL_PATTERN in calls[0]["params"]
+
+
+def test_postgres_rankings_apply_query_to_multivalue_labels(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        calls.append({"sql": " ".join(sql.split()), "params": params})
+        return [{"label": "University of Colombo", "publication_count": 3, "citation_total": 21}]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    rows = repository.paginated_analytics_rankings(
+        {"q": "Uni Col"},
+        dimension="institutions",
+        metric="publications",
+        page=1,
+        page_size=10,
+    )
+
+    assert rows["records"][0]["label"] == "University of Colombo"
+    assert "btrim(split.value) ILIKE %s" in calls[0]["sql"]
+    assert "%uni%" in calls[0]["params"]
+    assert "%col%" in calls[0]["params"]
+
+
+def test_postgres_suggestions_can_scope_to_institutions(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_all(sql, params):
+        calls.append({"sql": " ".join(sql.split()), "params": params})
+        return [
+            {"value": "University of Colombo", "type": "institution", "key": "University of Colombo"},
+        ]
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    suggestions = repository.suggest("Uni Col", limit=8, types={"institution"})
+
+    assert [suggestion["type"] for suggestion in suggestions] == ["institution"]
+    assert "regexp_split_to_table(coalesce(authors::text, ''), ';')" in calls[0]["sql"]
+    assert "sri_lankan_institutions" in calls[0]["sql"]
+    assert False in calls[0]["params"]
+    assert True in calls[0]["params"]
+    assert "%uni%" in calls[0]["params"]
+    assert "%col%" in calls[0]["params"]
     assert INSTITUTION_LIKE_AUTHOR_SQL_PATTERN in calls[0]["params"]
 
 
@@ -875,10 +924,10 @@ def test_build_where_covers_core_filters():
         }
     )
 
-    assert "publication_year >= %s" in sql
-    assert "publication_year <= %s" in sql
+    assert f"{PUBLICATION_YEAR_SQL} >= %s" in sql
+    assert f"{PUBLICATION_YEAR_SQL} <= %s" in sql
     assert '"type" = ANY(%s)' in sql
     assert '"institutions" ILIKE %s' in sql
-    assert "doi IS NOT NULL" in sql
+    assert "NULLIF(btrim(coalesce(\"doi\"::text, '')), '') IS NOT NULL" in sql
     assert "reference_count_divergence_flag IS TRUE" in sql
-    assert params[:4] == ["malaria", 2020, 2024, ["journal-article"]]
+    assert params[:5] == [["AI"], "malaria:*", 2020, 2024, ["journal-article"]]

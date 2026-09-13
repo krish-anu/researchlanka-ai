@@ -19,7 +19,6 @@ from src.database.final_schema import (
     BOOLEAN_COLUMNS,
     DATABASE_PUBLICATION_COLUMNS,
     DATE_COLUMNS,
-    FINAL_PUBLICATION_COLUMNS,
     FINAL_PUBLICATION_TABLE,
     INTEGER_COLUMNS,
     TIMESTAMPTZ_COLUMNS,
@@ -77,6 +76,14 @@ def load_final_publications(
                 connection.commit()
             return 0
 
+        values = [
+            [
+                row["publication_key"],
+                *[row[column] for column in DATABASE_PUBLICATION_COLUMNS],
+                adapt_jsonb(row["raw_record"]),
+            ]
+            for row in rows
+        ]
         with connection.cursor() as cursor:
             for row in rows:
                 canonicalize_existing_publication_key(cursor, row)
@@ -102,7 +109,7 @@ def build_final_publication_row(record: dict[str, Any], row_number: int) -> dict
 
     row = {
         column: coerce_column_value(column, first_available_value(record, column))
-        for column in FINAL_PUBLICATION_COLUMNS
+        for column in DATABASE_PUBLICATION_COLUMNS
     }
 
     doi = normalize_doi(row.get("doi"))

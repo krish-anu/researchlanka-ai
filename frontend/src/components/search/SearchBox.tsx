@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { SearchIcon } from "@/components/layout/NavIcons";
+import { institutionHref, publicationHref, researcherHref } from "@/services/links";
 import type { Suggestion } from "@/types/api";
+
+type SuggestionType = "publication" | "journal" | "researcher" | "institution";
 
 /**
  * Global search with autocomplete.
@@ -19,7 +22,21 @@ import type { Suggestion } from "@/types/api";
  * buttons — a focusable control inside a listbox is not a valid option, and it
  * is what previously made the suggestions unreachable without a mouse.
  */
-export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
+interface SearchBoxProps {
+  initialQuery?: string;
+  label?: string;
+  placeholder?: string;
+  targetPath?: "/publications" | "/researchers" | "/institutions";
+  suggestionTypes?: SuggestionType[];
+}
+
+export function SearchBox({
+  initialQuery = "",
+  label = "Search publications, researchers, and institutions",
+  placeholder = "Search publications, researchers, institutions...",
+  targetPath = "/publications",
+  suggestionTypes,
+}: SearchBoxProps) {
   const router = useRouter();
   const listId = useId();
   const [query, setQuery] = useState(initialQuery);
@@ -27,10 +44,18 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const effectiveSuggestionTypes =
+    suggestionTypes ??
+    (targetPath === "/institutions"
+      ? ["institution"]
+      : targetPath === "/researchers"
+        ? ["researcher"]
+        : undefined);
+  const suggestionTypeKey = effectiveSuggestionTypes?.join(",");
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < 3) {
+    if (trimmed.length < 2) {
       setSuggestions([]);
       setActive(-1);
       return;
@@ -39,8 +64,12 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
+        const search = new URLSearchParams({ q: trimmed, limit: "8" });
+        for (const type of effectiveSuggestionTypes ?? []) {
+          search.append("type", type);
+        }
         const response = await fetch(
-          `/api/v1/search/suggest?q=${encodeURIComponent(trimmed)}&limit=8`,
+          `/api/v1/search/suggest?${search.toString()}`,
           { signal: controller.signal },
         );
         if (!response.ok) return;
@@ -56,7 +85,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, suggestionTypeKey]);
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
@@ -68,13 +97,28 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
 
   const expanded = open && suggestions.length > 0;
 
-  function submit(value: string) {
+  function searchHref(value: string) {
     const trimmed = value.trim();
+    return trimmed ? `${targetPath}?q=${encodeURIComponent(trimmed)}` : targetPath;
+  }
+
+  function suggestionHref(suggestion: Suggestion) {
+    if (suggestion.type === "publication") return publicationHref(suggestion.key);
+    if (suggestion.type === "researcher") return researcherHref(suggestion.value);
+    if (suggestion.type === "institution") return institutionHref(suggestion.value);
+    return searchHref(suggestion.value);
+  }
+
+  function submit(value: string) {
     setOpen(false);
     setActive(-1);
-    router.push(
-      trimmed ? `/publications?q=${encodeURIComponent(trimmed)}` : "/publications",
-    );
+    router.push(searchHref(value));
+  }
+
+  function selectSuggestion(suggestion: Suggestion) {
+    setOpen(false);
+    setActive(-1);
+    router.push(suggestionHref(suggestion));
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -102,7 +146,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
 
     if (event.key === "Enter" && active >= 0) {
       event.preventDefault();
-      submit(suggestions[active].value);
+      selectSuggestion(suggestions[active]);
     }
   }
 
@@ -116,7 +160,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
         }}
       >
         <label htmlFor={`${listId}-input`} className="sr-only">
-          Search publications
+          {label}
         </label>
         {/* Recessed field, per the design system's "cut into the page" inputs. */}
         <div className="flex items-center gap-2 rounded border border-rule bg-sunk px-3 py-1.5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
@@ -127,7 +171,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
             role="combobox"
             value={query}
             autoComplete="off"
-            placeholder="Search titles, authors, journals…"
+            placeholder={placeholder}
             aria-expanded={expanded}
             aria-controls={listId}
             aria-autocomplete="list"
@@ -168,7 +212,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
               // eaten by the dismiss handler.
               onMouseDown={(event) => {
                 event.preventDefault();
-                submit(suggestion.value);
+                selectSuggestion(suggestion);
               }}
               onMouseEnter={() => setActive(index)}
               className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-left text-body-sm ${
