@@ -98,6 +98,18 @@ DB_LOAD_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
 DB_LOAD_BATCH_SIZE ?= 1000
 DB_LOAD_YEAR_MIN ?= 2016
 DB_LOAD_YEAR_MAX ?= 2026
+INCREMENTAL_STATE ?= outputs/incremental/state.json
+INCREMENTAL_OUTPUT_ROOT ?= outputs/incremental/runs
+INCREMENTAL_INITIAL_FROM_DATE ?= 2016-01-01
+INCREMENTAL_FROM_DATE ?=
+INCREMENTAL_END_DATE ?=
+INCREMENTAL_PER_PAGE ?= 200
+INCREMENTAL_MAX_RECORDS ?=
+INCREMENTAL_MODEL ?=
+INCREMENTAL_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
+INCREMENTAL_DB_LABELS ?= AI
+INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?= 0.6
+INCREMENTAL_EXTRA_ARGS ?=
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
 LOGREG_MAX_DF ?= 0.95
@@ -168,7 +180,12 @@ OPENALEX_RUN_ARGS = \
 	$(OPENALEX_EMAIL_ARG) \
 	$(OPENALEX_EXTRA_ARGS)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+INCREMENTAL_FROM_DATE_ARG = $(if $(INCREMENTAL_FROM_DATE),--from-date $(INCREMENTAL_FROM_DATE),)
+INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_END_DATE),--end-date $(INCREMENTAL_END_DATE),)
+INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
+INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
+
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -181,6 +198,7 @@ help:
 	@echo "  make reset-db-2016-now       Clear final_publications, then load 2016-2026 records"
 	@echo "  make load-full-db-2016-now   Load only 2016-2026 records into all database tables"
 	@echo "  make reset-full-db-2016-now  Clear database tables, then load 2016-2026 records"
+	@echo "  make incremental-update      Collect since checkpoint, classify AI relevance, and upsert AI rows"
 	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
 	@echo "  make openalex-sample         Collect a small OpenAlex sample, default OPENALEX_SAMPLE_RECORDS=1000"
@@ -244,6 +262,22 @@ load-full-db-2016-now:
 
 reset-full-db-2016-now:
 	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
+
+incremental-update:
+	$(PYTHON) -m src.pipeline.incremental_update \
+		--state $(INCREMENTAL_STATE) \
+		--output-root $(INCREMENTAL_OUTPUT_ROOT) \
+		--initial-from-date $(INCREMENTAL_INITIAL_FROM_DATE) \
+		--per-page $(INCREMENTAL_PER_PAGE) \
+		--batch-size $(DB_LOAD_BATCH_SIZE) \
+		--text-columns $(INCREMENTAL_TEXT_COLUMNS) \
+		--db-labels $(INCREMENTAL_DB_LABELS) \
+		--confidence-review-threshold $(INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD) \
+		$(INCREMENTAL_FROM_DATE_ARG) \
+		$(INCREMENTAL_TO_DATE_ARG) \
+		$(INCREMENTAL_MAX_RECORDS_ARG) \
+		$(INCREMENTAL_MODEL_ARG) \
+		$(INCREMENTAL_EXTRA_ARGS)
 
 # Export model-ready text and TF-IDF features from the final dataset.
 model-text: model-titles model-abstracts model-keywords model-tfidf

@@ -17,6 +17,8 @@ export interface IncrementalRunSnapshot {
   collected?: number | null;
   selected?: number | null;
   loaded?: number | null;
+  message?: string | null;
+  error?: string | null;
   logPath?: string | null;
 }
 
@@ -79,6 +81,15 @@ export function IncrementalUpdateDiagram({
           />
         </div>
       </div>
+
+      {run.status === "failed" && (run.error || run.message) ? (
+        <div className="border-b border-rule bg-surface px-5 py-4">
+          <p className="label-caps text-serious">Failure reason</p>
+          <p className="mt-2 text-body-sm text-ink-secondary">
+            {shortError(run.error ?? run.message)}
+          </p>
+        </div>
+      ) : null}
 
       <ol className="grid gap-0 lg:grid-cols-5">
         {stages.map((stage, index) => (
@@ -246,4 +257,13 @@ function nodeClassName(state: StageState): string {
   if (state === "current") return `${base} border-machine bg-machine text-surface`;
   if (state === "failed") return `${base} border-serious bg-serious text-surface`;
   return `${base} border-rule bg-surface text-muted`;
+}
+
+function shortError(value: string | null | undefined): string {
+  if (!value) return "";
+  const lines = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.at(-1) ?? value.trim();
 }
