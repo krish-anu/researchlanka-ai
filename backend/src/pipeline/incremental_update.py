@@ -21,6 +21,12 @@ from src.collectors.openalex_collector import (
     openalex_work_id,
 )
 from src.database.load_records import load_record_file
+from src.database.pipeline_state import (
+    DEFAULT_INCREMENTAL_STATE_KEY,
+    PipelineRunRecord,
+    read_pipeline_checkpoint,
+    record_successful_pipeline_run,
+)
 from src.modeling.training import combined_text, parse_text_columns
 from src.pipeline.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report
 from src.preprocessing.openalex_normalizer import CSV_COLUMNS, work_to_row
@@ -31,6 +37,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_STATE_PATH = PROJECT_ROOT / "outputs" / "incremental" / "state.json"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "outputs" / "incremental" / "runs"
 DEFAULT_INITIAL_FROM_DATE = date(2016, 1, 1)
+DEFAULT_STATE_BACKEND = "json"
 DEFAULT_MODEL_PATH = (
     PROJECT_ROOT / "data" / "models" / "ai_relevance" / "ai_relevance_linear_svm.joblib"
 )
@@ -83,9 +90,16 @@ def checkpoint_from_date(
     *,
     explicit_from_date: date | None,
     initial_from_date: date,
+    state_backend: str = DEFAULT_STATE_BACKEND,
+    state_key: str = DEFAULT_INCREMENTAL_STATE_KEY,
 ) -> date:
     if explicit_from_date is not None:
         return explicit_from_date
+    if state_backend == "database":
+        checkpoint = read_pipeline_checkpoint(state_key=state_key)
+        if checkpoint.last_successful_collection_date is not None:
+            return checkpoint.last_successful_collection_date + timedelta(days=1)
+        return initial_from_date
     checkpoint = load_checkpoint(path)
     last_collected = (
         checkpoint.get("last_successful_collection_date")
@@ -289,6 +303,8 @@ def write_rows_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def run_incremental_update(
     *,
     state_path: Path,
+    state_backend: str = DEFAULT_STATE_BACKEND,
+    state_key: str = DEFAULT_INCREMENTAL_STATE_KEY,
     output_root: Path,
     explicit_from_date: date | None,
     initial_from_date: date,
@@ -309,6 +325,8 @@ def run_incremental_update(
         state_path,
         explicit_from_date=explicit_from_date,
         initial_from_date=initial_from_date,
+        state_backend=state_backend,
+        state_key=state_key,
     )
     if from_date > to_date:
         raise ValueError(f"from_date {from_date} cannot be after to_date {to_date}")
@@ -380,7 +398,26 @@ def run_incremental_update(
         model_path=model_path,
         db_labels=db_labels,
     )
-    save_checkpoint(state_path, result=result)
+    if state_backend == "database":
+        record_successful_pipeline_run(
+            run=PipelineRunRecord(
+                run_id=result.run_id,
+                state_key=state_key,
+                from_date=from_date,
+                to_date=to_date,
+                status="succeeded",
+                records_collected=result.records_collected,
+                records_selected_for_db=result.records_selected_for_db,
+                records_loaded=result.records_loaded,
+                raw_output=result.raw_output,
+                csv_output=result.csv_output,
+                db_load_output=result.db_load_output,
+                model_path=result.model_path,
+                db_labels=result.db_labels,
+            )
+        )
+    else:
+        save_checkpoint(state_path, result=result)
     return result
 
 
@@ -417,6 +454,8 @@ def main() -> None:
     )
     result = run_incremental_update(
         state_path=args.state,
+        state_backend=args.state_backend,
+        state_key=args.state_key,
         output_root=args.output_root,
         explicit_from_date=args.from_date,
         initial_from_date=args.initial_from_date,

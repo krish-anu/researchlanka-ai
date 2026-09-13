@@ -18,6 +18,10 @@ from src.api.core.errors import APIError
 from src.api.core.serializers import normalize_value
 from src.api.repositories.postgres import PostgresPublicationRepository
 from src.api.schemas import PublicationBatchPredictionRequest, PublicationPredictionRequest
+from src.api.services.incremental_admin import (
+    read_incremental_status,
+    start_incremental_update,
+)
 from src.api.services.model_serving import PublicationClassifierService
 from src.api.services.publications import ResearchLankaAPI
 
@@ -230,6 +234,28 @@ def create_model_router(
     return router
 
 
+def create_admin_router(
+    publication_service: ResearchLankaAPI | None = None,
+) -> APIRouter:
+    """Create internal admin pipeline endpoints."""
+
+    service = publication_service or ResearchLankaAPI(PostgresPublicationRepository())
+    router = APIRouter(prefix=f"{API_PREFIX}/admin", tags=["admin"])
+
+    @router.get("/incremental/status")
+    async def incremental_status() -> dict[str, Any]:
+        return {"data": read_incremental_status(), "meta": service._meta()}
+
+    @router.post("/incremental/run")
+    async def incremental_run(request: Request) -> dict[str, Any]:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
+        return {"data": start_incremental_update(payload), "meta": service._meta()}
+
+    return router
+
+
 def create_app(
     model_service: PublicationClassifierService | None = None,
     publication_service: ResearchLankaAPI | None = None,
@@ -297,6 +323,7 @@ def create_app(
 
     app.include_router(create_publication_router(publication_api))
     app.include_router(create_model_router(model_service))
+    app.include_router(create_admin_router(publication_api))
     return app
 
 

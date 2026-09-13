@@ -345,6 +345,72 @@ def test_fastapi_publication_endpoints_share_service_contract() -> None:
     assert "Malaria surveillance in Sri Lanka" in export_response.text
 
 
+def test_fastapi_admin_incremental_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    app = app_for_publications()
+    status = {
+        "status": "idle",
+        "started_at": None,
+        "finished_at": None,
+        "message": "No manual update has been started from this console.",
+        "db_labels": ["AI"],
+        "log_path": None,
+        "result": None,
+    }
+    monkeypatch.setattr(
+        "src.api.transport.fastapi_app.read_incremental_status",
+        lambda: status,
+    )
+
+    response = request(app, "GET", "/api/v1/admin/incremental/status")
+
+    assert response.status_code == 200
+    assert response.json()["data"] == status
+
+
+def test_fastapi_admin_incremental_run_forwards_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = app_for_publications()
+    seen_payload: dict[str, Any] = {}
+
+    def fake_start_incremental_update(payload: dict[str, Any]) -> dict[str, Any]:
+        seen_payload.update(payload)
+        return {
+            "status": "running",
+            "pid": 123,
+            "started_at": "2026-09-14T01:00:00Z",
+            "finished_at": None,
+            "message": "Incremental AI publication update started.",
+            "db_labels": ["AI"],
+            "log_path": "/tmp/incremental.log",
+            "result": None,
+        }
+
+    monkeypatch.setattr(
+        "src.api.transport.fastapi_app.start_incremental_update",
+        fake_start_incremental_update,
+    )
+
+    response = request(
+        app,
+        "POST",
+        "/api/v1/admin/incremental/run",
+        json={
+            "from_date": "2026-08-31",
+            "to_date": "2026-09-14",
+            "confidence_review_threshold": "0.6",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "running"
+    assert seen_payload == {
+        "from_date": "2026-08-31",
+        "to_date": "2026-09-14",
+        "confidence_review_threshold": "0.6",
+    }
+
+
 def test_fastapi_rejects_unsupported_query_parameters() -> None:
     app = app_for_publications()
 

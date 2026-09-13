@@ -57,6 +57,7 @@ const ROOT = process.cwd().endsWith(`${path.sep}frontend`)
   ? path.resolve(process.cwd(), "..")
   : process.cwd();
 const STATUS_PATH = path.join(ROOT, "backend", "outputs", "incremental", "ui_status.json");
+const REMOTE_API_BASE_URL = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export const INCREMENTAL_STATUS_PATH = STATUS_PATH;
 export const INCREMENTAL_ROOT = path.dirname(STATUS_PATH);
@@ -64,6 +65,9 @@ export const INCREMENTAL_LOG_DIR = path.join(INCREMENTAL_ROOT, "ui_logs");
 export const BACKEND_ROOT = path.join(ROOT, "backend");
 
 export async function readIncrementalRunSnapshot(): Promise<IncrementalRunSnapshot> {
+  const remote = await readRemoteIncrementalRunSnapshot();
+  if (remote) return remote;
+
   try {
     const payload = JSON.parse(
       await readFile(STATUS_PATH, "utf-8"),
@@ -90,6 +94,9 @@ export async function startIncrementalJob(
   input: StartIncrementalJobInput | FormData = {},
 ): Promise<StartIncrementalJobResult> {
   const request = normalizeStartInput(input);
+  const remote = await startRemoteIncrementalJob(request);
+  if (remote) return remote;
+
   const active = await readIncrementalRunSnapshot();
   if (active.status === "running" || active.status === "queued") {
     return {
@@ -203,6 +210,78 @@ export async function startIncrementalJob(
     logPath,
     db_labels: ["AI"],
   };
+}
+
+async function readRemoteIncrementalRunSnapshot(): Promise<IncrementalRunSnapshot | null> {
+  const url = adminApiUrl("/admin/incremental/status");
+  if (!url) return null;
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { data?: RawIncrementalStatus } & RawIncrementalStatus;
+    return normalizeSnapshot(payload.data ?? payload);
+  } catch {
+    return null;
+  }
+}
+
+async function startRemoteIncrementalJob(
+  request: StartIncrementalJobInput,
+): Promise<StartIncrementalJobResult | null> {
+  const url = adminApiUrl("/admin/incremental/run");
+  if (!url) return null;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from_date: request.fromDate ?? request.from_date,
+        to_date: request.toDate ?? request.to_date,
+        confidence_review_threshold:
+          request.reviewThreshold ??
+          request.confidenceReviewThreshold ??
+          request.review_threshold ??
+          request.confidence_review_threshold,
+      }),
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      data?: RawIncrementalStatus;
+      error?: { code?: string; message?: string };
+    } & RawIncrementalStatus;
+    if (!response.ok) {
+      return {
+        ok: false,
+        code: payload.error?.code ?? `http_${response.status}`,
+        message:
+          payload.error?.message ??
+          `Could not start the incremental update. API returned HTTP ${response.status}.`,
+      };
+    }
+    const status = await normalizeSnapshot(payload.data ?? payload);
+    return {
+      ok: true,
+      status,
+      message: status.message,
+      pid: typeof payload.data?.pid === "number" ? payload.data.pid : undefined,
+      logPath: status.logPath ?? "",
+      db_labels: status.db_labels ?? ["AI"],
+    };
+  } catch {
+    return {
+      ok: false,
+      code: "api_unreachable",
+      message: `Could not reach the backend API at ${REMOTE_API_BASE_URL}.`,
+    };
+  }
+}
+
+function adminApiUrl(pathValue: string): string | null {
+  if (!REMOTE_API_BASE_URL) return null;
+  return `${REMOTE_API_BASE_URL.replace(/\/$/, "")}${pathValue}`;
 }
 
 async function normalizeSnapshot(
