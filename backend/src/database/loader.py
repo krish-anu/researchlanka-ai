@@ -85,7 +85,12 @@ def load_final_publications(
             for row in rows
         ]
         with connection.cursor() as cursor:
-            cursor.executemany(final_publications_upsert_sql(), values)
+            for row in rows:
+                canonicalize_existing_publication_key(cursor, row)
+                cursor.execute(
+                    final_publications_upsert_sql(),
+                    final_publication_values(row),
+                )
 
         if owns_connection:
             connection.commit()
@@ -226,7 +231,9 @@ def build_publication_key(row: dict[str, Any], row_number: int) -> str:
         return f"doi:{row['doi']}"
     if not is_blank(row.get("openalex_id")):
         return f"openalex:{row['openalex_id']}"
-    if not is_blank(row.get("source_dataset")) and not is_blank(row.get("source_record_id")):
+    if not is_blank(row.get("source_dataset")) and not is_blank(
+        row.get("source_record_id")
+    ):
         return f"source:{row['source_dataset']}:{row['source_record_id']}"
     if not is_blank(row.get("title")):
         key_payload = json.dumps(
@@ -259,6 +266,74 @@ def adapt_jsonb(value: Any) -> Any:
     except ImportError:
         return json.dumps(value, ensure_ascii=False)
     return Jsonb(value)
+
+
+def final_publication_values(row: dict[str, Any]) -> list[Any]:
+    return [
+        row["publication_key"],
+        *[row.get(column) for column in DATABASE_PUBLICATION_COLUMNS],
+        adapt_jsonb(row["raw_record"]),
+    ]
+
+
+def canonicalize_existing_publication_key(cursor: Any, row: dict[str, Any]) -> None:
+    """Move an existing row to the incoming stable key before upserting.
+
+    Monthly/manual refreshes can encounter records loaded by an older or less
+    complete identifier, for example an OpenAlex key before a DOI became
+    available. Updating the primary key first lets the regular upsert refresh
+    the existing row instead of failing on the DOI/OpenAlex unique indexes.
+    """
+
+    existing_key = find_existing_publication_key(cursor, row)
+    incoming_key = row["publication_key"]
+    if existing_key is None or existing_key == incoming_key:
+        return
+
+    cursor.execute(
+        f"""
+        UPDATE {quote_identifier(FINAL_PUBLICATION_TABLE)}
+        SET publication_key = %s,
+            updated_at = now()
+        WHERE publication_key = %s
+        """,
+        (incoming_key, existing_key),
+    )
+
+
+def find_existing_publication_key(cursor: Any, row: dict[str, Any]) -> str | None:
+    conditions = ["publication_key = %s"]
+    params: list[Any] = [row["publication_key"]]
+
+    if not is_blank(row.get("doi")):
+        conditions.append("doi = %s")
+        params.append(row["doi"])
+    if not is_blank(row.get("openalex_id")):
+        conditions.append("openalex_id = %s")
+        params.append(row["openalex_id"])
+    if not is_blank(row.get("source_dataset")) and not is_blank(
+        row.get("source_record_id")
+    ):
+        conditions.append("(source_dataset = %s AND source_record_id = %s)")
+        params.extend([row["source_dataset"], row["source_record_id"]])
+
+    cursor.execute(
+        f"""
+        SELECT publication_key
+        FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+        WHERE {" OR ".join(conditions)}
+        """,
+        params,
+    )
+    matches = {record[0] for record in cursor.fetchall()}
+    if not matches:
+        return None
+    if len(matches) > 1:
+        raise ValueError(
+            "Incoming publication matches multiple existing final_publications "
+            f"rows: {sorted(matches)}"
+        )
+    return next(iter(matches))
 
 
 def final_publications_upsert_sql() -> str:
