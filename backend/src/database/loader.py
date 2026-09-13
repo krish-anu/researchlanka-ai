@@ -17,6 +17,7 @@ from src.database.apply_database_migrations import (
 from src.database.connection import get_connection
 from src.database.final_schema import (
     BOOLEAN_COLUMNS,
+    DATABASE_PUBLICATION_COLUMNS,
     DATE_COLUMNS,
     FINAL_PUBLICATION_COLUMNS,
     FINAL_PUBLICATION_TABLE,
@@ -76,14 +77,6 @@ def load_final_publications(
                 connection.commit()
             return 0
 
-        values = [
-            [
-                row["publication_key"],
-                *[row[column] for column in FINAL_PUBLICATION_COLUMNS],
-                adapt_jsonb(row["raw_record"]),
-            ]
-            for row in rows
-        ]
         with connection.cursor() as cursor:
             for row in rows:
                 canonicalize_existing_publication_key(cursor, row)
@@ -271,7 +264,7 @@ def adapt_jsonb(value: Any) -> Any:
 def final_publication_values(row: dict[str, Any]) -> list[Any]:
     return [
         row["publication_key"],
-        *[row[column] for column in DATABASE_PUBLICATION_COLUMNS],
+        *[row.get(column) for column in DATABASE_PUBLICATION_COLUMNS],
         adapt_jsonb(row["raw_record"]),
     ]
 
@@ -311,7 +304,9 @@ def find_existing_publication_key(cursor: Any, row: dict[str, Any]) -> str | Non
     if not is_blank(row.get("openalex_id")):
         conditions.append("openalex_id = %s")
         params.append(row["openalex_id"])
-    if not is_blank(row.get("source_dataset")) and not is_blank(row.get("source_record_id")):
+    if not is_blank(row.get("source_dataset")) and not is_blank(
+        row.get("source_record_id")
+    ):
         conditions.append("(source_dataset = %s AND source_record_id = %s)")
         params.extend([row["source_dataset"], row["source_record_id"]])
 
@@ -337,14 +332,14 @@ def find_existing_publication_key(cursor: Any, row: dict[str, Any]) -> str | Non
 def final_publications_upsert_sql() -> str:
     insert_columns = [
         "publication_key",
-        *FINAL_PUBLICATION_COLUMNS,
+        *DATABASE_PUBLICATION_COLUMNS,
         "raw_record",
     ]
     placeholders = ", ".join(["%s"] * len(insert_columns))
     quoted_columns = ", ".join(quote_identifier(column) for column in insert_columns)
     update_assignments = ", ".join(
         f"{quote_identifier(column)} = EXCLUDED.{quote_identifier(column)}"
-        for column in [*FINAL_PUBLICATION_COLUMNS, "raw_record"]
+        for column in [*DATABASE_PUBLICATION_COLUMNS, "raw_record"]
     )
     return (
         f"INSERT INTO {quote_identifier(FINAL_PUBLICATION_TABLE)} ({quoted_columns}) "

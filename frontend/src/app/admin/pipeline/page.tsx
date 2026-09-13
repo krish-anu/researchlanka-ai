@@ -1,8 +1,10 @@
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
+import { IncrementalUpdateDiagram } from "@/components/admin/IncrementalUpdateDiagram";
 import { ChartPanel } from "@/components/ui/ChartPanel";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { getDatasetMeta, getHealth, getDataQuality, getLimitations } from "@/services/api";
+import { readIncrementalRunSnapshot } from "@/services/admin/incremental";
 import { formatDate, formatNumber, formatPercent } from "@/services/format";
 
 export const metadata = { title: "Pipeline" };
@@ -25,11 +27,12 @@ interface SourceRow {
  * completeness — and states the load timestamp once, for the dataset as a whole.
  */
 export default async function AdminPipelinePage() {
-  const [meta, health, quality, limitations] = await Promise.all([
+  const [meta, health, quality, limitations, incrementalRun] = await Promise.all([
     getDatasetMeta(),
     getHealth(),
     getDataQuality({ group_by: "source_dataset" }),
     getLimitations(),
+    readIncrementalRunSnapshot(),
   ]);
 
   const groups = quality.ok ? (quality.value.data.groups ?? {}) : {};
@@ -41,6 +44,50 @@ export default async function AdminPipelinePage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <section>
+        <SectionHeading
+          title="Update progress"
+          description="Watch the manual or monthly AI update move from collection to database load."
+        />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <IncrementalUpdateDiagram run={incrementalRun} />
+          <div className="panel p-5">
+            <h3 className="font-display text-h3 text-ink">Latest run</h3>
+            <dl className="mt-4 grid gap-3">
+              <Row label="Status" value={incrementalRun.status} />
+              <Row
+                label="Started"
+                value={formatDate(incrementalRun.startedAt ?? null)}
+              />
+              <Row
+                label="Finished"
+                value={formatDate(incrementalRun.finishedAt ?? null)}
+              />
+              <Row
+                label="Window"
+                value={
+                  incrementalRun.fromDate && incrementalRun.toDate
+                    ? `${incrementalRun.fromDate} to ${incrementalRun.toDate}`
+                    : "-"
+                }
+              />
+              <Row
+                label="Collected"
+                value={formatNumber(incrementalRun.collected ?? null)}
+              />
+              <Row
+                label="Selected"
+                value={formatNumber(incrementalRun.selected ?? null)}
+              />
+              <Row
+                label="Loaded"
+                value={formatNumber(incrementalRun.loaded ?? null)}
+              />
+            </dl>
+          </div>
+        </div>
+      </section>
+
       <section>
         <SectionHeading title="Service" />
         <div className="panel p-5">
