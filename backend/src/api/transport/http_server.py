@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from src.api.core.constants import API_PREFIX
 from src.api.core.errors import APIError
 from src.api.repositories.postgres import PostgresPublicationRepository
-from src.api.routing.routes import route_get
+from src.api.routing.routes import route_get, route_post
 from src.api.core.serializers import normalize_value
 from src.api.services.publications import ResearchLankaAPI
 
@@ -56,6 +56,31 @@ class APIRequestHandler(BaseHTTPRequestHandler):
                 status=HTTPStatus.INTERNAL_SERVER_ERROR,
             )
 
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        try:
+            payload = self.read_json_body()
+            json_response(self, self.route_post(path, payload))
+        except APIError as exc:
+            json_response(
+                self,
+                {"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
+                status=HTTPStatus(exc.status),
+            )
+        except Exception as exc:  # pragma: no cover - network-facing guard
+            json_response(
+                self,
+                {
+                    "error": {
+                        "code": "internal_error",
+                        "message": str(exc),
+                        "details": {},
+                    }
+                },
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.NO_CONTENT)
         add_cors_headers(self)
@@ -63,6 +88,19 @@ class APIRequestHandler(BaseHTTPRequestHandler):
 
     def route_get(self, path: str, query: dict[str, list[str]]) -> dict[str, Any] | tuple[bytes, str]:
         return route_get(self.service, path, query)
+
+    def route_post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return route_post(self.service, path, payload)
+
+    def read_json_body(self) -> dict[str, Any]:
+        length = int(self.headers.get("Content-Length") or "0")
+        if length == 0:
+            return {}
+        body = self.rfile.read(length)
+        payload = json.loads(body.decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise APIError("invalid_json", "JSON request body must be an object.", status=400)
+        return payload
 
 
 def json_response(
@@ -97,7 +135,7 @@ def bytes_response(
 
 def add_cors_headers(handler: BaseHTTPRequestHandler) -> None:
     handler.send_header("Access-Control-Allow-Origin", "*")
-    handler.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     handler.send_header("Access-Control-Allow-Headers", "Content-Type")
 
 

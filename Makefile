@@ -64,6 +64,15 @@ load-db-2016-now:
 reset-db-2016-now:
 	$(MAKE) -C $(BACKEND_DIR) reset-db-2016-now
 
+ai-dataset:
+	$(MAKE) -C $(BACKEND_DIR) ai-dataset
+
+reset-db-ai:
+	$(MAKE) -C $(BACKEND_DIR) reset-db-ai
+
+incremental-update:
+	$(MAKE) -C $(BACKEND_DIR) incremental-update
+
 load-full-db-2016-now:
 	$(MAKE) -C $(BACKEND_DIR) load-full-db-2016-now
 

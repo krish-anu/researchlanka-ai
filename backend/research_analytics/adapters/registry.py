@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import Any, Type
+from typing import Type
 
 from research_analytics.adapters.base import SourceAdapter
 from research_analytics.config import FrameworkConfig, SourceConfig

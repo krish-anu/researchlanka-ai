@@ -13,6 +13,53 @@ import {
 import { decideCandidate } from "@/services/workspace/resolution";
 import { recordAudit, resolveFlag } from "@/services/workspace/store";
 import { isAccountRole } from "@/types/auth";
+import { startIncrementalJob } from "@/services/admin/incremental";
+
+/* ---------------------------------------------------------- pipeline runs */
+
+export async function runIncrementalUpdate(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const actor = await requireCapability("admin.pipeline.run", "/admin");
+
+  const fromDate = String(formData.get("from_date") ?? "");
+  const toDate = String(formData.get("to_date") ?? "");
+  const confidenceReviewThreshold = String(
+    formData.get("confidence_review_threshold") ?? "",
+  );
+
+  try {
+    const status = await startIncrementalJob({
+      fromDate,
+      toDate,
+      confidenceReviewThreshold,
+    });
+
+    await recordAudit({
+      action: "pipeline.incremental_started",
+      subject: "incremental-ai-update",
+      summary: `Started AI-only incremental update with labels ${status.db_labels.join(", ")}`,
+      actor,
+    }).catch((error) => {
+      console.error("Could not record incremental update audit entry", error);
+    });
+
+    revalidatePath("/admin");
+    return {
+      status: "ok",
+      message: "Incremental AI update started. Refresh this page to follow status.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Could not start the incremental update.",
+    };
+  }
+}
 
 /* ------------------------------------------------------------ flag triage */
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 TEXT_FILTER_COLUMNS = {
@@ -24,6 +25,8 @@ PUBLICATION_SEARCH_VECTOR_SQL = (
     "coalesce(title, '') || ' ' || "
     "coalesce(abstract, '') || ' ' || "
     "coalesce(authors, '') || ' ' || "
+    "coalesce(institutions, '') || ' ' || "
+    "coalesce(sri_lankan_institutions, '') || ' ' || "
     "coalesce(keywords, '') || ' ' || "
     "coalesce(journal, '') || ' ' || "
     "coalesce(publisher, '') || ' ' || "
@@ -32,13 +35,21 @@ PUBLICATION_SEARCH_VECTOR_SQL = (
     ")"
 )
 
+PUBLICATION_YEAR_SQL = "COALESCE(publication_year, EXTRACT(YEAR FROM publication_date)::int)"
+PUBLIC_AI_CLASSIFICATION_LABELS = ("AI",)
+SEARCH_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9]+")
+
 SORT_SQL = {
-    "relevance": "publication_year DESC NULLS LAST, title ASC NULLS LAST",
-    "year_desc": "publication_year DESC NULLS LAST, title ASC NULLS LAST",
-    "year_asc": "publication_year ASC NULLS LAST, title ASC NULLS LAST",
-    "citations_desc": "citation_count DESC NULLS LAST, publication_year DESC NULLS LAST",
-    "title_asc": "title ASC NULLS LAST, publication_year DESC NULLS LAST",
+    "relevance": f"{PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST",
+    "year_desc": f"{PUBLICATION_YEAR_SQL} DESC NULLS LAST, title ASC NULLS LAST",
+    "year_asc": f"{PUBLICATION_YEAR_SQL} ASC NULLS LAST, title ASC NULLS LAST",
+    "citations_desc": f"citation_count DESC NULLS LAST, {PUBLICATION_YEAR_SQL} DESC NULLS LAST",
+    "title_asc": f"title ASC NULLS LAST, {PUBLICATION_YEAR_SQL} DESC NULLS LAST",
 }
+
+
+def nonempty_condition(column: str) -> str:
+    return f"NULLIF(btrim(coalesce({quote_identifier(column)}::text, '')), '') IS NOT NULL"
 
 BASE_COLUMNS = [
     "publication_key",
@@ -90,6 +101,10 @@ BASE_COLUMNS = [
     "primary_field",
     "primary_subfield",
     "primary_domain",
+    "ai_classification_label",
+    "ai_classification_confidence",
+    "ai_classification_model",
+    "ai_classification_reason",
     "funder_name",
     "funder_doi",
     "funder_identifier",
@@ -107,18 +122,18 @@ BASE_COLUMNS = [
 
 
 def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
-    clauses: list[str] = []
-    params: list[Any] = []
+    clauses: list[str] = ['"ai_classification_label" = ANY(%s)']
+    params: list[Any] = [list(PUBLIC_AI_CLASSIFICATION_LABELS)]
     if filters.get("q"):
         clauses.append(
-            f"{PUBLICATION_SEARCH_VECTOR_SQL} @@ plainto_tsquery('english', %s)"
+            f"{PUBLICATION_SEARCH_VECTOR_SQL} @@ to_tsquery('english', %s)"
         )
-        params.append(filters["q"])
+        params.append(prefix_tsquery(filters["q"]))
     if filters.get("year_min") is not None:
-        clauses.append("publication_year >= %s")
+        clauses.append(f"{PUBLICATION_YEAR_SQL} >= %s")
         params.append(filters["year_min"])
     if filters.get("year_max") is not None:
-        clauses.append("publication_year <= %s")
+        clauses.append(f"{PUBLICATION_YEAR_SQL} <= %s")
         params.append(filters["year_max"])
     for key, column in TEXT_FILTER_COLUMNS.items():
         values = filters.get(key)
@@ -139,9 +154,11 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
     if filters.get("is_oa") is not None:
         clauses.append("is_oa IS %s" % ("TRUE" if filters["is_oa"] else "FALSE"))
     if filters.get("has_doi") is not None:
-        clauses.append("doi IS %s NULL" % ("NOT" if filters["has_doi"] else ""))
+        condition = nonempty_condition("doi")
+        clauses.append(condition if filters["has_doi"] else f"NOT ({condition})")
     if filters.get("has_abstract") is not None:
-        clauses.append("abstract IS %s NULL" % ("NOT" if filters["has_abstract"] else ""))
+        condition = nonempty_condition("abstract")
+        clauses.append(condition if filters["has_abstract"] else f"NOT ({condition})")
     quality_values = filters.get("quality_flag")
     if quality_values:
         flag_clauses = []
@@ -151,9 +168,9 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
             elif flag == "reference_count_divergence":
                 flag_clauses.append("reference_count_divergence_flag IS TRUE")
             elif flag == "missing_doi":
-                flag_clauses.append("doi IS NULL")
+                flag_clauses.append(f"NOT ({nonempty_condition('doi')})")
             elif flag == "missing_abstract":
-                flag_clauses.append("abstract IS NULL")
+                flag_clauses.append(f"NOT ({nonempty_condition('abstract')})")
         if flag_clauses:
             clauses.append("(" + " OR ".join(flag_clauses) + ")")
     publication_keys = filters.get("publication_keys")
@@ -168,8 +185,23 @@ def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
     return "WHERE " + " AND ".join(clauses), params
 
 
+def search_tokens(value: Any) -> list[str]:
+    return SEARCH_TOKEN_PATTERN.findall(str(value or "").casefold())
+
+
+def prefix_tsquery(value: Any) -> str:
+    tokens = search_tokens(value)
+    return " & ".join(f"{token}:*" for token in tokens) or "__no_search_terms__"
+
+
 def select_columns(columns: list[str]) -> str:
-    return ", ".join(quote_identifier(column) for column in columns)
+    selected = []
+    for column in columns:
+        if column == "publication_year":
+            selected.append(f"{PUBLICATION_YEAR_SQL} AS {quote_identifier(column)}")
+        else:
+            selected.append(quote_identifier(column))
+    return ", ".join(selected)
 
 
 def quote_identifier(identifier: str) -> str:

@@ -59,7 +59,11 @@ class GeminiAIClient:
             prompt_version=self.config.prompt_version,
         )
         last_error: Exception | None = None
-        for attempt in range(1, self.config.max_retries + 1):
+        max_attempts = max(
+            self.config.max_retries,
+            self.config.openrouter_rate_limit_retries + 1,
+        )
+        for attempt in range(1, max_attempts + 1):
             try:
                 response = self._client.models.generate_content(
                     model=self.config.model,
@@ -131,6 +135,7 @@ class OpenRouterAIClient:
                         "model": self.config.model,
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": 0,
+                        "max_tokens": self.config.openrouter_max_tokens,
                         "stream": False,
                         "provider": {"require_parameters": True},
                         "response_format": {
@@ -144,15 +149,54 @@ class OpenRouterAIClient:
                     },
                     timeout=self.config.timeout_seconds,
                 )
+                if response.status_code == 402:
+                    raise GeminiQuotaExceededError(_http_error_message(response))
+                if response.status_code == 403:
+                    raise GeminiQuotaExceededError(_http_error_message(response))
                 if response.status_code == 429:
+                    retry_after = _retry_after_seconds(response)
+                    wait_seconds = (
+                        retry_after
+                        if retry_after is not None
+                        else self.config.openrouter_rate_limit_wait_seconds
+                    )
+                    if attempt <= self.config.openrouter_rate_limit_retries:
+                        LOGGER.warning(
+                            "OpenRouter rate-limited publication_id=%s attempt=%s/%s; "
+                            "waiting %.0fs before retrying: %s",
+                            publication.publication_id,
+                            attempt,
+                            self.config.openrouter_rate_limit_retries,
+                            wait_seconds,
+                            response.text[:500],
+                        )
+                        time.sleep(wait_seconds)
+                        continue
                     raise GeminiQuotaExceededError(response.text)
                 if response.status_code >= 500:
-                    raise RuntimeError(response.text)
+                    raise RuntimeError(_http_error_message(response))
                 response.raise_for_status()
                 data = response.json()
                 content = data["choices"][0]["message"]["content"]
-                payload = json.loads(content) if isinstance(content, str) else content
-                classification = validate_ai_response(payload)
+                try:
+                    payload = json.loads(content) if isinstance(content, str) else content
+                    classification = validate_ai_response(payload)
+                except (json.JSONDecodeError, ValueError) as exc:
+                    last_error = exc
+                    if attempt >= self.config.max_retries:
+                        break
+                    wait_seconds = min(2 ** (attempt - 1), 30)
+                    LOGGER.warning(
+                        "OpenRouter returned invalid JSON for publication_id=%s attempt=%s/%s; "
+                        "retrying in %ss: %s",
+                        publication.publication_id,
+                        attempt,
+                        self.config.max_retries,
+                        wait_seconds,
+                        exc,
+                    )
+                    time.sleep(wait_seconds)
+                    continue
                 return GeminiClassificationResult(
                     classification=classification,
                     usage=_usage_from_openrouter(data),
@@ -308,6 +352,24 @@ def _is_quota_exhausted(error: Exception) -> bool:
         "generaterequestsperdayperprojectpermodel-freetier",
     )
     return any(marker in text for marker in quota_markers)
+
+
+def _retry_after_seconds(response: Any) -> float | None:
+    retry_after = getattr(response, "headers", {}).get("Retry-After")
+    if retry_after is None:
+        return None
+    try:
+        return max(float(retry_after), 0.0)
+    except ValueError:
+        return None
+
+
+def _http_error_message(response: Any) -> str:
+    try:
+        body = response.json()
+    except Exception:  # noqa: BLE001 - response body may not be JSON
+        body = getattr(response, "text", "")
+    return f"{response.status_code} {getattr(response, 'reason', '')}: {body}"
 
 
 def estimated_cost(
