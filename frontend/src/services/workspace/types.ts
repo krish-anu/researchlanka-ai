@@ -71,11 +71,50 @@ export interface ResolutionSide {
   authors: string[];
 }
 
+export type AIReviewDecisionLabel = "AI" | "NON_AI";
+
+export interface AIReviewDecision {
+  id: string;
+  publication_id: string;
+  source_row: string;
+  decision: AIReviewDecisionLabel;
+  note: string;
+  decided_at: string;
+  decided_by: string;
+}
+
+export interface AIReviewCandidate {
+  id: string;
+  publication_id: string;
+  source_row: string;
+  status: "pending" | "decided";
+  final_label: string;
+  raw_label: string;
+  confidence: number | null;
+  margin: number | null;
+  review_threshold: number | null;
+  selected_model: string;
+  title: string;
+  doi: string | null;
+  openalex_id: string | null;
+  publication_date: string | null;
+  source_dataset: string;
+  source_record_id: string;
+  primary_topic: string | null;
+  primary_subfield: string | null;
+  primary_field: string | null;
+  primary_domain: string | null;
+  text: string;
+  decision: AIReviewDecision | null;
+}
+
 export type AuditAction =
   | "flag.accepted"
   | "flag.rejected"
   | "resolution.merged"
   | "resolution.rejected"
+  | "ai_review.ai"
+  | "ai_review.non_ai"
   | "pipeline.incremental_started"
   | "user.role_changed"
   | "user.disabled"

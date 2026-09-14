@@ -1,6 +1,7 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { RoleBadge } from "@/components/auth/RoleBadge";
 import { requireCapability } from "@/services/auth/server";
+import { countPendingAIReviewCandidates } from "@/services/workspace/aiReview";
 import { countPendingCandidates } from "@/services/workspace/resolution";
 import { countOpenFlags } from "@/services/workspace/store";
 
