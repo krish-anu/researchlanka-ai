@@ -50,8 +50,6 @@ export async function generateMetadata({ params }: PageProps) {
 
 const PAGE_SIZE = 25;
 const TREND_SAMPLE = 100;
-const TREND_YEAR_MIN = 2016;
-const TREND_YEAR_MAX = new Date().getFullYear();
 
 export default async function InstitutionProfilePage({
   params,
@@ -76,8 +74,6 @@ export default async function InstitutionProfilePage({
     getInstitutionPublications(institutionKey, {
       page: 1,
       page_size: TREND_SAMPLE,
-      year_min: TREND_YEAR_MIN,
-      year_max: TREND_YEAR_MAX,
     }),
     getCollaborationNetwork({
       scope: "institution",

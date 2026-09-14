@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { QualityFlagList } from "@/components/ui/QualityFlags";
 import { ProvenanceList, ProvenanceStripe } from "@/components/ui/Provenance";
-import { formatNumber } from "@/services/format";
+import { formatDate, formatNumber } from "@/services/format";
 import { publicationHref, researcherHref } from "@/services/links";
 import type { PublicationSummary } from "@/types/api";
 
@@ -35,6 +35,12 @@ function AuthorLine({ authors }: { authors: string[] }) {
   );
 }
 
+function yearFromDate(value: string | null): number | null {
+  if (!value) return null;
+  const match = /^(\d{4})/.exec(value);
+  return match ? Number(match[1]) : null;
+}
+
 export function PublicationCard({
   publication,
 }: {
@@ -45,6 +51,7 @@ export function PublicationCard({
     title,
     authors,
     publication_year: year,
+    publication_date: date,
     journal,
     type,
     citation_count: citations,
@@ -55,6 +62,7 @@ export function PublicationCard({
     quality_flags: flags,
     doi,
   } = publication;
+  const displayYear = year ?? yearFromDate(date);
 
   return (
     <article className="panel overflow-hidden">
@@ -73,7 +81,11 @@ export function PublicationCard({
         </p>
 
         <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink-secondary">
-          {year ? <span className="tabular">{year}</span> : null}
+          {displayYear ? (
+            <span className="tabular" title={date ? `Published ${formatDate(date)}` : undefined}>
+              Published {displayYear}
+            </span>
+          ) : null}
           {journal ? (
             <>
               <span aria-hidden className="text-muted">
