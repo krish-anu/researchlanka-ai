@@ -45,8 +45,8 @@ export default async function ForbiddenPage({ searchParams }: PageProps) {
 
       <p className="mt-5 border-t border-rule pt-4 text-body-sm text-ink-secondary">
         Administrator access is granted from the user list by an existing
-        administrator. Roles are read from your session, so a newly granted role
-        takes effect the next time you sign in.
+        administrator. Server-side route guards re-check your account, so a
+        newly granted role applies on your next guarded request.
       </p>
 
       <div className="mt-5 flex flex-wrap gap-3">
