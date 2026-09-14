@@ -35,6 +35,7 @@ export default async function AdminOverviewPage() {
     users,
     openFlags,
     pendingCandidates,
+    pendingAIReview,
     audit,
     incrementalStatus,
   ] = await Promise.all([
@@ -116,6 +117,12 @@ export default async function AdminOverviewPage() {
           description="Queues owned by this application. Decisions taken here are recorded and applied on the next pipeline run."
         />
         <div className="grid gap-4 sm:grid-cols-3">
+          <QueueCard
+            href="/admin/ai-review"
+            label="AI review"
+            count={pendingAIReview}
+            caption="AI REVIEW predictions awaiting a final label"
+          />
           <QueueCard
             href="/admin/review"
             label="Resolution queue"
