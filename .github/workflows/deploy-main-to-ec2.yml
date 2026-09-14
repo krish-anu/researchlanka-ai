@@ -47,9 +47,11 @@ jobs:
           cd "$APP_DIR"
           git fetch origin main
           git reset --hard origin/main
-          docker compose -f compose.aws.yml up -d --build --force-recreate --remove-orphans
-          docker compose -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
-          docker compose -f compose.aws.yml restart api frontend
+          COMPOSE="docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml"
+          $COMPOSE build api frontend
+          $COMPOSE up -d --force-recreate --remove-orphans db
+          $COMPOSE run --rm api python scripts/database/apply_database_migrations.py
+          $COMPOSE up -d --force-recreate --remove-orphans api frontend
           docker image prune -f
-          docker compose -f compose.aws.yml ps
+          $COMPOSE ps
           REMOTE
