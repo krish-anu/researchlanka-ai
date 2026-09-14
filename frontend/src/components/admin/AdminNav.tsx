@@ -14,7 +14,7 @@ interface AdminTab {
   label: string;
   Icon: ComponentType<{ className?: string }>;
   /** Rendered as a count chip when non-zero; omitted entirely when undefined. */
-  badgeKey?: "flags" | "review";
+  badgeKey?: "flags" | "review" | "aiReview";
   /** The console root; without this it stays lit on every nested tab. */
   exact?: boolean;
 }
@@ -22,6 +22,7 @@ interface AdminTab {
 const TABS: AdminTab[] = [
   { href: "/admin", label: "Overview", Icon: AdminIcon, exact: true },
   { href: "/admin/pipeline", label: "Pipeline", Icon: PipelineIcon },
+  { href: "/admin/ai-review", label: "AI review", Icon: QueueIcon, badgeKey: "aiReview" },
   { href: "/admin/review", label: "Resolution queue", Icon: QueueIcon, badgeKey: "review" },
   { href: "/admin/flags", label: "Flag triage", Icon: FlagIcon, badgeKey: "flags" },
   { href: "/admin/users", label: "Accounts", Icon: UsersIcon },
@@ -30,6 +31,7 @@ const TABS: AdminTab[] = [
 export interface AdminBadges {
   flags: number;
   review: number;
+  aiReview: number;
 }
 
 /** Sub-navigation for the console. */
