@@ -28,7 +28,7 @@ export const metadata = { title: "Overview" };
  * the platform can change the corpus from this screen, which it cannot.
  */
 export default async function AdminOverviewPage() {
-  const [
+  const {
     health,
     meta,
     quality,
@@ -38,20 +38,7 @@ export default async function AdminOverviewPage() {
     pendingAIReview,
     audit,
     incrementalStatus,
-  ] = await Promise.all([
-      getHealth(),
-      getDatasetMeta(),
-      getDataQuality({ group_by: "source_dataset" }),
-      safeAdminData("users", listUsers, [] as UserRecord[]),
-      safeAdminData("open flags", countOpenFlags, 0),
-      safeAdminData("resolution candidates", countPendingCandidates, 0),
-      safeAdminData("audit log", () => listAudit(8), [] as AuditEntry[]),
-      safeAdminData(
-        "incremental update status",
-        readIncrementalJobStatus,
-        IDLE_INCREMENTAL_STATUS,
-      ),
-  ]);
+  } = await loadAdminOverviewData();
 
   const apiUp = health.ok && health.value.data.status === "ok";
   const admins = users.filter((user) => user.role === "admin").length;
@@ -274,4 +261,41 @@ async function safeAdminData<T>(
     console.warn(`[admin] Could not read ${label}`, error);
     return fallback;
   }
+}
+
+async function loadAdminOverviewData() {
+  const [
+    health,
+    meta,
+    quality,
+    users,
+    openFlags,
+    pendingCandidates,
+    audit,
+    incrementalStatus,
+  ] = await Promise.all([
+    getHealth(),
+    getDatasetMeta(),
+    getDataQuality({ group_by: "source_dataset" }),
+    safeAdminData("users", listUsers, [] as UserRecord[]),
+    safeAdminData("open flags", countOpenFlags, 0),
+    safeAdminData("resolution candidates", countPendingCandidates, 0),
+    safeAdminData("audit log", () => listAudit(8), [] as AuditEntry[]),
+    safeAdminData(
+      "incremental update status",
+      readIncrementalJobStatus,
+      IDLE_INCREMENTAL_STATUS,
+    ),
+  ]);
+
+  return {
+    health,
+    meta,
+    quality,
+    users,
+    openFlags,
+    pendingCandidates,
+    audit,
+    incrementalStatus,
+  };
 }
