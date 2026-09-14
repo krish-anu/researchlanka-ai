@@ -1,6 +1,8 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { RoleBadge } from "@/components/auth/RoleBadge";
-import { requireCapability } from "@/services/auth/server";
+import { cookies } from "next/headers";
+
+import { readSessionToken, SESSION_COOKIE } from "@/services/auth/session";
 
 export const metadata = {
   title: {
@@ -10,18 +12,20 @@ export const metadata = {
 };
 
 /**
- * Authoritative gate for the console.
+ * Shell for the console.
  *
- * Everything below this layout assumes an administrator, so the check lives
- * here rather than being repeated in each page — though the server actions
- * re-check independently, since they are reachable without rendering a page.
+ * Middleware already rejects unsigned and non-admin cookies before this route
+ * renders. Keep this layout free of deployment data reads so a broken JSON
+ * store or missing artifact cannot collapse the whole admin shell; server
+ * actions still re-check capabilities independently.
  */
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireCapability("admin.access", "/admin");
+  const store = await cookies();
+  const user = await readSessionToken(store.get(SESSION_COOKIE)?.value);
 
   return (
     <div className="flex flex-col gap-6">
@@ -38,7 +42,9 @@ export default async function AdminLayout({
         </div>
         <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
           <RoleBadge role="admin" />
-          <span className="text-body-sm text-muted">{user.email}</span>
+          <span className="text-body-sm text-muted">
+            {user?.email ?? "Administrator session"}
+          </span>
         </div>
       </header>
 
