@@ -347,6 +347,7 @@ def test_fastapi_publication_endpoints_share_service_contract() -> None:
 
 def test_fastapi_admin_incremental_status(monkeypatch: pytest.MonkeyPatch) -> None:
     app = app_for_publications()
+    monkeypatch.setenv("RESEARCHLANKA_ADMIN_API_TOKEN", "test-admin-token")
     status = {
         "status": "idle",
         "started_at": None,
@@ -361,16 +362,34 @@ def test_fastapi_admin_incremental_status(monkeypatch: pytest.MonkeyPatch) -> No
         lambda: status,
     )
 
-    response = request(app, "GET", "/api/v1/admin/incremental/status")
+    response = request(
+        app,
+        "GET",
+        "/api/v1/admin/incremental/status",
+        headers={"X-ResearchLanka-Admin-Token": "test-admin-token"},
+    )
 
     assert response.status_code == 200
     assert response.json()["data"] == status
+
+
+def test_fastapi_admin_incremental_status_requires_admin_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = app_for_publications()
+    monkeypatch.setenv("RESEARCHLANKA_ADMIN_API_TOKEN", "test-admin-token")
+
+    response = request(app, "GET", "/api/v1/admin/incremental/status")
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden"
 
 
 def test_fastapi_admin_incremental_run_forwards_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = app_for_publications()
+    monkeypatch.setenv("RESEARCHLANKA_ADMIN_API_TOKEN", "test-admin-token")
     seen_payload: dict[str, Any] = {}
 
     def fake_start_incremental_update(payload: dict[str, Any]) -> dict[str, Any]:
@@ -395,6 +414,7 @@ def test_fastapi_admin_incremental_run_forwards_payload(
         app,
         "POST",
         "/api/v1/admin/incremental/run",
+        headers={"X-ResearchLanka-Admin-Token": "test-admin-token"},
         json={
             "from_date": "2026-08-31",
             "to_date": "2026-09-14",

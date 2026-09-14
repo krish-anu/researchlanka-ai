@@ -7,8 +7,9 @@ import os
 import subprocess
 import sys
 from datetime import UTC, datetime
+from hmac import compare_digest
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from src.api.core.errors import APIError
 
@@ -16,6 +17,7 @@ from src.api.core.errors import APIError
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_STATUS_PATH = PROJECT_ROOT / "outputs" / "incremental" / "ui_status.json"
 DEFAULT_LOG_DIR = PROJECT_ROOT / "outputs" / "incremental" / "ui_logs"
+ADMIN_TOKEN_ENV = "RESEARCHLANKA_ADMIN_API_TOKEN"
 
 
 def utc_now() -> str:
@@ -114,6 +116,32 @@ def start_incremental_update(
     }
     write_status(status_path, status_payload)
     return normalize_status(status_payload)
+
+
+def require_admin_api_token(headers: Mapping[str, str] | None) -> None:
+    """Protect backend-only admin endpoints from direct unauthenticated calls."""
+
+    expected = os.getenv(ADMIN_TOKEN_ENV)
+    if not expected:
+        raise APIError(
+            "admin_api_token_not_configured",
+            f"{ADMIN_TOKEN_ENV} is not configured, so backend admin endpoints are disabled.",
+            status=503,
+        )
+
+    supplied = ""
+    if headers is not None:
+        supplied = str(headers.get("x-researchlanka-admin-token") or "").strip()
+        authorization = str(headers.get("authorization") or "").strip()
+        if not supplied and authorization.lower().startswith("bearer "):
+            supplied = authorization[7:].strip()
+
+    if not supplied or not compare_digest(supplied, expected):
+        raise APIError(
+            "forbidden",
+            "A valid backend admin token is required.",
+            status=403,
+        )
 
 
 def idle_status() -> dict[str, Any]:
