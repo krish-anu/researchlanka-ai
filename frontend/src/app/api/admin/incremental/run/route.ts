@@ -16,7 +16,7 @@ interface RunRequest {
 
 export async function POST(request: Request) {
   const viewer = await getViewer();
-  if (!can(viewer.role, "admin.pipeline.view")) {
+  if (!can(viewer.role, "admin.pipeline.run")) {
     return NextResponse.json(
       { error: { code: "forbidden", message: "Administrator access required." } },
       { status: 403 },
