@@ -26,11 +26,11 @@ export default async function AdminLayout({
 }) {
   const user = await requireCapability("admin.access", "/admin");
 
-  const [flags, review] = await Promise.all([
+  const [flags, review, aiReview] = await Promise.all([
     countOrZero("open flags", countOpenFlags),
     countOrZero("resolution candidates", countPendingCandidates),
+    countOrZero("AI review candidates", countPendingAIReviewCandidates),
   ]);
-  const aiReview = review;
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,7 +51,7 @@ export default async function AdminLayout({
         </div>
       </header>
 
-      <AdminNav badges={{ flags, review: aiReview }} />
+      <AdminNav badges={{ flags, review, aiReview }} />
 
       {children}
     </div>

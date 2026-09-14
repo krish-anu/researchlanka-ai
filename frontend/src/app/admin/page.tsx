@@ -11,6 +11,7 @@ import {
   readIncrementalJobStatus,
   type IncrementalJobStatus,
 } from "@/services/admin/incremental";
+import { countPendingAIReviewCandidates } from "@/services/workspace/aiReview";
 import { countPendingCandidates } from "@/services/workspace/resolution";
 import { countOpenFlags, listAudit } from "@/services/workspace/store";
 import type { UserRecord } from "@/types/auth";
@@ -271,6 +272,7 @@ async function loadAdminOverviewData() {
     users,
     openFlags,
     pendingCandidates,
+    pendingAIReview,
     audit,
     incrementalStatus,
   ] = await Promise.all([
@@ -280,6 +282,7 @@ async function loadAdminOverviewData() {
     safeAdminData("users", listUsers, [] as UserRecord[]),
     safeAdminData("open flags", countOpenFlags, 0),
     safeAdminData("resolution candidates", countPendingCandidates, 0),
+    safeAdminData("AI review candidates", countPendingAIReviewCandidates, 0),
     safeAdminData("audit log", () => listAudit(8), [] as AuditEntry[]),
     safeAdminData(
       "incremental update status",
@@ -295,6 +298,7 @@ async function loadAdminOverviewData() {
     users,
     openFlags,
     pendingCandidates,
+    pendingAIReview,
     audit,
     incrementalStatus,
   };
