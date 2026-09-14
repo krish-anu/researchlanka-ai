@@ -7,12 +7,9 @@ version of this file asserted the raw-payload contract and imported a
 ``src.extractors`` package that is not in the repository, which broke
 collection for the whole suite.
 
-The ``xfail`` block at the end records a real open question -- see
-``docs/BACKEND_CODE_AUDIT.md``, "Truncated column-priority lists".
 """
 
 import pandas as pd
-import pytest
 
 from src.utils.author_utils import extract_authors, split_author_names
 from src.utils.date_utils import extract_publication_date
@@ -205,41 +202,18 @@ def test_extract_title_falls_back_to_the_original_title():
     assert result["title_display"] == "Titre Original"
 
 
-# ------------------------------------------------- known gaps (see audit)
-#
-# Every *_PRIORITY list in src/utils currently holds a single column, while the
-# module docstrings describe multi-column fallbacks. Until the team decides
-# whether the narrow behaviour is intended, these encode the documented
-# contract without failing the build.
-
-
-@pytest.mark.xfail(
-    reason="JOURNAL_NAME_PRIORITY is ['journal']; docstring also lists "
-    "container_title and source_name. See docs/BACKEND_CODE_AUDIT.md.",
-    strict=False,
-)
 def test_extract_journal_falls_back_to_container_title_and_source_name():
     result = extract_journal({"container_title": "Container Journal"})
 
     assert result["journal_clean"] == "Container Journal"
 
 
-@pytest.mark.xfail(
-    reason="AUTHOR_NAME_PRIORITY is ['authors']; docstring states author_names "
-    "should take priority. See docs/BACKEND_CODE_AUDIT.md.",
-    strict=False,
-)
 def test_extract_authors_prefers_the_normalized_author_names_column():
     record = {"authors": "raw form", "author_names": "Perera, A.; Silva, B."}
 
     assert extract_authors(record)["author_names_source"] == "author_names"
 
 
-@pytest.mark.xfail(
-    reason="DATE_PRIORITY is ['publication_date']; docstring also lists "
-    "published_date and created_date. See docs/BACKEND_CODE_AUDIT.md.",
-    strict=False,
-)
 def test_extract_publication_date_falls_back_to_published_and_created_dates():
     result = extract_publication_date({"published_date": "2024-03-15"})
 

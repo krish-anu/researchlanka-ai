@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "node scripts/lint-no-debug.mjs && npm run typecheck",
     "typecheck": "tsc --noEmit",
     "check:palette": "node scripts/check-series-contrast.mjs",
     "test": "vitest run",

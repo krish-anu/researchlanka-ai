@@ -14,6 +14,7 @@ import { decideCandidate } from "@/services/workspace/resolution";
 import { recordAudit, resolveFlag } from "@/services/workspace/store";
 import { isAccountRole } from "@/types/auth";
 import { startIncrementalJob } from "@/services/admin/incremental";
+import { decideAIReview } from "@/services/workspace/aiReview";
 
 /* ---------------------------------------------------------- pipeline runs */
 
@@ -35,6 +36,12 @@ export async function runIncrementalUpdate(
       toDate,
       confidenceReviewThreshold,
     });
+    if (!status.ok) {
+      return {
+        status: "error",
+        message: status.message,
+      };
+    }
 
     await recordAudit({
       action: "pipeline.incremental_started",
@@ -126,6 +133,43 @@ export async function decideResolution(
   };
 }
 
+/* ---------------------------------------------------------- AI review queue */
+
+export async function decideAIReviewAction(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const actor = await requireCapability(
+    "admin.resolution.decide",
+    "/admin/ai-review",
+  );
+
+  const candidateId = String(formData.get("candidate_id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "");
+
+  if (decision !== "AI" && decision !== "NON_AI") {
+    return { status: "error", message: "Choose AI or Non-AI." };
+  }
+
+  const reviewed = await decideAIReview({
+    candidateId,
+    decision,
+    note,
+    actor,
+  });
+  if (!reviewed) {
+    return { status: "error", message: "That AI review item is no longer queued." };
+  }
+
+  revalidatePath("/admin/ai-review");
+  revalidatePath("/admin");
+  return {
+    status: "ok",
+    message: `Saved as ${decision}. The resolved prediction CSV has been updated.`,
+  };
+}
+
 /* -------------------------------------------------------- user management */
 
 /**
@@ -177,7 +221,7 @@ export async function changeUserRole(
   revalidatePath("/admin");
   return {
     status: "ok",
-    message: `${target.name} is now ${role === "admin" ? "an administrator" : "a signed-in user"}. The change applies at their next sign-in.`,
+    message: `${target.name} is now ${role === "admin" ? "an administrator" : "a signed-in user"}. The change applies on their next request.`,
   };
 }
 
@@ -219,7 +263,7 @@ export async function toggleUserAccess(
   return {
     status: "ok",
     message: disable
-      ? `${target.name} is suspended. Their existing session stays valid until it expires.`
+      ? `${target.name} is suspended. Their existing session will be rejected on the next request.`
       : `${target.name} can sign in again.`,
   };
 }

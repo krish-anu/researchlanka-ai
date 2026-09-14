@@ -8,6 +8,7 @@ import { getDataQuality, getDatasetMeta, getHealth } from "@/services/api";
 import { listUsers } from "@/services/auth/store";
 import { formatDate, formatNumber, formatPercent } from "@/services/format";
 import { readIncrementalJobStatus } from "@/services/admin/incremental";
+import { countPendingAIReviewCandidates } from "@/services/workspace/aiReview";
 import { countPendingCandidates } from "@/services/workspace/resolution";
 import { countOpenFlags, listAudit } from "@/services/workspace/store";
 import type { AuditEntry } from "@/services/workspace/types";
@@ -31,6 +32,7 @@ export default async function AdminOverviewPage() {
     users,
     openFlags,
     pendingCandidates,
+    pendingAIReview,
     audit,
     incrementalStatus,
   ] =
@@ -41,6 +43,7 @@ export default async function AdminOverviewPage() {
       listUsers(),
       countOpenFlags(),
       countPendingCandidates(),
+      countPendingAIReviewCandidates(),
       listAudit(8),
       readIncrementalJobStatus(),
     ]);
@@ -109,6 +112,12 @@ export default async function AdminOverviewPage() {
           description="Queues owned by this application. Decisions taken here are recorded and applied on the next pipeline run."
         />
         <div className="grid gap-4 sm:grid-cols-3">
+          <QueueCard
+            href="/admin/ai-review"
+            label="AI review"
+            count={pendingAIReview}
+            caption="AI REVIEW predictions awaiting a final label"
+          />
           <QueueCard
             href="/admin/review"
             label="Resolution queue"

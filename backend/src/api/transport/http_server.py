@@ -87,10 +87,13 @@ class APIRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def route_get(self, path: str, query: dict[str, list[str]]) -> dict[str, Any] | tuple[bytes, str]:
-        return route_get(self.service, path, query)
+        return route_get(self.service, path, query, self.normalized_headers())
 
     def route_post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        return route_post(self.service, path, payload)
+        return route_post(self.service, path, payload, self.normalized_headers())
+
+    def normalized_headers(self) -> dict[str, str]:
+        return {key.lower(): value for key, value in self.headers.items()}
 
     def read_json_body(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length") or "0")
