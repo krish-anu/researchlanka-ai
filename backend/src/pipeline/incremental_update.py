@@ -6,6 +6,7 @@ import argparse
 import csv
 import json
 import logging
+import math
 import os
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -191,6 +192,33 @@ def validate_model_path(model_path: Path | None) -> None:
             "AI relevance model was not found at "
             f"{model_path}. Set RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH."
         )
+    if not model_path.is_file():
+        raise ValueError(f"AI relevance model path is not a file: {model_path}")
+
+
+def prediction_text(frame: pd.DataFrame, text_columns: tuple[str, ...]) -> pd.Series:
+    available_columns = [column for column in text_columns if column in frame.columns]
+    if not available_columns:
+        return pd.Series([""] * len(frame), index=frame.index)
+    return combined_text(frame[available_columns].fillna(""), available_columns)
+
+
+def confidence_from_margin(margin: float) -> float:
+    """Convert a binary classifier decision margin into a bounded score."""
+
+    return 1.0 / (1.0 + math.exp(-abs(margin)))
+
+
+def normalize_prediction_label(value: Any) -> tuple[str, str]:
+    text = str(value or "").strip()
+    normalized = text.casefold().replace("_", "-")
+    if normalized in {"ai", "artificial-intelligence", "artificial intelligence"}:
+        return "AI", ""
+    if normalized in {"non-ai", "non ai", "not-ai", "not ai", "nonai"}:
+        return "non-AI", ""
+    if normalized in {"review", "manual-review", "manual review", "uncertain"}:
+        return "review", ""
+    return "review", f"unexpected_model_label:{text}"
 
 
 def apply_ai_classification(
@@ -221,6 +249,14 @@ def apply_ai_classification(
     predictions = list(model.predict(text)) if len(text) else []
     if hasattr(model, "predict_proba") and len(text):
         confidences = [float(values.max()) for values in model.predict_proba(text)]
+    elif hasattr(model, "decision_function") and len(text):
+        margins = model.decision_function(text)
+        if getattr(margins, "ndim", 1) == 1:
+            confidences = [confidence_from_margin(float(value)) for value in margins]
+        else:
+            confidences = [
+                confidence_from_margin(float(max(row, key=abs))) for row in margins
+            ]
     else:
         confidences = [None] * len(predictions)
 
