@@ -37,7 +37,7 @@ __all__ = [
 # Priority order for resolving the canonical journal name. Adjust here if a
 # new source's population pattern warrants re-ordering — this is the single
 # place that controls it.
-JOURNAL_NAME_PRIORITY = ["journal"]
+JOURNAL_NAME_PRIORITY = ["journal", "container_title", "source_name"]
 
 
 def extract_journal(record: Mapping[str, Any]) -> dict:
