@@ -20,6 +20,9 @@ def get_database_url(env_var: str = "DATABASE_URL") -> str:
 
 def get_connection(database_url: str | None = None) -> Any:
     """Create a PostgreSQL database connection for the configured URL."""
+    if database_url is None and not os.getenv("DATABASE_URL") and os.getenv("DATABASE_HOST"):
+        return _connect_postgres_params()
+
     url = (database_url or get_database_url()).strip()
 
     if url.startswith(("postgresql://", "postgres://")):
@@ -49,3 +52,21 @@ def _connect_postgres(database_url: str) -> Any:
         ) from exc
 
     return psycopg.connect(database_url)
+
+
+def _connect_postgres_params() -> Any:
+    try:
+        import psycopg
+    except ImportError as exc:
+        raise RuntimeError(
+            "PostgreSQL connections require psycopg. Install project "
+            "dependencies with pip install -r requirements.txt."
+        ) from exc
+
+    return psycopg.connect(
+        host=os.getenv("DATABASE_HOST", "localhost"),
+        port=int(os.getenv("POSTGRES_PORT", "5432")),
+        dbname=os.getenv("POSTGRES_DB", "researchlanka"),
+        user=os.getenv("POSTGRES_USER", "researchlanka_user"),
+        password=os.getenv("POSTGRES_PASSWORD", ""),
+    )
