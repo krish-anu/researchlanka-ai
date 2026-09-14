@@ -75,7 +75,7 @@ unzip researchlanka-share-data.zip
 At minimum, confirm this file exists:
 
 ```bash
-ls backend/data/processed/common/common_publications_final_2016_2026.csv
+ls backend/data/processed/common/common_publications_final_2016_2026_ai_only.csv
 ```
 
 If semantic search is enabled, also confirm the model files named in `.env`
@@ -88,12 +88,13 @@ docker compose -f compose.aws.yml up --build -d
 docker compose -f compose.aws.yml ps
 ```
 
-Apply migrations and load the prepared 2016-2026 dataset:
+Apply migrations and load the prepared AI-only 2016-2026 dataset. The
+`--require-doi` flag keeps records without DOI out of the public database:
 
 ```bash
-docker compose -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
-docker compose -f compose.aws.yml run --rm api python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026.csv --year-min 2016 --year-max 2026
-docker compose -f compose.aws.yml restart api frontend
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_only.csv --year-min 2016 --year-max 2026 --require-doi --reset
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml restart api frontend
 ```
 
 ## 6. Test
