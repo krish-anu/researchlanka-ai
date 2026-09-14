@@ -15,12 +15,21 @@ export interface YearBucket {
   citation_total: number;
 }
 
+function publicationYear(publication: PublicationSummary): number | null {
+  if (publication.publication_year !== null && publication.publication_year !== undefined) {
+    return publication.publication_year;
+  }
+  if (!publication.publication_date) return null;
+  const match = /^(\d{4})/.exec(publication.publication_date);
+  return match ? Number(match[1]) : null;
+}
+
 export function yearHistogram(publications: PublicationSummary[]): YearBucket[] {
   const buckets = new Map<number, YearBucket>();
   const currentYear = new Date().getFullYear();
 
   for (const publication of publications) {
-    const year = publication.publication_year;
+    const year = publicationYear(publication);
     if (year === null || year === undefined) continue;
     if (year < 2016 || year > currentYear) continue;
     const bucket = buckets.get(year) ?? {
