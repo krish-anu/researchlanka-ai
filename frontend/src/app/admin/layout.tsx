@@ -29,6 +29,7 @@ export default async function AdminLayout({
     countOrZero("open flags", countOpenFlags),
     countOrZero("resolution candidates", countPendingCandidates),
   ]);
+  const aiReview = review;
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,7 +50,7 @@ export default async function AdminLayout({
         </div>
       </header>
 
-      <AdminNav badges={{ flags, review }} />
+      <AdminNav badges={{ flags, review: aiReview }} />
 
       {children}
     </div>
