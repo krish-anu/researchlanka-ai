@@ -183,7 +183,7 @@ export async function changeUserRole(
   revalidatePath("/admin");
   return {
     status: "ok",
-    message: `${target.name} is now ${role === "admin" ? "an administrator" : "a signed-in user"}. The change applies at their next sign-in.`,
+    message: `${target.name} is now ${role === "admin" ? "an administrator" : "a signed-in user"}. The change applies on their next request.`,
   };
 }
 
@@ -225,7 +225,7 @@ export async function toggleUserAccess(
   return {
     status: "ok",
     message: disable
-      ? `${target.name} is suspended. Their existing session stays valid until it expires.`
+      ? `${target.name} is suspended. Their existing session will be rejected on the next request.`
       : `${target.name} can sign in again.`,
   };
 }

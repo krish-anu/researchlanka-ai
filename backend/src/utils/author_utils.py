@@ -27,7 +27,7 @@ __all__ = [
     "split_author_names",
 ]
 
-AUTHOR_NAME_PRIORITY = ["authors"]
+AUTHOR_NAME_PRIORITY = ["author_names", "authors"]
 
 
 def split_author_names(value: Any) -> list[str]:

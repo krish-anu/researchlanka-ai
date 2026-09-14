@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 
 import { can, type Capability } from "@/services/auth/permissions";
 import { readSessionToken, SESSION_COOKIE } from "@/services/auth/session";
+import { findUserById } from "@/services/auth/store";
 import { GUEST, type SessionUser, type Viewer } from "@/types/auth";
 
 /**
@@ -19,7 +20,18 @@ import { GUEST, type SessionUser, type Viewer } from "@/types/auth";
 export async function getViewer(): Promise<Viewer> {
   const store = await cookies();
   const user = await readSessionToken(store.get(SESSION_COOKIE)?.value);
-  return user ? { role: user.role, user } : GUEST;
+  if (!user) return GUEST;
+
+  const current = await findUserById(user.id);
+  if (!current || current.disabled) return GUEST;
+
+  const sessionUser: SessionUser = {
+    id: current.id,
+    email: current.email,
+    name: current.name,
+    role: current.role,
+  };
+  return { role: sessionUser.role, user: sessionUser };
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {

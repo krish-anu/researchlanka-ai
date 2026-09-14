@@ -67,6 +67,8 @@ export function PipelineRunPanel({
       setError(
         typeof payload.error === "string"
           ? payload.error
+          : typeof payload.error?.message === "string"
+            ? payload.error.message
           : "Could not start the incremental update.",
       );
       return;

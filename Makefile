@@ -79,9 +79,6 @@ load-full-db-2016-now:
 reset-full-db-2016-now:
 	$(MAKE) -C $(BACKEND_DIR) reset-full-db-2016-now
 
-incremental-update:
-	$(MAKE) -C $(BACKEND_DIR) incremental-update
-
 maps-location-confirm:
 	$(MAKE) -C $(BACKEND_DIR) maps-location-confirm PYTHON=$(BACKEND_PYTHON)
 

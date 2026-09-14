@@ -20,6 +20,7 @@ from src.api.repositories.postgres import PostgresPublicationRepository
 from src.api.schemas import PublicationBatchPredictionRequest, PublicationPredictionRequest
 from src.api.services.incremental_admin import (
     read_incremental_status,
+    require_admin_api_token,
     start_incremental_update,
 )
 from src.api.services.model_serving import PublicationClassifierService
@@ -243,11 +244,13 @@ def create_admin_router(
     router = APIRouter(prefix=f"{API_PREFIX}/admin", tags=["admin"])
 
     @router.get("/incremental/status")
-    async def incremental_status() -> dict[str, Any]:
+    async def incremental_status(request: Request) -> dict[str, Any]:
+        require_admin_api_token(request.headers)
         return {"data": read_incremental_status(), "meta": service._meta()}
 
     @router.post("/incremental/run")
     async def incremental_run(request: Request) -> dict[str, Any]:
+        require_admin_api_token(request.headers)
         payload = await request.json()
         if not isinstance(payload, dict):
             raise APIError("invalid_request", "Request body must be a JSON object.", status=400)

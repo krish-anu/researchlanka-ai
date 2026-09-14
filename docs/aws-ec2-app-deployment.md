@@ -58,7 +58,8 @@ Generate a real session secret:
 openssl rand -base64 48
 ```
 
-Put that value in `AUTH_SECRET`. Also replace `POSTGRES_PASSWORD`,
+Put one generated value in `AUTH_SECRET` and another in
+`RESEARCHLANKA_ADMIN_API_TOKEN`. Also replace `POSTGRES_PASSWORD`,
 `ADMIN_EMAIL`, and `ADMIN_PASSWORD`. Do not keep the example passwords.
 
 ## 4. Restore Data Artifacts

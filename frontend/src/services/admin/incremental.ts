@@ -58,6 +58,7 @@ const ROOT = process.cwd().endsWith(`${path.sep}frontend`)
   : process.cwd();
 const STATUS_PATH = path.join(ROOT, "backend", "outputs", "incremental", "ui_status.json");
 const REMOTE_API_BASE_URL = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;
+const REMOTE_ADMIN_API_TOKEN = process.env.RESEARCHLANKA_ADMIN_API_TOKEN;
 
 export const INCREMENTAL_STATUS_PATH = STATUS_PATH;
 export const INCREMENTAL_ROOT = path.dirname(STATUS_PATH);
@@ -217,7 +218,7 @@ async function readRemoteIncrementalRunSnapshot(): Promise<IncrementalRunSnapsho
   if (!url) return null;
   try {
     const response = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers: adminHeaders(),
       cache: "no-store",
     });
     if (!response.ok) return null;
@@ -236,7 +237,7 @@ async function startRemoteIncrementalJob(
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      headers: adminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         from_date: request.fromDate ?? request.from_date,
         to_date: request.toDate ?? request.to_date,
@@ -282,6 +283,16 @@ async function startRemoteIncrementalJob(
 function adminApiUrl(pathValue: string): string | null {
   if (!REMOTE_API_BASE_URL) return null;
   return `${REMOTE_API_BASE_URL.replace(/\/$/, "")}${pathValue}`;
+}
+
+function adminHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    Accept: "application/json",
+    ...(REMOTE_ADMIN_API_TOKEN
+      ? { "X-ResearchLanka-Admin-Token": REMOTE_ADMIN_API_TOKEN }
+      : {}),
+    ...extra,
+  };
 }
 
 async function normalizeSnapshot(

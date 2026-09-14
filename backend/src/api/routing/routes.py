@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import re
 from typing import Any
 from urllib.parse import unquote
@@ -10,6 +11,7 @@ from src.api.core.constants import API_PREFIX
 from src.api.core.errors import APIError
 from src.api.services.incremental_admin import (
     read_incremental_status,
+    require_admin_api_token,
     start_incremental_update,
 )
 from src.api.services.publications import ResearchLankaAPI
@@ -19,6 +21,7 @@ def route_get(
     service: ResearchLankaAPI,
     path: str,
     query: dict[str, list[str]],
+    headers: Mapping[str, str] | None = None,
 ) -> dict[str, Any] | tuple[bytes, str]:
     if path in {"/health", f"{API_PREFIX}/health"}:
         return service.health()
@@ -61,6 +64,7 @@ def route_get(
     if path == f"{API_PREFIX}/analytics/data-quality":
         return service.data_quality(query)
     if path == f"{API_PREFIX}/admin/incremental/status":
+        require_admin_api_token(headers)
         return {"data": read_incremental_status(), "meta": service._meta()}
     if path == f"{API_PREFIX}/exports/publications.csv":
         return service.export_publications(query, file_format="csv")
@@ -126,8 +130,10 @@ def route_post(
     service: ResearchLankaAPI,
     path: str,
     payload: dict[str, Any],
+    headers: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     if path == f"{API_PREFIX}/admin/incremental/run":
+        require_admin_api_token(headers)
         return {
             "data": start_incremental_update(payload),
             "meta": service._meta(),
