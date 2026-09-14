@@ -1,9 +1,6 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { RoleBadge } from "@/components/auth/RoleBadge";
 import { requireCapability } from "@/services/auth/server";
-import { countPendingAIReviewCandidates } from "@/services/workspace/aiReview";
-import { countPendingCandidates } from "@/services/workspace/resolution";
-import { countOpenFlags } from "@/services/workspace/store";
 
 export const metadata = {
   title: {
@@ -26,12 +23,6 @@ export default async function AdminLayout({
 }) {
   const user = await requireCapability("admin.access", "/admin");
 
-  const [flags, review, aiReview] = await Promise.all([
-    countOrZero("open flags", countOpenFlags),
-    countOrZero("resolution candidates", countPendingCandidates),
-    countOrZero("AI review candidates", countPendingAIReviewCandidates),
-  ]);
-
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -51,21 +42,9 @@ export default async function AdminLayout({
         </div>
       </header>
 
-      <AdminNav badges={{ flags, review, aiReview }} />
+      <AdminNav badges={{ flags: 0, review: 0, aiReview: 0 }} />
 
       {children}
     </div>
   );
-}
-
-async function countOrZero(
-  label: string,
-  read: () => Promise<number>,
-): Promise<number> {
-  try {
-    return await read();
-  } catch (error) {
-    console.warn(`[admin] Could not read ${label} count`, error);
-    return 0;
-  }
 }
