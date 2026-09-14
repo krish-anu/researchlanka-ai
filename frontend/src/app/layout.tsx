@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import Script from "next/script";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteNav, SiteSearchBar } from "@/components/layout/SiteNav";
@@ -58,6 +59,18 @@ export default async function RootLayout({
       lang="en"
       className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}
     >
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-GGBWEZFK02"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-GGBWEZFK02');
+        `}
+      </Script>
       {/*
         The shell is one flex column that is at least as tall as the viewport,
         so the footer sits on the bottom edge even when a page renders almost
