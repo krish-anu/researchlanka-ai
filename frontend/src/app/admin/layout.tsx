@@ -26,10 +26,9 @@ export default async function AdminLayout({
 }) {
   const user = await requireCapability("admin.access", "/admin");
 
-  const [flags, review, aiReview] = await Promise.all([
-    countOpenFlags(),
-    countPendingCandidates(),
-    countPendingAIReviewCandidates(),
+  const [flags, review] = await Promise.all([
+    countOrZero("open flags", countOpenFlags),
+    countOrZero("resolution candidates", countPendingCandidates),
   ]);
 
   return (
@@ -56,4 +55,16 @@ export default async function AdminLayout({
       {children}
     </div>
   );
+}
+
+async function countOrZero(
+  label: string,
+  read: () => Promise<number>,
+): Promise<number> {
+  try {
+    return await read();
+  } catch (error) {
+    console.warn(`[admin] Could not read ${label} count`, error);
+    return 0;
+  }
 }

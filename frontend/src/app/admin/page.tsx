@@ -7,10 +7,13 @@ import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import { getDataQuality, getDatasetMeta, getHealth } from "@/services/api";
 import { listUsers } from "@/services/auth/store";
 import { formatDate, formatNumber, formatPercent } from "@/services/format";
-import { readIncrementalJobStatus } from "@/services/admin/incremental";
-import { countPendingAIReviewCandidates } from "@/services/workspace/aiReview";
+import {
+  readIncrementalJobStatus,
+  type IncrementalJobStatus,
+} from "@/services/admin/incremental";
 import { countPendingCandidates } from "@/services/workspace/resolution";
 import { countOpenFlags, listAudit } from "@/services/workspace/store";
+import type { UserRecord } from "@/types/auth";
 import type { AuditEntry } from "@/services/workspace/types";
 
 export const metadata = { title: "Overview" };
@@ -35,18 +38,20 @@ export default async function AdminOverviewPage() {
     pendingAIReview,
     audit,
     incrementalStatus,
-  ] =
-    await Promise.all([
+  ] = await Promise.all([
       getHealth(),
       getDatasetMeta(),
       getDataQuality({ group_by: "source_dataset" }),
-      listUsers(),
-      countOpenFlags(),
-      countPendingCandidates(),
-      countPendingAIReviewCandidates(),
-      listAudit(8),
-      readIncrementalJobStatus(),
-    ]);
+      safeAdminData("users", listUsers, [] as UserRecord[]),
+      safeAdminData("open flags", countOpenFlags, 0),
+      safeAdminData("resolution candidates", countPendingCandidates, 0),
+      safeAdminData("audit log", () => listAudit(8), [] as AuditEntry[]),
+      safeAdminData(
+        "incremental update status",
+        readIncrementalJobStatus,
+        IDLE_INCREMENTAL_STATUS,
+      ),
+  ]);
 
   const apiUp = health.ok && health.value.data.status === "ok";
   const admins = users.filter((user) => user.role === "admin").length;
@@ -250,4 +255,23 @@ function QueueCard({
       <span className="text-body-sm text-ink-secondary">{caption}</span>
     </Link>
   );
+}
+
+const IDLE_INCREMENTAL_STATUS: IncrementalJobStatus = {
+  status: "idle",
+  message: "No incremental AI update has been started from this console.",
+  db_labels: ["AI"],
+};
+
+async function safeAdminData<T>(
+  label: string,
+  read: () => Promise<T>,
+  fallback: T,
+): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    console.warn(`[admin] Could not read ${label}`, error);
+    return fallback;
+  }
 }
