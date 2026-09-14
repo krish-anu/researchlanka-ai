@@ -112,7 +112,19 @@ function candidateId(row: CsvRow): string {
 }
 
 async function predictionRows(): Promise<CsvRow[]> {
-  const text = await readFile(PREDICTIONS_PATH, "utf8");
+  let text = "";
+  try {
+    text = await readFile(PREDICTIONS_PATH, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      console.warn(
+        `[admin] AI review predictions file is missing at ${PREDICTIONS_PATH}; rendering an empty review queue.`,
+      );
+      return [];
+    }
+    throw error;
+  }
+
   const [headerLine = "", ...recordLines] = text.split(/\r?\n/);
   const header = parseCsvLine(headerLine);
   const labelIndex = header.indexOf("ai_final_label");
@@ -238,10 +250,22 @@ export async function decideAIReview(input: {
 }
 
 export async function materializeResolvedPredictions(): Promise<void> {
-  const [text, decisions] = await Promise.all([
-    readFile(PREDICTIONS_PATH, "utf8"),
-    readCollection<AIReviewDecision[]>(DECISIONS, EMPTY_DECISIONS),
-  ]);
+  let text = "";
+  try {
+    text = await readFile(PREDICTIONS_PATH, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(
+        `Cannot write resolved AI review output because the predictions file is missing at ${PREDICTIONS_PATH}.`,
+      );
+    }
+    throw error;
+  }
+
+  const decisions = await readCollection<AIReviewDecision[]>(
+    DECISIONS,
+    EMPTY_DECISIONS,
+  );
   const decisionsById = new Map(decisions.map((decision) => [decision.id, decision]));
 
   const [headerLine = "", ...recordLines] = text.split(/\r?\n/);
