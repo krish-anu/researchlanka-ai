@@ -22,7 +22,14 @@ export async function getViewer(): Promise<Viewer> {
   const user = await readSessionToken(store.get(SESSION_COOKIE)?.value);
   if (!user) return GUEST;
 
-  const current = await findUserById(user.id);
+  let current = null;
+  try {
+    current = await findUserById(user.id);
+  } catch (error) {
+    console.warn("[auth] Could not resolve session user from the account store", error);
+    return GUEST;
+  }
+
   if (!current || current.disabled) return GUEST;
 
   const sessionUser: SessionUser = {
