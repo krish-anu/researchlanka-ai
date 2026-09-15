@@ -440,7 +440,7 @@ class ResearchLankaAPI:
                 "source must be nmf or openalex.",
                 details={"field": "source"},
             )
-        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
+        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS | {"source"})
         filters = parse_filters(query)
         page = parse_positive_int(query, "page", default=1)
         page_size = ranking_page_size(query)
