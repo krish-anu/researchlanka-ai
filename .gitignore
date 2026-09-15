@@ -161,3 +161,4 @@ researchlanka-kaggle-outputs*/
 tools/google-maps-scraper-kit/
 image.png
 secrets/
+deploy/aws.ec2.env
