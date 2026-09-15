@@ -40,7 +40,7 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }} 
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           RESEARCHLANKA_ADMIN_API_TOKEN: ${{ secrets.RESEARCHLANKA_ADMIN_API_TOKEN }}
