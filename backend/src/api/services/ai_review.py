@@ -359,7 +359,9 @@ def list_reviews(
     if not all_reviews:
         clauses.append("lower(r.assigned_reviewer_email) = lower(%s)")
         params.append(actor_email)
-    if status:
+    if status == "completed":
+        clauses.append("r.review_status <> 'pending_review'")
+    elif status:
         clauses.append("r.review_status = %s")
         params.append(status)
     if confidence:

@@ -54,7 +54,7 @@ export async function listAIReviewCandidates({
     page,
     page_size: pageSize,
     view: view === "all" ? "all" : "mine",
-    status: view === "completed" ? undefined : status,
+    status: view === "completed" ? "completed" : status,
     confidence,
     reviewer,
     q,
@@ -67,12 +67,7 @@ export async function listAIReviewCandidates({
     console.warn("[admin] Could not load AI review queue", result.message);
     return EMPTY_PAGE;
   }
-  const pageData = result.data ?? EMPTY_PAGE;
-  if (view !== "completed") return pageData;
-  return {
-    ...pageData,
-    data: pageData.data.filter((item) => item.review_status !== "pending_review"),
-  };
+  return result.data ?? EMPTY_PAGE;
 }
 
 export async function countPendingAIReviewCandidates(): Promise<number> {
