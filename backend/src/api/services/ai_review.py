@@ -92,11 +92,37 @@ def normalize_confidence(value: Any) -> str | None:
     return "UNRECOGNIZED"
 
 
+def numeric_confidence(value: Any) -> float | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        number = float(text)
+    except ValueError:
+        return None
+    if number < 0 or number > 1:
+        return None
+    return number
+
+
 def initial_review_status(label: Any, confidence: Any) -> tuple[str, str | None]:
     normalized_label = normalize_ai_label(label)
     normalized_confidence = normalize_confidence(confidence)
+    score = numeric_confidence(confidence)
+
+    if normalized_label == "AI" and score is not None:
+        if score >= 0.85:
+            return "auto_accepted", "auto"
+        if score >= 0.5:
+            return "pending_review", None
+        return "human_rejected", None
+
     if normalized_label == "AI" and normalized_confidence == "HIGH":
         return "auto_accepted", "auto"
+    if normalized_label == "AI" and normalized_confidence in {"MEDIUM", "LOW"}:
+        return "pending_review", None
+    if normalized_label == "NON_AI":
+        return "human_rejected", None
     return "pending_review", None
 
 
@@ -146,6 +172,8 @@ def backfill_review_records(connection: Any) -> dict[str, int]:
     created = 0
     auto = 0
     pending = 0
+    rejected = 0
+    updated = 0
     with connection.cursor() as cursor:
         for row in rows:
             status, method = initial_review_status(
@@ -154,6 +182,13 @@ def backfill_review_records(connection: Any) -> dict[str, int]:
             )
             normalized_label = normalize_ai_label(row["ai_classification_label"])
             normalized_confidence = normalize_confidence(row["ai_classification_confidence"])
+            reviewer_notes = (
+                "system_rejected_numeric_confidence_below_0.5"
+                if status == "human_rejected"
+                else ""
+            )
+            if status == "human_rejected" and normalized_label == "NON_AI":
+                reviewer_notes = "system_rejected_model_predicted_non_ai"
             cursor.execute(
                 """
                 INSERT INTO ai_review_records (
@@ -166,13 +201,30 @@ def backfill_review_records(connection: Any) -> dict[str, int]:
                     normalized_ai_confidence,
                     review_status,
                     acceptance_method,
+                    reviewer_notes,
                     decision_timestamp,
                     sync_status
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        CASE WHEN %s = 'auto_accepted' THEN now() ELSE NULL END,
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        CASE WHEN %s IN ('auto_accepted', 'human_rejected') THEN now() ELSE NULL END,
                         CASE WHEN %s = 'auto_accepted' THEN 'pending' ELSE 'not_queued' END)
-                ON CONFLICT (publication_key) DO NOTHING
+                ON CONFLICT (publication_key) DO UPDATE
+                SET original_ai_label = EXCLUDED.original_ai_label,
+                    original_ai_confidence = EXCLUDED.original_ai_confidence,
+                    original_ai_model = EXCLUDED.original_ai_model,
+                    original_ai_reason = EXCLUDED.original_ai_reason,
+                    normalized_ai_label = EXCLUDED.normalized_ai_label,
+                    normalized_ai_confidence = EXCLUDED.normalized_ai_confidence,
+                    review_status = EXCLUDED.review_status,
+                    acceptance_method = EXCLUDED.acceptance_method,
+                    reviewer_notes = EXCLUDED.reviewer_notes,
+                    decision_timestamp = EXCLUDED.decision_timestamp,
+                    sync_status = EXCLUDED.sync_status,
+                    record_version = ai_review_records.record_version + 1,
+                    updated_at = now()
+                WHERE ai_review_records.review_status = 'pending_review'
+                  AND ai_review_records.decision_timestamp IS NULL
+                RETURNING (xmax = 0) AS inserted, record_version
                 """,
                 (
                     row["publication_key"],
@@ -184,18 +236,38 @@ def backfill_review_records(connection: Any) -> dict[str, int]:
                     normalized_confidence,
                     status,
                     method,
+                    reviewer_notes,
                     status,
                     status,
                 ),
             )
-            if cursor.rowcount:
-                created += 1
+            returned = cursor.fetchone()
+            if returned:
+                inserted = bool(returned[0])
+                record_version = int(returned[1])
+                if inserted:
+                    created += 1
+                else:
+                    updated += 1
                 if status == "auto_accepted":
                     auto += 1
-                    _enqueue_sync_job(cursor, row["publication_key"], 1, "auto-backfill")
+                    _enqueue_sync_job(
+                        cursor,
+                        row["publication_key"],
+                        record_version,
+                        f"auto-backfill:{row['publication_key']}:{record_version}",
+                    )
+                elif status == "human_rejected":
+                    rejected += 1
                 else:
                     pending += 1
-    return {"created": created, "auto_accepted": auto, "pending_review": pending}
+    return {
+        "created": created,
+        "updated_pending": updated,
+        "auto_accepted": auto,
+        "pending_review": pending,
+        "auto_rejected": rejected,
+    }
 
 
 def assign_initial_pending(connection: Any, reviewers: Iterable[Reviewer]) -> dict[str, Any]:
@@ -694,7 +766,7 @@ Generated at: {utc_now()}
 
 Scope: accepted AI-related publication records in `final_publications` after existing Sri Lanka eligibility loading rules.
 
-Acceptance rules: explicit AI prediction with HIGH confidence is auto-accepted. All other confidence values, missing confidence, unrecognized confidence, and non-AI predictions require manual review. HIGH-confidence auto-accepted records have not necessarily undergone human review.
+Acceptance rules: explicit AI prediction with numeric confidence >= 0.85 is auto-accepted; numeric confidence from 0.5 up to but not including 0.85 requires manual review; numeric confidence below 0.5 is rejected. Explicit AI with named HIGH confidence is also auto-accepted. Missing, unrecognized, and non-AI predictions require manual review unless later decided by a reviewer. Auto-accepted records have not necessarily undergone human review.
 
 Missing values: blank cells indicate source metadata was unavailable. The export does not fabricate publication details.
 

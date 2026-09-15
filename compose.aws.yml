@@ -27,6 +27,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-researchlanka_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql://${POSTGRES_USER:-researchlanka_user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-researchlanka}
       RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH: ${RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH:-data/models/publication_text_embeddings_cli_sample.parquet}
       RESEARCHLANKA_SEMANTIC_MODEL_PATH: ${RESEARCHLANKA_SEMANTIC_MODEL_PATH:-data/models/publication_text_embedding_model_cli_sample.joblib}
       RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH: ${RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH:-data/models/ai_relevance/ai_relevance_linear_svm.joblib}
@@ -89,6 +90,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-researchlanka_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql://${POSTGRES_USER:-researchlanka_user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-researchlanka}
       GOOGLE_SHEETS_SPREADSHEET_ID: ${GOOGLE_SHEETS_SPREADSHEET_ID:-}
       GOOGLE_SHEETS_SERVICE_ACCOUNT_FILE: ${GOOGLE_SHEETS_SERVICE_ACCOUNT_FILE:-/run/secrets/google_sheets_service_account.json}
     volumes:

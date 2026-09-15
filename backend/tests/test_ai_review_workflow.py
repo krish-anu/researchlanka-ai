@@ -9,6 +9,7 @@ from src.api.services.ai_review import (
     initial_review_status,
     normalize_ai_label,
     normalize_confidence,
+    numeric_confidence,
     overflow_chunks,
     sheet_value,
 )
@@ -17,6 +18,8 @@ from src.api.services.ai_review import (
 def test_high_explicit_ai_auto_accepts() -> None:
     assert initial_review_status("AI", "HIGH") == ("auto_accepted", "auto")
     assert initial_review_status("ai-related", "high") == ("auto_accepted", "auto")
+    assert initial_review_status("AI", "0.85") == ("auto_accepted", "auto")
+    assert initial_review_status("AI", "0.93") == ("auto_accepted", "auto")
 
 
 @pytest.mark.parametrize(
@@ -25,14 +28,24 @@ def test_high_explicit_ai_auto_accepts() -> None:
         ("AI", "MEDIUM"),
         ("AI", "LOW"),
         ("AI", ""),
-        ("AI", "0.93"),
-        ("NON_AI", "HIGH"),
+        ("AI", "0.5"),
+        ("AI", "0.849999"),
         ("review", "HIGH"),
         ("unexpected", "HIGH"),
     ],
 )
 def test_all_other_predictions_enter_manual_review(label: str, confidence: str) -> None:
     assert initial_review_status(label, confidence) == ("pending_review", None)
+
+
+@pytest.mark.parametrize("confidence", ["0", "0.49", "0.499999"])
+def test_low_numeric_ai_confidence_is_rejected(confidence: str) -> None:
+    assert initial_review_status("AI", confidence) == ("human_rejected", None)
+
+
+@pytest.mark.parametrize("confidence", ["HIGH", "0.99", "0.4", ""])
+def test_non_ai_predictions_are_rejected(confidence: str) -> None:
+    assert initial_review_status("NON_AI", confidence) == ("human_rejected", None)
 
 
 def test_safe_label_and_confidence_normalization() -> None:
@@ -44,6 +57,8 @@ def test_safe_label_and_confidence_normalization() -> None:
     assert normalize_confidence("medium") == "MEDIUM"
     assert normalize_confidence(None) is None
     assert normalize_confidence("0.88") == "UNRECOGNIZED"
+    assert numeric_confidence("0.88") == 0.88
+    assert numeric_confidence("1.2") is None
 
 
 def test_literal_sheet_values_and_overflow() -> None:
