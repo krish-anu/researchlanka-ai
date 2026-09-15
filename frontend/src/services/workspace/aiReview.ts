@@ -1,316 +1,192 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-
-import { nowIso, readCollection, updateCollection } from "@/services/store/jsonFile";
-import { recordAudit } from "@/services/workspace/store";
-import type {
-  AIReviewCandidate,
-  AIReviewDecision,
-  AIReviewDecisionLabel,
-} from "@/services/workspace/types";
+import { buildQuery, type QueryParams } from "@/services/api";
 import type { Pagination } from "@/types/api";
 import type { SessionUser } from "@/types/auth";
+import type { AIReviewCandidate } from "@/services/workspace/types";
 
-const DECISIONS = "ai-review-decisions";
-const EMPTY_DECISIONS: AIReviewDecision[] = [];
-
-const REPO_ROOT = path.resolve(process.cwd(), "..");
-const PREDICTIONS_PATH = path.join(
-  REPO_ROOT,
-  "backend",
-  "data",
-  "processed",
-  "ai",
-  "ai_relevance_best_model_rest_predictions.csv",
-);
-const RESOLVED_PREDICTIONS_PATH = path.join(
-  REPO_ROOT,
-  "backend",
-  "data",
-  "processed",
-  "ai",
-  "ai_relevance_best_model_rest_predictions_resolved.csv",
-);
-const DECISIONS_CSV_PATH = path.join(
-  REPO_ROOT,
-  "backend",
-  "data",
-  "processed",
-  "ai",
-  "ai_relevance_review_decisions.csv",
-);
-
-type CsvRow = Record<string, string>;
+export interface AIReviewStats {
+  by_status: Record<string, number>;
+  sync_failures: number;
+  reviewers: {
+    email: string | null;
+    name: string | null;
+    pending: number;
+    completed: number;
+    total: number;
+  }[];
+}
 
 export interface AIReviewPage {
   data: AIReviewCandidate[];
   pagination: Pagination;
-  pending: number;
-  decided: number;
+  stats: AIReviewStats;
 }
 
-function parseCsvLine(line: string): string[] {
-  const row: string[] = [];
-  let field: string[] = [];
-  let inQuotes = false;
+const EMPTY_PAGE: AIReviewPage = {
+  data: [],
+  pagination: { page: 1, page_size: 25, total: 0, total_pages: 1 },
+  stats: { by_status: {}, sync_failures: 0, reviewers: [] },
+};
 
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const next = line[index + 1];
-
-    if (inQuotes) {
-      if (char === '"' && next === '"') {
-        field.push('"');
-        index += 1;
-      } else if (char === '"') {
-        inQuotes = false;
-      } else {
-        field.push(char);
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      inQuotes = true;
-    } else if (char === ",") {
-      row.push(field.join(""));
-      field = [];
-    } else if (char !== "\r") {
-      field.push(char);
-    }
-  }
-
-  row.push(field.join(""));
-  return row;
-}
-
-function rowFromValues(header: string[], values: string[]): CsvRow {
-  return Object.fromEntries(
-    header.map((column, index) => [column, values[index] ?? ""]),
-  );
-}
-
-function csvValue(value: string): string {
-  if (/[",\n\r]/.test(value)) return `"${value.replaceAll('"', '""')}"`;
-  return value;
-}
-
-function writeCsv(rows: CsvRow[], columns: string[]): string {
-  return [
-    columns.map(csvValue).join(","),
-    ...rows.map((row) => columns.map((column) => csvValue(row[column] ?? "")).join(",")),
-  ].join("\n") + "\n";
-}
-
-function numberOrNull(value: string): number | null {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function candidateId(row: CsvRow): string {
-  return row.publication_id || row.source_row || row.openalex_id || row.doi;
-}
-
-async function predictionRows(): Promise<CsvRow[]> {
-  let text = "";
-  try {
-    text = await readFile(PREDICTIONS_PATH, "utf8");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      console.warn(
-        `[admin] AI review predictions file is missing at ${PREDICTIONS_PATH}; rendering an empty review queue.`,
-      );
-      return [];
-    }
-    throw error;
-  }
-
-  const [headerLine = "", ...recordLines] = text.split(/\r?\n/);
-  const header = parseCsvLine(headerLine);
-  const labelIndex = header.indexOf("ai_final_label");
-  return recordLines
-    .filter((line) => line.trim() !== "")
-    .map((line) => parseCsvLine(line))
-    .filter((values) => labelIndex === -1 || values[labelIndex] === "REVIEW")
-    .map((values) => rowFromValues(header, values));
-}
-
-async function allAIReviewCandidates(): Promise<AIReviewCandidate[]> {
-  const [rows, decisions] = await Promise.all([
-    predictionRows(),
-    readCollection<AIReviewDecision[]>(DECISIONS, EMPTY_DECISIONS),
-  ]);
-  const decisionsById = new Map(decisions.map((decision) => [decision.id, decision]));
-
-  return rows
-    .map((row) => {
-      const id = candidateId(row);
-      const decision = decisionsById.get(id) ?? null;
-      return {
-        id,
-        publication_id: row.publication_id,
-        source_row: row.source_row,
-        status: decision ? "decided" : "pending",
-        final_label: row.ai_final_label,
-        raw_label: row.ai_model_raw_label,
-        confidence: numberOrNull(row.ai_model_confidence),
-        margin: numberOrNull(row.ai_model_margin),
-        review_threshold: numberOrNull(row.review_threshold),
-        selected_model: row.selected_model,
-        title: row.title,
-        doi: row.doi || null,
-        openalex_id: row.openalex_id || null,
-        publication_date: row.publication_date || null,
-        source_dataset: row.source_dataset,
-        source_record_id: row.source_record_id,
-        primary_topic: row.primary_topic || null,
-        primary_subfield: row.primary_subfield || null,
-        primary_field: row.primary_field || null,
-        primary_domain: row.primary_domain || null,
-        text: row.text,
-        decision,
-      } satisfies AIReviewCandidate;
-    })
-    .sort((a, b) => {
-      if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
-      return (a.confidence ?? 0) - (b.confidence ?? 0);
-    });
-}
+const REMOTE_API_BASE_URL =
+  process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;
+const REMOTE_ADMIN_API_TOKEN = process.env.RESEARCHLANKA_ADMIN_API_TOKEN;
 
 export async function listAIReviewCandidates({
   page = 1,
   pageSize = 25,
+  view = "mine",
+  status,
+  confidence,
+  reviewer,
+  q,
+  actor,
 }: {
   page?: number;
   pageSize?: number;
+  view?: "mine" | "all" | "completed";
+  status?: string;
+  confidence?: string;
+  reviewer?: string;
+  q?: string;
+  actor?: SessionUser | null;
 } = {}): Promise<AIReviewPage> {
-  const safePageSize = Math.min(Math.max(Math.trunc(pageSize), 1), 100);
-  const candidates = await allAIReviewCandidates();
-  const total = candidates.length;
-  const totalPages = Math.max(Math.ceil(total / safePageSize), 1);
-  const safePage = Math.min(Math.max(Math.trunc(page), 1), totalPages);
-  const start = (safePage - 1) * safePageSize;
-
+  const params: QueryParams = {
+    page,
+    page_size: pageSize,
+    view: view === "all" ? "all" : "mine",
+    status: view === "completed" ? undefined : status,
+    confidence,
+    reviewer,
+    q,
+  };
+  const result = await adminRequest<AIReviewPage>("/admin/ai-review", {
+    params,
+    actor,
+  });
+  if (!result.ok) {
+    console.warn("[admin] Could not load AI review queue", result.message);
+    return EMPTY_PAGE;
+  }
+  const pageData = result.data ?? EMPTY_PAGE;
+  if (view !== "completed") return pageData;
   return {
-    data: candidates.slice(start, start + safePageSize),
-    pagination: {
-      page: safePage,
-      page_size: safePageSize,
-      total,
-      total_pages: totalPages,
-    },
-    pending: candidates.filter((candidate) => candidate.status === "pending").length,
-    decided: candidates.filter((candidate) => candidate.status === "decided").length,
+    ...pageData,
+    data: pageData.data.filter((item) => item.review_status !== "pending_review"),
   };
 }
 
 export async function countPendingAIReviewCandidates(): Promise<number> {
-  const candidates = await allAIReviewCandidates();
-  return candidates.filter((candidate) => candidate.status === "pending").length;
+  const result = await listAIReviewCandidates({
+    page: 1,
+    pageSize: 1,
+    view: "all",
+    status: "pending_review",
+  });
+  return result.stats.by_status.pending_review ?? result.pagination.total;
 }
 
 export async function decideAIReview(input: {
-  candidateId: string;
-  decision: AIReviewDecisionLabel;
+  publicationKey: string;
+  recordVersion: number;
+  decision: "human_accepted" | "human_rejected";
   note: string;
   actor: SessionUser;
-}): Promise<AIReviewDecision | null> {
-  const candidates = await allAIReviewCandidates();
-  const candidate = candidates.find((item) => item.id === input.candidateId);
-  if (!candidate) return null;
-
-  const decided = await updateCollection<
-    AIReviewDecision[],
-    AIReviewDecision
-  >(DECISIONS, EMPTY_DECISIONS, (decisions) => {
-    const decision: AIReviewDecision = {
-      id: candidate.id,
-      publication_id: candidate.publication_id,
-      source_row: candidate.source_row,
-      decision: input.decision,
-      note: input.note.trim(),
-      decided_at: nowIso(),
-      decided_by: input.actor.name,
-    };
-    const next = [
-      decision,
-      ...decisions.filter((item) => item.id !== input.candidateId),
-    ];
-    return { next, result: decision };
-  });
-
-  await materializeResolvedPredictions();
-  await recordAudit({
-    action: input.decision === "AI" ? "ai_review.ai" : "ai_review.non_ai",
-    subject: decided.id,
-    summary: `Marked AI review item as ${input.decision}: “${candidate.title || candidate.publication_id}”`,
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  const result = await adminRequest("/admin/ai-review/decide", {
+    method: "POST",
     actor: input.actor,
+    body: {
+      publication_key: input.publicationKey,
+      record_version: input.recordVersion,
+      decision: input.decision,
+      notes: input.note,
+    },
   });
-  return decided;
+  return result.ok ? { ok: true } : { ok: false, message: result.message };
 }
 
-export async function materializeResolvedPredictions(): Promise<void> {
-  let text = "";
-  try {
-    text = await readFile(PREDICTIONS_PATH, "utf8");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(
-        `Cannot write resolved AI review output because the predictions file is missing at ${PREDICTIONS_PATH}.`,
-      );
-    }
-    throw error;
+export async function retryAIReviewSync(input: {
+  publicationKey: string;
+  actor: SessionUser;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  const result = await adminRequest("/admin/ai-review/retry-sync", {
+    method: "POST",
+    actor: input.actor,
+    body: { publication_key: input.publicationKey },
+  });
+  return result.ok ? { ok: true } : { ok: false, message: result.message };
+}
+
+type AdminResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; message: string; code: string };
+
+async function adminRequest<T = unknown>(
+  path: string,
+  options: {
+    method?: "GET" | "POST";
+    params?: QueryParams;
+    body?: Record<string, unknown>;
+    actor?: SessionUser | null;
+  } = {},
+): Promise<AdminResult<T>> {
+  const url = adminApiUrl(path, options.params);
+  if (!url) {
+    return {
+      ok: false,
+      code: "api_not_configured",
+      message: "API_BASE_URL is not configured for backend admin review endpoints.",
+    };
   }
-
-  const decisions = await readCollection<AIReviewDecision[]>(
-    DECISIONS,
-    EMPTY_DECISIONS,
-  );
-  const decisionsById = new Map(decisions.map((decision) => [decision.id, decision]));
-
-  const [headerLine = "", ...recordLines] = text.split(/\r?\n/);
-  const baseColumns = parseCsvLine(headerLine);
-  const columns = [
-    ...baseColumns,
-    "human_review_label",
-    "human_review_note",
-    "human_reviewed_by",
-    "human_reviewed_at",
-  ];
-  const labelIndex = baseColumns.indexOf("ai_final_label");
-  const resolved = recordLines
-    .filter((line) => line.trim() !== "")
-    .map((line) => {
-      const values = parseCsvLine(line);
-      const row = rowFromValues(baseColumns, values);
-      const decision = decisionsById.get(candidateId(row));
-      if (decision && labelIndex !== -1) values[labelIndex] = decision.decision;
-      const reviewFields = decision
-        ? [
-            decision.decision,
-            decision.note,
-            decision.decided_by,
-            decision.decided_at,
-          ]
-        : ["", "", "", ""];
-      return [...values, ...reviewFields];
+  try {
+    const response = await fetch(url, {
+      method: options.method ?? "GET",
+      headers: adminHeaders(options.actor, options.body ? { "Content-Type": "application/json" } : {}),
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      cache: "no-store",
     });
+    const payload = (await response.json().catch(() => ({}))) as {
+      data?: T;
+      error?: { code?: string; message?: string };
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        code: payload.error?.code ?? `http_${response.status}`,
+        message: payload.error?.message ?? `Backend API returned HTTP ${response.status}.`,
+      };
+    }
+    return { ok: true, data: payload.data as T };
+  } catch {
+    return {
+      ok: false,
+      code: "api_unreachable",
+      message: `Could not reach the backend API at ${REMOTE_API_BASE_URL}.`,
+    };
+  }
+}
 
-  await mkdir(path.dirname(RESOLVED_PREDICTIONS_PATH), { recursive: true });
-  await writeFile(
-    RESOLVED_PREDICTIONS_PATH,
-    [
-      columns.map(csvValue).join(","),
-      ...resolved.map((values) => values.map(csvValue).join(",")),
-    ].join("\n") + "\n",
-    "utf8",
-  );
-  await writeFile(
-    DECISIONS_CSV_PATH,
-    writeCsv(
-      decisions.map((decision) => ({ ...decision })),
-      ["id", "publication_id", "source_row", "decision", "note", "decided_at", "decided_by"],
-    ),
-    "utf8",
-  );
+function adminApiUrl(path: string, params: QueryParams = {}): string | null {
+  if (!REMOTE_API_BASE_URL) return null;
+  return `${REMOTE_API_BASE_URL.replace(/\/$/, "")}${path}${buildQuery(params)}`;
+}
+
+function adminHeaders(
+  actor: SessionUser | null | undefined,
+  extra: Record<string, string> = {},
+): Record<string, string> {
+  return {
+    Accept: "application/json",
+    ...(REMOTE_ADMIN_API_TOKEN
+      ? { "X-ResearchLanka-Admin-Token": REMOTE_ADMIN_API_TOKEN }
+      : {}),
+    ...(actor
+      ? {
+          "X-ResearchLanka-Actor-Id": actor.id,
+          "X-ResearchLanka-Actor-Email": actor.email,
+          "X-ResearchLanka-Actor-Name": actor.name,
+        }
+      : {}),
+    ...extra,
+  };
 }

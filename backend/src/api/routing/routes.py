@@ -14,6 +14,16 @@ from src.api.services.incremental_admin import (
     require_admin_api_token,
     start_incremental_update,
 )
+from src.api.services.ai_review import (
+    assign_initial_pending,
+    backfill_review_records,
+    decide_review,
+    list_reviews,
+    parse_reviewers,
+    queue_retry,
+    validate_final_dataset,
+    with_connection,
+)
 from src.api.services.publications import ResearchLankaAPI
 
 
@@ -66,6 +76,28 @@ def route_get(
     if path == f"{API_PREFIX}/admin/incremental/status":
         require_admin_api_token(headers)
         return {"data": read_incremental_status(), "meta": service._meta()}
+    if path == f"{API_PREFIX}/admin/ai-review":
+        require_admin_api_token(headers)
+        actor_email = str((headers or {}).get("x-researchlanka-actor-email") or "")
+        return {
+            "data": with_connection(
+                lambda connection: list_reviews(
+                    connection,
+                    actor_email=actor_email,
+                    all_reviews=(query.get("view", ["mine"])[0] == "all"),
+                    page=int(query.get("page", ["1"])[0]),
+                    page_size=int(query.get("page_size", ["25"])[0]),
+                    status=query.get("status", [None])[0],
+                    confidence=query.get("confidence", [None])[0],
+                    reviewer=query.get("reviewer", [None])[0],
+                    q=query.get("q", [None])[0],
+                )
+            ),
+            "meta": service._meta(),
+        }
+    if path == f"{API_PREFIX}/admin/ai-review/validate-final-dataset":
+        require_admin_api_token(headers)
+        return {"data": with_connection(validate_final_dataset), "meta": service._meta()}
     if path == f"{API_PREFIX}/exports/publications.csv":
         return service.export_publications(query, file_format="csv")
     if path == f"{API_PREFIX}/exports/publications.jsonl":
@@ -136,6 +168,45 @@ def route_post(
         require_admin_api_token(headers)
         return {
             "data": start_incremental_update(payload),
+            "meta": service._meta(),
+        }
+    if path == f"{API_PREFIX}/admin/ai-review/backfill":
+        require_admin_api_token(headers)
+        return {
+            "data": with_connection(
+                lambda connection: {
+                    "backfill": backfill_review_records(connection),
+                    "assignment": assign_initial_pending(connection, parse_reviewers()),
+                }
+            ),
+            "meta": service._meta(),
+        }
+    if path == f"{API_PREFIX}/admin/ai-review/decide":
+        require_admin_api_token(headers)
+        actor = {
+            "id": str((headers or {}).get("x-researchlanka-actor-id") or ""),
+            "email": str((headers or {}).get("x-researchlanka-actor-email") or "").lower(),
+            "name": str((headers or {}).get("x-researchlanka-actor-name") or ""),
+        }
+        return {
+            "data": with_connection(
+                lambda connection: decide_review(
+                    connection,
+                    publication_key=str(payload.get("publication_key") or ""),
+                    decision=str(payload.get("decision") or ""),
+                    notes=str(payload.get("notes") or ""),
+                    actor=actor,
+                    expected_version=int(payload.get("record_version") or 0),
+                )
+            ),
+            "meta": service._meta(),
+        }
+    if path == f"{API_PREFIX}/admin/ai-review/retry-sync":
+        require_admin_api_token(headers)
+        return {
+            "data": with_connection(
+                lambda connection: queue_retry(connection, str(payload.get("publication_key") or ""))
+            ),
             "meta": service._meta(),
         }
 
