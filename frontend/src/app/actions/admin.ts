@@ -14,7 +14,7 @@ import { decideCandidate } from "@/services/workspace/resolution";
 import { recordAudit, resolveFlag } from "@/services/workspace/store";
 import { isAccountRole } from "@/types/auth";
 import { startIncrementalJob } from "@/services/admin/incremental";
-import { decideAIReview } from "@/services/workspace/aiReview";
+import { decideAIReview, retryAIReviewSync } from "@/services/workspace/aiReview";
 
 /* ---------------------------------------------------------- pipeline runs */
 
@@ -145,29 +145,53 @@ export async function decideAIReviewAction(
   );
 
   const candidateId = String(formData.get("candidate_id") ?? "");
+  const publicationKey = String(formData.get("publication_key") ?? candidateId);
+  const recordVersion = Number(formData.get("record_version") ?? 0);
   const decision = String(formData.get("decision") ?? "");
   const note = String(formData.get("note") ?? "");
 
-  if (decision !== "AI" && decision !== "NON_AI") {
-    return { status: "error", message: "Choose AI or Non-AI." };
+  if (decision !== "human_accepted" && decision !== "human_rejected") {
+    return { status: "error", message: "Choose accept or reject." };
+  }
+  if (decision === "human_rejected" && !note.trim()) {
+    return { status: "error", message: "Rejecting a record requires a reason." };
   }
 
   const reviewed = await decideAIReview({
-    candidateId,
+    publicationKey,
+    recordVersion,
     decision,
     note,
     actor,
   });
-  if (!reviewed) {
-    return { status: "error", message: "That AI review item is no longer queued." };
+  if (!reviewed.ok) {
+    return { status: "error", message: reviewed.message };
   }
 
   revalidatePath("/admin/ai-review");
   revalidatePath("/admin");
   return {
     status: "ok",
-    message: `Saved as ${decision}. The resolved prediction CSV has been updated.`,
+    message:
+      decision === "human_accepted"
+        ? "Accepted as AI. Sheets sync has been queued."
+        : "Rejected as non-AI. Sheets sync has been queued.",
   };
+}
+
+export async function retryAIReviewSyncAction(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const actor = await requireCapability(
+    "admin.resolution.decide",
+    "/admin/ai-review",
+  );
+  const publicationKey = String(formData.get("publication_key") ?? "");
+  const result = await retryAIReviewSync({ publicationKey, actor });
+  if (!result.ok) return { status: "error", message: result.message };
+  revalidatePath("/admin/ai-review");
+  return { status: "ok", message: "Sync retry queued." };
 }
 
 /* -------------------------------------------------------- user management */

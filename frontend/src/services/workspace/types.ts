@@ -84,28 +84,59 @@ export interface AIReviewDecision {
 }
 
 export interface AIReviewCandidate {
-  id: string;
-  publication_id: string;
-  source_row: string;
-  status: "pending" | "decided";
-  final_label: string;
-  raw_label: string;
-  confidence: number | null;
-  margin: number | null;
-  review_threshold: number | null;
-  selected_model: string;
-  title: string;
-  doi: string | null;
-  openalex_id: string | null;
-  publication_date: string | null;
-  source_dataset: string;
-  source_record_id: string;
-  primary_topic: string | null;
-  primary_subfield: string | null;
-  primary_field: string | null;
-  primary_domain: string | null;
-  text: string;
-  decision: AIReviewDecision | null;
+  publication_key: string;
+  record_version: number;
+  review_status:
+    | "pending_review"
+    | "auto_accepted"
+    | "human_accepted"
+    | "human_rejected";
+  acceptance_method: "auto" | "human" | null;
+  assigned_reviewer: { id: string | null; email: string | null; name: string | null };
+  decided_by: { id: string | null; email: string | null; name: string | null };
+  reviewer_notes: string;
+  decision_timestamp: string | null;
+  sync_status: "not_queued" | "pending" | "succeeded" | "failed";
+  sync_attempt_count: number;
+  last_sync_error: string | null;
+  last_synced_at: string | null;
+  gemini: {
+    label: string | null;
+    confidence: string | null;
+    normalized_label: string | null;
+    normalized_confidence: string | null;
+    model: string | null;
+    reason: string | null;
+  };
+  publication: {
+    title: string | null;
+    abstract: string | null;
+    keywords: string | null;
+    authors: string | null;
+    author_affiliations: string | null;
+    institutions: string | null;
+    sri_lankan_institutions: string | null;
+    countries: string | null;
+    publication_year: number | null;
+    publication_date: string | null;
+    type: string | null;
+    journal: string | null;
+    publisher: string | null;
+    doi: string | null;
+    url: string | null;
+    openalex_id: string | null;
+    source_dataset: string | null;
+    source_record_id: string | null;
+    source_datestamp: string | null;
+    language: string | null;
+    oa_status: string | null;
+    license: string | null;
+    volume: string | null;
+    issue: string | null;
+    first_page: string | null;
+    last_page: string | null;
+    article_number: string | null;
+  };
 }
 
 export type AuditAction =
