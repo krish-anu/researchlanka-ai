@@ -24,7 +24,6 @@ export type Capability =
   | "admin.pipeline.run"
   | "admin.flags.triage"
   | "admin.resolution.decide"
-  | "admin.ai_review.manage"
   | "admin.users.manage";
 
 const GRANTS: Record<Capability, Role[]> = {
@@ -40,7 +39,6 @@ const GRANTS: Record<Capability, Role[]> = {
   "admin.pipeline.run": ["admin"],
   "admin.flags.triage": ["admin"],
   "admin.resolution.decide": ["admin"],
-  "admin.ai_review.manage": ["admin"],
   "admin.users.manage": ["admin"],
 };
 
@@ -63,7 +61,7 @@ export const ROLE_CAPABILITY_SUMMARY: Record<Role, string[]> = {
   admin: [
     "Everything a signed-in user can do",
     "Pipeline and data-source console",
-    "Entity-resolution queue, AI review, and flag triage",
+    "Entity-resolution queue and flag triage",
     "Grant, revoke and suspend accounts",
   ],
 };

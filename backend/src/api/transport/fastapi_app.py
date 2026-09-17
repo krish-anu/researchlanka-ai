@@ -18,25 +18,6 @@ from src.api.core.errors import APIError
 from src.api.core.serializers import normalize_value
 from src.api.repositories.postgres import PostgresPublicationRepository
 from src.api.schemas import PublicationBatchPredictionRequest, PublicationPredictionRequest
-from src.api.services.incremental_admin import (
-    read_incremental_status,
-    require_admin_api_token,
-    start_incremental_update,
-)
-from src.api.services.ai_review import (
-    assign_initial_pending,
-    backfill_review_records,
-    decide_review,
-    list_reviews,
-    parse_reviewers,
-    queue_retry,
-    reassign_review,
-    reopen_review,
-    Reviewer,
-    validate_final_dataset,
-    with_connection,
-)
-from src.api.services.ai_review_sheets import reconcile_sheet
 from src.api.services.model_serving import PublicationClassifierService
 from src.api.services.publications import ResearchLankaAPI
 
@@ -249,154 +230,6 @@ def create_model_router(
     return router
 
 
-def create_admin_router(
-    publication_service: ResearchLankaAPI | None = None,
-) -> APIRouter:
-    """Create internal admin pipeline endpoints."""
-
-    service = publication_service or ResearchLankaAPI(PostgresPublicationRepository())
-    router = APIRouter(prefix=f"{API_PREFIX}/admin", tags=["admin"])
-
-    @router.get("/incremental/status")
-    async def incremental_status(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        return {"data": read_incremental_status(), "meta": service._meta()}
-
-    @router.post("/incremental/run")
-    async def incremental_run(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        payload = await request.json()
-        if not isinstance(payload, dict):
-            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
-        return {"data": start_incremental_update(payload), "meta": service._meta()}
-
-    @router.get("/ai-review")
-    async def ai_review_list(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        query = query_dict(request)
-        actor_email = str(request.headers.get("x-researchlanka-actor-email") or "")
-        all_reviews = str(query.get("view", ["mine"])[0]) == "all"
-        return {
-            "data": with_connection(
-                lambda connection: list_reviews(
-                    connection,
-                    actor_email=actor_email,
-                    all_reviews=all_reviews,
-                    page=int(query.get("page", ["1"])[0]),
-                    page_size=int(query.get("page_size", ["25"])[0]),
-                    status=query.get("status", [None])[0],
-                    confidence=query.get("confidence", [None])[0],
-                    reviewer=query.get("reviewer", [None])[0],
-                    q=query.get("q", [None])[0],
-                )
-            ),
-            "meta": service._meta(),
-        }
-
-    @router.post("/ai-review/backfill")
-    async def ai_review_backfill(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        return {
-            "data": with_connection(
-                lambda connection: {
-                    "backfill": backfill_review_records(connection),
-                    "assignment": assign_initial_pending(connection, parse_reviewers()),
-                }
-            ),
-            "meta": service._meta(),
-        }
-
-    @router.post("/ai-review/decide")
-    async def ai_review_decide(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        payload = await request.json()
-        if not isinstance(payload, dict):
-            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
-        actor = actor_from_headers(request)
-        result = with_connection(
-            lambda connection: decide_review(
-                connection,
-                publication_key=str(payload.get("publication_key") or ""),
-                decision=str(payload.get("decision") or ""),
-                notes=str(payload.get("notes") or ""),
-                actor=actor,
-                expected_version=int(payload.get("record_version") or 0),
-            )
-        )
-        return {"data": result, "meta": service._meta()}
-
-    @router.post("/ai-review/reassign")
-    async def ai_review_reassign(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        payload = await request.json()
-        if not isinstance(payload, dict):
-            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
-        reviewer = Reviewer(
-            id=str(payload.get("reviewer_id") or payload.get("reviewer_email") or ""),
-            email=str(payload.get("reviewer_email") or "").lower(),
-            name=str(payload.get("reviewer_name") or payload.get("reviewer_email") or ""),
-        )
-        result = with_connection(
-            lambda connection: reassign_review(
-                connection,
-                publication_key=str(payload.get("publication_key") or ""),
-                reviewer=reviewer,
-                actor=actor_from_headers(request),
-                notes=str(payload.get("notes") or ""),
-            )
-        )
-        return {"data": result, "meta": service._meta()}
-
-    @router.post("/ai-review/reopen")
-    async def ai_review_reopen(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        payload = await request.json()
-        if not isinstance(payload, dict):
-            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
-        result = with_connection(
-            lambda connection: reopen_review(
-                connection,
-                publication_key=str(payload.get("publication_key") or ""),
-                actor=actor_from_headers(request),
-                notes=str(payload.get("notes") or ""),
-            )
-        )
-        return {"data": result, "meta": service._meta()}
-
-    @router.post("/ai-review/retry-sync")
-    async def ai_review_retry_sync(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        payload = await request.json()
-        if not isinstance(payload, dict):
-            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
-        return {
-            "data": with_connection(
-                lambda connection: queue_retry(connection, str(payload.get("publication_key") or ""))
-            ),
-            "meta": service._meta(),
-        }
-
-    @router.post("/ai-review/reconcile-sheets")
-    async def ai_review_reconcile_sheets(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        return {"data": with_connection(reconcile_sheet), "meta": service._meta()}
-
-    @router.get("/ai-review/validate-final-dataset")
-    async def ai_review_validate_final_dataset(request: Request) -> dict[str, Any]:
-        require_admin_api_token(request.headers)
-        return {"data": with_connection(validate_final_dataset), "meta": service._meta()}
-
-    return router
-
-
-def actor_from_headers(request: Request) -> dict[str, str]:
-    return {
-        "id": str(request.headers.get("x-researchlanka-actor-id") or ""),
-        "email": str(request.headers.get("x-researchlanka-actor-email") or "").lower(),
-        "name": str(request.headers.get("x-researchlanka-actor-name") or ""),
-    }
-
-
 def create_app(
     model_service: PublicationClassifierService | None = None,
     publication_service: ResearchLankaAPI | None = None,
@@ -464,7 +297,6 @@ def create_app(
 
     app.include_router(create_publication_router(publication_api))
     app.include_router(create_model_router(model_service))
-    app.include_router(create_admin_router(publication_api))
     return app
 
 

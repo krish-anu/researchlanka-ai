@@ -35,8 +35,7 @@ data/processed/common/common_publications_final_2016_2026_ai_only.csv
 
 `*_ai_classified.csv` is the audit file with AI, non-AI, and review labels.
 `*_ai_only.csv` is the final dataset loaded into PostgreSQL, so the frontend
-shows only AI-related publications. Use `--require-doi` when loading it into
-the public app database if records without DOI should be excluded.
+shows only AI-related publications.
 
 ## Incremental Monthly Flow
 

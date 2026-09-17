@@ -99,12 +99,6 @@ directly into the API table:
 python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026.csv --year-min 2016 --year-max 2026
 ```
 
-To load only the final AI-related dataset and exclude records without DOI:
-
-```bash
-python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_only.csv --year-min 2016 --year-max 2026 --require-doi --reset
-```
-
 To load a prepared records file directly into PostgreSQL:
 
 ```bash

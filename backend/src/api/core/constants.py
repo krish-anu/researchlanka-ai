@@ -54,7 +54,6 @@ PUBLICATION_SUMMARY_FIELDS = [
     "title",
     "doi",
     "publication_year",
-    "publication_date",
     "type",
     "authors",
     "institutions",

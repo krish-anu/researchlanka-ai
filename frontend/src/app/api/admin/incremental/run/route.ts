@@ -3,41 +3,39 @@ import { NextResponse } from "next/server";
 import { can } from "@/services/auth/permissions";
 import { getViewer } from "@/services/auth/server";
 import { startIncrementalJob } from "@/services/admin/incremental";
-
-interface RunRequest {
-  fromDate?: string;
-  toDate?: string;
-  reviewThreshold?: string;
-  from_date?: string;
-  to_date?: string;
-  confidenceReviewThreshold?: string;
-  confidence_review_threshold?: string;
-}
+import { recordAudit } from "@/services/workspace/store";
 
 export async function POST(request: Request) {
   const viewer = await getViewer();
-  if (!can(viewer.role, "admin.pipeline.run")) {
-    return NextResponse.json(
-      { error: { code: "forbidden", message: "Administrator access required." } },
-      { status: 403 },
-    );
+  if (!viewer.user || !can(viewer.role, "admin.pipeline.run")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as RunRequest;
-  const result = await startIncrementalJob(body);
-  if (!result.ok) {
-    const status =
-      result.code === "already_running"
-        ? 409
-        : result.code === "invalid_request"
-          ? 400
-          : 501;
-
-    return NextResponse.json(
-      { error: { code: result.code, message: result.message } },
-      { status },
-    );
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
   }
 
-  return NextResponse.json({ ...result.status, data: result.status, job: result }, { status: 202 });
+  const input = body && typeof body === "object" ? body as Record<string, unknown> : {};
+  const status = await startIncrementalJob({
+    fromDate: typeof input.from_date === "string" ? input.from_date : "",
+    toDate: typeof input.to_date === "string" ? input.to_date : "",
+    confidenceReviewThreshold:
+      typeof input.confidence_review_threshold === "string"
+        ? input.confidence_review_threshold
+        : "",
+  });
+
+  await recordAudit({
+    action: "pipeline.incremental_started",
+    subject: "incremental-ai-update",
+    summary: `Started AI-only incremental update with labels ${status.db_labels.join(", ")}`,
+    actor: viewer.user,
+  }).catch((error) => {
+    console.error("Could not record incremental update audit entry", error);
+  });
+
+  return NextResponse.json(status);
 }

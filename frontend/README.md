@@ -44,8 +44,9 @@ serialised per file and atomic within one Node process, but it does not survive
 a multi-instance deployment. **Replace it before running more than one server.**
 
 Sessions are stateless HMAC-signed cookies (`src/services/auth/session.ts`), so
-there is no session table to run. Server-side route guards re-check the user
-store, so suspensions and role changes apply on the next guarded request.
+there is no session table to run — the trade-off is that revoking a session
+early means rotating `AUTH_SECRET`, and a role change applies at the user's next
+sign-in. Both are stated in the admin UI where they matter.
 
 ## Running
 

@@ -72,8 +72,9 @@ export default async function AdminUsersPage() {
           </li>
         </ul>
         <p className="mt-3 border-t border-rule pt-3 text-body-sm text-muted">
-          Server-side route guards re-check the user store, so role changes and
-          suspensions apply on that person's next guarded request.
+          Roles are carried in the session cookie, so a change takes effect the
+          next time that person signs in. Suspending an account blocks new
+          sign-ins; an already-issued session stays valid until it expires.
         </p>
       </div>
 

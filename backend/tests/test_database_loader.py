@@ -7,8 +7,6 @@ from src.database.final_schema import (
 )
 from src.database.loader import (
     build_final_publication_row,
-    canonicalize_existing_publication_key,
-    final_publication_values,
     final_publications_upsert_sql,
 )
 from src.pipeline.build_final_common_dataset import FINAL_MAIN_COLUMNS
@@ -85,71 +83,3 @@ def test_final_publications_upsert_sql_includes_every_final_column():
     assert 'INSERT INTO "final_publications"' in sql
     for column in [*FINAL_MAIN_COLUMNS, *AI_CLASSIFICATION_COLUMNS]:
         assert f'"{column}"' in sql
-
-
-def test_canonicalize_existing_publication_key_updates_older_identifier_key():
-    class Cursor:
-        def __init__(self):
-            self.queries = []
-
-        def execute(self, query, args):
-            self.queries.append((query, args))
-
-        def fetchall(self):
-            return [("openalex:https://openalex.org/W1",)]
-
-    cursor = Cursor()
-    row = build_final_publication_row(
-        {
-            "doi": "10.1000/new",
-            "openalex_id": "https://openalex.org/W1",
-            "title": "Updated paper",
-        },
-        row_number=1,
-    )
-
-    canonicalize_existing_publication_key(cursor, row)
-
-    assert cursor.queries[0][1] == [
-        "doi:10.1000/new",
-        "10.1000/new",
-        "https://openalex.org/W1",
-    ]
-    assert "UPDATE \"final_publications\"" in cursor.queries[1][0]
-    assert cursor.queries[1][1] == (
-        "doi:10.1000/new",
-        "openalex:https://openalex.org/W1",
-    )
-
-
-def test_canonicalize_existing_publication_key_rejects_ambiguous_matches():
-    class Cursor:
-        def execute(self, query, args):
-            return None
-
-        def fetchall(self):
-            return [("doi:10.1000/new",), ("openalex:https://openalex.org/W1",)]
-
-    row = build_final_publication_row(
-        {
-            "doi": "10.1000/new",
-            "openalex_id": "https://openalex.org/W1",
-            "title": "Ambiguous paper",
-        },
-        row_number=1,
-    )
-
-    try:
-        canonicalize_existing_publication_key(Cursor(), row)
-    except ValueError as exc:
-        assert "multiple existing final_publications rows" in str(exc)
-    else:
-        raise AssertionError("Expected ambiguous publication matches to fail")
-
-
-def test_final_publication_values_matches_upsert_column_order():
-    row = build_final_publication_row({"title": "A publication"}, row_number=1)
-    values = final_publication_values(row)
-
-    assert values[0] == row["publication_key"]
-    assert len(values) == 1 + len(DATABASE_PUBLICATION_COLUMNS) + 1

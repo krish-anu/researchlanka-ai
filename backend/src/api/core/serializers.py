@@ -16,7 +16,6 @@ def publication_summary(row: dict[str, Any]) -> dict[str, Any]:
         "title": normalized.get("title"),
         "doi": normalized.get("doi"),
         "publication_year": normalized.get("publication_year"),
-        "publication_date": normalized.get("publication_date"),
         "type": normalized.get("type"),
         "authors": normalized.get("authors", []),
         "institutions": normalized.get("institutions", []),

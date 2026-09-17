@@ -3,9 +3,10 @@
  *
  * A session is an HMAC-SHA256-signed JSON payload in an httpOnly cookie. There
  * is no server-side session table, which keeps the app deployable as a plain
- * Next.js server with no extra infrastructure. Server-side route guards still
- * re-check the user store, so suspended accounts and role changes take effect
- * on the next guarded request.
+ * Next.js server with no extra infrastructure — the cost is that revoking a
+ * session before it expires means rotating `AUTH_SECRET`, and that a role
+ * change only takes effect on the user's next sign-in. Both are called out in
+ * the admin UI where they matter.
  *
  * Signing and verification use Web Crypto so the same code path serves
  * middleware (Edge runtime) and server components alike.

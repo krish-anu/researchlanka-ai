@@ -102,8 +102,8 @@ export default async function AccountPage() {
           </div>
         </dl>
         <p className="mt-2 text-body-sm text-muted">
-          Server-side route guards re-check your account, so administrator role
-          changes apply on your next guarded request.
+          Your role is carried in the session cookie, so a role change made by
+          an administrator applies the next time you sign in.
         </p>
       </section>
     </div>

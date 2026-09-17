@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "node scripts/lint-no-debug.mjs && npm run typecheck",
+    "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "check:palette": "node scripts/check-series-contrast.mjs",
     "test": "vitest run",
@@ -15,7 +15,6 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@next/third-parties": "^16.3.5",
     "cytoscape": "^3.31.1",
     "next": "^15.5.4",
     "plotly.js-dist-min": "^3.0.1",

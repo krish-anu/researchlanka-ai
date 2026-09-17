@@ -58,8 +58,7 @@ Generate a real session secret:
 openssl rand -base64 48
 ```
 
-Put one generated value in `AUTH_SECRET` and another in
-`RESEARCHLANKA_ADMIN_API_TOKEN`. Also replace `POSTGRES_PASSWORD`,
+Put that value in `AUTH_SECRET`. Also replace `POSTGRES_PASSWORD`,
 `ADMIN_EMAIL`, and `ADMIN_PASSWORD`. Do not keep the example passwords.
 
 ## 4. Restore Data Artifacts
@@ -75,7 +74,7 @@ unzip researchlanka-share-data.zip
 At minimum, confirm this file exists:
 
 ```bash
-ls backend/data/processed/common/common_publications_final_2016_2026_ai_only.csv
+ls backend/data/processed/common/common_publications_final_2016_2026.csv
 ```
 
 If semantic search is enabled, also confirm the model files named in `.env`
@@ -88,13 +87,12 @@ docker compose -f compose.aws.yml up --build -d
 docker compose -f compose.aws.yml ps
 ```
 
-Apply migrations and load the prepared AI-only 2016-2026 dataset. The
-`--require-doi` flag keeps records without DOI out of the public database:
+Apply migrations and load the prepared 2016-2026 dataset:
 
 ```bash
-docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
-docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_only.csv --year-min 2016 --year-max 2026 --require-doi --reset
-docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml restart api frontend
+docker compose -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
+docker compose -f compose.aws.yml run --rm api python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026.csv --year-min 2016 --year-max 2026
+docker compose -f compose.aws.yml restart api frontend
 ```
 
 ## 6. Test

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -87,7 +86,6 @@ export default async function RootLayout({
           <SiteFooter />
         </div>
       </body>
-      <GoogleAnalytics gaId="G-GGBWEZFK02" />
     </html>
   );
 }

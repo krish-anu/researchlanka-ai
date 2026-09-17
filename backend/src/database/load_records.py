@@ -252,16 +252,6 @@ def filter_records_by_publication_year(
         yield record
 
 
-def filter_records_with_doi(records: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
-    """Keep only records with a real DOI value."""
-
-    missing_markers = {"nan", "none", "null", "na", "n/a"}
-    for record in records:
-        doi = str(record.get("doi") or "").strip()
-        if doi and doi.casefold() not in missing_markers:
-            yield record
-
-
 def load_record_file(
     path: Path,
     *,
@@ -272,7 +262,6 @@ def load_record_file(
     limit: int | None = None,
     year_min: int | None = None,
     year_max: int | None = None,
-    require_doi: bool = False,
     reset: bool = False,
 ) -> int:
     """Load a record file into PostgreSQL in batches and return loaded row count."""
@@ -283,8 +272,6 @@ def load_record_file(
         year_min=year_min,
         year_max=year_max,
     )
-    if require_doi:
-        records = filter_records_with_doi(records)
     if limit is not None:
         if limit < 0:
             raise ValueError("limit must be zero or greater.")
@@ -1924,11 +1911,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Load only records with publication_year less than or equal to this year.",
     )
     parser.add_argument(
-        "--require-doi",
-        action="store_true",
-        help="Load only records with a non-empty DOI.",
-    )
-    parser.add_argument(
         "--reset",
         action="store_true",
         help="Delete existing final_publications rows before loading.",
@@ -1955,7 +1937,6 @@ def main(argv: list[str] | None = None) -> None:
             limit=args.limit,
             year_min=args.year_min,
             year_max=args.year_max,
-            require_doi=args.require_doi,
             reset=args.reset,
         )
     except Exception as exc:

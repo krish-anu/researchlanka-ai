@@ -7,7 +7,6 @@ from research_analytics.cli import load_database_records
 from src.database.load_records import (
     DatabaseLoadValidationError,
     detect_format,
-    filter_records_with_doi,
     filter_records_by_publication_year,
     iter_record_file,
     load_record_file,
@@ -201,21 +200,6 @@ def test_filter_records_by_publication_year_keeps_only_requested_range():
     assert [record["title"] for record in filtered] == ["Start", "From date", "End"]
 
 
-def test_filter_records_with_doi_keeps_only_real_doi_values():
-    records = [
-        {"title": "Valid", "doi": "10.123/example"},
-        {"title": "Blank", "doi": ""},
-        {"title": "Spaces", "doi": "   "},
-        {"title": "None marker", "doi": "None"},
-        {"title": "NaN marker", "doi": "nan"},
-        {"title": "Missing"},
-    ]
-
-    filtered = list(filter_records_with_doi(records))
-
-    assert filtered == [{"title": "Valid", "doi": "10.123/example"}]
-
-
 def test_load_record_file_applies_year_filter_before_batching(tmp_path, monkeypatch):
     path = tmp_path / "records.json"
     path.write_text(
@@ -246,37 +230,6 @@ def test_load_record_file_applies_year_filter_before_batching(tmp_path, monkeypa
 
     assert load_record_file(path, batch_size=2, year_min=2016, year_max=2026) == 1
     assert captured_batches == [[{"title": "In range", "publication_year": 2024}]]
-
-
-def test_load_record_file_can_require_doi_before_batching(tmp_path, monkeypatch):
-    path = tmp_path / "records.json"
-    path.write_text(
-        json.dumps(
-            [
-                {"title": "Has DOI", "doi": "10.123/example"},
-                {"title": "No DOI", "doi": ""},
-            ]
-        ),
-        encoding="utf-8",
-    )
-    captured_batches = []
-
-    monkeypatch.setattr(
-        "src.database.load_records.get_connection",
-        lambda database_url=None: FakeConnection(),
-    )
-
-    def fake_load_final_publications(records, **kwargs):
-        captured_batches.append(records)
-        return len(records)
-
-    monkeypatch.setattr(
-        "src.database.load_records.load_final_publications",
-        fake_load_final_publications,
-    )
-
-    assert load_record_file(path, batch_size=2, require_doi=True) == 1
-    assert captured_batches == [[{"title": "Has DOI", "doi": "10.123/example"}]]
 
 
 def test_reset_database_tables_truncates_publication_data():

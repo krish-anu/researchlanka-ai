@@ -14,7 +14,6 @@ import { decideCandidate } from "@/services/workspace/resolution";
 import { recordAudit, resolveFlag } from "@/services/workspace/store";
 import { isAccountRole } from "@/types/auth";
 import { startIncrementalJob } from "@/services/admin/incremental";
-import { decideAIReview, retryAIReviewSync } from "@/services/workspace/aiReview";
 
 /* ---------------------------------------------------------- pipeline runs */
 
@@ -36,12 +35,6 @@ export async function runIncrementalUpdate(
       toDate,
       confidenceReviewThreshold,
     });
-    if (!status.ok) {
-      return {
-        status: "error",
-        message: status.message,
-      };
-    }
 
     await recordAudit({
       action: "pipeline.incremental_started",
@@ -133,67 +126,6 @@ export async function decideResolution(
   };
 }
 
-/* ---------------------------------------------------------- AI review queue */
-
-export async function decideAIReviewAction(
-  _state: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const actor = await requireCapability(
-    "admin.resolution.decide",
-    "/admin/ai-review",
-  );
-
-  const candidateId = String(formData.get("candidate_id") ?? "");
-  const publicationKey = String(formData.get("publication_key") ?? candidateId);
-  const recordVersion = Number(formData.get("record_version") ?? 0);
-  const decision = String(formData.get("decision") ?? "");
-  const note = String(formData.get("note") ?? "");
-
-  if (decision !== "human_accepted" && decision !== "human_rejected") {
-    return { status: "error", message: "Choose accept or reject." };
-  }
-  if (decision === "human_rejected" && !note.trim()) {
-    return { status: "error", message: "Rejecting a record requires a reason." };
-  }
-
-  const reviewed = await decideAIReview({
-    publicationKey,
-    recordVersion,
-    decision,
-    note,
-    actor,
-  });
-  if (!reviewed.ok) {
-    return { status: "error", message: reviewed.message };
-  }
-
-  revalidatePath("/admin/ai-review");
-  revalidatePath("/admin");
-  return {
-    status: "ok",
-    message:
-      decision === "human_accepted"
-        ? "Accepted as AI. Sheets sync has been queued."
-        : "Rejected as non-AI. Sheets sync has been queued.",
-  };
-}
-
-export async function retryAIReviewSyncAction(
-  _state: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const actor = await requireCapability(
-    "admin.resolution.decide",
-    "/admin/ai-review",
-  );
-  const publicationKey = String(formData.get("publication_key") ?? "");
-  const result = await retryAIReviewSync({ publicationKey, actor });
-  if (!result.ok) return { status: "error", message: result.message };
-  revalidatePath("/admin/ai-review");
-  return { status: "ok", message: "Sync retry queued." };
-}
-
 /* -------------------------------------------------------- user management */
 
 /**
@@ -245,7 +177,7 @@ export async function changeUserRole(
   revalidatePath("/admin");
   return {
     status: "ok",
-    message: `${target.name} is now ${role === "admin" ? "an administrator" : "a signed-in user"}. The change applies on their next request.`,
+    message: `${target.name} is now ${role === "admin" ? "an administrator" : "a signed-in user"}. The change applies at their next sign-in.`,
   };
 }
 
@@ -287,7 +219,7 @@ export async function toggleUserAccess(
   return {
     status: "ok",
     message: disable
-      ? `${target.name} is suspended. Their existing session will be rejected on the next request.`
+      ? `${target.name} is suspended. Their existing session stays valid until it expires.`
       : `${target.name} can sign in again.`,
   };
 }

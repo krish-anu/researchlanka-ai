@@ -1,8 +1,8 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { RoleBadge } from "@/components/auth/RoleBadge";
-import { cookies } from "next/headers";
-
-import { readSessionToken, SESSION_COOKIE } from "@/services/auth/session";
+import { requireCapability } from "@/services/auth/server";
+import { countPendingCandidates } from "@/services/workspace/resolution";
+import { countOpenFlags } from "@/services/workspace/store";
 
 export const metadata = {
   title: {
@@ -12,20 +12,23 @@ export const metadata = {
 };
 
 /**
- * Shell for the console.
+ * Authoritative gate for the console.
  *
- * Middleware already rejects unsigned and non-admin cookies before this route
- * renders. Keep this layout free of deployment data reads so a broken JSON
- * store or missing artifact cannot collapse the whole admin shell; server
- * actions still re-check capabilities independently.
+ * Everything below this layout assumes an administrator, so the check lives
+ * here rather than being repeated in each page — though the server actions
+ * re-check independently, since they are reachable without rendering a page.
  */
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const store = await cookies();
-  const user = await readSessionToken(store.get(SESSION_COOKIE)?.value);
+  const user = await requireCapability("admin.access", "/admin");
+
+  const [flags, review] = await Promise.all([
+    countOpenFlags(),
+    countPendingCandidates(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -42,13 +45,11 @@ export default async function AdminLayout({
         </div>
         <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
           <RoleBadge role="admin" />
-          <span className="text-body-sm text-muted">
-            {user?.email ?? "Administrator session"}
-          </span>
+          <span className="text-body-sm text-muted">{user.email}</span>
         </div>
       </header>
 
-      <AdminNav badges={{ flags: 0, review: 0, aiReview: 0 }} />
+      <AdminNav badges={{ flags, review }} />
 
       {children}
     </div>

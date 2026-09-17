@@ -39,67 +39,17 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }} 
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          RESEARCHLANKA_ADMIN_API_TOKEN: ${{ secrets.RESEARCHLANKA_ADMIN_API_TOKEN }}
-          OPENALEX_EMAIL: ${{ secrets.OPENALEX_EMAIL }}
-          GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
-          AI_REVIEWER_ACCOUNTS: ${{ secrets.AI_REVIEWER_ACCOUNTS }}
         run: |
           USER_NAME="${EC2_USER:-ubuntu}"
           APP_DIR="${EC2_APP_DIR:-/home/ubuntu/researchlanka-ai}"
-
-          test -n "$POSTGRES_PASSWORD"
-          test -n "$AUTH_SECRET"
-          test -n "$ADMIN_EMAIL"
-          test -n "$ADMIN_PASSWORD"
-          test -n "$RESEARCHLANKA_ADMIN_API_TOKEN"
-
-          ssh -i ~/.ssh/researchlanka_ec2 "$USER_NAME@$EC2_HOST" "APP_DIR='$APP_DIR' bash -s" <<'REMOTE_PREP'
+          ssh -i ~/.ssh/researchlanka_ec2 "$USER_NAME@$EC2_HOST" "APP_DIR='$APP_DIR' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$APP_DIR"
           git fetch origin main
           git reset --hard origin/main
-          mkdir -p deploy secrets
-          REMOTE_PREP
-
-          ENV_FILE="$(mktemp)"
-          {
-            printf 'POSTGRES_DB=researchlanka\n'
-            printf 'POSTGRES_USER=researchlanka_user\n'
-            printf 'POSTGRES_PASSWORD=%s\n' "$POSTGRES_PASSWORD"
-            printf 'POSTGRES_PORT=5433\n'
-            printf 'AUTH_SECRET=%s\n' "$AUTH_SECRET"
-            printf 'ADMIN_EMAIL=%s\n' "$ADMIN_EMAIL"
-            printf 'ADMIN_PASSWORD=%s\n' "$ADMIN_PASSWORD"
-            printf 'RESEARCHLANKA_ADMIN_API_TOKEN=%s\n' "$RESEARCHLANKA_ADMIN_API_TOKEN"
-            printf 'AUTH_COOKIE_SECURE=false\n'
-            printf 'FRONTEND_PORT=3000\n'
-            printf 'RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=data/models/publication_text_embeddings_cli_sample.parquet\n'
-            printf 'RESEARCHLANKA_SEMANTIC_MODEL_PATH=data/models/publication_text_embedding_model_cli_sample.joblib\n'
-            printf 'RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH=data/models/ai_relevance/ai_relevance_linear_svm.joblib\n'
-            printf 'RESEARCHLANKA_INCREMENTAL_STATE_BACKEND=database\n'
-            printf 'RESEARCHLANKA_INCREMENTAL_STATE_KEY=openalex_incremental\n'
-            printf 'OPENALEX_EMAIL=%s\n' "${OPENALEX_EMAIL:-}"
-            printf 'AI_REVIEWER_ACCOUNTS=%s\n' "${AI_REVIEWER_ACCOUNTS:-anusan@gmail.com|usr_5ee17a3c89897eaf|Anusan,asma@gmail.com|usr_2297e06a80e9da78|Asma,gishan@gmail.com|usr_9f0b921855543e5c|Gishan}"
-            printf 'GOOGLE_SHEETS_SPREADSHEET_ID=%s\n' "${GOOGLE_SHEETS_SPREADSHEET_ID:-18wjDRN1Msks9cW4sBbnYTmYL7O-_mGPK-n16Jh7YpI0}"
-            printf 'GOOGLE_SHEETS_SERVICE_ACCOUNT_HOST_FILE=./secrets/google_sheets_service_account.json\n'
-            printf 'GOOGLE_SHEETS_SERVICE_ACCOUNT_FILE=/run/secrets/google_sheets_service_account.json\n'
-          } > "$ENV_FILE"
-          scp -i ~/.ssh/researchlanka_ec2 "$ENV_FILE" "$USER_NAME@$EC2_HOST:$APP_DIR/deploy/aws.ec2.env"
-          rm -f "$ENV_FILE"
-
-          ssh -i ~/.ssh/researchlanka_ec2 "$USER_NAME@$EC2_HOST" "APP_DIR='$APP_DIR' bash -s" <<'REMOTE_DEPLOY'
-          set -euo pipefail
-          cd "$APP_DIR"
-          COMPOSE="docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml"
-          $COMPOSE config >/tmp/researchlanka-compose.ok
-          $COMPOSE build api frontend
-          $COMPOSE up -d --force-recreate --remove-orphans db
-          $COMPOSE run --rm api python scripts/database/apply_database_migrations.py
-          $COMPOSE up -d --force-recreate --remove-orphans api frontend
+          docker compose -f compose.aws.yml up -d --build --force-recreate --remove-orphans
+          docker compose -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
+          docker compose -f compose.aws.yml restart api frontend
           docker image prune -f
-          $COMPOSE ps
-          REMOTE_DEPLOY
+          docker compose -f compose.aws.yml ps
+          REMOTE

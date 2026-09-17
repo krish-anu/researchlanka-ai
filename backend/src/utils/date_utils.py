@@ -35,7 +35,7 @@ __all__ = [
     "extract_publication_date_batch",
 ]
 
-DATE_PRIORITY = ["publication_date", "published_date", "created_date"]
+DATE_PRIORITY = ["publication_date"]
 
 def _parse_date(value: Any) -> pd.Timestamp:
     """Parse whatever date format is present; returns pd.NaT on failure."""

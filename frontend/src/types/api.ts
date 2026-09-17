@@ -66,7 +66,6 @@ export interface PublicationSummary {
   title: string | null;
   doi: string | null;
   publication_year: number | null;
-  publication_date: string | null;
   type: string | null;
   authors: string[];
   institutions: string[];
@@ -93,6 +92,7 @@ export interface PublicationDetail extends PublicationSummary {
   openalex_id: string | null;
   url: string | null;
   pdf_url: string | null;
+  publication_date: string | null;
   author_orcids: string[];
   sri_lankan_authors: string | null;
   sri_lankan_institutions: string[];
