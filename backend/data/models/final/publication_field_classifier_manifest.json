@@ -1,0 +1,18 @@
+{
+  "accuracy": 1.0,
+  "best_c": null,
+  "best_model_family": "logistic_regression",
+  "final_model_path": "/home/asma/Projects/researchlanka-ai/backend/data/models/final/publication_field_classifier.joblib",
+  "label_column": "primary_domain",
+  "macro_f1": 1.0,
+  "model_sha256": "f74a70238787496bd5b2259b52c97da2402819112317f08aaec1afcb2d514791",
+  "ranking_metric": "macro_f1",
+  "role": "final_primary_field_classifier",
+  "source_model_path": "/tmp/pytest-of-asma/pytest-0/test_compare_classification_mo0/comparison/logistic_regression_primary_domain.joblib",
+  "text_columns": [
+    "title",
+    "abstract",
+    "keywords"
+  ],
+  "weighted_f1": 1.0
+}

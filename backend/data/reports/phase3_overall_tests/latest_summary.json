@@ -1,0 +1,88 @@
+{
+  "suite_name": "phase3_overall",
+  "generated_at_utc": "2026-09-15T15:12:39.544711+00:00",
+  "total": 58,
+  "passed": 57,
+  "failed": 1,
+  "skipped": 0,
+  "pass_rate_pct": 98.28,
+  "by_category": [
+    {
+      "category": "accessibility",
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "deploy_config",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "frontend",
+      "total": 5,
+      "passed": 4,
+      "failed": 1,
+      "skipped": 0,
+      "pass_rate_pct": 80.0
+    },
+    {
+      "category": "integration",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "load",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "performance",
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "recovery",
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "security",
+      "total": 28,
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    }
+  ],
+  "security_matrix": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0
+  },
+  "failed_tests": [
+    {
+      "nodeid": "tests/phase3/test_phase3_frontend.py::test_vitest_suite_passes",
+      "category": "frontend",
+      "message": "def test_vitest_suite_passes():         \"\"\"Run the frontend unit suite and fail Phase 3 if Vitest is red.\"\"\"         if os.environ.get(\"PHASE3_SKIP_VITEST\") == \"1\":             pytest.skip(\"PHASE3_SKIP_VITEST=1\")         if not FRONTEND_ROOT.exists():             pytest.skip(\"frontend package missing\")         npm = shutil.which(\"npm\")         if npm is None:             pytest.skip(\"npm not available\")              completed = subprocess.run(             [npm, \"test\", \"--silent\"],             c"
+    }
+  ]
+}

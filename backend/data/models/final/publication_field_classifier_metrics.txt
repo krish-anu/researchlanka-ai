@@ -1,0 +1,28 @@
+Publication text classifier
+
+model_family: logistic_regression
+input_csv: /tmp/pytest-of-asma/pytest-0/test_compare_classification_mo0/publications.csv
+label_column: primary_domain
+text_columns: title, abstract, keywords
+input_rows: 8
+usable_rows: 8
+train_rows: 6
+test_rows: 2
+class_count: 2
+accuracy: 1.0000
+macro_f1: 1.0000
+weighted_f1: 1.0000
+
+Class distribution:
+Health Sciences: 4
+Physical Sciences: 4
+
+Classification report:
+                   precision    recall  f1-score   support
+
+  Health Sciences       1.00      1.00      1.00         1
+Physical Sciences       1.00      1.00      1.00         1
+
+         accuracy                           1.00         2
+        macro avg       1.00      1.00      1.00         2
+     weighted avg       1.00      1.00      1.00         2

@@ -1,0 +1,27 @@
+test_id,endpoint,scenario,expected,result,outcome,message,duration_seconds
+API-001,GET /api/v1/health,Service health probe,status=ok and api_version present,PASS,passed,,0.0003764709999813931
+API-002,GET /api/v1/meta,Dataset metadata,publication_count and supported_filters returned,PASS,passed,,4.929870568001206
+API-003,GET /api/v1/publications,Default publication listing,paginated list with >=1 row,PASS,passed,,0.00026003799939644523
+API-004,GET /api/v1/publications?q=Malaria,Keyword publication search,filtered list containing malaria title,PASS,passed,,0.00017510500038042665
+API-005,GET /api/v1/publications/{key},Publication detail by key,detail payload for doi:10.1000/test,PASS,passed,,0.00045756200051982887
+API-006,GET /api/v1/publications/{key},Missing publication key,404 not_found,PASS,passed,,0.00015799200082255993
+API-007,GET /api/v1/publications?year_min>year_max,Invalid year range filter,invalid_filter error,PASS,passed,,0.0001739170002110768
+API-008,GET /api/v1/search/suggest?q=Malaria,Autocomplete suggestions,suggestion list with publication type,PASS,passed,,0.00011922700105060358
+API-009,GET /api/v1/search/semantic?q=malaria,Semantic search ranking,ranked rows with semantic_score,PASS,passed,,0.00020080800095456652
+API-010,GET /api/v1/search/semantic,Semantic search without q,invalid_filter for empty query,PASS,passed,,0.00012684099965554196
+API-011,GET /api/v1/search/facets,Facet counts for current filters,facets object returned,PASS,passed,,0.0001217420012835646
+API-012,GET /api/v1/topics,Topic directory (OpenAlex fallback when NMF unavailable),list/ranking payload or service error handled,PASS,passed,,0.00015680499927839264
+API-013,GET /api/v1/fields,Field rankings,paginated ranking rows,PASS,passed,,0.00012684099965554196
+API-014,GET /api/v1/analytics/overview,Dashboard headline metrics,overview metrics object,PASS,passed,,0.00011650399937934708
+API-015,GET /api/v1/analytics/trends,Yearly publication trends,trend points list,PASS,passed,,0.00013543100067181513
+API-016,GET /api/v1/analytics/institutions,Institution rankings,paginated ranking rows,PASS,passed,,0.00013920399942435324
+API-017,GET /api/v1/analytics/fields,Field analytics rankings,paginated ranking rows,PASS,passed,,0.00012027600132569205
+API-018,GET /api/v1/analytics/collaboration-network,Collaboration network graph,nodes/edges/summary payload,PASS,passed,,0.00011776099927374162
+API-019,GET /api/v1/analytics/data-quality,Data-quality summary,quality metrics object,PASS,passed,,0.00011322099999233615
+API-020,GET /api/v1/researchers/{key},Researcher profile,profile aggregate,PASS,passed,,0.00028769700111297425
+API-021,GET /api/v1/institutions/{key},Institution profile,profile aggregate,PASS,passed,,0.0002660450008988846
+API-022,GET /api/v1/institutions/compare,Compare two institutions,comparison list with 2 entries,PASS,passed,,0.00011273200107098091
+API-023,GET /api/v1/publications/{key}/references,Publication references sidecar,paginated reference rows,PASS,passed,,0.00014653700054623187
+API-024,GET /api/v1/publications/{key}/related,Related publications (semantic),ranked related rows,PASS,passed,,0.00018083199938701
+API-025,GET /api/v1/exports/publications.csv,CSV export of publications,text/csv bytes payload,PASS,passed,,0.00022616199930780567
+API-026,GET /api/v1/unknown,Unknown endpoint,404 not_found,PASS,passed,,0.0002230890004284447

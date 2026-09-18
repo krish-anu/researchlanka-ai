@@ -1,0 +1,27 @@
+test_id,endpoint,scenario,expected,result,outcome,message,duration_seconds
+API-001,GET /api/v1/health,Service health probe,status=ok and api_version present,PASS,passed,,0.00035783800012723077
+API-002,GET /api/v1/meta,Dataset metadata,publication_count and supported_filters returned,PASS,passed,,5.557601644000897
+API-003,GET /api/v1/publications,Default publication listing,paginated list with >=1 row,PASS,passed,,0.00023120099831430707
+API-004,GET /api/v1/publications?q=Malaria,Keyword publication search,filtered list containing malaria title,PASS,passed,,0.00018614799955685157
+API-005,GET /api/v1/publications/{key},Publication detail by key,detail payload for doi:10.1000/test,PASS,passed,,0.00048007400073402096
+API-006,GET /api/v1/publications/{key},Missing publication key,404 not_found,PASS,passed,,0.000167428999702679
+API-007,GET /api/v1/publications?year_min>year_max,Invalid year range filter,invalid_filter error,PASS,passed,,0.00013844199929735623
+API-008,GET /api/v1/search/suggest?q=Malaria,Autocomplete suggestions,suggestion list with publication type,FAIL,failed,"case = ApiCase(test_id='API-008', endpoint='GET /api/v1/search/suggest?q=Malaria', scenario='Autocomplete suggestions', expec... list with publication type', method='GET', path='/api/v1/search/suggest', query={'q': ['Malaria']}, checker='suggest') api = <src.api.services.publications.ResearchLankaAPI object at 0x7fd7fdee7ce0> request = <FixtureRequest for <Function test_api_matrix_case[API-008]>>      @pytest.mark.parametrize(""case"", API_CASES, ids=lambda case: case.test_id)     def test_api_mat",0.0001301989996136399
+API-009,GET /api/v1/search/semantic?q=malaria,Semantic search ranking,ranked rows with semantic_score,PASS,passed,,0.00019962899932579603
+API-010,GET /api/v1/search/semantic,Semantic search without q,invalid_filter for empty query,PASS,passed,,0.0001429109997843625
+API-011,GET /api/v1/search/facets,Facet counts for current filters,facets object returned,PASS,passed,,0.0001429820003977511
+API-012,GET /api/v1/topics,Topic directory (OpenAlex fallback when NMF unavailable),list/ranking payload or service error handled,FAIL,failed,"case = ApiCase(test_id='API-012', endpoint='GET /api/v1/topics', scenario='Topic directory (OpenAlex fallback when NMF unavai...payload or service error handled', method='GET', path='/api/v1/topics', query={'source': ['openalex']}, checker='list') api = <src.api.services.publications.ResearchLankaAPI object at 0x7fd7fded1910> request = <FixtureRequest for <Function test_api_matrix_case[API-012]>>      @pytest.mark.parametrize(""case"", API_CASES, ids=lambda case: case.test_id)     def test_api_mat",0.0001381619986204896
+API-013,GET /api/v1/fields,Field rankings,paginated ranking rows,PASS,passed,,0.00025928099967131857
+API-014,GET /api/v1/analytics/overview,Dashboard headline metrics,overview metrics object,PASS,passed,,0.00018600800103740767
+API-015,GET /api/v1/analytics/trends,Yearly publication trends,trend points list,PASS,passed,,0.00013348199900065083
+API-016,GET /api/v1/analytics/institutions,Institution rankings,paginated ranking rows,PASS,passed,,0.00012538000009953976
+API-017,GET /api/v1/analytics/fields,Field analytics rankings,paginated ranking rows,PASS,passed,,0.0001225850010087015
+API-018,GET /api/v1/analytics/collaboration-network,Collaboration network graph,nodes/edges/summary payload,PASS,passed,,0.00015590399925713427
+API-019,GET /api/v1/analytics/data-quality,Data-quality summary,quality metrics object,PASS,passed,,0.00011699799870257266
+API-020,GET /api/v1/researchers/{key},Researcher profile,profile aggregate,PASS,passed,,0.0002853339992725523
+API-021,GET /api/v1/institutions/{key},Institution profile,profile aggregate,PASS,passed,,0.0002824000002874527
+API-022,GET /api/v1/institutions/compare,Compare two institutions,comparison list with 2 entries,PASS,passed,,0.00011413399988668971
+API-023,GET /api/v1/publications/{key}/references,Publication references sidecar,paginated reference rows,PASS,passed,,0.00013327199849300086
+API-024,GET /api/v1/publications/{key}/related,Related publications (semantic),ranked related rows,PASS,passed,,0.00020961799964425154
+API-025,GET /api/v1/exports/publications.csv,CSV export of publications,text/csv bytes payload,PASS,passed,,0.00023043300097924657
+API-026,GET /api/v1/unknown,Unknown endpoint,404 not_found,PASS,passed,,0.00021730099979322404

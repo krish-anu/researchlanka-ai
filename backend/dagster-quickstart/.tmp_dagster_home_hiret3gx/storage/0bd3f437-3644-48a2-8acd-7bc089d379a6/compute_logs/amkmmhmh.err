@@ -1,0 +1,2 @@
+[32m2026-08-05 13:02:02 +0530[0m - dagster - [34mDEBUG[0m - researchlanka_export_job - 0bd3f437-3644-48a2-8acd-7bc089d379a6 - 166326 - LOGS_CAPTURED - Capturing logs for process (pid: 166326).
+[32m2026-08-05 13:02:02 +0530[0m - dagster - [34mDEBUG[0m - researchlanka_export_job - 0bd3f437-3644-48a2-8acd-7bc089d379a6 - 166326 - researchlanka_sljol_api_collection - STEP_START - Started execution of step "researchlanka_sljol_api_collection".

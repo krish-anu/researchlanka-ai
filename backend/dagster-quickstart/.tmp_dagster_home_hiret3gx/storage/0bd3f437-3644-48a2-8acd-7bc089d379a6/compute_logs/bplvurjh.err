@@ -1,0 +1,26 @@
+[32m2026-08-05 13:02:01 +0530[0m - dagster - [34mDEBUG[0m - researchlanka_export_job - 0bd3f437-3644-48a2-8acd-7bc089d379a6 - 166323 - LOGS_CAPTURED - Capturing logs for process (pid: 166323).
+[32m2026-08-05 13:02:01 +0530[0m - dagster - [34mDEBUG[0m - researchlanka_export_job - 0bd3f437-3644-48a2-8acd-7bc089d379a6 - 166323 - researchlanka_crossref_api_collection - STEP_START - Started execution of step "researchlanka_crossref_api_collection".
+[32m2026-08-05 13:02:01 +0530[0m - dagster - [34mERROR[0m - [31mresearchlanka_export_job - 0bd3f437-3644-48a2-8acd-7bc089d379a6 - 166323 - researchlanka_crossref_api_collection - STEP_FAILURE - Execution of step "researchlanka_crossref_api_collection" failed.
+
+dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op "researchlanka_crossref_api_collection"::
+
+TypeError: CrossrefCollector.iter_works() got an unexpected keyword argument 'filters'
+
+Stack Trace:
+  File "/home/asma/Projects/researchlanka-ai/.venv/lib/python3.12/site-packages/dagster/_core/execution/plan/utils.py", line 57, in op_execution_error_boundary
+    yield
+  File "/home/asma/Projects/researchlanka-ai/.venv/lib/python3.12/site-packages/dagster/_utils/__init__.py", line 394, in iterate_with_context
+    next_output = next(iterator)
+                  ^^^^^^^^^^^^^^
+  File "/home/asma/Projects/researchlanka-ai/.venv/lib/python3.12/site-packages/dagster/_core/execution/plan/compute_generator.py", line 136, in _coerce_op_compute_fn_to_iterator
+    result = invoke_compute_fn(
+             ^^^^^^^^^^^^^^^^^^
+  File "/home/asma/Projects/researchlanka-ai/.venv/lib/python3.12/site-packages/dagster/_core/execution/plan/compute_generator.py", line 116, in invoke_compute_fn
+    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/asma/Projects/researchlanka-ai/backend/dagster-quickstart/src/dagster_quickstart/defs/researchlanka.py", line 589, in researchlanka_crossref_api_collection
+    collect_crossref(CrossrefCollector(email=args.email), args)
+  File "/home/asma/Projects/researchlanka-ai/backend/src/pipeline/collect_crossref.py", line 213, in collect_crossref
+    for work in collector.iter_works(
+                ^^^^^^^^^^^^^^^^^^^^^
+[0m

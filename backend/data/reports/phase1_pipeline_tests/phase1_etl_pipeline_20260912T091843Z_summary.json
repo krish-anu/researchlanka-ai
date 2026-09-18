@@ -1,0 +1,106 @@
+{
+  "suite_name": "phase1_etl_pipeline",
+  "generated_at_utc": "2026-09-12T09:18:43.897401+00:00",
+  "total": 77,
+  "passed": 73,
+  "failed": 4,
+  "skipped": 0,
+  "xfailed": 0,
+  "pass_rate_pct": 94.81,
+  "by_category": [
+    {
+      "category": "cleaning",
+      "total": 34,
+      "passed": 32,
+      "failed": 2,
+      "skipped": 0,
+      "pass_rate_pct": 94.12
+    },
+    {
+      "category": "dagster",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "database",
+      "total": 3,
+      "passed": 2,
+      "failed": 1,
+      "skipped": 0,
+      "pass_rate_pct": 66.67
+    },
+    {
+      "category": "deduplication",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "disambiguation",
+      "total": 6,
+      "passed": 5,
+      "failed": 1,
+      "skipped": 0,
+      "pass_rate_pct": 83.33
+    },
+    {
+      "category": "e2e_ingestion",
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "entity_resolution",
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "preprocessing",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "transforming",
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    }
+  ],
+  "failed_tests": [
+    {
+      "nodeid": "tests/phase1/test_phase1_cleaning.py::test_normalize_doi_edge_cases[10.1000/abc (online)-10.1000/abc(online)]",
+      "category": "cleaning",
+      "message": "raw = '10.1000/abc (online)', expected = '10.1000/abc(online)'      @pytest.mark.edge_case     @pytest.mark.parametrize(         \"raw,expected\",         [             (None, None),             (\"\", None),             (\"   \", None),             (\"nan\", None),             (math.nan, None),             (\"https://doi.org/10.1000/ABC\", \"10.1000/abc\"),             (\"DOI: 10.1000/ABC.\", \"10.1000/abc\"),             (\"http://dx.doi.org/10.1000/xyz;\", \"10.1000/xyz\"),             (\"10.1000/abc (online)\", \""
+    },
+    {
+      "nodeid": "tests/phase1/test_phase1_cleaning.py::test_normalize_list_like_handles_null_markers_and_separators",
+      "category": "cleaning",
+      "message": "@pytest.mark.edge_case     def test_normalize_list_like_handles_null_markers_and_separators():         assert normalize_list_like(None) == []         assert normalize_list_like(\"\") == []         assert normalize_list_like(\"A; B; ; C\", separators=(\";\",)) == [\"A\", \"B\", \"C\"] >       assert normalize_list_like([\"A\", \"\", None, \"B\"]) == [\"A\", \"B\"] E       AssertionError: assert ['A', 'None', 'B'] == ['A', 'B'] E          E         At index 1 diff: 'None' != 'B' E         Left contains one more item: '"
+    },
+    {
+      "nodeid": "tests/phase1/test_phase1_database.py::test_publication_key_prefers_doi",
+      "category": "database",
+      "message": "@pytest.mark.edge_case     def test_publication_key_prefers_doi():         row = {\"doi\": \"https://doi.org/10.1000/ABC\", \"openalex_id\": \"W1\", \"title\": \"T\"} >       assert build_publication_key(row, 1) == \"doi:10.1000/abc\" E       AssertionError: assert 'doi:https://...g/10.1000/ABC' == 'doi:10.1000/abc' E          E         - doi:10.1000/abc E         + doi:https://doi.org/10.1000/ABC  tests/phase1/test_phase1_database.py:16: AssertionError"
+    },
+    {
+      "nodeid": "tests/phase1/test_phase1_disambiguation.py::test_different_orcids_do_not_merge_even_with_same_name",
+      "category": "disambiguation",
+      "message": "@pytest.mark.edge_case     def test_different_orcids_do_not_merge_even_with_same_name():         index = AuthorVariantIndex()         index.add_record(             make_record(authors=\"Perera, K.\", author_orcids=ORCID_A),             record_id=\"r1\",         )         index.add_record(             make_record(authors=\"Perera, K.\", author_orcids=ORCID_B),             record_id=\"r2\",         )         result = disambiguate_authors(index) >       assert len(result.clusters) == 2 E       AssertionErr"
+    }
+  ]
+}

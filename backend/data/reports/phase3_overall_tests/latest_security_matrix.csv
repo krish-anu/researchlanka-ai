@@ -1,0 +1,11 @@
+test_id,endpoint,scenario,expected,result,outcome,message,duration_seconds
+SEC-001,GET /api/v1/publications,SQL injection via q parameter,Safe filter handling; no 500/SQL leak,PASS,passed,,0.00017763799951353576
+SEC-002,GET /api/v1/publications,Stacked-query injection attempt,Safe filter handling; no 500/SQL leak,PASS,passed,,0.00021885099977225764
+SEC-003,GET /api/v1/search/suggest,SQL injection via suggest q,Safe suggestions or validation error,PASS,passed,,0.00013265199959278107
+SEC-004,GET /api/v1/publications/{key},Path-key injection attempt,404/validation; no SQL leak,PASS,passed,,0.00012783200054400368
+SEC-005,GET /api/v1/publications,Invalid year range,invalid_filter error,PASS,passed,,0.00018071199974656338
+SEC-006,GET /api/v1/publications,Unknown query parameter,invalid_query_parameter error,PASS,passed,,0.00014606399963668082
+SEC-007,GET /api/v1/publications,Oversized page_size,clamped/validated list response or invalid_filter,PASS,passed,,0.0002671209995241952
+SEC-008,GET /api/v1/publications/{key}/raw,Raw record endpoint disabled,disabled_endpoint,PASS,passed,,0.00014327000008051982
+SEC-009,GET /api/v1/publications,List response omits raw_record body,No raw_record / secret_token in list payload,PASS,passed,,0.0002569919997768011
+SEC-010,GET /api/v1/search/semantic,Empty semantic query rejected,invalid_filter,PASS,passed,,0.0001288799994654255

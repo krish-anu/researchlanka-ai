@@ -1,0 +1,79 @@
+{
+  "suite_name": "phase2_ml_api",
+  "generated_at_utc": "2026-09-12T09:42:54.074842+00:00",
+  "total": 47,
+  "passed": 43,
+  "failed": 4,
+  "skipped": 0,
+  "pass_rate_pct": 91.49,
+  "by_category": [
+    {
+      "category": "api",
+      "total": 26,
+      "passed": 24,
+      "failed": 2,
+      "skipped": 0,
+      "pass_rate_pct": 92.31
+    },
+    {
+      "category": "classification",
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "database_integrity",
+      "total": 7,
+      "passed": 5,
+      "failed": 2,
+      "skipped": 0,
+      "pass_rate_pct": 71.43
+    },
+    {
+      "category": "nmf_topic_modeling",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "semantic_search",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    }
+  ],
+  "api_matrix": {
+    "total": 26,
+    "passed": 24,
+    "failed": 2,
+    "skipped": 0
+  },
+  "failed_tests": [
+    {
+      "nodeid": "tests/phase2/test_phase2_api_matrix.py::test_api_matrix_case[API-008]",
+      "category": "api",
+      "message": "case = ApiCase(test_id='API-008', endpoint='GET /api/v1/search/suggest?q=Malaria', scenario='Autocomplete suggestions', expec... list with publication type', method='GET', path='/api/v1/search/suggest', query={'q': ['Malaria']}, checker='suggest') api = <src.api.services.publications.ResearchLankaAPI object at 0x7fd7fdee7ce0> request = <FixtureRequest for <Function test_api_matrix_case[API-008]>>      @pytest.mark.parametrize(\"case\", API_CASES, ids=lambda case: case.test_id)     def test_api_mat"
+    },
+    {
+      "nodeid": "tests/phase2/test_phase2_api_matrix.py::test_api_matrix_case[API-012]",
+      "category": "api",
+      "message": "case = ApiCase(test_id='API-012', endpoint='GET /api/v1/topics', scenario='Topic directory (OpenAlex fallback when NMF unavai...payload or service error handled', method='GET', path='/api/v1/topics', query={'source': ['openalex']}, checker='list') api = <src.api.services.publications.ResearchLankaAPI object at 0x7fd7fded1910> request = <FixtureRequest for <Function test_api_matrix_case[API-012]>>      @pytest.mark.parametrize(\"case\", API_CASES, ids=lambda case: case.test_id)     def test_api_mat"
+    },
+    {
+      "nodeid": "tests/phase2/test_phase2_database_integrity.py::test_typed_column_sets_do_not_overlap_incorrectly",
+      "category": "database_integrity",
+      "message": "def test_typed_column_sets_do_not_overlap_incorrectly():         assert INTEGER_COLUMNS.isdisjoint(BOOLEAN_COLUMNS)         for column in INTEGER_COLUMNS | BOOLEAN_COLUMNS: >           assert column in DATABASE_PUBLICATION_COLUMNS E           AssertionError: assert 'citation_count' in ('source_dataset', 'source_institution_id', 'source_record_id', 'source_datestamp', 'openalex_id', 'doi', ...)  tests/phase2/test_phase2_database_integrity.py:52: AssertionError"
+    },
+    {
+      "nodeid": "tests/phase2/test_phase2_database_integrity.py::test_final_row_builder_preserves_required_identity_fields",
+      "category": "database_integrity",
+      "message": "def test_final_row_builder_preserves_required_identity_fields():         row = build_final_publication_row(             {                 \"source_name\": \"openalex\",                 \"source_record_id\": \"W100\",                 \"doi\": \"https://doi.org/10.1000/Integrity\",                 \"title\": \"Integrity check paper\",                 \"publication_year\": 2024,                 \"authors\": [\"A. Author\"],                 \"institutions\": [\"University of Colombo\"],                 \"primary_field\": \"Medi"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "suite_name": "phase2_ml_api",
+  "generated_at_utc": "2026-09-12T09:45:34.635304+00:00",
+  "total": 47,
+  "passed": 47,
+  "failed": 0,
+  "skipped": 0,
+  "pass_rate_pct": 100.0,
+  "by_category": [
+    {
+      "category": "api",
+      "total": 26,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "classification",
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "database_integrity",
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "nmf_topic_modeling",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    },
+    {
+      "category": "semantic_search",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate_pct": 100.0
+    }
+  ],
+  "api_matrix": {
+    "total": 26,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "failed_tests": []
+}
