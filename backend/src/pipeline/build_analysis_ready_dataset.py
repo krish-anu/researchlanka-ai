@@ -557,6 +557,15 @@ def build_analysis_ready_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return cleaned
 
 
+def doi_presence_counts(df: pd.DataFrame) -> tuple[int, int]:
+    """Return DOI-present and DOI-missing counts without filtering either group."""
+    if "doi" not in df.columns:
+        return 0, len(df)
+
+    missing_doi = int(df["doi"].map(clean_text).isna().sum())
+    return len(df) - missing_doi, missing_doi
+
+
 def write_issue_files(issue_dir: Path, issue_logs: dict[str, pd.DataFrame]) -> int:
     issue_dir.mkdir(parents=True, exist_ok=True)
     all_issues = []
@@ -581,6 +590,12 @@ def build_analysis_ready_dataset(
 ) -> tuple[pd.DataFrame, int]:
     df = pd.read_csv(input_csv, dtype="object", low_memory=False)
     cleaned = build_analysis_ready_dataframe(df)
+    if len(cleaned) != len(df):
+        raise RuntimeError(
+            "Analysis-ready preprocessing must retain all input rows, including records without a DOI."
+        )
+
+    records_with_doi, records_without_doi = doi_presence_counts(cleaned)
     issue_logs = build_issue_logs(df, cleaned)
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -595,6 +610,8 @@ def build_analysis_ready_dataset(
         {"metric": "input_columns", "value": len(df.columns)},
         {"metric": "output_rows", "value": len(cleaned)},
         {"metric": "output_columns", "value": len(cleaned.columns)},
+        {"metric": "records_with_doi", "value": records_with_doi},
+        {"metric": "records_without_doi_retained", "value": records_without_doi},
         {"metric": "issue_rows", "value": issue_rows},
         {"metric": "text_helper_columns", "value": "title_search_text; abstract_search_text; keywords_search_text"},
         {"metric": "missing_flag_columns", "value": "; ".join(f"{column}_missing_flag" for column in NATURALLY_SPARSE_COLUMNS)},

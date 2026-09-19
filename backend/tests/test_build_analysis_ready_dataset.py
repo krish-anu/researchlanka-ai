@@ -90,38 +90,43 @@ def test_build_analysis_ready_dataset_writes_separate_issue_files(tmp_path):
     summary_csv = tmp_path / "summary.csv"
     df = pd.DataFrame(
         {
-            "source_dataset": ["openalex"],
-            "source_record_id": ["record-1"],
-            "doi": ["https://doi.org/10.1000/ABC"],
-            "title": [" Test Title "],
-            "abstract": [pd.NA],
-            "keywords": ["AI; ai"],
-            "authors": ["SILVA, KALINGA"],
-            "author_orcids": [pd.NA],
-            "publication_year": ["2020"],
-            "publication_date": ["2020-01-15"],
-            "author_count": ["1"],
-            "citation_count": ["2"],
-            "reference_count": ["3"],
-            "citation_count_difference_oa_minus_crossref": ["0"],
-            "reference_count_difference_oa_minus_crossref": ["1"],
-            "oa_status": [pd.NA],
-            "is_oa": ["False"],
-            "license": ["CC_BY"],
-            "license_url": ["http://creativecommons.org/licenses/by/4.0/"],
-            "funder_name": [pd.NA],
-            "funder_doi": [pd.NA],
-            "funder_identifier": [pd.NA],
-            "funder_award": [pd.NA],
-            "pdf_url": [pd.NA],
-            "article_number": [pd.NA],
+            "source_dataset": ["openalex", "repository"],
+            "source_record_id": ["record-1", "record-without-doi"],
+            "doi": ["https://doi.org/10.1000/ABC", pd.NA],
+            "title": [" Test Title ", "Publication without DOI"],
+            "abstract": [pd.NA, pd.NA],
+            "keywords": ["AI; ai", pd.NA],
+            "authors": ["SILVA, KALINGA", "Perera, Nimal"],
+            "author_orcids": [pd.NA, pd.NA],
+            "publication_year": ["2020", "2021"],
+            "publication_date": ["2020-01-15", "2021-06-01"],
+            "author_count": ["1", "1"],
+            "citation_count": ["2", "0"],
+            "reference_count": ["3", "0"],
+            "citation_count_difference_oa_minus_crossref": ["0", "0"],
+            "reference_count_difference_oa_minus_crossref": ["1", "0"],
+            "oa_status": [pd.NA, pd.NA],
+            "is_oa": ["False", "False"],
+            "license": ["CC_BY", pd.NA],
+            "license_url": ["http://creativecommons.org/licenses/by/4.0/", pd.NA],
+            "funder_name": [pd.NA, pd.NA],
+            "funder_doi": [pd.NA, pd.NA],
+            "funder_identifier": [pd.NA, pd.NA],
+            "funder_award": [pd.NA, pd.NA],
+            "pdf_url": [pd.NA, pd.NA],
+            "article_number": [pd.NA, pd.NA],
         }
     )
     df.to_csv(input_csv, index=False)
 
     cleaned, issue_rows = build_analysis_ready_dataset(input_csv, output_csv, issue_dir, summary_csv)
 
-    assert len(cleaned) == 1
+    assert len(cleaned) == 2
+    assert cleaned.loc[1, "source_record_id"] == "record-without-doi"
+    assert pd.isna(cleaned.loc[1, "doi"])
+    summary = pd.read_csv(summary_csv).set_index("metric")["value"]
+    assert int(summary["records_with_doi"]) == 1
+    assert int(summary["records_without_doi_retained"]) == 1
     assert issue_rows > 0
     assert output_csv.exists()
     assert summary_csv.exists()

@@ -95,7 +95,10 @@ from src.collectors.html_meta_collector import HtmlMetaCollector  # noqa: E402
 from src.collectors.repository_registry import harvestable_targets, load_registry  # noqa: E402
 from src.pipeline.collect_crossref import DEFAULT_AFFILIATION_QUERIES, collect_crossref  # noqa: E402
 from src.pipeline.collect_sljol import SLJOL_DOI_PREFIX  # noqa: E402
-from src.pipeline.build_analysis_ready_dataset import build_analysis_ready_dataset  # noqa: E402
+from src.pipeline.build_analysis_ready_dataset import (  # noqa: E402
+    build_analysis_ready_dataset,
+    doi_presence_counts,
+)
 from src.pipeline.build_final_common_dataset import build_final_common_dataset  # noqa: E402
 from src.quality.validate_analysis_dataset import (  # noqa: E402
     OwnershipValidator,
@@ -1424,11 +1427,14 @@ def researchlanka_common_analysis_ready_dataset(
         COMMON_ANALYSIS_READY_ISSUE_DIR,
         COMMON_ANALYSIS_READY_SUMMARY_OUTPUT,
     )
+    records_with_doi, records_without_doi = doi_presence_counts(cleaned)
     metadata = {
         "status": "analysis_ready",
         "path": str(COMMON_ANALYSIS_READY_OUTPUT),
         "rows": len(cleaned),
         "columns": len(cleaned.columns),
+        "records_with_doi": records_with_doi,
+        "records_without_doi_retained": records_without_doi,
         "issue_dir": str(COMMON_ANALYSIS_READY_ISSUE_DIR),
         "issue_rows": issue_rows,
         "summary_path": str(COMMON_ANALYSIS_READY_SUMMARY_OUTPUT),
