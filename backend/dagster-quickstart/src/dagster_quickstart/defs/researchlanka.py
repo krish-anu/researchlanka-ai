@@ -7,17 +7,19 @@ import json
 import os
 import shutil
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import asdict, replace
 from datetime import date, datetime, timezone
+from functools import wraps
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Iterator
 
 import pandas as pd
 import requests
-from dagster import AssetSelection, asset, define_asset_job
+from dagster import AssetSelection, asset as dagster_asset, define_asset_job
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[4]
@@ -81,6 +83,14 @@ COMMON_ANALYSIS_READY_SUMMARY_OUTPUT = (
     COMMON_OUTPUT_DIR
     / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_analysis_ready_summary.csv"
 )
+COMMON_AI_CLASSIFIED_OUTPUT = (
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_ai_classified.csv"
+)
+COMMON_AI_FILTERED_OUTPUT = (
+    COMMON_OUTPUT_DIR
+    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_ai_review_filtered.csv"
+)
 ALL_SOURCES_SOURCE_NAME = "researchlanka_all_sources_common_dataset"
 DEFAULT_REPOSITORY_WORKERS = 3
 
@@ -100,6 +110,16 @@ from src.pipeline.build_analysis_ready_dataset import (  # noqa: E402
     doi_presence_counts,
 )
 from src.pipeline.build_final_common_dataset import build_final_common_dataset  # noqa: E402
+from src.pipeline.classify_ai_relevance_dataset import (  # noqa: E402
+    DEFAULT_AI_THRESHOLD,
+    DEFAULT_REVIEW_THRESHOLD,
+    classify_ai_relevance_dataset,
+    configured_ai_model_path,
+    filter_ai_review_dataset,
+)
+from src.api.services.ai_review import backfill_review_records  # noqa: E402
+from src.database.connection import get_connection  # noqa: E402
+from src.database.load_records import load_record_file  # noqa: E402
 from src.quality.validate_analysis_dataset import (  # noqa: E402
     OwnershipValidator,
     run_validators,
@@ -148,6 +168,36 @@ OPENALEX_PAGINATION_OUTPUT = RAW_DIR / "openalex" / "openalex_sri_lanka_paginati
 OPENALEX_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "openalex_lk_affiliation_audit"
 CROSSREF_LK_AUDIT_OUTPUT_DIR = REPORT_DIR / "crossref_lk_affiliation_audit"
 KAGGLE_REPORT_DIR = KAGGLE_OUTPUT_DIR / "data" / "reports"
+
+
+def asset(*, group_name: str):
+    """Create a Dagster asset with consistent lifecycle logging."""
+
+    def decorator(fn):
+        @wraps(fn)
+        def logged_asset(*args, **kwargs):
+            context = args[0] if args else kwargs.get("context")
+            asset_name = fn.__name__
+            run_id = getattr(context, "run_id", "unknown")
+            started_at = time.perf_counter()
+            context.log.info(f"[{asset_name}] Starting asset. run_id={run_id}")
+            try:
+                result = fn(*args, **kwargs)
+            except Exception as exc:
+                elapsed = time.perf_counter() - started_at
+                context.log.error(
+                    f"[{asset_name}] Failed after {elapsed:.2f}s: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                raise
+
+            elapsed = time.perf_counter() - started_at
+            context.log.info(f"[{asset_name}] Completed successfully in {elapsed:.2f}s.")
+            return result
+
+        return dagster_asset(group_name=group_name)(logged_asset)
+
+    return decorator
 
 
 def stage_report_dir_for_kaggle_outputs(source_dir: Path, report_name: str) -> dict[str, Any]:
@@ -1117,6 +1167,9 @@ def researchlanka_all_sources_collected(
 ) -> dict[str, Any]:
     """Gate downstream processing using already-collected source files."""
 
+    context.log.info(
+        "Preparing existing OpenAlex, Crossref, SLJOL, and repository files for preprocessing."
+    )
     prepared_metadata = prepare_existing_common_source_files(context)
     metadata = {
         **prepared_metadata,
@@ -1138,6 +1191,7 @@ def researchlanka_all_sources_common_dataset(
     """Normalize every collected source into one all-records common CSV."""
 
     _ = researchlanka_all_sources_collected
+    context.log.info("Starting common-schema normalization and all-source concatenation.")
     config = load_pipeline_config(load_database=False)
     input_paths, skipped_sources = available_common_source_csvs(config)
     unavailable_sources = {
@@ -1254,6 +1308,11 @@ def researchlanka_common_deduplicated_dataset(
         summary_csv=COMMON_DEDUPLICATED_STREAM_SUMMARY_OUTPUT,
         context=context,
     )
+    context.log.info(
+        "Common deduplication complete: "
+        f"input_rows={metadata['input_rows']:,}, output_rows={metadata['output_rows']:,}, "
+        f"merged_groups={metadata['merged_groups']:,}."
+    )
     output_metadata = {
         "status": "deduplicated",
         "path": str(COMMON_DEDUPLICATED_OUTPUT),
@@ -1284,6 +1343,11 @@ def researchlanka_common_final_dataset(
         COMMON_COUNT_AUDIT_OUTPUT,
         COMMON_FINAL_SUMMARY_OUTPUT,
     )
+    context.log.info(
+        "Final common dataset written: "
+        f"rows={len(final):,}, references={reference_rows:,}, "
+        f"count_audit_rows={count_audit_rows:,}."
+    )
     metadata = {
         "status": "finalized",
         "path": str(COMMON_FINAL_OUTPUT),
@@ -1307,6 +1371,7 @@ def researchlanka_common_ownership_validated(
     """Block downstream outputs unless the final dataset passes ownership gates."""
 
     _ = researchlanka_common_final_dataset
+    context.log.info(f"Validating publication ownership in {COMMON_FINAL_OUTPUT}.")
     reports = run_validators(
         COMMON_FINAL_OUTPUT,
         [OwnershipValidator()],
@@ -1314,7 +1379,9 @@ def researchlanka_common_ownership_validated(
     report = reports[0]
     if not report.passed:
         failed = "; ".join(gate.name for gate in report.failed_gates)
+        context.log.error(f"Ownership validation failed. failed_gates={failed}")
         raise ValueError(f"Ownership validation failed before downstream publishing: {failed}")
+    context.log.info(f"Ownership validation passed for {report.rows:,} rows.")
     metadata = {
         "status": "validated",
         "path": str(COMMON_FINAL_OUTPUT),
@@ -1333,12 +1400,19 @@ def researchlanka_common_year_filtered_dataset(
     """Filter the final dataset to the configured 2016-current-year publication window."""
 
     _ = researchlanka_common_ownership_validated
+    context.log.info(
+        "Filtering final publications to year range "
+        f"{DEFAULT_COLLECTION_START_YEAR}-{DEFAULT_COLLECTION_END_YEAR}."
+    )
     filtered = build_year_filtered_dataset(
         COMMON_FINAL_OUTPUT,
         COMMON_YEAR_FILTERED_OUTPUT,
         COMMON_YEAR_FILTERED_SUMMARY_OUTPUT,
         start_year=DEFAULT_COLLECTION_START_YEAR,
         end_year=DEFAULT_COLLECTION_END_YEAR,
+    )
+    context.log.info(
+        f"Year filtering retained {len(filtered):,} rows at {COMMON_YEAR_FILTERED_OUTPUT}."
     )
     metadata = {
         "status": "year_filtered",
@@ -1361,10 +1435,15 @@ def researchlanka_common_language_normalized_dataset(
     """Normalize language codes after the year-filtered final dataset is built."""
 
     _ = researchlanka_common_year_filtered_dataset
+    context.log.info(f"Normalizing language values from {COMMON_YEAR_FILTERED_OUTPUT}.")
     normalized = build_language_normalized_dataset(
         COMMON_YEAR_FILTERED_OUTPUT,
         COMMON_LANGUAGE_NORMALIZED_OUTPUT,
         COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT,
+    )
+    context.log.info(
+        f"Language normalization wrote {len(normalized):,} rows to "
+        f"{COMMON_LANGUAGE_NORMALIZED_OUTPUT}."
     )
     mapping_path = COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT.with_name(
         COMMON_LANGUAGE_NORMALIZED_SUMMARY_OUTPUT.stem.replace("_summary", "_mapping") + ".csv"
@@ -1389,11 +1468,18 @@ def researchlanka_common_multivalue_normalized_dataset(
     """Normalize semicolon-separated fields and write exploded item sidecars."""
 
     _ = researchlanka_common_language_normalized_dataset
+    context.log.info(
+        "Normalizing multivalue publication fields and generating exploded item records."
+    )
     normalized, item_rows = build_multivalue_normalized_dataset(
         COMMON_LANGUAGE_NORMALIZED_OUTPUT,
         COMMON_MULTIVALUE_NORMALIZED_OUTPUT,
         COMMON_MULTIVALUE_ITEMS_OUTPUT,
         COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT,
+    )
+    context.log.info(
+        "Multivalue normalization complete: "
+        f"publication_rows={len(normalized):,}, item_rows={item_rows:,}."
     )
     details_path = COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT.with_name(
         COMMON_MULTIVALUE_NORMALIZED_SUMMARY_OUTPUT.stem.replace("_summary", "_details")
@@ -1421,6 +1507,9 @@ def researchlanka_common_analysis_ready_dataset(
     """Build the analysis-ready dataset and preprocessing issue files."""
 
     _ = researchlanka_common_multivalue_normalized_dataset
+    context.log.info(
+        f"Building analysis-ready dataset from {COMMON_MULTIVALUE_NORMALIZED_OUTPUT}."
+    )
     cleaned, issue_rows = build_analysis_ready_dataset(
         COMMON_MULTIVALUE_NORMALIZED_OUTPUT,
         COMMON_ANALYSIS_READY_OUTPUT,
@@ -1428,6 +1517,11 @@ def researchlanka_common_analysis_ready_dataset(
         COMMON_ANALYSIS_READY_SUMMARY_OUTPUT,
     )
     records_with_doi, records_without_doi = doi_presence_counts(cleaned)
+    context.log.info(
+        "Analysis-ready dataset complete: "
+        f"rows={len(cleaned):,}, with_doi={records_with_doi:,}, "
+        f"without_doi_retained={records_without_doi:,}, issue_rows={issue_rows:,}."
+    )
     metadata = {
         "status": "analysis_ready",
         "path": str(COMMON_ANALYSIS_READY_OUTPUT),
@@ -1438,6 +1532,84 @@ def researchlanka_common_analysis_ready_dataset(
         "issue_dir": str(COMMON_ANALYSIS_READY_ISSUE_DIR),
         "issue_rows": issue_rows,
         "summary_path": str(COMMON_ANALYSIS_READY_SUMMARY_OUTPUT),
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_ai_classified_dataset(
+    context,
+    researchlanka_common_analysis_ready_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Score every analysis-ready publication with the trained AI model."""
+
+    _ = researchlanka_common_analysis_ready_dataset
+    model_path = configured_ai_model_path()
+    context.log.info(
+        "Starting AI relevance prediction for every analysis-ready record: "
+        f"input={COMMON_ANALYSIS_READY_OUTPUT}, model={model_path}, "
+        f"ai_threshold={DEFAULT_AI_THRESHOLD:.2f}, "
+        f"review_threshold={DEFAULT_REVIEW_THRESHOLD:.2f}."
+    )
+    result = classify_ai_relevance_dataset(
+        COMMON_ANALYSIS_READY_OUTPUT,
+        COMMON_AI_CLASSIFIED_OUTPUT,
+        model_path=model_path,
+        ai_threshold=DEFAULT_AI_THRESHOLD,
+        review_threshold=DEFAULT_REVIEW_THRESHOLD,
+    )
+    context.log.info(
+        "AI relevance prediction complete: "
+        f"total={result.input_rows:,}, AI={result.ai_rows:,}, "
+        f"review={result.review_rows:,}, non_AI={result.non_ai_rows:,}, "
+        f"output={COMMON_AI_CLASSIFIED_OUTPUT}."
+    )
+    metadata = {
+        "status": "ai_classified",
+        "path": str(COMMON_AI_CLASSIFIED_OUTPUT),
+        "model_path": str(model_path),
+        "input_rows": result.input_rows,
+        "ai_rows": result.ai_rows,
+        "review_rows": result.review_rows,
+        "non_ai_rows": result.non_ai_rows,
+        "ai_threshold": DEFAULT_AI_THRESHOLD,
+        "review_threshold": DEFAULT_REVIEW_THRESHOLD,
+    }
+    context.add_output_metadata(metadata)
+    return metadata
+
+
+@asset(group_name="researchlanka")
+def researchlanka_ai_review_filtered_dataset(
+    context,
+    researchlanka_ai_classified_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Keep AI and review rows for database loading; exclude non-AI rows."""
+
+    _ = researchlanka_ai_classified_dataset
+    context.log.info(
+        "Filtering classified records for database loading; retaining AI and review labels."
+    )
+    result = filter_ai_review_dataset(
+        COMMON_AI_CLASSIFIED_OUTPUT,
+        COMMON_AI_FILTERED_OUTPUT,
+    )
+    context.log.info(
+        "AI/review filtering complete: "
+        f"input={result.input_rows:,}, retained={result.filtered_rows:,}, "
+        f"AI={result.ai_rows:,}, review={result.review_rows:,}, "
+        f"excluded_non_AI={result.input_rows - result.filtered_rows:,}, "
+        f"output={COMMON_AI_FILTERED_OUTPUT}."
+    )
+    metadata = {
+        "status": "ai_review_filtered",
+        "path": str(COMMON_AI_FILTERED_OUTPUT),
+        "input_rows": result.input_rows,
+        "filtered_rows": result.filtered_rows,
+        "ai_rows": result.ai_rows,
+        "review_rows": result.review_rows,
+        "excluded_non_ai_rows": result.input_rows - result.filtered_rows,
     }
     context.add_output_metadata(metadata)
     return metadata
@@ -1852,17 +2024,44 @@ def researchlanka_export_files(
 @asset(group_name="researchlanka")
 def researchlanka_database_loaded_records(
     context,
-    researchlanka_analytics_summary: PipelineResult,
-) -> dict[str, int]:
-    """Load deduplicated records into PostgreSQL."""
+    researchlanka_ai_review_filtered_dataset: dict[str, Any],
+) -> dict[str, Any]:
+    """Load only AI/review publications and populate the UI review queue."""
 
-    with backend_working_directory():
-        pipeline = build_all_sources_pipeline(
-            load_database=True,
-            result=researchlanka_analytics_summary,
+    _ = researchlanka_ai_review_filtered_dataset
+    context.log.info(
+        f"Loading AI/review publications into PostgreSQL from {COMMON_AI_FILTERED_OUTPUT}."
+    )
+    loaded = load_record_file(COMMON_AI_FILTERED_OUTPUT)
+    context.log.info(f"PostgreSQL publication upsert complete: loaded_records={loaded:,}.")
+
+    context.log.info("Creating or updating AI review workflow records for the UI.")
+    connection = get_connection()
+    try:
+        review_stats = backfill_review_records(connection)
+        connection.commit()
+        context.log.info(
+            "AI review workflow commit complete: "
+            + ", ".join(f"{key}={value:,}" for key, value in review_stats.items())
+            + "."
         )
-        loaded = pipeline.load_database()
-    metadata = {**result_metadata(pipeline.result), "loaded_records": loaded}
+    except Exception as exc:
+        connection.rollback()
+        context.log.error(
+            "AI review workflow update failed; transaction rolled back: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        raise
+    finally:
+        connection.close()
+        context.log.info("PostgreSQL review workflow connection closed.")
+
+    metadata = {
+        "status": "ai_review_loaded",
+        "path": str(COMMON_AI_FILTERED_OUTPUT),
+        "loaded_records": loaded,
+        **{f"review_{key}": value for key, value in review_stats.items()},
+    }
     context.add_output_metadata(metadata)
     return metadata
 
@@ -1902,12 +2101,17 @@ researchlanka_lk_affiliation_audit_job = define_asset_job(
 
 researchlanka_common_preprocessing_job = define_asset_job(
     name="researchlanka_common_preprocessing_job",
-    selection=AssetSelection.keys("researchlanka_common_analysis_ready_dataset").upstream(),
+    selection=AssetSelection.keys("researchlanka_ai_review_filtered_dataset").upstream(),
 )
 
 researchlanka_no_collection_preprocessing_job = define_asset_job(
     name="researchlanka_no_collection_preprocessing_job",
-    selection=AssetSelection.keys("researchlanka_common_analysis_ready_dataset").upstream(),
+    selection=AssetSelection.keys("researchlanka_ai_review_filtered_dataset").upstream(),
+)
+
+researchlanka_ai_classification_job = define_asset_job(
+    name="researchlanka_ai_classification_job",
+    selection=AssetSelection.keys("researchlanka_ai_review_filtered_dataset").upstream(),
 )
 
 researchlanka_all_assets_job = define_asset_job(
