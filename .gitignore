@@ -80,6 +80,7 @@ backend/data/interim/
 backend/data/external/
 backend/data/models/
 backend/data/reports/
+backend/data/results/
 backend/outputs/
 backend/pipeline/
 tools/google-maps-scraper-kit/
@@ -96,6 +97,7 @@ kaggle_ai_relevance_model_selection_dataset.zip
 kaggle_ai_relevance_svm_dataset/
 kaggle_ai_relevance_svm_dataset.zip
 kaggle-output/
+researchlanka-ai-dataset/data/*_scraped_merged.csv
 
 # Local Dagster runtime state
 .tmp_dagster_home_*/
