@@ -22,7 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.pipeline.build_final_common_dataset import build_publication_key
-from src.utils.doi import normalize_doi
+from src.utils.doi import is_valid_doi, normalize_doi
 
 
 DEFAULT_START_YEAR = 2016
@@ -558,12 +558,20 @@ def build_analysis_ready_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def doi_presence_counts(df: pd.DataFrame) -> tuple[int, int]:
-    """Return DOI-present and DOI-missing counts without filtering either group."""
+    """Return valid DOI-present and DOI-missing/invalid counts."""
     if "doi" not in df.columns:
         return 0, len(df)
 
-    missing_doi = int(df["doi"].map(clean_text).isna().sum())
-    return len(df) - missing_doi, missing_doi
+    valid_doi_mask = df["doi"].map(is_valid_doi)
+    records_with_valid_doi = int(valid_doi_mask.sum())
+    return records_with_valid_doi, len(df) - records_with_valid_doi
+
+
+def filter_valid_doi_records(df: pd.DataFrame) -> pd.DataFrame:
+    """Keep only records with a syntactically valid DOI value."""
+    if "doi" not in df.columns:
+        return df.iloc[0:0].copy()
+    return df.loc[df["doi"].map(is_valid_doi)].copy()
 
 
 def write_issue_files(issue_dir: Path, issue_logs: dict[str, pd.DataFrame]) -> int:
@@ -590,13 +598,9 @@ def build_analysis_ready_dataset(
 ) -> tuple[pd.DataFrame, int]:
     df = pd.read_csv(input_csv, dtype="object", low_memory=False)
     cleaned = build_analysis_ready_dataframe(df)
-    if len(cleaned) != len(df):
-        raise RuntimeError(
-            "Analysis-ready preprocessing must retain all input rows, including records without a DOI."
-        )
-
     records_with_doi, records_without_doi = doi_presence_counts(cleaned)
     issue_logs = build_issue_logs(df, cleaned)
+    cleaned = filter_valid_doi_records(cleaned)
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     cleaned.to_csv(output_csv, index=False)
@@ -610,8 +614,8 @@ def build_analysis_ready_dataset(
         {"metric": "input_columns", "value": len(df.columns)},
         {"metric": "output_rows", "value": len(cleaned)},
         {"metric": "output_columns", "value": len(cleaned.columns)},
-        {"metric": "records_with_doi", "value": records_with_doi},
-        {"metric": "records_without_doi_retained", "value": records_without_doi},
+        {"metric": "records_with_valid_doi", "value": records_with_doi},
+        {"metric": "records_dropped_missing_or_invalid_doi", "value": records_without_doi},
         {"metric": "issue_rows", "value": issue_rows},
         {"metric": "text_helper_columns", "value": "title_search_text; abstract_search_text; keywords_search_text"},
         {"metric": "missing_flag_columns", "value": "; ".join(f"{column}_missing_flag" for column in NATURALLY_SPARSE_COLUMNS)},

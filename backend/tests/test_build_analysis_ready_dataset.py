@@ -121,12 +121,12 @@ def test_build_analysis_ready_dataset_writes_separate_issue_files(tmp_path):
 
     cleaned, issue_rows = build_analysis_ready_dataset(input_csv, output_csv, issue_dir, summary_csv)
 
-    assert len(cleaned) == 2
-    assert cleaned.loc[1, "source_record_id"] == "record-without-doi"
-    assert pd.isna(cleaned.loc[1, "doi"])
+    assert len(cleaned) == 1
+    assert cleaned.loc[0, "source_record_id"] == "record-1"
+    assert cleaned.loc[0, "doi"] == "10.1000/abc"
     summary = pd.read_csv(summary_csv).set_index("metric")["value"]
-    assert int(summary["records_with_doi"]) == 1
-    assert int(summary["records_without_doi_retained"]) == 1
+    assert int(summary["records_with_valid_doi"]) == 1
+    assert int(summary["records_dropped_missing_or_invalid_doi"]) == 1
     assert issue_rows > 0
     assert output_csv.exists()
     assert summary_csv.exists()

@@ -102,6 +102,13 @@ researchlanka-ai-dataset/data/*_scraped_merged.csv
 # Local Dagster runtime state
 .tmp_dagster_home_*/
 backend/dagster-quickstart/.tmp_dagster_home_*/
+.dagster-home/
+backend/dagster-quickstart/.dagster-home/
+
+# Additional local Python tool state
+.hypothesis/
+.cache/
+cover/
 
 # Large local data exports and databases
 image.png

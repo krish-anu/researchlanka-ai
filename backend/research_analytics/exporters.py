@@ -101,7 +101,11 @@ def _write_records_csv(path: Path, records: list[dict[str, Any]]) -> None:
 
 
 def _write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    # json.dumps duplicates the complete payload in memory before writing. Raw
+    # publication exports can approach 1 GB, so stream encoder chunks instead.
+    with path.open("w", encoding="utf-8") as json_file:
+        json.dump(value, json_file, indent=2, ensure_ascii=False)
+        json_file.write("\n")
 
 
 def _write_match_csv(path: Path, records: list[dict[str, Any]]) -> None:
