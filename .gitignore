@@ -162,3 +162,9 @@ tools/google-maps-scraper-kit/
 image.png
 secrets/
 deploy/aws.ec2.env
+.venv/
+__pycache__/
+*.pyc
+.venv/
+__pycache__/
+*.pyc

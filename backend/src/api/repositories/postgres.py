@@ -28,7 +28,7 @@ from src.api.repositories.sql import (
     search_tokens,
     select_columns,
 )
-from src.database.connection import get_connection
+from src.database.connection import get_pooled_connection
 from src.database.final_schema import FINAL_PUBLICATION_TABLE
 from src.modeling.embeddings import (
     EMBEDDING_MODEL_PATH_ENV,
@@ -160,7 +160,7 @@ class PostgresPublicationRepository:
 
     def __init__(
         self,
-        connection_factory: Callable[[str | None], Any] = get_connection,
+        connection_factory: Callable[[str | None], Any] = get_pooled_connection,
         *,
         semantic_index: SemanticSearchIndex | None = None,
         semantic_embeddings_path: Path | None = None,

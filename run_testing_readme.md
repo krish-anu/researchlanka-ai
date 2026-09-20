@@ -27,7 +27,9 @@ Use `python` or `python3` depending on your environment. Examples below assume t
 |---|---|---|---|
 | **Phase 1** | Cleaning, preprocessing, transforms, dedup, disambiguation, entity resolution, e2e ingestion, Dagster, DB contract | `python scripts/testing/run_phase1_pipeline_tests.py` | `data/reports/phase1_pipeline_tests/` |
 | **Phase 2** | DB integrity, classification, NMF, semantic search, API matrix | `python scripts/testing/run_phase2_ml_api_tests.py` | `data/reports/phase2_ml_api_tests/` |
-| **Phase 3** | Frontend contracts, integration, performance, security, load, recovery, deploy config | `python scripts/testing/run_phase3_overall_tests.py` | `data/reports/phase3_overall_tests/` |
+| **Phase 3** | Frontend contracts, integration, performance, security, load, recovery, deploy config, optional live site | `python scripts/testing/run_phase3_overall_tests.py` | `data/reports/phase3_overall_tests/` |
+| **All phases (unified)** | Runs 1→2→3 then merges into one report (+ `data/processed/common` copies) | `python scripts/testing/run_all_phase_tests.py` | `data/reports/unified_phase_tests/` + `data/processed/common/unified_testing_*` + **`ResearchLanka_Standard_Test_Report.doc`** |
+| **Word report only** | Rebuild submittable `.doc` from latest summaries | `python scripts/testing/generate_standard_test_report_doc.py` | `data/processed/common/ResearchLanka_Standard_Test_Report.doc` |
 | **Frontend Vitest** | Auth, format, charts, Phase 3 frontend unit tests | `cd frontend && npm test` | Terminal only |
 
 More detail: `backend/docs/phase1_etl_pipeline_testing.md`, `backend/docs/phase2_ml_api_testing.md`, `backend/docs/phase3_overall_testing.md`.
@@ -71,6 +73,7 @@ pytest tests/phase1 --phase1-report -q
 | `tests/phase1/test_phase1_entity_resolution.py` | Institution entity resolution |
 | `tests/phase1/test_phase1_e2e_ingestion.py` | Collect → transform → validate → clean → resolve → dedupe → export |
 | `tests/phase1/test_phase1_dagster.py` | Dagster job/asset smoke (may skip if Dagster missing) |
+| `tests/phase1/test_phase1_dagster_dev.py` | Dagster `dg dev` project layout / tooling readiness |
 | `tests/phase1/test_phase1_database.py` | DB load / `publication_key` contract |
 
 ### Useful markers
@@ -219,6 +222,7 @@ pytest tests/phase3 --phase3-report -q
 | `tests/phase3/test_phase3_recovery.py` | DB failure, corrupt incremental status, unknown routes |
 | `tests/phase3/test_phase3_frontend.py` | Frontend contracts + Vitest bridge |
 | `tests/phase3/test_phase3_deploy_accessibility.py` | Compose isolation / healthchecks / error contract / login+forbidden routes |
+| `tests/phase3/test_phase3_deployed_site.py` | Opt-in live EC2/prod smoke (`RESEARCHLANKA_DEPLOYED_BASE_URL`) |
 
 Helpers: `tests/phase3/helpers.py` (`FakeRepository`, `attach_security_case`, secret-leak asserts).
 
@@ -296,13 +300,17 @@ npm run lint
 ## Run everything (recommended order)
 
 ```bash
-# 1) Backend Phase gates
+# Preferred: one command → per-phase reports + unified report under data/processed/common
 cd backend
+PHASE3_SKIP_VITEST=1 python scripts/testing/run_all_phase_tests.py -q
+# Live deployed smoke (optional): RESEARCHLANKA_DEPLOYED_BASE_URL=https://host:3000 ...
+
+# Or run phases individually
 python scripts/testing/run_phase1_pipeline_tests.py -q
 python scripts/testing/run_phase2_ml_api_tests.py -q
 python scripts/testing/run_phase3_overall_tests.py -q
 
-# 2) Frontend unit tests (if not already covered via Phase 3 bridge)
+# Frontend unit tests (if not already covered via Phase 3 bridge)
 cd ../frontend
 npm test
 ```
@@ -366,6 +374,16 @@ backend/data/reports/
     latest_summary.json
     latest_security_matrix.md
     latest_security_matrix.csv
+  unified_phase_tests/
+    latest_report.md
+    latest_results.csv
+    latest_summary.json
+
+backend/data/processed/common/
+  unified_testing_report.md
+  unified_testing_results.csv
+  unified_testing_summary.json
+  unified_testing_run_log.txt
 ```
 
 Pass criteria for each phase: `pass_rate_pct == 100` in that phase’s `latest_summary.json` (intentional skips such as missing Dagster or `PHASE3_SKIP_VITEST=1` may appear as skipped, not failed).

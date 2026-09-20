@@ -96,7 +96,19 @@ class NmfTopicStore:
             str(row.topic_name): row._asdict() for row in classified.itertuples(index=False)
         }
 
-        assignments = pd.read_csv(publications_path, usecols=list(PUBLICATION_ASSIGNMENT_COLUMNS))
+        assignments = pd.read_csv(
+            publications_path,
+            usecols=list(PUBLICATION_ASSIGNMENT_COLUMNS),
+            dtype={
+                "doi": "string",
+                "openalex_id": "string",
+                "source_dataset": "string",
+                "source_record_id": "string",
+                "nmf_topic_id": "Int64",
+                "nmf_topic_name": "string",
+                "nmf_topic_weight": "float64",
+            },
+        )
         self.publication_assignments: dict[str, dict[str, Any]] = {}
         self.keys_by_topic_id: dict[int, list[str]] = {topic_id: [] for topic_id in self.keywords_by_id}
         self.publication_count_by_topic_id: dict[int, int] = {

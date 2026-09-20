@@ -17,7 +17,11 @@ from src.api.routing.routes import route_get, route_post
 from src.api.core.serializers import normalize_value
 from src.api.services.publications import ResearchLankaAPI
 
-    
+
+# Client went away mid-response (common under Locust timeouts). Not a server fault.
+_CLIENT_GONE = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
+
+
 class APIRequestHandler(BaseHTTPRequestHandler):
     """Route read-only API requests."""
 
@@ -38,13 +42,15 @@ class APIRequestHandler(BaseHTTPRequestHandler):
                 return
             json_response(self, payload)
         except APIError as exc:
-            json_response(
+            _safe_error_response(
                 self,
                 {"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
                 status=HTTPStatus(exc.status),
             )
+        except _CLIENT_GONE:
+            return
         except Exception as exc:  # pragma: no cover - network-facing guard
-            json_response(
+            _safe_error_response(
                 self,
                 {
                     "error": {
@@ -63,13 +69,15 @@ class APIRequestHandler(BaseHTTPRequestHandler):
             payload = self.read_json_body()
             json_response(self, self.route_post(path, payload))
         except APIError as exc:
-            json_response(
+            _safe_error_response(
                 self,
                 {"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
                 status=HTTPStatus(exc.status),
             )
+        except _CLIENT_GONE:
+            return
         except Exception as exc:  # pragma: no cover - network-facing guard
-            json_response(
+            _safe_error_response(
                 self,
                 {
                     "error": {
@@ -104,6 +112,18 @@ class APIRequestHandler(BaseHTTPRequestHandler):
         if not isinstance(payload, dict):
             raise APIError("invalid_json", "JSON request body must be an object.", status=400)
         return payload
+
+
+def _safe_error_response(
+    handler: BaseHTTPRequestHandler,
+    payload: dict[str, Any],
+    *,
+    status: HTTPStatus,
+) -> None:
+    try:
+        json_response(handler, payload, status=status)
+    except _CLIENT_GONE:
+        return
 
 
 def json_response(
@@ -153,6 +173,8 @@ def build_handler(service: ResearchLankaAPI) -> type[APIRequestHandler]:
 def serve(*, host: str, port: int, service: ResearchLankaAPI | None = None) -> ThreadingHTTPServer:
     service = service or ResearchLankaAPI(PostgresPublicationRepository())
     server = ThreadingHTTPServer((host, port), build_handler(service))
+    # Avoid unbounded thread growth under aggressive Locust ramps.
+    server.daemon_threads = True
     print(f"ResearchLanka API listening on http://{host}:{port}{API_PREFIX}")
     return server
 

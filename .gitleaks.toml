@@ -1,0 +1,13 @@
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+    '''^\.venv/''',
+    '''^backend/data/''',
+    '''^backend/notebooks/outputs/''',
+    '''^backend/researchlanka-kaggle-outputs/''',
+    '''^frontend/\.next/''',
+    '''^frontend/coverage/''',
+    '''^frontend/e2e-results\.json$'''
+]
