@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { QualityFlagList } from "@/components/ui/QualityFlags";
 import { ProvenanceList, ProvenanceStripe } from "@/components/ui/Provenance";
-import { formatDate, formatNumber } from "@/services/format";
+import { formatDate } from "@/services/format";
 import { publicationHref, researcherHref } from "@/services/links";
 import type { PublicationSummary } from "@/types/api";
 
@@ -54,7 +54,6 @@ export function PublicationCard({
     publication_date: date,
     journal,
     type,
-    citation_count: citations,
     is_oa: isOa,
     oa_status: oaStatus,
     primary_field: field,
@@ -105,13 +104,6 @@ export function PublicationCard({
         </p>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-body-sm">
-          <span className="text-ink-secondary">
-            <span className="tabular font-medium text-ink">
-              {formatNumber(citations)}
-            </span>{" "}
-            citations
-          </span>
-
           {isOa ? (
             <span className="inline-flex items-center gap-1 text-success-text">
               <span aria-hidden>●</span>
