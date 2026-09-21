@@ -55,12 +55,6 @@ export function RankingTable({
           numeric: true,
           render: (row) => formatNumber(row.publication_count),
         },
-        {
-          key: "citations",
-          header: "Citations",
-          numeric: true,
-          render: (row) => formatNumber(row.citation_total),
-        },
       ]}
       rows={entries}
       rowKey={(row, index) => `${row.key}-${index}`}
