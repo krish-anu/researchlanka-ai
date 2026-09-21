@@ -23,7 +23,6 @@ import {
 } from "@/services/api";
 import {
   formatCompact,
-  formatDecimal,
   formatNumber,
   formatRatioAsPercent,
 } from "@/services/format";
@@ -33,7 +32,7 @@ import type { RankingEntry, TrendPoint } from "@/types/api";
 export const metadata = {
   title: "National research dashboard",
   description:
-    "Publication and citation trends, institutional output, research fields, and collaboration structure across the Sri Lankan research corpus.",
+    "Publication trends, institutional output, research fields, and collaboration structure across the Sri Lankan research corpus.",
 };
 
 /** Trends group by year; sort numerically so the x-axis reads chronologically. */
@@ -62,12 +61,6 @@ const rankingColumns = (
     header: "Publications",
     numeric: true,
     render: (row) => formatNumber(row.publication_count),
-  },
-  {
-    key: "citations",
-    header: "Citations",
-    numeric: true,
-    render: (row) => formatNumber(row.citation_total),
   },
 ];
 
@@ -105,11 +98,6 @@ export default async function DashboardPage() {
               label="Publications"
               value={formatCompact(overview.value.data.publication_count)}
               caption="records in the consolidated dataset"
-            />
-            <StatTile
-              label="Citations"
-              value={formatCompact(overview.value.data.citation_total)}
-              caption={`${formatDecimal(overview.value.data.average_citations)} per publication on average`}
             />
             <StatTile
               label="Open access"
@@ -159,19 +147,16 @@ async function TrendsSection() {
   const trends = await getAnalyticsTrends(trendFilters);
   const points = trends.ok ? sortByYear(trends.value.data) : [];
 
-  const yearTable = (
-    valueKey: "publication_count" | "citation_total",
-    header: string,
-  ) => (
+  const yearTable = () => (
     <TableDisclosure>
       <DataTable
         columns={[
           { key: "year", header: "Year", render: (row) => String(row.key) },
           {
             key: "value",
-            header,
+            header: "Publications",
             numeric: true,
-            render: (row) => formatNumber(row[valueKey]),
+            render: (row) => formatNumber(row.publication_count),
           },
         ]}
         rows={points}
@@ -180,15 +165,13 @@ async function TrendsSection() {
     </TableDisclosure>
   );
 
-  // Publications and citations differ by orders of magnitude, so they are two
-  // charts on two axes rather than one chart with a second y-scale.
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4">
       <ChartPanel
         title="Publications per year"
         description="Records with a recorded publication year."
         action={<DownloadLink href={analyticsExportUrl("trends", trendFilters)} />}
-        table={points.length > 0 ? yearTable("publication_count", "Publications") : null}
+        table={points.length > 0 ? yearTable() : null}
       >
         {!trends.ok ? (
           <ApiErrorPanel error={trends.error} what="publication trends" />
@@ -203,25 +186,6 @@ async function TrendsSection() {
             valueLabel="Publications"
             ariaLabel="Line chart of publications per year"
           />
-        )}
-      </ChartPanel>
-
-      <ChartPanel
-        title="Citations per year"
-        description="Citations accruing to publications of each year; recent years are still accumulating."
-        table={points.length > 0 ? yearTable("citation_total", "Citations") : null}
-      >
-        {points.length > 0 ? (
-          <TrendLineChart
-            points={points.map((point) => ({
-              key: point.key,
-              value: point.citation_total,
-            }))}
-            valueLabel="Citations"
-            ariaLabel="Line chart of citations per publication year"
-          />
-        ) : (
-          <p className="p-4 text-body-sm text-muted">No citation trend available.</p>
         )}
       </ChartPanel>
     </div>
