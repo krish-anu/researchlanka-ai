@@ -78,7 +78,10 @@ const ICON_CLASS: Record<Severity, string> = {
   serious: "text-serious",
 };
 
+const HIDDEN_FLAGS = new Set<QualityFlag | string>(["citation_count_divergence"]);
+
 export function QualityFlagBadge({ flag }: { flag: QualityFlag | string }) {
+  if (HIDDEN_FLAGS.has(flag)) return null;
   const spec = FLAG_SPECS[flag as QualityFlag];
   if (!spec) {
     return (
@@ -107,9 +110,10 @@ export function QualityFlagList({
   flags: (QualityFlag | string)[];
   max?: number;
 }) {
-  if (flags.length === 0) return null;
-  const shown = max ? flags.slice(0, max) : flags;
-  const hidden = flags.length - shown.length;
+  const visibleFlags = flags.filter((flag) => !HIDDEN_FLAGS.has(flag));
+  if (visibleFlags.length === 0) return null;
+  const shown = max ? visibleFlags.slice(0, max) : visibleFlags;
+  const hidden = visibleFlags.length - shown.length;
 
   return (
     <ul className="flex flex-wrap gap-1.5" aria-label="Data quality flags">
