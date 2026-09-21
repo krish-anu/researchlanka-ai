@@ -28,9 +28,9 @@ const LIMITATION_TEXT: Record<string, string> = {
   source_specific_missingness:
     "Different sources populate different fields. Abstracts, funding and affiliation data are far more complete for OpenAlex and Crossref records than for repository harvests.",
   cross_source_conflicts:
-    "Where sources disagree on citation or reference counts, the platform surfaces the disagreement rather than silently choosing a winner. Records with conflicts carry a flag.",
+    "Where sources disagree on reference counts, the platform surfaces the disagreement rather than silently choosing a winner. Records with conflicts carry a flag.",
   snapshot_counts_can_lag:
-    "Citation counts are point-in-time values from the last data load. They lag the live values at OpenAlex and Crossref.",
+    "Some source-provided counts are point-in-time values from the last data load. They can lag live values at upstream indexes.",
   author_disambiguation_limited:
     "Researcher profiles are grouped by normalised author name unless an ORCID is available. Common names may merge distinct people; name variants may split one person.",
 };
@@ -41,7 +41,6 @@ const DISCLOSURE_TEXT: Record<string, string> = {
   denominator: "What population a share or percentage is calculated against.",
   field_missingness: "How complete the underlying field is.",
   conflict_policy: "How disagreements between sources were resolved.",
-  citation_count_source: "Which source supplied the citation count.",
   known_exclusions: "What the dataset is known not to cover.",
 };
 
@@ -173,10 +172,6 @@ export default async function DataQualityPage() {
                   },
                 ]}
                 rows={[
-                  {
-                    kind: "Citation counts disagree",
-                    count: quality.value.data.citation_divergence_count,
-                  },
                   {
                     kind: "Reference counts disagree",
                     count: quality.value.data.reference_divergence_count,
