@@ -15,7 +15,7 @@ import { institutionHref } from "@/services/links";
 export const metadata = {
   title: "Institutions",
   description:
-    "Sri Lankan research institutions ranked by publication output and citations, with profiles and head-to-head comparison.",
+    "Sri Lankan research institutions ranked by publication output, with profiles and head-to-head comparison.",
 };
 
 export default async function InstitutionsPage({
