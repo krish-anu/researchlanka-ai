@@ -157,17 +157,22 @@ def ensure_reviewers(reviewers: Iterable[Reviewer]) -> list[Reviewer]:
     return sorted(prepared, key=lambda item: (item.email, item.id))
 
 
-def backfill_review_records(connection: Any) -> dict[str, int]:
+def backfill_review_records(
+    connection: Any, publication_keys: Iterable[str] | None = None
+) -> dict[str, int]:
     """Create missing review records from existing Gemini classification columns."""
 
+    selected_keys = list(publication_keys) if publication_keys is not None else None
     rows = _fetch_all(
         connection,
         """
         SELECT publication_key, ai_classification_label, ai_classification_confidence,
                ai_classification_model, ai_classification_reason
         FROM final_publications
+        WHERE (%s::text[] IS NULL OR publication_key = ANY(%s::text[]))
         ORDER BY publication_key
         """,
+        (selected_keys, selected_keys),
     )
     created = 0
     auto = 0

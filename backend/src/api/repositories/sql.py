@@ -8,6 +8,7 @@ from typing import Any
 TEXT_FILTER_COLUMNS = {
     "type": "type",
     "journal": "journal",
+    "domain": "primary_domain",
     "field": "primary_field",
     "subfield": "primary_subfield",
 }

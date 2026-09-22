@@ -29,7 +29,6 @@ from src.api.repositories.sql import (
     select_columns,
 )
 from src.database.connection import get_connection
-from src.database.final_schema import FINAL_PUBLICATION_TABLE
 from src.modeling.embeddings import (
     EMBEDDING_MODEL_PATH_ENV,
     EMBEDDINGS_PATH_ENV,
@@ -51,6 +50,7 @@ SIMILARITY_RESULT_FIELDS = (
     SIMILARITY_RANK_FIELD,
 )
 MAX_SEMANTIC_CANDIDATES = 500
+PUBLICATION_SOURCE_SQL = "accepted_ai_publications AS final_publications"
 LOCAL_SOURCE_DATASETS = ["local", "repositories", "repositories_combined", "sljol"]
 GLOBAL_SOURCE_DATASETS = ["openalex", "crossref"]
 MULTIVALUE_ANALYTICS_COLUMNS = {
@@ -195,7 +195,7 @@ class PostgresPublicationRepository:
                 max({PUBLICATION_YEAR_SQL}) AS max_publication_year,
                 max(loaded_at) AS max_loaded_at,
                 max(updated_at) AS max_updated_at
-            FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+            FROM {PUBLICATION_SOURCE_SQL}
             WHERE {PUBLICATION_YEAR_SQL} >= %s
               AND {PUBLICATION_YEAR_SQL} <= %s
             """,
@@ -214,7 +214,7 @@ class PostgresPublicationRepository:
     ) -> dict[str, Any]:
         where_sql, params = build_where(filters)
         total_row = self._fetch_one(
-            f"SELECT count(*) AS total FROM {quote_identifier(FINAL_PUBLICATION_TABLE)} {where_sql}",
+            f"SELECT count(*) AS total FROM {PUBLICATION_SOURCE_SQL} {where_sql}",
             params,
         )
         total = int((total_row or {}).get("total") or 0)
@@ -235,7 +235,7 @@ class PostgresPublicationRepository:
             rows = self._fetch_all(
                 f"""
                 SELECT {select_columns(BASE_COLUMNS)}
-                FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+                FROM {PUBLICATION_SOURCE_SQL}
                 {where_clause_for_select}
                 ORDER BY {order_sql}
                 LIMIT %s OFFSET %s
@@ -246,7 +246,7 @@ class PostgresPublicationRepository:
             rows = self._fetch_all(
                 f"""
                 SELECT {select_columns(BASE_COLUMNS)}
-                FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+                FROM {PUBLICATION_SOURCE_SQL}
                 {where_sql}
                 ORDER BY {order_sql}
                 LIMIT %s OFFSET %s
@@ -264,7 +264,7 @@ class PostgresPublicationRepository:
         return self._fetch_one(
             f"""
             SELECT {select_columns(BASE_COLUMNS)}
-            FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+            FROM {PUBLICATION_SOURCE_SQL}
             WHERE publication_key = %s
             """,
             [publication_key],
@@ -326,7 +326,7 @@ class PostgresPublicationRepository:
                     authors,
                     institutions,
                     sri_lankan_institutions
-                FROM final_publications
+                FROM accepted_ai_publications AS final_publications
                 WHERE {PUBLICATION_YEAR_SQL} >= %s
                   AND {PUBLICATION_YEAR_SQL} <= %s
             )
@@ -946,7 +946,7 @@ class PostgresPublicationRepository:
                     authors,
                     author_ids,
                     {PUBLICATION_YEAR_SQL} AS publication_year
-                FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+                FROM {PUBLICATION_SOURCE_SQL}
                 WHERE {PUBLICATION_YEAR_SQL} >= %s
                   AND {PUBLICATION_YEAR_SQL} <= %s
                   AND authors ILIKE %s
@@ -1254,7 +1254,7 @@ class PostgresPublicationRepository:
             f"""
             WITH filtered AS (
                 SELECT {selected_columns}
-                FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+                FROM {PUBLICATION_SOURCE_SQL}
                 {where_sql}
             )
             """,
@@ -1538,7 +1538,7 @@ class PostgresPublicationRepository:
             return self._fetch_all(
                 f"""
                 SELECT {select_columns(BASE_COLUMNS)}
-                FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+                FROM {PUBLICATION_SOURCE_SQL}
                 WHERE EXISTS (
                     SELECT 1
                     FROM regexp_split_to_table(coalesce({quote_identifier(column)}::text, ''), ';') AS split(value)
@@ -1565,7 +1565,7 @@ class PostgresPublicationRepository:
         return self._fetch_all(
             f"""
             SELECT {select_columns(BASE_COLUMNS)}
-            FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+            FROM {PUBLICATION_SOURCE_SQL}
             WHERE ({" OR ".join(clauses)})
               AND {PUBLICATION_YEAR_SQL} >= %s
               AND {PUBLICATION_YEAR_SQL} <= %s
@@ -1622,7 +1622,7 @@ class PostgresPublicationRepository:
         return self._fetch_all(
             f"""
             SELECT {select_columns(BASE_COLUMNS)}
-            FROM {quote_identifier(FINAL_PUBLICATION_TABLE)}
+            FROM {PUBLICATION_SOURCE_SQL}
             WHERE {" AND ".join(where_parts)}
             """,
             params,

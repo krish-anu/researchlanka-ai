@@ -60,6 +60,8 @@ def load_final_publications(
 ) -> int:
     """Upsert pipeline records into the finalized PostgreSQL publication table."""
 
+    from src.api.services.ai_review import backfill_review_records
+
     owns_connection = connection is None
     connection = connection or get_connection(database_url)
 
@@ -91,6 +93,10 @@ def load_final_publications(
                     final_publications_upsert_sql(),
                     final_publication_values(row),
                 )
+        backfill_review_records(
+            connection,
+            publication_keys=[row["publication_key"] for row in rows],
+        )
 
         if owns_connection:
             connection.commit()

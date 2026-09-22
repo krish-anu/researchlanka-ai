@@ -171,6 +171,8 @@ class ResearchLankaAPI:
 
     def publication_references(self, publication_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_resource_key(publication_key, field="publication_key")
+        if self.repository.get_publication(publication_key) is None:
+            raise APIError("not_found", "Publication not found.", status=404)
         validate_query_params(query, PAGINATION_QUERY_PARAMS)
         page = parse_positive_int(query, "page", default=1)
         page_size = min(parse_positive_int(query, "page_size", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
@@ -181,6 +183,8 @@ class ResearchLankaAPI:
 
     def publication_count_audit(self, publication_key: str) -> dict[str, Any]:
         validate_resource_key(publication_key, field="publication_key")
+        if self.repository.get_publication(publication_key) is None:
+            raise APIError("not_found", "Publication not found.", status=404)
         row = self.repository.get_count_audit(publication_key)
         if row is None:
             raise APIError("not_found", "Count audit evidence not found.", status=404)

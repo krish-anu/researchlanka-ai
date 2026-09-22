@@ -409,6 +409,8 @@ def validate_loaded_database_tables(
 def reset_database_tables(
     connection: Any,
     tables: Iterable[str] = DATABASE_LOAD_TABLES,
+    *,
+    preserve_review_history: bool = True,
 ) -> None:
     """Remove loaded publication data while keeping schema and migrations."""
 
@@ -417,6 +419,23 @@ def reset_database_tables(
         return
     quoted_tables = ", ".join(quote_identifier(table) for table in table_names)
     with connection.cursor() as cursor:
+        if preserve_review_history and "final_publications" in set(table_names):
+            cursor.execute(
+                """
+                SELECT
+                    (SELECT count(*) FROM ai_review_records) AS review_records,
+                    (SELECT count(*) FROM ai_review_events) AS review_events
+                """
+            )
+            row = cursor.fetchone()
+            if row is not None:
+                review_records = row[0] if not isinstance(row, dict) else row.get("review_records")
+                review_events = row[1] if not isinstance(row, dict) else row.get("review_events")
+                if int(review_records or 0) > 0 or int(review_events or 0) > 0:
+                    raise RuntimeError(
+                        "Refusing to reset final_publications because AI review history exists. "
+                        "Load without --reset to preserve review decisions."
+                    )
         cursor.execute(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE")
 
 
