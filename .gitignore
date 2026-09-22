@@ -88,6 +88,7 @@ backend/data/external/
 backend/data/models/
 backend/data/reports/
 backend/data/results/
+backend/data/results (1)/
 backend/outputs/
 backend/pipeline/
 tools/google-maps-scraper-kit/
@@ -116,6 +117,7 @@ image.png
 *.part
 *.xlsx
 *.parquet
+!researchlanka-ai-dataset/data/researchlanka_ai_publications_v1.0.parquet
 *.jsonl
 *.sqlite
 *.sqlite3
