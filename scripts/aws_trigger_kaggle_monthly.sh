@@ -19,7 +19,7 @@ DEPLOY_OUTPUTS="${DEPLOY_OUTPUTS:-1}"
 S3_BUCKET="${S3_BUCKET:-}"
 S3_PREFIX="${S3_PREFIX:-researchlanka/monthly-runs}"
 RESTART_SERVICE="${RESTART_SERVICE:-}"
-DB_INPUT="${DB_INPUT:-data/processed/common/common_publications_final_2016_2026.csv}"
+DB_INPUT="${DB_INPUT:-data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv}"
 PYTHON="${PYTHON:-${BACKEND_DIR}/.venv/bin/python}"
 POLL_SECONDS="${POLL_SECONDS:-120}"
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-43200}"
@@ -105,7 +105,7 @@ if [[ "${DEPLOY_OUTPUTS}" == "1" ]]; then
     "${PYTHON}" scripts/database/check_database_connection.py
     "${PYTHON}" scripts/database/apply_database_migrations.py
     "${PYTHON}" scripts/database/verify_database_schema.py
-    make reset-db-2016-now PYTHON="${PYTHON}" DB_LOAD_INPUT="${DB_INPUT}"
+    make load-db-2016-now PYTHON="${PYTHON}" DB_LOAD_INPUT="${DB_INPUT}"
   fi
 fi
 
