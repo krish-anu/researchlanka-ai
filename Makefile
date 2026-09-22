@@ -26,9 +26,9 @@ help:
 	@echo ""
 	@echo "  make install            Install backend and frontend dependencies"
 	@echo "  make dev                Run backend API and frontend together"
-	@echo "  make load-db-2016-now   Load only 2016-2026 records into PostgreSQL"
-	@echo "  make reset-db-2016-now  Clear PostgreSQL records, then load 2016-2026"
-	@echo "  make incremental-update Collect recent OpenAlex records, classify AI relevance, and load AI rows"
+	@echo "  make load-db-2016-now   Load the AI-reviewed 2016-2026 dataset into PostgreSQL"
+	@echo "  make reset-db-2016-now  Clear PostgreSQL records, then load configured 2016-2026 data"
+	@echo "  make incremental-update Collect recent OpenAlex records, classify AI relevance, and load review-gated rows"
 	@echo "  make maps-location-confirm  Confirm institution locations with Google Maps evidence"
 	@echo "  make maps-location-apply    Add confirmed Maps aliases to the registry"
 	@echo "  make backend            Run the backend API on http://$(BACKEND_HOST):$(BACKEND_PORT)/api/v1"
@@ -95,10 +95,14 @@ dev: $(BACKEND_DIR)/.venv/bin/python
 	@set -e; \
 	backend_port=$$($(SYSTEM_PYTHON) -c 'exec("import socket, sys\nhost = sys.argv[1]\nstart = int(sys.argv[2])\nfor candidate in range(start, 65536):\n    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n    try:\n        in_use = sock.connect_ex((host, candidate)) == 0\n    finally:\n        sock.close()\n    if not in_use:\n        print(candidate)\n        break\nelse:\n    raise SystemExit(\"no free backend port found\")")' "$(BACKEND_HOST)" "$(BACKEND_PORT)"); \
 	if [ "$$backend_port" != "$(BACKEND_PORT)" ]; then echo "Backend port $(BACKEND_PORT) is busy; using $$backend_port."; fi; \
+	frontend_port=$$($(SYSTEM_PYTHON) -c 'exec("import socket, sys\nhost = sys.argv[1]\nstart = int(sys.argv[2])\nfor candidate in range(start, 65536):\n    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n    try:\n        in_use = sock.connect_ex((host, candidate)) == 0\n    finally:\n        sock.close()\n    if not in_use:\n        print(candidate)\n        break\nelse:\n    raise SystemExit(\"no free frontend port found\")")' "$(FRONTEND_HOST)" "$(FRONTEND_PORT)"); \
+	if [ "$$frontend_port" != "$(FRONTEND_PORT)" ]; then echo "Frontend port $(FRONTEND_PORT) is busy; using $$frontend_port."; fi; \
 	api_base_url="$(API_BASE_URL)"; \
 	if [ "$(API_BASE_URL_ORIGIN)" = "file" ]; then api_base_url="http://$(BACKEND_HOST):$$backend_port/api/v1"; fi; \
+	echo "Backend API: $$api_base_url"; \
+	echo "Frontend: http://$(FRONTEND_HOST):$$frontend_port"; \
 	( cd $(BACKEND_DIR) && RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=$(DEV_SEMANTIC_EMBEDDINGS) RESEARCHLANKA_SEMANTIC_MODEL_PATH=$(DEV_SEMANTIC_MODEL) $(BACKEND_PYTHON) scripts/api/serve_api.py --host $(BACKEND_HOST) --port $$backend_port $(BACKEND_API_EXTRA_ARGS) ) & backend_pid=$$!; \
-	NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL=$$api_base_url $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $(FRONTEND_PORT) & frontend_pid=$$!; \
+	NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL=$$api_base_url $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $$frontend_port & frontend_pid=$$!; \
 	trap 'kill $$backend_pid $$frontend_pid 2>/dev/null' INT TERM EXIT; \
 	wait -n $$backend_pid $$frontend_pid; \
 	status=$$?; \

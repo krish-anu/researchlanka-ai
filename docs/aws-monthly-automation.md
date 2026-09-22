@@ -30,13 +30,12 @@ This writes:
 
 ```text
 data/processed/common/common_publications_final_2016_2026_ai_classified.csv
-data/processed/common/common_publications_final_2016_2026_ai_only.csv
+data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
 ```
 
 `*_ai_classified.csv` is the audit file with AI, non-AI, and review labels.
-`*_ai_only.csv` is the final dataset loaded into PostgreSQL, so the frontend
-shows only AI-related publications. Use `--require-doi` when loading it into
-the public app database if records without DOI should be excluded.
+`*_ai_review_filtered.csv` is the final dataset loaded into PostgreSQL, so the
+frontend shows only publications that pass AI review and the ownership gate.
 
 ## Incremental Monthly Flow
 
