@@ -38,12 +38,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_STATE_PATH = PROJECT_ROOT / "outputs" / "incremental" / "state.json"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "outputs" / "incremental" / "runs"
 DEFAULT_INITIAL_FROM_DATE = date(2016, 1, 1)
-DEFAULT_STATE_BACKEND = "json"
+DEFAULT_STATE_BACKEND = (
+    os.getenv("RESEARCHLANKA_INCREMENTAL_STATE_BACKEND")
+    or ("database" if os.getenv("DATABASE_URL") else "json")
+)
 DEFAULT_MODEL_PATH = (
     PROJECT_ROOT / "data" / "models" / "ai_relevance" / "ai_relevance_linear_svm.joblib"
 )
 DEFAULT_TEXT_COLUMNS = ("title", "abstract", "keywords", "topics", "concepts")
-DEFAULT_DB_LABELS = ("AI",)
+DEFAULT_DB_LABELS = ("AI", "review")
 AI_COLUMNS = (
     "ai_classification_label",
     "ai_classification_confidence",
@@ -284,18 +287,6 @@ def apply_ai_classification(
     return classified_rows
 
 
-def normalize_prediction_label(value: Any) -> tuple[str, str]:
-    text = str(value or "").strip()
-    normalized = text.casefold().replace("_", "-")
-    if normalized in {"ai", "artificial-intelligence", "artificial intelligence"}:
-        return "AI", ""
-    if normalized in {"non-ai", "non ai", "not-ai", "not ai", "nonai"}:
-        return "non-AI", ""
-    if normalized in {"review", "manual-review", "manual review", "uncertain"}:
-        return "review", ""
-    return "review", f"unexpected_model_label:{text}"
-
-
 def parse_label_set(value: str | list[str] | tuple[str, ...]) -> tuple[str, ...]:
     raw_values = value.split(",") if isinstance(value, str) else list(value)
     labels = []
@@ -309,6 +300,23 @@ def parse_label_set(value: str | list[str] | tuple[str, ...]) -> tuple[str, ...]
     return tuple(dict.fromkeys(labels))
 
 
+def _normalized_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def row_passes_public_ownership_policy(row: dict[str, Any]) -> bool:
+    """Match the ownership gate used by accepted_ai_publications."""
+
+    decision = _normalized_text(row.get("ownership_decision")).upper()
+    confidence = _normalized_text(row.get("ownership_confidence")).upper()
+    needs_review = _normalized_text(row.get("needs_manual_review")).casefold()
+    return (
+        decision == "INCLUDE"
+        and confidence in {"HIGH", "MEDIUM"}
+        and needs_review not in {"true", "1", "yes"}
+    )
+
+
 def filter_rows_for_database(
     rows: list[dict[str, Any]],
     *,
@@ -319,6 +327,8 @@ def filter_rows_for_database(
     for row in rows:
         label = str(row.get("ai_classification_label") or "").strip()
         if label not in allowed:
+            continue
+        if not row_passes_public_ownership_policy(row):
             continue
         doi = normalize_doi(row.get("doi"))
         if not is_valid_doi(doi):
@@ -434,7 +444,13 @@ def run_incremental_update(
         model_path=model_path,
         db_labels=db_labels,
     )
-    if state_backend == "database":
+    should_checkpoint = not skip_db and max_records is None
+    if not should_checkpoint:
+        logger.info(
+            "Checkpoint not advanced because this run was %s.",
+            "--skip-db" if skip_db else "limited by --max-records",
+        )
+    elif state_backend == "database":
         record_successful_pipeline_run(
             run=PipelineRunRecord(
                 run_id=result.run_id,
@@ -452,7 +468,7 @@ def run_incremental_update(
                 db_labels=result.db_labels,
             )
         )
-    else:
+    elif state_backend == "json":
         save_checkpoint(state_path, result=result)
     return result
 
@@ -460,8 +476,8 @@ def run_incremental_update(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run an incremental ResearchLanka AI refresh.")
     parser.add_argument("--state", type=Path, default=DEFAULT_STATE_PATH)
-    parser.add_argument("--state-backend", choices=("database", "json"), default="json")
-    parser.add_argument("--state-key", default="incremental_update")
+    parser.add_argument("--state-backend", choices=("database", "json"), default=DEFAULT_STATE_BACKEND)
+    parser.add_argument("--state-key", default=os.getenv("RESEARCHLANKA_INCREMENTAL_STATE_KEY", DEFAULT_INCREMENTAL_STATE_KEY))
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--from-date", type=parse_iso_date, default=None)
     parser.add_argument("--initial-from-date", type=parse_iso_date, default=DEFAULT_INITIAL_FROM_DATE)

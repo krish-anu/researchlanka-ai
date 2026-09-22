@@ -1,4 +1,4 @@
-"""Validate the AI-only publication dataset before release.
+"""Validate the AI-reviewed publication dataset before release.
 
 This module is intentionally conservative: it does not decide that a dataset is
 publishable, because human verification and license review still sit outside
@@ -26,7 +26,7 @@ DEFAULT_INPUT = (
     / "data"
     / "processed"
     / "common"
-    / "common_publications_final_2016_2026_ai_only.csv"
+    / "common_publications_final_2016_2026_ai_review_filtered.csv"
 )
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "reports" / "ai_release_validation"
 
