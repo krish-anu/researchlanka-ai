@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 
 import { submitFlag, toggleSave } from "@/app/actions/workspace";
 import { IDLE, type ActionState } from "@/services/forms/state";
+import { publicationHref } from "@/services/links";
 import { FLAG_REASON_LABEL } from "@/services/workspace/types";
 
 function Pending({ label, pendingLabel }: { label: string; pendingLabel: string }) {
@@ -163,7 +164,7 @@ export function RecordActions({
   initiallySaved: boolean;
 }) {
   if (!signedIn) {
-    const next = `/publications/${publicationKey}`;
+    const next = publicationHref(publicationKey);
     return (
       <div className="panel flex flex-col gap-2 p-4">
         <p className="text-body-sm text-ink-secondary">

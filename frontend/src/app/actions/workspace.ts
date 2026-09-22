@@ -11,6 +11,7 @@ import {
 } from "@/services/workspace/store";
 import type { FlagReason } from "@/services/workspace/types";
 import { FLAG_REASON_LABEL } from "@/services/workspace/types";
+import { publicationHref } from "@/services/links";
 
 function isFlagReason(value: string): value is FlagReason {
   return Object.hasOwn(FLAG_REASON_LABEL, value);
@@ -35,7 +36,7 @@ export async function toggleSave(
 
   const user = await requireCapability(
     "library.save",
-    `/publications/${publicationKey}`,
+    publicationHref(publicationKey),
   );
   const { saved } = await toggleSavedItem({
     userId: user.id,
@@ -78,7 +79,7 @@ export async function submitFlag(
 
   const user = await requireCapability(
     "record.flag",
-    `/publications/${publicationKey}`,
+    publicationHref(publicationKey),
   );
   const created = await createFlag({
     publicationKey,

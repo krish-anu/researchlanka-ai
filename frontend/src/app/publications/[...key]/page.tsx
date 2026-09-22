@@ -17,7 +17,7 @@ import { formatDate, formatNumber, truncate } from "@/services/format";
 import { getViewer } from "@/services/auth/server";
 import { isSaved } from "@/services/workspace/store";
 import {
-  decodeKeySegments,
+  decodePublicationKeySegments,
   institutionHref,
   publicationSearchHref,
   researcherHref,
@@ -31,7 +31,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { key } = await params;
-  const result = await getPublication(decodeKeySegments(key));
+  const result = await getPublication(decodePublicationKeySegments(key));
   if (!result.ok) return { title: "Publication" };
   return {
     title: truncate(result.value.data.title ?? "Publication", 70),
@@ -110,7 +110,7 @@ function ReferencePanel({ publication }: { publication: PublicationDetail }) {
 
 export default async function PublicationDetailPage({ params }: PageProps) {
   const { key } = await params;
-  const publicationKey = decodeKeySegments(key);
+  const publicationKey = decodePublicationKeySegments(key);
 
   const result = await getPublication(publicationKey);
   if (isNotFound(result)) notFound();
