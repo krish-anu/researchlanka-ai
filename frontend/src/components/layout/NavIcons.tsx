@@ -174,3 +174,15 @@ export function BookmarkIcon(props: IconProps) {
     </Frame>
   );
 }
+
+export function NetworkIcon(props: IconProps) {
+  return <Frame {...props}><path d="M7 7l10 10M17 7L7 17M9 5h6M5 9v6M19 9v6M9 19h6" /><circle cx="5" cy="5" r="3" /><circle cx="19" cy="5" r="3" /><circle cx="5" cy="19" r="3" /><circle cx="19" cy="19" r="3" /></Frame>;
+}
+
+export function DownloadIcon(props: IconProps) {
+  return <Frame {...props}><path d="M12 3v12M7 10l5 5 5-5M4 16v5h16v-5" /></Frame>;
+}
+
+export function OpenAccessIcon(props: IconProps) {
+  return <Frame {...props}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M9 11V7a4 4 0 0 1 8 0" /><circle cx="12" cy="16" r="1" /></Frame>;
+}

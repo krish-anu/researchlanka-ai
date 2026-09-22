@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ViewSwitcher } from "@/components/ui/ViewSwitcher";
+import { DataTable } from "@/components/ui/DataTable";
 
 import { QualityFlagList } from "@/components/ui/QualityFlags";
 import { ProvenanceList, ProvenanceStripe } from "@/components/ui/Provenance";
@@ -64,11 +66,11 @@ export function PublicationCard({
   const displayYear = year ?? yearFromDate(date);
 
   return (
-    <article className="panel overflow-hidden">
+    <article className="panel publication-card overflow-hidden">
       {/* Signature stripe: which datasets this record was seen in. */}
       <ProvenanceStripe sources={sources} />
 
-      <div className="p-4">
+      <div className="p-5">
         <h3 className="font-display text-h3 leading-snug text-ink">
           <Link href={publicationHref(key)} className="hover:text-primary hover:underline">
             {title ?? "Untitled record"}
@@ -137,18 +139,14 @@ export function PublicationCard({
   );
 }
 
-export function PublicationCardList({
-  publications,
-}: {
-  publications: PublicationSummary[];
-}) {
-  return (
-    <ul className="flex flex-col gap-4">
-      {publications.map((publication) => (
-        <li key={publication.publication_key}>
-          <PublicationCard publication={publication} />
-        </li>
-      ))}
-    </ul>
-  );
+export function PublicationCardList({ publications, initialView = "cards" }: { publications: PublicationSummary[]; initialView?: "cards" | "table" }) {
+  return <ViewSwitcher label="Publication view" initialView={initialView} cards={
+    <ul className="flex flex-col gap-4">{publications.map(publication => <li key={publication.publication_key}><PublicationCard publication={publication} /></li>)}</ul>
+  } table={<section className="panel p-3"><DataTable rows={publications} rowKey={p => p.publication_key} columns={[
+    { key: "title", header: "Publication", render: p => <div><Link href={publicationHref(p.publication_key)} className="font-medium text-ink hover:text-primary">{p.title ?? "Untitled record"}</Link><p className="mt-2 text-xs text-muted"><AuthorLine authors={p.authors} /></p><div className="mt-2"><QualityFlagList flags={p.quality_flags} max={3} /></div></div> },
+    { key: "field", header: "Field", render: p => p.primary_field ?? "Unclassified" },
+    { key: "year", header: "Year", numeric: true, render: p => p.publication_year ?? yearFromDate(p.publication_date) ?? "—" },
+    { key: "access", header: "Access", render: p => p.is_oa ? <span className="rounded bg-primary-muted px-2 py-1 text-xs text-primary">Open access</span> : "Not marked open" },
+    { key: "source", header: "Sources", render: p => <ProvenanceList sources={p.source_dataset} /> },
+  ]} /><p className="px-3 pb-2 text-xs text-muted">Open a publication for its full metadata, references, related research, and record actions. Switch to cards to see journal and DOI details inline.</p></section>} />;
 }

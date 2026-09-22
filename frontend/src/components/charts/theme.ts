@@ -26,8 +26,8 @@ const FALLBACK: ChartTheme = {
   grid: "#d9ebf5",
   baseline: "#bfc8c9",
   surface: "#ffffff",
-  series: ["#18818b", "#7f5600", "#3d0a33"],
-  sequential: "#20676f",
+  series: ["#6489ba", "#7f5600", "#3d0a33"],
+  sequential: "#347d59",
   fontFamily: FALLBACK_FONT,
 };
 
@@ -87,6 +87,7 @@ export function baseLayout(theme: ChartTheme): Record<string, unknown> {
       tickfont: { color: theme.muted, size: 11 },
       automargin: true,
     },
+    modebar: { bgcolor: theme.surface, color: theme.muted, activecolor: theme.sequential },
     showlegend: false,
   };
 }

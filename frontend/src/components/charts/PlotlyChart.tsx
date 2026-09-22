@@ -48,6 +48,7 @@ function loadPlotly(): Promise<PlotlyModule> {
 export function PlotlyChart({ build, height = 280, ariaLabel }: PlotlyChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
   const [scheme, setScheme] = useState(0);
   const [visible, setVisible] = useState(false);
 
@@ -79,7 +80,11 @@ export function PlotlyChart({ build, height = 280, ariaLabel }: PlotlyChartProps
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => setScheme((value) => value + 1);
     media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+    window.addEventListener("researchlanka-theme-change", onChange);
+    return () => {
+      media.removeEventListener("change", onChange);
+      window.removeEventListener("researchlanka-theme-change", onChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -92,7 +97,7 @@ export function PlotlyChart({ build, height = 280, ariaLabel }: PlotlyChartProps
       .then((Plotly) => {
         if (cancelled) return;
         const { data, layout } = build(readChartTheme());
-        return Plotly.react(element, data, layout, CHART_CONFIG);
+        return Promise.resolve(Plotly.react(element, data, layout, CHART_CONFIG)).then(() => { if (!cancelled) setReady(true); });
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -123,12 +128,16 @@ export function PlotlyChart({ build, height = 280, ariaLabel }: PlotlyChartProps
   }
 
   return (
+    <div className="plotly-host relative min-w-0">
     <div
       ref={containerRef}
       role="img"
       aria-label={ariaLabel}
+      aria-busy={!ready}
       style={{ height }}
       className="w-full"
     />
+    {!ready ? <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-wash/50 text-xs text-muted" role="status">Loading chart…</div> : null}
+    </div>
   );
 }

@@ -1,380 +1,59 @@
 import Link from "next/link";
 import { Suspense } from "react";
-
+import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
+import { ActivityPanel, FieldDistributionPanel, NetworkPanel, TrendPanel } from "@/components/analytics/ResearchPanels";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
-import { TrendLineChart } from "@/components/charts/TrendLineChart";
-import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
-import {
-  NetworkBrokersTable,
-  NetworkSummaryPanel,
-} from "@/components/network/NetworkMetrics";
+import { PageIntro, ResearchHero } from "@/components/layout/PageIntro";
+import { DataQualityIcon, InstitutionsIcon, OpenAccessIcon, PublicationsIcon } from "@/components/layout/NavIcons";
+import { ActiveFilters } from "@/components/publications/FilterControls";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
-import { DataTable, TableDisclosure, type Column } from "@/components/ui/DataTable";
+import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
 import { ApiErrorPanel, Skeleton } from "@/components/ui/Feedback";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
-import {
-  analyticsExportUrl,
-  getAnalyticsFields,
-  getAnalyticsInstitutions,
-  getAnalyticsOverview,
-  getAnalyticsTrends,
-  getCollaborationNetwork,
-} from "@/services/api";
-import {
-  formatCompact,
-  formatNumber,
-  formatRatioAsPercent,
-} from "@/services/format";
-import { institutionHref, publicationSearchHref } from "@/services/links";
-import type { RankingEntry, TrendPoint } from "@/types/api";
+import { analyticsExportUrl, buildQuery, getAnalyticsFields, getAnalyticsInstitutions, getAnalyticsOverview, listPublications, type QueryParams } from "@/services/api";
+import { extractFilters, type SearchParams } from "@/services/filters";
+import { formatCompact, formatNumber, formatRatioAsPercent } from "@/services/format";
+import { institutionHref, publicationHref } from "@/services/links";
 
-export const metadata = {
-  title: "National research dashboard",
-  description:
-    "Publication trends, institutional output, research fields, and collaboration structure across the Sri Lankan research corpus.",
-};
+export const metadata = { title: "AI research overview", description: "Publication trends, institutions, fields, and collaborations within Sri Lanka’s accepted AI research collection." };
 
-/** Trends group by year; sort numerically so the x-axis reads chronologically. */
-function sortByYear(points: TrendPoint[]): TrendPoint[] {
-  return [...points].sort((a, b) => Number(a.key) - Number(b.key));
-}
-
-const rankingColumns = (
-  labelHeader: string,
-  href?: (label: string) => string,
-): Column<RankingEntry>[] => [
-  {
-    key: "label",
-    header: labelHeader,
-    render: (row) =>
-      href ? (
-        <Link href={href(row.label)} className="hover:underline">
-          {row.label}
-        </Link>
-      ) : (
-        row.label
-      ),
-  },
-  {
-    key: "publications",
-    header: "Publications",
-    numeric: true,
-    render: (row) => formatNumber(row.publication_count),
-  },
-];
-
-const TREND_YEAR_MIN = 2016;
-const TREND_YEAR_MAX = new Date().getFullYear();
-
-/* ------------------------------------------------------------------ page */
-
-/**
- * The analytics endpoints aggregate in Python over the whole corpus, so the
- * slow panels stream behind their own Suspense boundaries rather than holding
- * up the headline figures.
- *
- * Streaming is opened *inside* the page rather than via a `loading.tsx`: a
- * segment-level loading file would also wrap every nested route, flushing
- * headers before a detail route could call `notFound()` and costing correct
- * 404 statuses.
- */
-export default async function DashboardPage() {
-  const overview = await getAnalyticsOverview();
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageIntro />
-
-      {!overview.ok ? (
-        <ApiErrorPanel error={overview.error} what="the national dashboard" />
-      ) : (
-        <section aria-labelledby="headline">
-          <h2 id="headline" className="sr-only">
-            Headline metrics
-          </h2>
-          <StatTileGrid>
-            <StatTile
-              label="Publications"
-              value={formatCompact(overview.value.data.publication_count)}
-              caption="records in the consolidated dataset"
-            />
-            <StatTile
-              label="Open access"
-              value={formatRatioAsPercent(overview.value.data.open_access_share)}
-              caption="of records flagged open access"
-            />
-            <StatTile
-              label="DOI coverage"
-              value={formatRatioAsPercent(overview.value.data.doi_coverage)}
-              caption={`abstract coverage ${formatRatioAsPercent(overview.value.data.abstract_coverage)}`}
-              hint={`Drawn from ${overview.value.data.source_count} source dataset${
-                overview.value.data.source_count === 1 ? "" : "s"
-              }`}
-            />
-          </StatTileGrid>
-          <SnapshotNote
-            snapshotDate={overview.value.meta.snapshot_date}
-            datasetStage={overview.value.meta.dataset_stage}
-            className="mt-2"
-          />
-        </section>
-      )}
-
-      <Suspense fallback={<PanelPairSkeleton />}>
-        <TrendsSection />
-      </Suspense>
-
-      <Suspense fallback={<PanelPairSkeleton />}>
-        <RankingsSection />
-      </Suspense>
-
-      <Suspense fallback={<Skeleton className="h-[30rem]" />}>
-        <NetworkSection />
-      </Suspense>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------- sections */
-
-async function TrendsSection() {
-  const trendFilters = {
-    group_by: "year" as const,
-    year_min: TREND_YEAR_MIN,
-    year_max: TREND_YEAR_MAX,
-  };
-  const trends = await getAnalyticsTrends(trendFilters);
-  const points = trends.ok ? sortByYear(trends.value.data) : [];
-
-  const yearTable = () => (
-    <TableDisclosure>
-      <DataTable
-        columns={[
-          { key: "year", header: "Year", render: (row) => String(row.key) },
-          {
-            key: "value",
-            header: "Publications",
-            numeric: true,
-            render: (row) => formatNumber(row.publication_count),
-          },
-        ]}
-        rows={points}
-        rowKey={(row) => String(row.key)}
-      />
-    </TableDisclosure>
-  );
-
-  return (
-    <div className="grid grid-cols-1 gap-4">
-      <ChartPanel
-        title="Publications per year"
-        description="Records with a recorded publication year."
-        action={<DownloadLink href={analyticsExportUrl("trends", trendFilters)} />}
-        table={points.length > 0 ? yearTable() : null}
-      >
-        {!trends.ok ? (
-          <ApiErrorPanel error={trends.error} what="publication trends" />
-        ) : points.length === 0 ? (
-          <p className="p-4 text-body-sm text-muted">No trend data available.</p>
-        ) : (
-          <TrendLineChart
-            points={points.map((point) => ({
-              key: point.key,
-              value: point.publication_count,
-            }))}
-            valueLabel="Publications"
-            ariaLabel="Line chart of publications per year"
-          />
-        )}
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const filters = { year_min: 2016, year_max: new Date().getFullYear(), ...extractFilters(params) };
+  const [overview, fields, institutions, filterFields] = await Promise.all([getAnalyticsOverview(filters), getAnalyticsFields({ ...filters, limit: 100 }), getAnalyticsInstitutions({ ...filters, limit: 12 }), getAnalyticsFields({ ...filters, field: undefined, limit: 100 })]);
+  const entries = fields.ok ? fields.value.data : [];
+  return <div className="flex flex-col gap-6">
+    <PageIntro title="Sri Lanka’s AI research, in focus." description="Explore the people, ideas, and connections shaping artificial intelligence research." action={<DownloadLink href={analyticsExportUrl("overview", filters)}>Export overview</DownloadLink>} />
+    <ResearchHero />
+    <AnalyticsFilters params={params} fields={filterFields.ok ? filterFields.value.data.map(e => e.label) : entries.map(e => e.label)} defaultFrom={2016} defaultTo={new Date().getFullYear()} />
+    <ActiveFilters searchParams={params} basePath="/" />
+    {!overview.ok ? <ApiErrorPanel error={overview.error} what="AI research metrics" /> : <section aria-label="AI collection metrics"><StatTileGrid>
+      <StatTile label="AI publications" icon={<PublicationsIcon />} value={formatCompact(overview.value.data.publication_count)} caption="accepted AI records in this selection" />
+      <StatTile label="Institutions" icon={<InstitutionsIcon />} value={institutions.ok ? formatNumber(institutions.value.pagination.total) : "—"} caption="with AI publications in this selection" />
+      <StatTile label="Open access" icon={<OpenAccessIcon />} value={formatRatioAsPercent(overview.value.data.open_access_share)} caption="share of selected AI publications" />
+      <StatTile label="DOI coverage" icon={<DataQualityIcon />} value={formatRatioAsPercent(overview.value.data.doi_coverage)} caption={`Abstract coverage ${formatRatioAsPercent(overview.value.data.abstract_coverage)}`} hint={`From ${overview.value.data.source_count} source datasets`} />
+    </StatTileGrid><SnapshotNote snapshotDate={overview.value.meta.snapshot_date} datasetStage={overview.value.meta.dataset_stage} className="mt-3" /></section>}
+    <div className="analytics-grid"><Suspense fallback={<Skeleton className="h-96" />}><TrendPanel filters={filters} /></Suspense>{fields.ok ? <FieldDistributionPanel entries={entries} filters={filters} total={overview.ok ? overview.value.data.publication_count : undefined} /> : <ApiErrorPanel error={fields.error} what="research fields" />}</div>
+    <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
+      <ChartPanel title="Institutions advancing AI research" description="Leading institutions by AI publication count." action={<DownloadLink href={analyticsExportUrl("institutions", filters)} />} table={institutions.ok ? <TableDisclosure><DataTable rows={institutions.value.data} rowKey={r => r.key} columns={[{ key: "name", header: "Institution", render: r => <Link href={institutionHref(r.label)} className="hover:underline">{r.label}</Link> }, { key: "count", header: "AI publications", numeric: true, render: r => formatNumber(r.publication_count) }]} /></TableDisclosure> : null}>
+        {institutions.ok ? <RankingBarChart entries={institutions.value.data.map(r => ({ label: r.label, value: r.publication_count }))} valueLabel="AI publications" ariaLabel="Leading institutions by AI publication count" /> : <ApiErrorPanel error={institutions.error} what="institution rankings" />}
+        <Link href={`/institutions${buildQuery(filters)}`} className="mt-4 inline-block text-xs text-primary hover:underline">Browse institutions →</Link>
       </ChartPanel>
+      <Suspense fallback={<Skeleton className="h-96" />}><ActivityPanel filters={filters} fields={entries.map(e => e.label)} /></Suspense>
     </div>
-  );
+    <Suspense fallback={<Skeleton className="h-[30rem]" />}><NetworkPanel filters={filters} /></Suspense>
+    <Suspense fallback={<Skeleton className="h-60" />}><RecentPublications filters={filters} /></Suspense>
+  </div>;
 }
 
-async function RankingsSection() {
-  const [institutions, fields] = await Promise.all([
-    getAnalyticsInstitutions({ limit: 12 }),
-    getAnalyticsFields({ limit: 12 }),
-  ]);
-
-  return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <ChartPanel
-        title="Most active institutions"
-        description="Sri Lankan institutions by number of publications recorded."
-        action={<DownloadLink href={analyticsExportUrl("institutions")} />}
-        table={
-          institutions.ok ? (
-            <TableDisclosure>
-              <DataTable
-                columns={rankingColumns("Institution", institutionHref)}
-                rows={institutions.value.data}
-                rowKey={(row, index) => `${row.key}-${index}`}
-              />
-            </TableDisclosure>
-          ) : null
-        }
-      >
-        {!institutions.ok ? (
-          <ApiErrorPanel error={institutions.error} what="institution rankings" />
-        ) : institutions.value.data.length === 0 ? (
-          <p className="p-4 text-body-sm text-muted">No institution data available.</p>
-        ) : (
-          <RankingBarChart
-            entries={institutions.value.data.map((entry) => ({
-              label: entry.label,
-              value: entry.publication_count,
-            }))}
-            valueLabel="Publications"
-            ariaLabel="Bar chart of publications by institution"
-          />
-        )}
-      </ChartPanel>
-
-      <ChartPanel
-        title="Research fields"
-        description="Publications by primary field. Under-represented fields are the short bars."
-        action={<DownloadLink href={analyticsExportUrl("fields")} />}
-        table={
-          fields.ok ? (
-            <TableDisclosure>
-              <DataTable
-                columns={rankingColumns("Field", (label) =>
-                  publicationSearchHref({ field: label }),
-                )}
-                rows={fields.value.data}
-                rowKey={(row, index) => `${row.key}-${index}`}
-              />
-            </TableDisclosure>
-          ) : null
-        }
-      >
-        {!fields.ok ? (
-          <ApiErrorPanel error={fields.error} what="the field breakdown" />
-        ) : fields.value.data.length === 0 ? (
-          <p className="p-4 text-body-sm text-muted">No field data available.</p>
-        ) : (
-          <RankingBarChart
-            entries={fields.value.data.map((entry) => ({
-              label: entry.label,
-              value: entry.publication_count,
-            }))}
-            valueLabel="Publications"
-            ariaLabel="Bar chart of publications by research field"
-          />
-        )}
-      </ChartPanel>
-    </div>
-  );
-}
-
-async function NetworkSection() {
-  const network = await getCollaborationNetwork({
-    scope: "institution",
-    limit: 120,
-    min_weight: 1,
-  });
-
-  return (
-    <ChartPanel
-      title="Institutional collaboration network"
-      description="Institutions that co-publish in the national corpus."
-      action={
-        <Link href="/institutions" className="text-body-sm text-primary hover:underline">
-          Browse institutions →
-        </Link>
-      }
-      table={
-        network.ok && network.value.data.edges.length > 0 ? (
-          <TableDisclosure label="View collaboration pairs as table">
-            <DataTable
-              columns={[
-                {
-                  key: "source",
-                  header: "Institution",
-                  render: (row) => row.source_label ?? row.source,
-                },
-                {
-                  key: "target",
-                  header: "Collaborator",
-                  render: (row) => row.target_label ?? row.target,
-                },
-                {
-                  key: "weight",
-                  header: "Shared publications",
-                  numeric: true,
-                  render: (row) => formatNumber(row.weight),
-                },
-              ]}
-              rows={network.value.data.edges}
-              rowKey={(row, index) => `${row.source}-${row.target}-${index}`}
-            />
-          </TableDisclosure>
-        ) : null
-      }
-    >
-      {!network.ok ? (
-        <ApiErrorPanel error={network.error} what="the collaboration network" />
-      ) : (
-        <div className="flex flex-col gap-5">
-          <CollaborationNetwork network={network.value.data} scope="institution" />
-          <NetworkSummaryPanel summary={network.value.data.summary} />
-          <div>
-            <h3 className="mb-2 font-display text-h3 text-ink">
-              Bridging institutions
-            </h3>
-            <p className="mb-3 max-w-prose text-body-sm text-ink-secondary">
-              Institutions carrying the most shortest paths between others. A
-              different ranking from the most prolific: an institution that only
-              co-publishes inside its own cluster brokers nothing, however much
-              it publishes.
-            </p>
-            <NetworkBrokersTable nodes={network.value.data.nodes} />
-          </div>
-        </div>
-      )}
-    </ChartPanel>
-  );
-}
-
-/* ---------------------------------------------------------------- chrome */
-
-function PanelPairSkeleton() {
-  return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2" aria-busy="true">
-      <Skeleton className="h-80" />
-      <Skeleton className="h-80" />
-    </div>
-  );
-}
-
-function PageIntro() {
-  return (
-    <div>
-      <h1 className="font-display text-h1 text-ink">
-        Sri Lanka research at a glance
-      </h1>
-      <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-        A public, read-only view of the consolidated national publication
-        corpus. Browse{" "}
-        <Link href="/publications" className="text-primary hover:underline">
-          publications
-        </Link>
-        ,{" "}
-        <Link href="/researchers" className="text-primary hover:underline">
-          researchers
-        </Link>
-        , and{" "}
-        <Link href="/institutions" className="text-primary hover:underline">
-          institutions
-        </Link>
-        , or review the{" "}
-        <Link href="/data-quality" className="text-primary hover:underline">
-          data quality notes
-        </Link>{" "}
-        behind these figures.
-      </p>
-    </div>
-  );
+async function RecentPublications({ filters }: { filters: QueryParams }) {
+  const result = await listPublications({ ...filters, sort: "year_desc", page_size: 5 });
+  if (!result.ok) return <ApiErrorPanel error={result.error} what="recent publications" />;
+  return <ChartPanel title="A closer look at AI research" description="Recent publications in the current selection." action={<Link href={`/publications${buildQuery(filters)}`} className="text-xs text-primary hover:underline">Browse AI publications →</Link>}><DataTable rows={result.value.data} rowKey={r => r.publication_key} columns={[
+    { key: "title", header: "Publication", render: r => <div><Link href={publicationHref(r.publication_key)} className="font-medium text-ink hover:text-primary">{r.title ?? "Untitled record"}</Link><p className="mt-1 text-xs text-muted">{r.authors.slice(0, 3).join(", ")}</p></div> },
+    { key: "field", header: "Field", render: r => r.primary_field ?? "Unclassified" },
+    { key: "year", header: "Year", numeric: true, render: r => r.publication_year ?? "—" },
+    { key: "access", header: "Access", render: r => r.is_oa ? <span className="rounded bg-primary-muted px-2 py-1 text-xs text-primary">Open access</span> : "Not marked open" },
+  ]} /></ChartPanel>;
 }

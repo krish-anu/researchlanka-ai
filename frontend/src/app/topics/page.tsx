@@ -1,12 +1,17 @@
+import { CsvDownload } from "@/components/ui/CsvDownload";
+import { Suspense } from "react";
+import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
+import { ActivityPanel } from "@/components/analytics/ResearchPanels";
+import { DistributionChart } from "@/components/charts/DistributionChart";
+import { PageIntro } from "@/components/layout/PageIntro";
 import Link from "next/link";
 
-import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
-import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { ApiErrorPanel, EmptyState, SectionHeading, Skeleton } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
-import { analyticsExportUrl, listFields, listTopics } from "@/services/api";
+import { analyticsExportUrl, buildQuery, listFields, listTopics, getAnalyticsFields } from "@/services/api";
 import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
 import { publicationSearchHref, topicHref } from "@/services/links";
 
@@ -38,22 +43,17 @@ export default async function TopicsPage({
   const fieldsPage = extractPage(params, "fields_page");
   const topicsPage = extractPage(params, "topics_page");
 
-  const [fields, topics] = await Promise.all([
+  const [fields, topics, filterFields] = await Promise.all([
     listFields({ ...filters, level, page: fieldsPage, page_size: 25 }),
     listTopics({ ...filters, page: topicsPage, page_size: 25 }),
+    getAnalyticsFields({ limit: 100 }),
   ]);
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="font-display text-h1 text-ink">Topics and fields</h1>
-        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-          Where national research output concentrates. Short bars are the
-          under-represented areas — useful for spotting gaps as well as
-          strengths.
-        </p>
-      </div>
+      <PageIntro title="Follow the AI ideas." description="Explore the fields and topics represented within Sri Lanka’s AI-related publications." />
 
+      <AnalyticsFilters params={params} basePath="/topics" fields={filterFields.ok ? filterFields.value.data.map(f => f.label) : []} />
       <div className="panel p-3">
         <p className="flex gap-2 text-body-sm text-ink-secondary">
           <span aria-hidden className="text-muted">
@@ -77,7 +77,7 @@ export default async function TopicsPage({
                 {LEVELS.map((option) => (
                   <li key={option.value}>
                     <Link
-                      href={`/topics?level=${option.value}`}
+                      href={`/topics${buildQuery({ ...filters, level: option.value })}`}
                       aria-current={option.value === level ? "true" : undefined}
                       className={`inline-block rounded-md border px-2.5 py-1 text-body-sm ${
                         option.value === level
@@ -101,7 +101,7 @@ export default async function TopicsPage({
         ) : (
           <ChartPanel
             title={`Publications by ${level}`}
-            action={<DownloadLink href={analyticsExportUrl("fields")} />}
+            action={<div className="flex flex-wrap gap-2"><CsvDownload filename={`ai-${level}-page-${fieldsPage}.csv`} headers={[level, "AI publications"]} rows={fields.value.data.map(e => [e.label, e.publication_count])} />{level === "field" ? <DownloadLink href={analyticsExportUrl("fields", filters)}>All fields CSV</DownloadLink> : null}</div>}
             table={
               <details className="mt-3 border-t border-rule pt-3">
                 <summary className="cursor-pointer text-body-sm text-ink-secondary hover:text-ink">
@@ -135,17 +135,13 @@ export default async function TopicsPage({
               </details>
             }
           >
-            <RankingBarChart
-              entries={fields.value.data.slice(0, 20).map((entry) => ({
-                label: entry.label,
-                value: entry.publication_count,
-              }))}
-              valueLabel="Publications"
-              ariaLabel={`Bar chart of publications by ${level}`}
-            />
+            <DistributionChart entries={fields.value.data.map(entry => ({ label: entry.label, value: entry.publication_count }))} initialView="mosaic" ariaLabel={`AI publication distribution by ${level}`} />
+            <p className="mt-3 text-xs text-muted">Distribution covers the current directory page. Topics can overlap; counts are assignments, not distinct-publication shares.</p>
           </ChartPanel>
         )}
       </section>
+
+      {level === "field" && fields.ok ? <Suspense fallback={<Skeleton className="h-80" />}><ActivityPanel filters={filters} fields={fields.value.data.map(f => f.label)} /></Suspense> : null}
 
       <section>
         <SectionHeading
