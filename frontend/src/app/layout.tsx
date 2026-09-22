@@ -3,7 +3,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
-import { SiteNav, SiteSearchBar } from "@/components/layout/SiteNav";
+import { SiteNav, SiteSearchBar, AIScopeNote } from "@/components/layout/SiteNav";
 import { getViewer } from "@/services/auth/server";
 
 import "./globals.css";
@@ -35,11 +35,11 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "ResearchLanka — Sri Lanka national research analytics",
+    default: "ResearchLanka — Sri Lanka AI research analytics",
     template: "%s · ResearchLanka",
   },
   description:
-    "Public read-only analytics over the consolidated Sri Lankan research publication corpus: national dashboards, publication search, researcher and institution profiles.",
+    "Public read-only analytics over the accepted Sri Lankan AI publication collection: national dashboards, publication search, researcher and institution profiles.",
 };
 
 /**
@@ -75,13 +75,14 @@ export default async function RootLayout({
 
         <SiteNav viewer={viewer} />
 
-        {/* Content canvas offset by the fixed rail; 1140px fixed grid inside. */}
-        <div className="flex grow flex-col md:ml-72">
+        {/* Responsive content canvas, offset by the desktop navigation rail. */}
+        <div className="app-canvas grow">
           <SiteSearchBar viewer={viewer} />
           <main
             id="main"
-            className="mx-auto w-full max-w-[1140px] grow px-4 py-6 md:px-8 md:py-12 lg:px-16"
+            className="app-main"
           >
+            <AIScopeNote />
             {children}
           </main>
           <SiteFooter />

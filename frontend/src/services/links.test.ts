@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   decodeKeySegments,
+  decodePublicationKeySegments,
   institutionHref,
   publicationHref,
   publicationSearchHref,
@@ -10,31 +11,34 @@ import {
 } from "@/services/links";
 
 /**
- * Publication keys look like `doi:10.1000/example` and contain slashes, so
- * publication routes are catch-all and each segment is encoded separately —
- * percent-encoding the slash would collapse the segments and break the route.
- * These tests pin that round trip, because the encode and decode halves live in
- * different files and only agree by convention.
+ * Publication keys may contain full URLs. Encoding the entire key keeps `//`
+ * out of the browser path, where navigation would collapse it to `/`.
  */
 describe("publicationHref", () => {
-  it("keeps the slash inside a DOI as a path separator", () => {
+  it("encodes the slash inside a DOI", () => {
     expect(publicationHref("doi:10.1000/example")).toBe(
-      "/publications/doi%3A10.1000/example",
+      "/publications/doi%3A10.1000%2Fexample",
     );
   });
 
   it("encodes characters that would otherwise change the URL's meaning", () => {
     // A question mark would start a query string and silently truncate the key.
     expect(publicationHref("doi:10.1000/a?b")).toBe(
-      "/publications/doi%3A10.1000/a%3Fb",
+      "/publications/doi%3A10.1000%2Fa%3Fb",
     );
     expect(publicationHref("doi:10.1000/a#b")).toBe(
-      "/publications/doi%3A10.1000/a%23b",
+      "/publications/doi%3A10.1000%2Fa%23b",
     );
   });
 
   it("encodes spaces", () => {
     expect(publicationHref("key with spaces")).toBe("/publications/key%20with%20spaces");
+  });
+
+  it("keeps both slashes of an OpenAlex URL safely encoded", () => {
+    expect(publicationHref("openalex:https://openalex.org/W7166252325")).toBe(
+      "/publications/openalex%3Ahttps%3A%2F%2Fopenalex.org%2FW7166252325",
+    );
   });
 });
 
@@ -45,13 +49,31 @@ describe("key round trip", () => {
     "doi:10.1000/a?b#c",
     "doi:10.1000/nested/path/segments",
     "openalex:W123456",
+    "openalex:https://openalex.org/W7166252325",
     "key with spaces",
     "unicode:ආයුබෝවන්",
   ];
 
   it.each(keys)("survives encode then decode: %s", (key) => {
     const path = publicationHref(key).replace("/publications/", "");
-    expect(decodeKeySegments(path.split("/"))).toBe(key);
+    expect(decodePublicationKeySegments(path.split("/"))).toBe(key);
+  });
+});
+
+describe("old publication links", () => {
+  it("restores the slash lost from an OpenAlex URL", () => {
+    expect(decodePublicationKeySegments(["openalex%3Ahttps%3A", "openalex.org", "W7166252325"])).toBe(
+      "openalex:https://openalex.org/W7166252325",
+    );
+    expect(decodePublicationKeySegments(["openalex:https:", "openalex.org", "W7166252325"])).toBe(
+      "openalex:https://openalex.org/W7166252325",
+    );
+  });
+
+  it("accepts an already decoded single route segment from Next.js", () => {
+    expect(decodePublicationKeySegments(["openalex:https://openalex.org/W7166252325"])).toBe(
+      "openalex:https://openalex.org/W7166252325",
+    );
   });
 });
 

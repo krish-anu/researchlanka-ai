@@ -23,7 +23,6 @@ import { topValues, yearHistogram } from "@/services/derive";
 import { extractPage, type SearchParams } from "@/services/filters";
 import {
   formatCompact,
-  formatDecimal,
   formatNumber,
   formatRatioAsPercent,
   formatYearRange,
@@ -44,7 +43,7 @@ export async function generateMetadata({ params }: PageProps) {
   const name = decodeKeySegments(key);
   return {
     title: name,
-    description: `Research output, citation totals, collaborators and publications for ${name}.`,
+    description: `Research output, collaborators and publications for ${name}.`,
   };
 }
 
@@ -125,11 +124,6 @@ export default async function InstitutionProfilePage({
           caption="records with this affiliation"
         />
         <StatTile
-          label="Citations"
-          value={formatCompact(data.citation_total)}
-          caption={`${formatDecimal(data.average_citations)} per publication`}
-        />
-        <StatTile
           label="Open access"
           value={
             openAccessShare === null ? "—" : formatRatioAsPercent(openAccessShare)
@@ -170,12 +164,6 @@ export default async function InstitutionProfilePage({
                       header: "Publications",
                       numeric: true,
                       render: (row) => formatNumber(row.publication_count),
-                    },
-                    {
-                      key: "citations",
-                      header: "Citations",
-                      numeric: true,
-                      render: (row) => formatNumber(row.citation_total),
                     },
                   ]}
                   rows={trend}

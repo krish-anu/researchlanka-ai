@@ -1,13 +1,17 @@
+import { Suspense } from "react";
+import { PageIntro } from "@/components/layout/PageIntro";
+import { InstitutionAccessibilityPanel } from "@/components/analytics/ResearchPanels";
+import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
 import Link from "next/link";
 
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { SearchBox } from "@/components/search/SearchBox";
 import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
-import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { ApiErrorPanel, EmptyState, SectionHeading, Skeleton } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
-import { analyticsExportUrl, listInstitutions } from "@/services/api";
+import { analyticsExportUrl, listInstitutions, getAnalyticsFields } from "@/services/api";
 import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
 import { formatNumber } from "@/services/format";
 import { institutionHref } from "@/services/links";
@@ -15,7 +19,7 @@ import { institutionHref } from "@/services/links";
 export const metadata = {
   title: "Institutions",
   description:
-    "Sri Lankan research institutions ranked by publication output and citations, with profiles and head-to-head comparison.",
+    "Sri Lankan research institutions ranked by publication output, with profiles and head-to-head comparison.",
 };
 
 export default async function InstitutionsPage({
@@ -27,25 +31,12 @@ export default async function InstitutionsPage({
   const filters = extractFilters(params);
   const page = extractPage(params);
   const query = typeof params.q === "string" ? params.q : "";
-  const result = await listInstitutions({ ...filters, page, page_size: 25 });
+  const [result, fields] = await Promise.all([listInstitutions({ ...filters, page, page_size: 25 }), getAnalyticsFields({ limit: 100 })]);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-h1 text-ink">Institutions</h1>
-          <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-            Research output by institution, drawn from affiliations recorded on
-            each publication.
-          </p>
-        </div>
-        <Link
-          href="/institutions/compare"
-          className="shrink-0 rounded-md border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
-        >
-          Compare institutions →
-        </Link>
-      </div>
+      <PageIntro title="Places where AI ideas grow." description="Compare institutional AI research output, accessibility, and partnerships." action={<Link href="/institutions/compare" className="button">Compare institutions →</Link>} />
+      <AnalyticsFilters params={params} basePath="/institutions" fields={fields.ok ? fields.value.data.map(f => f.label) : []} />
 
       <div className="max-w-2xl">
         <SearchBox
@@ -69,10 +60,10 @@ export default async function InstitutionsPage({
         />
       ) : (
         <>
-          <ChartPanel
-            title="Publication output by institution"
-            description="Top 15 institutions by number of records."
-            action={<DownloadLink href={analyticsExportUrl("institutions")} />}
+          <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2"><ChartPanel
+            title="AI publication output by institution"
+            description="Leading 15 institutions on this directory page."
+            action={<DownloadLink href={analyticsExportUrl("institutions", filters)} />}
           >
             <RankingBarChart
               entries={result.value.data.slice(0, 15).map((entry) => ({
@@ -82,7 +73,7 @@ export default async function InstitutionsPage({
               valueLabel="Publications"
               ariaLabel="Bar chart of publications by institution"
             />
-          </ChartPanel>
+          </ChartPanel><Suspense fallback={<Skeleton className="h-96" />}><InstitutionAccessibilityPanel filters={filters} entries={result.value.data} /></Suspense></div>
 
           <section>
             <SectionHeading

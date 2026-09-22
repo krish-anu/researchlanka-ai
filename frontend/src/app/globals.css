@@ -1,51 +1,31 @@
 @import "tailwindcss";
 
-/*
- * Design tokens — "SL Research Portfolio" (Stitch design system).
- *
- * The system is Academic Rigor meets Machine Intelligence: a "Paper & Ink"
- * petrol/off-white foundation, strictly flat (depth comes from tonal steps and
- * 1px hairline rules, never shadows), on a 4px baseline with a 4px radius.
- *
- * Three colour tiers carry meaning and must not be used decoratively:
- *   - brand (petrol)    primary actions and the default chart series
- *   - machine (violet)  anything AI-generated, so synthesis is never mistaken
- *                       for human-authored metadata
- *   - provenance (src)  one hue per source dataset, used by the stripe
- *
- * Dark values are the design system's own inverse/fixed-dim steps rather than
- * an automatic inversion of the light palette.
- *
- * The three categorical series slots are checked by
- * `scripts/check-series-contrast.mjs`, which is the authority on them: every
- * pair clears ΔE2000 20 under normal vision and all three dichromacies, and
- * every slot clears 3:1 against both surfaces, in both modes. Change a series
- * value and run that script — the margins are not large enough to eyeball.
- * Charts still ship a table view (`TableDisclosure`) regardless, as a
- * non-colour route to the same numbers.
+/* ResearchLanka: forest green, warm paper, and accessible data views.
+ * Existing semantic tokens keep public, account, and admin surfaces consistent.
+ * The three categorical series retain their validated colour separation.
  */
 
 :root {
   color-scheme: light;
 
   /* Paper & ink foundation. */
-  --page: #f3faff;
+  --page: #f5f7f5;
   --surface: #ffffff;
-  --sunk: #d3e5ef;
-  --ink: #0d1e25;
-  --ink-secondary: #3f484a;
-  --muted: #6f797a;
-  --rule: #bfc8c9;
-  --grid: #d9ebf5;
-  --baseline: #bfc8c9;
-  --wash: #e6f6ff;
+  --sunk: #f0f4ee;
+  --ink: #20332d;
+  --ink-secondary: #56645b;
+  --muted: #657360;
+  --rule: #e5ebe6;
+  --grid: #e9eee6;
+  --baseline: #dfe7df;
+  --wash: #f5f7f0;
 
-  /* Brand — petrol. */
-  --primary: #004349;
-  --primary-hover: #0e5c63;
+  /* Green brand, matching the approved HTML preview. */
+  --primary: #287c58;
+  --primary-hover: #245f43;
   --on-primary: #ffffff;
-  --primary-container: #0e5c63;
-  --primary-muted: #cce4e7;
+  --primary-container: #287c58;
+  --primary-muted: #eaf3e9;
 
   /* Highlight — turmeric. Citations and secondary focus. */
   --accent: #7f5600;
@@ -57,29 +37,26 @@
   --machine-container: #ecdcff;
 
   /* Provenance — one hue per source dataset. */
-  --src-openalex: #0e5c63;
+  --src-openalex: #287c58;
   --src-crossref: #8a5f07;
   --src-sljol: #6d4c9f;
   --src-repository: #4d9aa4;
-  --src-other: #6f797a;
+  --src-other: #68776c;
 
   /*
-   * Chart series. Petrol and turmeric are the brand hues; the third slot is a
-   * deep plum rather than the brand violet, because violet is reserved for the
-   * machine tier and a violet series would read as "this data is AI-generated".
-   * Series petrol runs lighter than `--primary`: the UI needs text contrast,
-   * charts need separation from each other, and those pull in opposite ways.
+   * Distinct chart series beside the green brand. Blue matches the preview's
+   * field badges; ochre and deep plum remain readable in colour vision checks.
    */
-  --series-1: #18818b;
+  --series-1: #6489ba;
   --series-2: #7f5600;
   --series-3: #3d0a33;
 
   /* Single-hue sequential ramp (petrol), light -> dark. */
   --seq-200: #aceef6;
   --seq-300: #90d1d9;
-  --seq-450: #20676f;
-  --seq-550: #0e5c63;
-  --seq-650: #004349;
+  --seq-450: #347d59;
+  --seq-550: #287c58;
+  --seq-650: #184b36;
 
   --good: #1c6b3f;
   --warning: #7f5600;
@@ -88,20 +65,19 @@
   --success-text: #1c6b3f;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+:root[data-theme="dark"] {
     color-scheme: dark;
 
-    --page: #0e1f26;
-    --surface: #16303a;
-    --sunk: #0a181e;
-    --ink: #e1f4fd;
-    --ink-secondary: #bfc8c9;
+    --page: #101e18;
+    --surface: #192c22;
+    --sunk: #0c1912;
+    --ink: #edf5ed;
+    --ink-secondary: #dce5dd;
     --muted: #94a1a3;
-    --rule: #3f484a;
-    --grid: #2a3d45;
-    --baseline: #3f484a;
-    --wash: #22333a;
+    --rule: #56645b;
+    --grid: #304735;
+    --baseline: #56645b;
+    --wash: #243b2b;
 
     --primary: #90d1d9;
     --primary-hover: #aceef6;
@@ -128,7 +104,7 @@
 
     --seq-200: #00363b;
     --seq-300: #004f55;
-    --seq-450: #20676f;
+    --seq-450: #347d59;
     --seq-550: #90d1d9;
     --seq-650: #aceef6;
 
@@ -137,7 +113,6 @@
     --serious: #ffb59a;
     --critical: #ffb4ab;
     --success-text: #6bd39a;
-  }
 }
 
 @theme inline {
@@ -181,38 +156,38 @@
   --font-mono: var(--font-plex-mono), ui-monospace, "Cascadia Mono", monospace;
 
   /* Type scale from the design system. */
-  --text-h1: 40px;
+  --text-h1: 30px;
   --text-h1--line-height: 1.1;
   --text-h1--letter-spacing: -0.02em;
   --text-h1--font-weight: 700;
-  --text-h2: 24px;
+  --text-h2: 22px;
   --text-h2--line-height: 1.2;
   --text-h2--font-weight: 600;
-  --text-h3: 20px;
+  --text-h3: 17px;
   --text-h3--line-height: 1.2;
   --text-h3--font-weight: 600;
   --text-body-lg: 18px;
   --text-body-lg--line-height: 1.6;
   --text-body-md: 16px;
   --text-body-md--line-height: 1.5;
-  --text-body-sm: 14px;
+  --text-body-sm: 13px;
   --text-body-sm--line-height: 1.4;
   --text-mono: 13px;
   --text-mono--line-height: 1;
   --text-mono--letter-spacing: 0.02em;
-  --text-label: 12px;
+  --text-label: 11px;
   --text-label--line-height: 1;
   --text-label--font-weight: 700;
 
   /* 4px baseline. */
   --spacing: 4px;
 
-  /* Disciplined geometry: a single 4px radius on every container and control. */
+  /* Soft cards and compact, consistent controls. */
   --radius-xs: 2px;
   --radius-sm: 4px;
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
 @layer base {
@@ -224,7 +199,7 @@
     background-color: var(--page);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.5;
   }
 
@@ -254,17 +229,17 @@
 }
 
 @layer components {
-  /* Flat by rule: a card is a surface plus a hairline, never a shadow. */
+  /* Shared surface used by public views, accounts, and administration. */
   .panel {
     background-color: var(--surface);
     border: 1px solid var(--rule);
-    border-radius: 4px;
+    border-radius: 12px;
   }
 
   /* Recessed areas — inputs, code blocks, nested metadata — are cut into the page. */
   .sunk {
     background-color: var(--sunk);
-    border-radius: 4px;
+    border-radius: 12px;
   }
 
   /*
@@ -275,7 +250,7 @@
     background-color: var(--machine-container);
     border: 1px solid var(--rule);
     border-left: 3px solid var(--machine);
-    border-radius: 4px;
+    border-radius: 12px;
   }
 
   /* DOIs, ORCIDs and other machine identifiers. */
@@ -290,8 +265,8 @@
   /* Small-caps category headers and short UI labels. */
   .label-caps {
     font-family: var(--font-display);
-    font-size: 12px;
-    line-height: 1;
+    font-size: 10px;
+    line-height: 1.4;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -303,3 +278,81 @@
     max-width: 100%;
   }
 }
+
+@layer components {
+  .app-canvas { margin-left: 240px; display: flex; min-height: 100vh; flex-direction: column; }
+  .app-main { width: 100%; max-width: 1500px; margin-inline: auto; flex: 1; min-width: 0; padding: 32px; }
+  .app-rail { width: 240px; }
+  .app-topbar { min-height: 76px; padding: 16px 32px; }
+  .brand { display: flex; gap: 10px; align-items: center; }
+  .brand-mark { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 39px; border-radius: 11px; color: #d5ed9b; background: #143e30; }
+  .brand-name { font-size: 18px; font-weight: 700; letter-spacing: -.7px; }
+  .brand-tagline { display: block; font-size: 8px; letter-spacing: 1.3px; margin-top: 3px; color: var(--muted); }
+  .nav-item { position: relative; display: flex; align-items: center; gap: 12px; margin: 0 16px; padding: 12px 13px; border-radius: 9px; color: var(--ink-secondary); font-size: 13px; }
+  .nav-item:hover { background: var(--wash); }
+  .nav-item[aria-current="page"] { background: var(--primary-muted); color: var(--primary); font-weight: 600; }
+  .nav-item[aria-current="page"]::before { content: ""; position: absolute; left: -16px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--primary); }
+  .page-eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
+  .ai-scope { display: flex; align-items: center; gap: 9px; border: 1px solid var(--rule); border-radius: 8px; background: var(--wash); padding: 10px 14px; color: var(--ink-secondary); font-size: 11px; margin-bottom: 24px; }
+  .ai-scope-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--primary); }
+  .research-hero { position: relative; overflow: hidden; background: #143e30; color: #fff; border-radius: 16px; padding: 28px 32px; min-height: 192px; }
+  .research-hero h2 { font-size: 31px; font-weight: 500; letter-spacing: -.8px; line-height: 1.25; margin: 10px 0; }
+  .research-hero em { font-family: Georgia, serif; font-weight: 400; color: #d5edb4; }
+  .research-hero-art { position: absolute; right: 16px; top: -25px; width: 360px; height: 270px; opacity: .7; }
+  .hero-copy { position: relative; z-index: 1; }
+  .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 13px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--ink-secondary); font-size: 12px; font-weight: 500; }
+  .button:hover { color: var(--primary); border-color: var(--primary); }
+  .button-primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+  .button-primary:hover { background: var(--primary-hover); color: var(--on-primary); }
+  .theme-toggle { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--primary); cursor: pointer; }
+  .theme-toggle:hover { background: var(--primary-muted); }
+  .theme-toggle svg { width: 16px; height: 16px; }
+  .chart-panel { min-width: 0; padding: 22px; }
+  .chart-panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .chart-panel-head h2 { font-size: 15px; font-weight: 600; }
+  .chart-panel-head p { font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .chart-segments { display: inline-flex; gap: 2px; padding: 3px; border-radius: 7px; background: var(--wash); }
+  .chart-segments button { padding: 5px 10px; border-radius: 5px; font-size: 11px; color: var(--muted); cursor: pointer; }
+  .chart-segments button[aria-pressed="true"] { color: var(--primary); background: var(--surface); box-shadow: 0 1px 4px #143e3010; }
+  /* Keep Plotly's PNG and navigation tools in their own strip above each graph. */
+  .plotly-host { padding-top: 28px; }
+  .plotly-host .modebar-container { top: -27px !important; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 16px; }
+  .stat-tile { position: relative; display: flex; flex-direction: column; gap: 9px; padding: 21px; border-radius: 13px; border: 1px solid var(--rule); }
+  .stat-icon { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px; background: var(--wash); color: var(--primary); }
+  .stat-icon svg { width: 15px; height: 15px; }
+  .stat-value { font-size: 32px; font-weight: 600; line-height: 1.2; letter-spacing: -1px; overflow-wrap: anywhere; }
+  .analytics-filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .analytics-filters label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--muted); }
+  .analytics-filters select, .analytics-filters input { border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--ink); min-width: 95px; max-width: 240px; font-size: 12px; }
+  .distribution-body { display: grid; grid-template-columns: minmax(140px,1fr) minmax(0,1fr); gap: 16px; }
+  .analytics-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(0,1fr); gap: 20px; }
+  .directory-cards { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+  .directory-avatar { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--primary-muted); color: var(--primary); font-size: 13px; font-weight: 600; }
+  .network-canvas { background-image: radial-gradient(var(--rule) 1px, transparent 1px); background-size: 16px 16px; }
+  .publication-card { transition: border-color .15s; }
+  .publication-card:hover { border-color: var(--primary); }
+  .table-chart-view summary { display: none; }
+  .table-chart-view details { border-top: 0; padding-top: 0; margin-top: 0; }
+}
+@media (max-width: 1100px) {
+  .analytics-grid { grid-template-columns: minmax(0,1fr); }
+  .directory-cards { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .research-hero-art { right: -100px; opacity: .35; }
+}
+@media (max-width: 767px) {
+  .app-canvas { margin-left: 0; min-height: calc(100vh - 64px); }
+  .app-main { padding: 22px 16px; }
+  .stat-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .stat-tile { padding: 16px; }
+  .stat-value { font-size: 27px; }
+  .chart-panel { padding: 16px; }
+  .directory-cards { grid-template-columns: 1fr; }
+  .research-hero { padding: 24px; }
+  .research-hero h2 { font-size: 26px; }
+  .ai-scope { font-size: 10px; align-items: flex-start; }
+  .ai-scope-dot { margin-top: 5px; }
+  h1 { overflow-wrap: anywhere; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+@media print { .app-rail, .app-topbar, .mobile-appbar, .analytics-filters, .chart-segments { display: none !important; } .app-canvas { margin: 0; } .app-main { padding: 0; } .panel { break-inside: avoid; } }

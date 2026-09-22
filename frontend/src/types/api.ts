@@ -190,14 +190,12 @@ export type SortOption =
   | "relevance"
   | "year_desc"
   | "year_asc"
-  | "citations_desc"
   | "title_asc";
 
 export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "relevance", label: "Relevance" },
   { value: "year_desc", label: "Newest first" },
   { value: "year_asc", label: "Oldest first" },
-  { value: "citations_desc", label: "Most cited" },
   { value: "title_asc", label: "Title A–Z" },
 ];
 

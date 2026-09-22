@@ -2,16 +2,15 @@
 .venv/
 venv/
 env/
-node_modules/
-frontend/node_modules/
-.next/
-frontend/.next/
-frontend/.next.stale/
-
+ENV/
+env.bak/
+venv.bak/
+__pypackages__/
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.so
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -19,10 +18,13 @@ __pycache__/
 .pytype/
 .tox/
 .nox/
+.hypothesis/
+.cache/
 .coverage
 .coverage.*
 coverage.xml
 htmlcov/
+cover/
 junit.xml
 test-results/
 build/
@@ -33,8 +35,11 @@ pip-wheel-metadata/
 
 # Node and frontend build outputs
 node_modules/
+frontend/node_modules/
 .next/
+frontend/.next/
 .next.stale/
+frontend/.next.stale/
 out/
 next-env.d.ts
 *.tsbuildinfo
@@ -54,6 +59,8 @@ pnpm-debug.log*
 *.swp
 *.swo
 *.pem
+secrets/
+deploy/*.env
 
 # Notebook outputs
 .ipynb_checkpoints/
@@ -80,6 +87,7 @@ backend/data/interim/
 backend/data/external/
 backend/data/models/
 backend/data/reports/
+backend/data/results/
 backend/outputs/
 backend/pipeline/
 tools/google-maps-scraper-kit/
@@ -90,16 +98,18 @@ backend/ollama_5k_results_with_human_verification/
 
 backend/researchlanka-kaggle-outputs*.zip
 researchlanka-ai-5k-candidates.zip
-ai_relevance_model_selection_outputs/
-ai_relevance_model_selection_outputs.zip
 kaggle_ai_relevance_model_selection_dataset.zip
-kaggle_ai_relevance_svm_dataset/
-kaggle_ai_relevance_svm_dataset.zip
 kaggle-output/
+researchlanka-kaggle-outputs*/
+researchlanka-ai-dataset/data/*_scraped_merged.csv
+evidence-*.txt
+test-evidence-*.txt
 
 # Local Dagster runtime state
 .tmp_dagster_home_*/
 backend/dagster-quickstart/.tmp_dagster_home_*/
+.dagster-home/
+backend/dagster-quickstart/.dagster-home/
 
 # Large local data exports and databases
 image.png
@@ -136,6 +146,7 @@ Thumbs.db
 .claude/
 .codex/
 .agents/
+.kilo/
 .mcp.json
 .bash_profile
 .bashrc
@@ -148,17 +159,3 @@ Thumbs.db
 # Track GitHub Actions and work-plan configuration
 !/.github/
 !/.github/**
-
-notebooks/outputs/
-backend/notebooks/outputs/
-
-# Local/generated experiment artifacts
-ai_relevance_model_selection_outputs/
-kaggle_ai_relevance_svm_dataset/
-backend/ollama_5k_results_with_human_verification/
-backend/researchlanka-kaggle-outputs*/
-researchlanka-kaggle-outputs*/
-tools/google-maps-scraper-kit/
-image.png
-secrets/
-deploy/aws.ec2.env

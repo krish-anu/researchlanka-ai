@@ -170,11 +170,6 @@ export default async function AdminOverviewPage() {
               )}
               caption="no affiliation resolved"
             />
-            <StatTile
-              label="Citation conflicts"
-              value={formatNumber(quality.value.data.citation_divergence_count)}
-              caption="sources disagree on the count"
-            />
           </StatTileGrid>
         )}
       </section>

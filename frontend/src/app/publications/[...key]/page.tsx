@@ -17,7 +17,7 @@ import { formatDate, formatNumber, truncate } from "@/services/format";
 import { getViewer } from "@/services/auth/server";
 import { isSaved } from "@/services/workspace/store";
 import {
-  decodeKeySegments,
+  decodePublicationKeySegments,
   institutionHref,
   publicationSearchHref,
   researcherHref,
@@ -31,7 +31,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { key } = await params;
-  const result = await getPublication(decodeKeySegments(key));
+  const result = await getPublication(decodePublicationKeySegments(key));
   if (!result.ok) return { title: "Publication" };
   return {
     title: truncate(result.value.data.title ?? "Publication", 70),
@@ -80,23 +80,15 @@ function LinkedList({
   );
 }
 
-/** Count divergence is surfaced explicitly rather than silently picking a winner. */
-function ImpactPanel({ publication }: { publication: PublicationDetail }) {
+function ReferencePanel({ publication }: { publication: PublicationDetail }) {
   const { impact } = publication;
-  const diverges =
-    impact.citation_count_divergence_flag || impact.reference_count_divergence_flag;
+  const diverges = impact.reference_count_divergence_flag;
 
   return (
     <section className="panel p-4">
-      <h2 className="font-display text-h3 text-ink">Impact</h2>
+      <h2 className="font-display text-h3 text-ink">References</h2>
       <dl className="mt-2">
-        <Field label="Citations">{formatNumber(impact.citation_count)}</Field>
         <Field label="References">{formatNumber(impact.reference_count)}</Field>
-        {impact.citation_count_difference_oa_minus_crossref !== null ? (
-          <Field label="Citation difference (OpenAlex − Crossref)">
-            {formatNumber(impact.citation_count_difference_oa_minus_crossref)}
-          </Field>
-        ) : null}
         {impact.reference_count_difference_oa_minus_crossref !== null ? (
           <Field label="Reference difference (OpenAlex − Crossref)">
             {formatNumber(impact.reference_count_difference_oa_minus_crossref)}
@@ -108,7 +100,7 @@ function ImpactPanel({ publication }: { publication: PublicationDetail }) {
           <span aria-hidden className="text-serious">
             ≠
           </span>
-          Sources disagree on these counts. Treat the figure above as indicative
+          Sources disagree on this count. Treat the figure above as indicative
           rather than authoritative.
         </p>
       ) : null}
@@ -118,7 +110,7 @@ function ImpactPanel({ publication }: { publication: PublicationDetail }) {
 
 export default async function PublicationDetailPage({ params }: PageProps) {
   const { key } = await params;
-  const publicationKey = decodeKeySegments(key);
+  const publicationKey = decodePublicationKeySegments(key);
 
   const result = await getPublication(publicationKey);
   if (isNotFound(result)) notFound();
@@ -143,7 +135,6 @@ export default async function PublicationDetailPage({ params }: PageProps) {
       ? listPublications({
           ...(topic ? { topic } : { field }),
           page_size: 6,
-          sort: "citations_desc",
         })
       : Promise.resolve(null),
     viewer.user
@@ -157,6 +148,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
           (item) => item.publication_key !== publication.publication_key,
         )
       : [];
+  const visibleQualityFlags = publication.quality_flags.filter(
+    (flag) => flag !== "citation_count_divergence",
+  );
 
   return (
     <article className="flex flex-col gap-4">
@@ -237,9 +231,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
           initiallySaved={saved}
         />
 
-        {publication.quality_flags.length > 0 ? (
+        {visibleQualityFlags.length > 0 ? (
           <ul className="flex flex-col gap-1.5 rounded-md border border-rule bg-wash p-3">
-            {publication.quality_flags.map((flag) => (
+            {visibleQualityFlags.map((flag) => (
               <li key={flag} className="flex flex-wrap items-center gap-2">
                 <QualityFlagBadge flag={flag} />
                 <span className="text-body-sm text-ink-secondary">
@@ -312,7 +306,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
           </dl>
         </section>
 
-        <ImpactPanel publication={publication} />
+        <ReferencePanel publication={publication} />
 
         <section className="panel p-4">
           <h2 className="font-display text-h3 text-ink">
@@ -453,8 +447,8 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             title="Related publications"
             description={
               topic
-                ? `Most-cited records sharing the topic "${topic}". Matched on shared classification, not a semantic recommender.`
-                : `Most-cited records in ${field}. Matched on shared classification, not a semantic recommender.`
+                ? `Records sharing the topic "${topic}". Matched on shared classification, not a semantic recommender.`
+                : `Records in ${field}. Matched on shared classification, not a semantic recommender.`
             }
             action={
               <Link

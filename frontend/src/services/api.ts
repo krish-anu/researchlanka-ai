@@ -346,17 +346,17 @@ export const getDataQuality = (
 
 /* ------------------------------------------------------------------ exports */
 
-/** Absolute URL for a CSV/JSONL download; the browser hits the API directly. */
+/** Same-origin downloads use the API rewrite, including remote deployments. */
 export function exportUrl(
   kind: "publications.csv" | "publications.jsonl",
   params: QueryParams = {},
 ): string {
-  return `${API_BASE_URL}/exports/${kind}${buildQuery(params)}`;
+  return `/api/v1/exports/${kind}${buildQuery(params)}`;
 }
 
 export function analyticsExportUrl(
   name: "overview" | "trends" | "institutions" | "fields" | "data-quality",
   params: QueryParams = {},
 ): string {
-  return `${API_BASE_URL}/exports/analytics/${name}.csv${buildQuery(params)}`;
+  return `/api/v1/exports/analytics/${name}.csv${buildQuery(params)}`;
 }

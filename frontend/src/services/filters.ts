@@ -32,7 +32,6 @@ const VALID_SORTS = new Set<SortOption>([
   "relevance",
   "year_desc",
   "year_asc",
-  "citations_desc",
   "title_asc",
 ]);
 

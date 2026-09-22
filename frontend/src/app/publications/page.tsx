@@ -1,3 +1,5 @@
+import { PageIntro } from "@/components/layout/PageIntro";
+import { DataQualityIcon, InstitutionsIcon, OpenAccessIcon, PublicationsIcon } from "@/components/layout/NavIcons";
 import { FacetPanel } from "@/components/publications/FacetPanel";
 import {
   ActiveFilters,
@@ -9,19 +11,20 @@ import { DownloadLink } from "@/components/ui/ChartPanel";
 import { ApiErrorPanel, EmptyState } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { SnapshotNote } from "@/components/ui/Provenance";
-import { exportUrl, listPublications } from "@/services/api";
+import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
+import { exportUrl, getAnalyticsInstitutions, getAnalyticsOverview, listPublications } from "@/services/api";
 import {
   extractFilters,
   extractPage,
   extractSort,
   type SearchParams,
 } from "@/services/filters";
-import { formatNumber } from "@/services/format";
+import { formatNumber, formatRatioAsPercent } from "@/services/format";
 
 export const metadata = {
-  title: "Publications",
+  title: "AI publications",
   description:
-    "Search and filter the consolidated Sri Lankan research publication corpus by year, type, institution, field, topic, journal, and data quality.",
+    "Search accepted Sri Lankan AI publications by year, type, institution, field, topic, journal, and data quality.",
 };
 
 export default async function PublicationsPage({
@@ -35,33 +38,31 @@ export default async function PublicationsPage({
   const sort = extractSort(params);
   const query = typeof params.q === "string" ? params.q : "";
 
-  const result = await listPublications({
-    ...filters,
-    page,
-    page_size: 25,
-    sort,
-    include_facets: true,
-  });
+  const [result, overview, institutions] = await Promise.all([
+    listPublications({ ...filters, page, page_size: 25, sort, include_facets: true }),
+    getAnalyticsOverview(filters),
+    getAnalyticsInstitutions({ ...filters, limit: 1 }),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="font-display text-h1 text-ink">Publications</h1>
-        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-          Full-text search across titles, abstracts, authors, journals and DOIs,
-          with structured filters. Every record carries its source provenance and
-          any data-quality flags.
-        </p>
-      </div>
+      <PageIntro title="Discover AI research." description="Search AI-related titles, abstracts, authors, journals, and DOIs. Refine by field, source, access, or metadata quality." />
 
-      <div className="lg:hidden">
+      {result.ok && overview.ok ? <StatTileGrid>
+        <StatTile label="AI publications" icon={<PublicationsIcon />} value={formatNumber(result.value.pagination.total)} caption="Accepted AI records in this selection" />
+        <StatTile label="Institutions" icon={<InstitutionsIcon />} value={institutions.ok ? formatNumber(institutions.value.pagination.total) : "—"} caption="With AI-related publications" />
+        <StatTile label="Open access" icon={<OpenAccessIcon />} value={formatRatioAsPercent(overview.value.data.open_access_share)} caption="Share of selected AI publications" />
+        <StatTile label="DOI coverage" icon={<DataQualityIcon />} value={formatRatioAsPercent(overview.value.data.doi_coverage)} caption="Records with a DOI" />
+      </StatTileGrid> : null}
+
+      <div className="max-w-2xl">
         <SearchBox initialQuery={query} />
       </div>
 
       {!result.ok ? (
         <ApiErrorPanel error={result.error} what="publication results" />
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]">
           <aside className="flex flex-col gap-3">
             <FilterControls searchParams={params} />
             {result.value.facets ? (
@@ -103,7 +104,7 @@ export default async function PublicationsPage({
               />
             ) : (
               <>
-                <PublicationCardList publications={result.value.data} />
+                <PublicationCardList publications={result.value.data} initialView="table" />
                 <Pagination
                   pagination={result.value.pagination}
                   basePath="/publications"

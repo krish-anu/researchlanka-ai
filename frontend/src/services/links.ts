@@ -3,9 +3,10 @@
  *
  * Two backend details drive the design here:
  *
- * 1. `publication_key` values look like `doi:10.1000/example` and contain
- *    slashes, so publication routes are catch-all (`[...key]`) and each path
- *    segment is encoded separately rather than percent-encoding the slash.
+ * 1. `publication_key` values can contain URLs such as
+ *    `openalex:https://openalex.org/W1`. Encode the whole key as one segment:
+ *    a literal `//` inside the page path is normalized to `/` by navigation.
+ *    The catch-all route also accepts older links with literal slashes.
  *
  * 2. Researcher / institution / topic profiles are resolved by
  *    `repository._rows_for_multivalue`, which does `column ILIKE %value%`
@@ -27,8 +28,13 @@ export function decodeKeySegments(segments: string[] | undefined): string {
   return (segments ?? []).map((segment) => decodeURIComponent(segment)).join("/");
 }
 
+/** Repair old OpenAlex links whose `https://` was collapsed by navigation. */
+export function decodePublicationKeySegments(segments: string[] | undefined): string {
+  return decodeKeySegments(segments).replace(/^openalex:(https?):\/([^/])/, "openalex:$1://$2");
+}
+
 export const publicationHref = (publicationKey: string) =>
-  `/publications/${encodePath(publicationKey)}`;
+  `/publications/${encodeURIComponent(publicationKey)}`;
 
 export const researcherHref = (label: string) =>
   `/researchers/${encodePath(label)}`;

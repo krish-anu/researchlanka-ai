@@ -12,8 +12,8 @@ import { CORPUS_SOURCES, SourceDot, sourceColor } from "@/components/ui/Provenan
  */
 export function SiteFooter() {
   return (
-    <footer className="mt-12 shrink-0 border-t border-rule bg-surface">
-      <div className="flex h-2 w-full" aria-hidden>
+    <footer className="mt-8 shrink-0 border-t border-rule bg-surface">
+      <div className="flex h-0.5 w-full" aria-hidden>
         {CORPUS_SOURCES.map((source) => (
           <div
             key={source}
@@ -23,13 +23,12 @@ export function SiteFooter() {
         ))}
       </div>
 
-      <div className="mx-auto max-w-[1140px] px-4 py-6 md:px-8 lg:px-16">
+      <div className="mx-auto max-w-[1500px] px-4 py-6 md:px-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-prose">
             <span className="label-caps block text-muted">Data provenance</span>
             <p className="mt-2 text-body-sm text-ink-secondary">
-              ResearchLanka is a read-only public view of the consolidated Sri
-              Lankan research corpus. Counts describe records observed in the
+              ResearchLanka is a read-only public view of the accepted Sri Lankan AI publication collection. Counts describe records observed in the
               dataset and are not official national totals.
             </p>
           </div>

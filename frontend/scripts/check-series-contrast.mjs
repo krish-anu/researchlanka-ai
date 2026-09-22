@@ -21,11 +21,11 @@ const SEPARATION_FLOOR = 20;
 
 const PALETTES = {
   light: {
-    surfaces: { page: "#f3faff", card: "#ffffff" },
-    series: { "series-1": "#18818b", "series-2": "#7f5600", "series-3": "#3d0a33" },
+    surfaces: { page: "#f5f7f5", card: "#ffffff" },
+    series: { "series-1": "#6489ba", "series-2": "#7f5600", "series-3": "#3d0a33" },
   },
   dark: {
-    surfaces: { page: "#0e1f26", card: "#16303a" },
+    surfaces: { page: "#101e18", card: "#192c22" },
     series: { "series-1": "#aceef6", "series-2": "#f5bd63", "series-3": "#d1478c" },
   },
 };
