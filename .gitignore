@@ -62,6 +62,16 @@ pnpm-debug.log*
 secrets/
 deploy/*.env
 
+# Terraform local state and plans
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+terraform.tfvars.json
+crash.log
+crash.*.log
+
 # Notebook outputs
 .ipynb_checkpoints/
 notebooks/outputs/
