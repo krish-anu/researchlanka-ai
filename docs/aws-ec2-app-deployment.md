@@ -12,6 +12,19 @@ frontend behind an Application Load Balancer or Nginx with HTTPS.
 
 ## 1. Create The EC2 Instance
 
+You can provision the EC2 host with Terraform:
+
+```bash
+cp infra/terraform/aws-ec2/terraform.tfvars.example infra/terraform/aws-ec2/terraform.tfvars
+terraform -chdir=infra/terraform/aws-ec2 init
+terraform -chdir=infra/terraform/aws-ec2 apply
+```
+
+See [`../infra/terraform/aws-ec2/README.md`](../infra/terraform/aws-ec2/README.md)
+for variables, SSH key setup, and GitHub Actions handoff.
+
+If creating the instance manually, use:
+
 Recommended first instance:
 
 ```text
