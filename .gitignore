@@ -92,6 +92,9 @@ outputs/
 frontend/.data/
 
 backend/data/raw/
+backend/data/*.csv
+backend/data/*.parquet
+backend/data/*.xlsx
 backend/data/processed/
 backend/data/interim/
 backend/data/external/
