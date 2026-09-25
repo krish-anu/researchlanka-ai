@@ -103,6 +103,10 @@ backend/data/models/
 backend/data/reports/
 backend/data/results/
 backend/data/results (1)/
+backend/data/Finished/
+backend/data/*.csv
+backend/data/*.xlsx
+backend/data/*.parquet
 backend/outputs/
 backend/pipeline/
 tools/google-maps-scraper-kit/
