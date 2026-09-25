@@ -8,6 +8,7 @@ import { ROLE_LABEL, type Role } from "@/types/auth";
 const TONE: Record<Role, string> = {
   guest: "border-rule bg-surface text-muted",
   user: "border-rule bg-wash text-ink-secondary",
+  reviewer: "border-machine bg-machine-container text-machine",
   admin: "border-primary bg-primary-container text-on-primary",
 };
 

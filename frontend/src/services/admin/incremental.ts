@@ -22,6 +22,8 @@ interface RawIncrementalStatus {
   requested_from_date?: string | null;
   requested_to_date?: string | null;
   result?: IncrementalRunResult | null;
+  records_new_for_db?: number | null;
+  records_updated_for_db?: number | null;
 }
 
 export type IncrementalJobStatus = IncrementalRunSnapshot;
@@ -324,6 +326,12 @@ async function normalizeSnapshot(
     finished_at: finishedAt,
     collected,
     selected,
+    newRecords:
+      numberOrNull(result.records_new_for_db) ??
+      numberOrNull(payload.records_new_for_db),
+    updatedRecords:
+      numberOrNull(result.records_updated_for_db) ??
+      numberOrNull(payload.records_updated_for_db),
     loaded: numberOrNull(result.records_loaded),
     message,
     error: payload.error ?? null,

@@ -40,7 +40,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  if (needsAdmin && user.role !== "admin") {
+  const reviewerAllowedAdminPath =
+    user.role === "reviewer" &&
+    (pathname === "/admin/ai-review" || pathname.startsWith("/admin/ai-review/"));
+
+  if (needsAdmin && user.role !== "admin" && !reviewerAllowedAdminPath) {
     const forbidden = new URL("/forbidden", request.url);
     forbidden.searchParams.set("need", "admin.access");
     return NextResponse.redirect(forbidden);

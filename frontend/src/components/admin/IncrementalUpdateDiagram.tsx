@@ -18,6 +18,8 @@ export interface IncrementalRunSnapshot {
   finished_at?: string | null;
   collected?: number | null;
   selected?: number | null;
+  newRecords?: number | null;
+  updatedRecords?: number | null;
   loaded?: number | null;
   message: string;
   error?: string | null;
@@ -34,6 +36,8 @@ export interface IncrementalRunResult {
   db_load_output?: string | null;
   records_collected?: number | null;
   records_selected_for_db?: number | null;
+  records_new_for_db?: number | null;
+  records_updated_for_db?: number | null;
   records_loaded?: number | null;
 }
 
@@ -42,6 +46,7 @@ type StageState = "completed" | "current" | "remaining" | "failed";
 interface Stage {
   label: string;
   detail: string;
+  output?: string;
   metric?: string;
   state: StageState;
 }
@@ -106,12 +111,12 @@ export function IncrementalUpdateDiagram({
         </div>
       ) : null}
 
-      <ol className="grid gap-0 lg:grid-cols-5">
+      <ol className="grid gap-0 md:grid-cols-2 xl:grid-cols-4">
         {stages.map((stage, index) => (
           <li
             key={stage.label}
-            className={`relative min-h-44 border-b border-rule p-5 lg:border-b-0 ${
-              index > 0 ? "lg:border-l lg:border-rule" : ""
+            className={`relative min-h-48 border-b border-rule p-5 md:border-r md:last:border-r-0 xl:[&:nth-child(4n)]:border-r-0 ${
+              index >= 4 ? "xl:border-t" : ""
             } ${stageClassName(stage.state)}`}
           >
             <div className="flex items-start justify-between gap-3">
@@ -131,6 +136,11 @@ export function IncrementalUpdateDiagram({
             <p className="mt-3 min-h-12 text-body-sm text-ink-secondary">
               {stage.detail}
             </p>
+            {stage.output ? (
+              <p className="mt-3 rounded border border-rule bg-surface px-3 py-2 text-xs text-muted">
+                {stage.output}
+              </p>
+            ) : null}
             {stage.metric ? (
               <p className="mt-4 data-mono text-primary">{stage.metric}</p>
             ) : null}
@@ -138,10 +148,12 @@ export function IncrementalUpdateDiagram({
         ))}
       </ol>
 
-      <div className="grid gap-0 border-t border-rule sm:grid-cols-3">
+      <div className="grid gap-0 border-t border-rule sm:grid-cols-5">
         <Metric label="Collected" value={run.collected} />
         <Metric label="Selected as AI" value={run.selected} />
-        <Metric label="Loaded to database" value={run.loaded} />
+        <Metric label="New records" value={run.newRecords ?? run.result?.records_new_for_db} />
+        <Metric label="Updated records" value={run.updatedRecords ?? run.result?.records_updated_for_db} />
+        <Metric label="Loaded / updated" value={run.loaded} />
       </div>
     </div>
   );
@@ -155,11 +167,18 @@ function buildStages(run: IncrementalRunSnapshot): Stage[] {
   const collected = run.collected ?? run.result?.records_collected;
   const selected = run.selected ?? run.result?.records_selected_for_db;
   const loaded = run.loaded ?? run.result?.records_loaded;
+  const newRecords = run.newRecords ?? run.result?.records_new_for_db;
+  const updatedRecords = run.updatedRecords ?? run.result?.records_updated_for_db;
   const logPath = run.logPath ?? run.log_path;
+  const csvOutput = run.result?.csv_output;
+  const dbLoadOutput = run.result?.db_load_output;
 
   const collectedDone = typeof collected === "number";
   const selectedDone = typeof selected === "number";
   const loadedDone = typeof loaded === "number";
+  const classifiedDone = selectedDone || loadedDone || done;
+  const enrichedDone = collectedDone || classifiedDone || done;
+  const selectedDoneOrFinished = selectedDone || loadedDone || done;
 
   return [
     {
@@ -171,25 +190,63 @@ function buildStages(run: IncrementalRunSnapshot): Stage[] {
       state: failed || done || running ? "completed" : "remaining",
     },
     {
-      label: "Collect publications",
-      detail: "Fetch Sri Lanka publication records from the configured source window.",
+      label: "Fetch records",
+      detail: "Collect Sri Lanka publication records for the selected date window.",
       metric: metric(collected, "records collected"),
       state: stageState({ failed, done: collectedDone || done, running }),
     },
     {
+      label: "Normalize and match",
+      detail: "Clean DOI, OpenAlex ID and source IDs, then match incoming records to existing publications.",
+      output: csvOutput ? `Collected CSV: ${csvOutput}` : undefined,
+      state: stageState({
+        failed,
+        done: collectedDone || done,
+        running: collectedDone && running,
+      }),
+    },
+    {
+      label: "Fetch abstracts/keywords",
+      detail: "Before preprocessing, fill missing abstracts and keywords from fetched metadata when available.",
+      state: stageState({
+        failed,
+        done: enrichedDone,
+        running: collectedDone && running,
+      }),
+    },
+    {
       label: "Classify AI relevance",
-      detail: "Score title, abstract, keywords, topics and concepts with the AI relevance model.",
+      detail: "Score title, abstract, keywords, topics and concepts with the configured AI relevance model.",
       metric: metric(selected, "records selected"),
-      state: stageState({ failed, done: selectedDone || done, running: collectedDone && running }),
+      state: stageState({
+        failed,
+        done: classifiedDone,
+        running: enrichedDone && running,
+      }),
     },
     {
-      label: "Load or update records",
-      detail: "Insert new AI records and update matching existing records by DOI, OpenAlex ID or source ID.",
-      metric: metric(loaded, "records loaded"),
-      state: stageState({ failed, done: loadedDone || done, running: selectedDone && running }),
+      label: "Prepare DB rows",
+      detail: "Keep the configured DB labels and create the exact load file for PostgreSQL.",
+      metric: metric(selected, "records selected"),
+      output: dbLoadOutput ? `DB load CSV: ${dbLoadOutput}` : undefined,
+      state: stageState({
+        failed,
+        done: selectedDoneOrFinished,
+        running: selectedDone && running,
+      }),
     },
     {
-      label: "Save result",
+      label: "Load database",
+      detail: "Insert new rows and update matching existing rows by DOI, OpenAlex ID or source ID.",
+      metric: loadMetric({ loaded, newRecords, updatedRecords }),
+      state: stageState({
+        failed,
+        done: loadedDone || done,
+        running: selectedDoneOrFinished && running,
+      }),
+    },
+    {
+      label: "Save checkpoint",
       detail: logPath ? `Run log: ${logPath}` : "Write checkpoint, message and final status for the admin console.",
       state: failed ? "failed" : done ? "completed" : "remaining",
     },
@@ -220,6 +277,21 @@ function dateWindow(fromDate?: string | null, toDate?: string | null): string {
 
 function metric(value: number | null | undefined, label: string): string | undefined {
   return typeof value === "number" ? `${formatNumber(value)} ${label}` : undefined;
+}
+
+function loadMetric({
+  loaded,
+  newRecords,
+  updatedRecords,
+}: {
+  loaded: number | null | undefined;
+  newRecords: number | null | undefined;
+  updatedRecords: number | null | undefined;
+}): string | undefined {
+  if (typeof newRecords === "number" || typeof updatedRecords === "number") {
+    return `${formatNumber(newRecords ?? 0)} new / ${formatNumber(updatedRecords ?? 0)} updated`;
+  }
+  return metric(loaded, "records loaded");
 }
 
 function StatusPill({ status }: { status: string }) {

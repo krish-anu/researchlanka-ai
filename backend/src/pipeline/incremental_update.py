@@ -21,7 +21,13 @@ from src.collectors.openalex_collector import (
     OpenAlexCollector,
     openalex_work_id,
 )
+from src.database.connection import get_connection
 from src.database.load_records import load_record_file
+from src.database.loader import (
+    build_final_publication_row,
+    ensure_database_schema,
+    find_existing_publication_key,
+)
 from src.database.pipeline_state import (
     DEFAULT_INCREMENTAL_STATE_KEY,
     PipelineRunRecord,
@@ -67,6 +73,8 @@ class IncrementalRunResult:
     db_load_output: Path
     records_collected: int
     records_selected_for_db: int
+    records_new_for_db: int | None
+    records_updated_for_db: int | None
     records_loaded: int
     checkpoint_output: Path
     model_path: Path | None
@@ -124,6 +132,8 @@ def save_checkpoint(path: Path, *, result: IncrementalRunResult) -> None:
         "last_from_date": result.from_date,
         "last_records_collected": result.records_collected,
         "last_records_loaded": result.records_loaded,
+        "last_records_new_for_db": result.records_new_for_db,
+        "last_records_updated_for_db": result.records_updated_for_db,
         "last_raw_output": str(result.raw_output),
         "last_csv_output": str(result.csv_output),
         "last_db_load_output": str(result.db_load_output),
@@ -346,6 +356,29 @@ def write_rows_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def count_database_upsert_types(rows: list[dict[str, Any]]) -> tuple[int, int]:
+    """Return incoming rows that will insert vs update before the DB upsert runs."""
+
+    if not rows:
+        return 0, 0
+
+    connection = get_connection()
+    new_count = 0
+    update_count = 0
+    try:
+        ensure_database_schema(connection)
+        with connection.cursor() as cursor:
+            for row_number, record in enumerate(rows, start=1):
+                db_row = build_final_publication_row(record, row_number)
+                if find_existing_publication_key(cursor, db_row) is None:
+                    new_count += 1
+                else:
+                    update_count += 1
+        return new_count, update_count
+    finally:
+        connection.close()
+
+
 def run_incremental_update(
     *,
     state_path: Path,
@@ -407,6 +440,8 @@ def run_incremental_update(
     write_doi_conflict_report(raw_output, run_dir / "openalex_incremental_doi_conflicts.csv")
 
     records_loaded = 0
+    records_new_for_db = None
+    records_updated_for_db = None
     partial_result = {
         "run_id": run_id,
         "from_date": from_date.isoformat(),
@@ -416,6 +451,8 @@ def run_incremental_update(
         "db_load_output": db_load_output,
         "records_collected": len(rows),
         "records_selected_for_db": 0,
+        "records_new_for_db": None,
+        "records_updated_for_db": None,
         "records_loaded": 0,
         "checkpoint_output": state_path,
         "model_path": model_path,
@@ -428,6 +465,7 @@ def run_incremental_update(
         print(json.dumps(partial_result, indent=2, default=str))
         raise RuntimeError("DATABASE_URL is not set. Use --skip-db for a collection-only run.")
     else:
+        records_new_for_db, records_updated_for_db = count_database_upsert_types(db_rows)
         records_loaded = load_record_file(db_load_output, batch_size=batch_size)
 
     result = IncrementalRunResult(
@@ -439,6 +477,8 @@ def run_incremental_update(
         db_load_output=db_load_output,
         records_collected=len(rows),
         records_selected_for_db=len(db_rows),
+        records_new_for_db=records_new_for_db,
+        records_updated_for_db=records_updated_for_db,
         records_loaded=records_loaded,
         checkpoint_output=state_path,
         model_path=model_path,
