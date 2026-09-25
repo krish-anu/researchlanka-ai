@@ -1,37 +1,11 @@
 import type { Metadata } from "next";
 import { GoogleAnalytics } from "@next/third-parties/google";
-import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteNav, SiteSearchBar, AIScopeNote } from "@/components/layout/SiteNav";
 import { getViewer } from "@/services/auth/server";
 
 import "./globals.css";
-
-/**
- * The design system's three faces, each doing one job: Archivo for headings,
- * IBM Plex Sans for prose, IBM Plex Mono for DOIs and other machine identifiers.
- */
-const archivo = Archivo({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-archivo",
-  display: "swap",
-});
-
-const plexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-sans",
-  display: "swap",
-});
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-plex-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -55,10 +29,7 @@ export default async function RootLayout({
   const viewer = await getViewer();
 
   return (
-    <html
-      lang="en"
-      className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable}`}
-    >
+    <html lang="en">
       {/*
         The shell is one flex column that is at least as tall as the viewport,
         so the footer sits on the bottom edge even when a page renders almost
