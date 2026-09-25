@@ -46,11 +46,15 @@ class RecordingCursor:
     def execute(self, sql, params=None):
         self.connection.queries.append((sql, params))
 
+    def fetchone(self):
+        return self.connection.fetchone_result
+
 
 class RecordingConnection(FakeConnection):
     def __init__(self):
         super().__init__()
         self.queries = []
+        self.fetchone_result = (0, 0)
 
     def cursor(self):
         return RecordingCursor(self)
@@ -284,9 +288,21 @@ def test_reset_database_tables_truncates_publication_data():
 
     reset_database_tables(connection, tables=("final_publications",))
 
-    assert connection.queries == [
-        ('TRUNCATE TABLE "final_publications" RESTART IDENTITY CASCADE', None)
-    ]
+    assert "FROM ai_review_records" in connection.queries[0][0]
+    assert connection.queries[-1] == (
+        'TRUNCATE TABLE "final_publications" RESTART IDENTITY CASCADE',
+        None,
+    )
+
+
+def test_reset_database_tables_refuses_to_drop_review_history():
+    connection = RecordingConnection()
+    connection.fetchone_result = (2, 1)
+
+    with pytest.raises(RuntimeError, match="AI review history exists"):
+        reset_database_tables(connection, tables=("final_publications",))
+
+    assert all("TRUNCATE TABLE" not in sql for sql, _ in connection.queries)
 
 
 def test_load_record_file_can_reset_before_loading(tmp_path, monkeypatch):
@@ -331,9 +347,11 @@ def test_load_record_file_can_reset_before_loading(tmp_path, monkeypatch):
 
     assert loaded == 1
     assert events == ["ensure_schema", "load"]
-    assert connection.queries == [
-        ('TRUNCATE TABLE "final_publications" RESTART IDENTITY CASCADE', None)
-    ]
+    assert "FROM ai_review_records" in connection.queries[0][0]
+    assert connection.queries[-1] == (
+        'TRUNCATE TABLE "final_publications" RESTART IDENTITY CASCADE',
+        None,
+    )
     assert connection.commits == 3
     assert connection.closed is True
 

@@ -119,6 +119,8 @@ export default async function TopicsPage({
                       publicationSearchHref(
                         level === "subfield"
                           ? { subfield: label }
+                          : level === "domain"
+                            ? { domain: label }
                           : { field: label },
                       )
                     }

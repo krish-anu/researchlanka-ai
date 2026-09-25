@@ -94,7 +94,7 @@ API_EXTRA_ARGS ?=
 MODEL_API_HOST ?= 127.0.0.1
 MODEL_API_PORT ?= 8081
 MODEL_API_EXTRA_ARGS ?=
-DB_LOAD_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
+DB_LOAD_INPUT ?= data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
 DB_LOAD_BATCH_SIZE ?= 1000
 DB_LOAD_YEAR_MIN ?= 2016
 DB_LOAD_YEAR_MAX ?= 2026
@@ -107,9 +107,17 @@ INCREMENTAL_PER_PAGE ?= 200
 INCREMENTAL_MAX_RECORDS ?=
 INCREMENTAL_MODEL ?=
 INCREMENTAL_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
-INCREMENTAL_DB_LABELS ?= AI
+INCREMENTAL_DB_LABELS ?= AI,review
 INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?= 0.6
 INCREMENTAL_EXTRA_ARGS ?=
+AI_DATASET_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
+AI_DATASET_CLASSIFIED_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_classified.csv
+AI_DATASET_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
+AI_DATASET_MODEL ?= data/models/ai_relevance/ai_relevance_linear_svm.joblib
+AI_DATASET_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
+AI_DATASET_DB_LABELS ?= AI,review
+AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD ?=
+AI_DATASET_EXTRA_ARGS ?=
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
 LOGREG_MAX_DF ?= 0.95
@@ -193,11 +201,11 @@ help:
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
 	@echo "  make api                     Serve the read-only ResearchLanka API"
-	@echo "  make load-db-2016-now        Load only 2016-2026 records into final_publications"
+	@echo "  make load-db-2016-now        Load the AI-reviewed 2016-2026 dataset"
 	@echo "  make reset-db-2016-now       Clear final_publications, then load 2016-2026 records"
 	@echo "  make load-full-db-2016-now   Load only 2016-2026 records into all database tables"
-	@echo "  make ai-dataset              Classify historical final CSV and write AI-only dataset"
-	@echo "  make reset-db-ai             Reset PostgreSQL and load AI-only historical dataset"
+	@echo "  make ai-dataset              Classify historical final CSV and write AI-reviewed dataset"
+	@echo "  make reset-db-ai             Build and load AI-reviewed historical dataset"
 	@echo "  make incremental-update      Collect since checkpoint, classify, upsert, and save checkpoint"
 	@echo "  make reset-full-db-2016-now  Clear database tables, then load 2016-2026 records"
 	@echo "  make incremental-update      Collect since checkpoint, classify AI relevance, and upsert AI rows"
@@ -263,6 +271,30 @@ load-full-db-2016-now:
 
 reset-full-db-2016-now:
 	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
+
+ai-dataset:
+	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
+		--input $(AI_DATASET_INPUT) \
+		--classified-output $(AI_DATASET_CLASSIFIED_OUTPUT) \
+		--ai-output $(AI_DATASET_OUTPUT) \
+		--model $(AI_DATASET_MODEL) \
+		--text-columns $(AI_DATASET_TEXT_COLUMNS) \
+		--db-labels $(AI_DATASET_DB_LABELS) \
+		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
+		$(AI_DATASET_EXTRA_ARGS)
+
+reset-db-ai:
+	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
+		--input $(AI_DATASET_INPUT) \
+		--classified-output $(AI_DATASET_CLASSIFIED_OUTPUT) \
+		--ai-output $(AI_DATASET_OUTPUT) \
+		--model $(AI_DATASET_MODEL) \
+		--text-columns $(AI_DATASET_TEXT_COLUMNS) \
+		--db-labels $(AI_DATASET_DB_LABELS) \
+		--load-db \
+		--batch-size $(DB_LOAD_BATCH_SIZE) \
+		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
+		$(AI_DATASET_EXTRA_ARGS)
 
 incremental-update:
 	$(PYTHON) -m src.pipeline.incremental_update \
