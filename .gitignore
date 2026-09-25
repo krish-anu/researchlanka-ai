@@ -95,6 +95,7 @@ backend/data/raw/
 backend/data/processed/
 backend/data/interim/
 backend/data/external/
+backend/data/Finished/
 backend/data/models/
 backend/data/reports/
 backend/data/results/
