@@ -63,6 +63,14 @@
   --serious: #a8481b;
   --critical: #ba1a1a;
   --success-text: #1c6b3f;
+
+  /*
+   * Keep builds deterministic by using local system stacks. The semantic
+   * variables preserve the design-system API without fetching Google Fonts.
+   */
+  --font-archivo: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-plex-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-plex-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 :root[data-theme="dark"] {
