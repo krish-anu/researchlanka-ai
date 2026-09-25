@@ -134,7 +134,9 @@ export function ManualAIUpdatePanel({
           <SummaryRow label="Finished" value={formatDate(run.finishedAt ?? null)} />
           <SummaryRow label="Collected" value={formatNumber(run.collected ?? null)} />
           <SummaryRow label="Selected" value={formatNumber(run.selected ?? null)} />
-          <SummaryRow label="Loaded" value={formatNumber(run.loaded ?? null)} />
+          <SummaryRow label="New records" value={formatNumber(run.newRecords ?? null)} />
+          <SummaryRow label="Updated records" value={formatNumber(run.updatedRecords ?? null)} />
+          <SummaryRow label="Loaded / updated" value={formatNumber(run.loaded ?? null)} />
         </dl>
       </form>
 

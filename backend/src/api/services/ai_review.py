@@ -433,9 +433,8 @@ def review_stats(connection: Any) -> dict[str, Any]:
                count(*) FILTER (WHERE review_status <> 'pending_review') AS completed,
                count(*) AS total
         FROM ai_review_records
-        WHERE assigned_reviewer_email IS NOT NULL
         GROUP BY assigned_reviewer_email, assigned_reviewer_name
-        ORDER BY assigned_reviewer_email
+        ORDER BY assigned_reviewer_email NULLS FIRST
         """,
     )
     failed = _fetch_one(

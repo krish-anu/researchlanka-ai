@@ -23,6 +23,7 @@ export default async function AdminUsersPage() {
   }));
 
   const admins = view.filter((user) => user.role === "admin").length;
+  const reviewers = view.filter((user) => user.role === "reviewer").length;
   const suspended = view.filter((user) => user.disabled).length;
 
   return (
@@ -44,13 +45,18 @@ export default async function AdminUsersPage() {
           caption="hold the admin role"
         />
         <StatTile
+          label="Reviewers"
+          value={formatNumber(reviewers)}
+          caption="can review assigned AI records"
+        />
+        <StatTile
           label="Suspended"
           value={formatNumber(suspended)}
           caption="blocked from signing in"
         />
         <StatTile
           label="Signed-in users"
-          value={formatNumber(view.length - admins)}
+          value={formatNumber(view.length - admins - reviewers)}
           caption="standard accounts"
         />
       </StatTileGrid>
@@ -65,6 +71,10 @@ export default async function AdminUsersPage() {
           <li>
             <strong className="text-ink">Signed in.</strong>{" "}
             {ROLE_DESCRIPTION.user}
+          </li>
+          <li>
+            <strong className="text-ink">Reviewer.</strong>{" "}
+            {ROLE_DESCRIPTION.reviewer}
           </li>
           <li>
             <strong className="text-ink">Administrator.</strong>{" "}

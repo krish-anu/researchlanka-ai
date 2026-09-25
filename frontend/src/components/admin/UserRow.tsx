@@ -37,8 +37,6 @@ export function UserRow({
   const [roleState, roleAction] = useActionState(changeUserRole, IDLE);
   const [accessState, accessAction] = useActionState(toggleUserAccess, IDLE);
 
-  const nextRole: AccountRole = user.role === "admin" ? "user" : "admin";
-
   return (
     <article className="panel p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -75,16 +73,20 @@ export function UserRow({
       </dl>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-rule pt-4">
-        <form action={roleAction}>
+        <form action={roleAction} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="user_id" value={user.id} />
-          <input type="hidden" name="role" value={nextRole} />
+          <select
+            name="role"
+            defaultValue={user.role}
+            className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+          >
+            <option value="user">Signed-in user</option>
+            <option value="reviewer">Reviewer</option>
+            <option value="admin">Administrator</option>
+          </select>
           <SubmitButton
-            label={
-              nextRole === "admin"
-                ? "Grant administrator"
-                : "Revoke administrator"
-            }
-            tone={nextRole === "admin" ? "primary" : "neutral"}
+            label="Update role"
+            tone="primary"
           />
         </form>
 

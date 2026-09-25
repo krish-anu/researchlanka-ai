@@ -41,14 +41,14 @@ export default async function AdminLayout({
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
-          <RoleBadge role="admin" />
+          <RoleBadge role={user?.role ?? "admin"} />
           <span className="text-body-sm text-muted">
             {user?.email ?? "Administrator session"}
           </span>
         </div>
       </header>
 
-      <AdminNav badges={{ flags: 0, review: 0, aiReview: 0 }} />
+      <AdminNav badges={{ flags: 0, review: 0, aiReview: 0 }} role={user?.role ?? "admin"} />
 
       {children}
     </div>

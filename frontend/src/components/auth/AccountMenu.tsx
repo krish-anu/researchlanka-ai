@@ -136,6 +136,15 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
               >
                 Administration
               </Link>
+            ) : role === "reviewer" ? (
+              <Link
+                href="/admin/ai-review"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="rounded px-2 py-1.5 text-body-sm font-semibold text-primary hover:bg-wash"
+              >
+                AI review
+              </Link>
             ) : null}
           </div>
 
