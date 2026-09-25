@@ -1,0 +1,30 @@
+aws_region = "us-east-1"
+
+# Free Tier eligible default. For serving the full app, use t3.large. Use
+# t3.xlarge if this instance also runs monthly data/model refresh jobs.
+instance_type = "t3.micro"
+
+# Restrict SSH to your current public IP, for example "203.0.113.10/32".
+allowed_ssh_cidr = "0.0.0.0/0"
+
+# Use ["0.0.0.0/0"] for a public demo, or your IP/CIDR for private access.
+allowed_frontend_cidrs = ["0.0.0.0/0"]
+
+frontend_port       = 3000
+root_volume_size_gb = 30
+
+create_key_pair    = true
+key_pair_name      = "researchlanka-ec2"
+ssh_public_key_path = "~/.ssh/researchlanka_ec2.pub"
+
+# Leave null to use the default VPC and subnet selected by AWS.
+vpc_id    = null
+subnet_id = null
+
+# Optional: clone the app on first boot. Use the SSH or HTTPS URL your instance
+# can access, for example "https://github.com/OWNER/researchlanka-ai.git".
+github_repo_url = ""
+
+tags = {
+  Environment = "production"
+}
