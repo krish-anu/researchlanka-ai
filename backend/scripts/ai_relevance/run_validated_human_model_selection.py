@@ -345,6 +345,15 @@ def split_human_remainder(config: Config) -> tuple[pd.DataFrame, pd.DataFrame, p
         keep_default_na=False,
         low_memory=False,
     )
+    for frame in (test, remainder):
+        if "human_final_label" in frame.columns:
+            frame["label"] = frame["human_final_label"].map(normalize_label)
+        if "human_review_status" in frame.columns:
+            frame.drop(
+                frame[frame["human_review_status"].eq("AMBIGUOUS_REVIEW")].index,
+                inplace=True,
+            )
+        frame.drop(frame[~frame["label"].isin(LABELS)].index, inplace=True)
     train_human, validation = train_test_split(
         prepare_text(remainder),
         test_size=config.validation_size,
