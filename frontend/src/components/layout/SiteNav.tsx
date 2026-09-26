@@ -339,8 +339,99 @@ export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
   );
 }
 
+const AI_SCOPE_DISMISSED_KEY = "rl-ai-scope-dismissed";
+const AI_SCOPE_HIDDEN = ["/admin", "/account", "/login", "/register", "/forbidden"];
+
+/**
+ * Scope disclosure for the AI collection.
+ * Overview always shows the full note. Elsewhere: full note until the visitor
+ * dismisses for the session, then a compact chip so the caveat stays findable.
+ */
 export function AIScopeNote() {
   const pathname = usePathname() ?? "/";
-  if (["/admin", "/account", "/login", "/register", "/forbidden"].some(path => pathname.startsWith(path))) return null;
-  return <div className="ai-scope"><span className="ai-scope-dot" /><span><strong>AI-related publications only.</strong> Charts, rankings, profiles, and exports describe the accepted AI collection.</span><Link href="/data-quality" className="ml-auto shrink-0 text-primary hover:underline">About the data ↗</Link></div>;
+  const [ready, setReady] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDismissed(sessionStorage.getItem(AI_SCOPE_DISMISSED_KEY) === "1");
+    } catch {
+      setDismissed(false);
+    }
+    setReady(true);
+  }, []);
+
+  if (AI_SCOPE_HIDDEN.some((path) => pathname.startsWith(path))) return null;
+
+  const isOverview = pathname === "/";
+
+  // Avoid SSR/client mismatch: wait until sessionStorage is read.
+  if (!isOverview && !ready) return null;
+
+  const dismiss = () => {
+    try {
+      sessionStorage.setItem(AI_SCOPE_DISMISSED_KEY, "1");
+    } catch {
+      /* private mode / blocked storage — still collapse for this view */
+    }
+    setDismissed(true);
+  };
+
+  // Overview always carries the full scope statement (first-visit framing).
+  if (isOverview) {
+    return (
+      <div className="ai-scope" role="note">
+        <span className="ai-scope-dot" aria-hidden />
+        <span>
+          <strong>AI-related publications only.</strong> Charts, rankings,
+          profiles, and exports describe the accepted AI collection.
+        </span>
+        <Link
+          href="/data-quality"
+          className="ml-auto shrink-0 text-primary hover:underline"
+        >
+          About the data ↗
+        </Link>
+      </div>
+    );
+  }
+
+  // After dismiss: compact chip so the scope stays findable without repeating
+  // the full strip on every page.
+  if (dismissed) {
+    return (
+      <div className="ai-scope ai-scope-chip" role="note">
+        <span className="ai-scope-dot" aria-hidden />
+        <span className="ai-scope-chip-label">AI collection only</span>
+        <Link
+          href="/data-quality"
+          className="shrink-0 text-primary hover:underline"
+        >
+          About the data
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ai-scope" role="note">
+      <span className="ai-scope-dot" aria-hidden />
+      <span>
+        <strong>AI-related publications only.</strong> Charts, rankings,
+        profiles, and exports describe the accepted AI collection.
+      </span>
+      <div className="ml-auto flex shrink-0 items-center gap-3">
+        <Link href="/data-quality" className="text-primary hover:underline">
+          About the data ↗
+        </Link>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="interactive rounded px-1.5 py-0.5 text-[10px] font-medium text-muted hover:bg-surface hover:text-ink"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
 }

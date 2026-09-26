@@ -467,6 +467,15 @@
   .page-eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 600; color: var(--ink-secondary); text-transform: uppercase; }
   .ai-scope { display: flex; align-items: center; gap: 9px; border: 1px solid var(--rule); border-radius: 8px; background: var(--wash); padding: 10px 14px; color: var(--ink-secondary); font-size: 10px; margin-bottom: 24px; }
   .ai-scope-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--primary); }
+  .ai-scope-chip {
+    gap: 8px;
+    padding: 6px 10px;
+    margin-bottom: 16px;
+  }
+  .ai-scope-chip-label {
+    font-weight: 600;
+    color: var(--ink-secondary);
+  }
   .research-hero { position: relative; overflow: hidden; background: #143e30; color: #fff; border-radius: 16px; padding: 28px 32px; min-height: 192px; }
   .research-hero h2 { font-size: 31px; font-weight: 500; letter-spacing: -.8px; line-height: 1.25; margin: 10px 0; }
   .research-hero em { font-family: Georgia, serif; font-weight: 400; color: #d5edb4; }
