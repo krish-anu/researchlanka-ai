@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import logging
+import os
 import re
 import sys
 from collections.abc import Iterable, Iterator
@@ -274,8 +275,9 @@ def load_record_file(
     year_max: int | None = None,
     require_doi: bool = False,
     reset: bool = False,
+    retire_stale: bool = False,
 ) -> int:
-    """Load a record file into PostgreSQL in batches and return loaded row count."""
+    """Stage, validate, and upsert a record file while preserving review history."""
 
     records: Iterable[dict[str, Any]] = iter_record_file(path, file_format=file_format)
     records = filter_records_by_publication_year(
@@ -291,8 +293,10 @@ def load_record_file(
         records = islice(records, limit)
 
     connection = get_connection(database_url)
+    loaded_publication_keys: set[str] = set()
     try:
         if reset:
+            ensure_destructive_reset_allowed()
             if ensure_schema:
                 ensure_database_schema(connection)
                 connection.commit()
@@ -301,6 +305,17 @@ def load_record_file(
             connection.commit()
         total = 0
         for batch_number, batch in enumerate(chunked(records, batch_size), start=1):
+            staged_rows = [
+                build_final_publication_row(record, row_number)
+                for row_number, record in enumerate(batch, start=1)
+            ]
+            loaded_publication_keys.update(str(row["publication_key"]) for row in staged_rows)
+            logger.info(
+                "Validated staged batch %s from %s with %s publication rows",
+                batch_number,
+                path,
+                len(staged_rows),
+            )
             loaded = load_final_publications(
                 batch,
                 connection=connection,
@@ -308,12 +323,70 @@ def load_record_file(
             )
             connection.commit()
             total += loaded
+        if retire_stale:
+            retired = retire_stale_publications(
+                connection,
+                active_publication_keys=loaded_publication_keys,
+                year_min=year_min,
+                year_max=year_max,
+            )
+            connection.commit()
+            logger.info("Retired %s stale final_publications rows after %s", retired, path)
         return total
     except Exception:
         connection.rollback()
         raise
     finally:
         connection.close()
+
+
+def ensure_destructive_reset_allowed() -> None:
+    """Require an explicit local-clean-setup opt-in before truncating data."""
+
+    if os.environ.get("RESEARCHLANKA_ALLOW_DESTRUCTIVE_RESET") == "1":
+        return
+    raise RuntimeError(
+        "--reset is disabled for routine loads because it can erase review decisions "
+        "and audit history. Use the default upsert flow, optionally with --retire-stale. "
+        "For an intentional local clean setup only, set "
+        "RESEARCHLANKA_ALLOW_DESTRUCTIVE_RESET=1."
+    )
+
+
+def retire_stale_publications(
+    connection: Any,
+    *,
+    active_publication_keys: set[str],
+    year_min: int | None = None,
+    year_max: int | None = None,
+    reason: str = "missing_from_latest_validated_snapshot",
+) -> int:
+    """Soft-retire records absent from the latest validated snapshot."""
+
+    clauses = ["retired_at IS NULL"]
+    params: list[Any] = []
+    if active_publication_keys:
+        clauses.append("NOT (publication_key = ANY(%s))")
+        params.append(list(active_publication_keys))
+    if year_min is not None:
+        clauses.append("publication_year >= %s")
+        params.append(year_min)
+    if year_max is not None:
+        clauses.append("publication_year <= %s")
+        params.append(year_max)
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            UPDATE final_publications
+            SET retired_at = now(),
+                retirement_reason = %s,
+                updated_at = now()
+            WHERE {" AND ".join(clauses)}
+            """,
+            [reason, *params],
+        )
+        return int(getattr(cursor, "rowcount", 0) or 0)
 
 
 def _split_text_values(value: Any) -> list[str]:
@@ -1818,6 +1891,7 @@ def load_full_database_dataset(
             ensure_database_schema(connection)
             connection.commit()
         if reset:
+            ensure_destructive_reset_allowed()
             logger.info("Resetting publication database tables before loading")
             reset_database_tables(connection)
             connection.commit()
@@ -1950,7 +2024,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="Delete existing final_publications rows before loading.",
+        help=(
+            "Destructive local clean-setup only. Requires "
+            "RESEARCHLANKA_ALLOW_DESTRUCTIVE_RESET=1."
+        ),
+    )
+    parser.add_argument(
+        "--retire-stale",
+        action="store_true",
+        help="Soft-retire records in the selected year range that are missing from this validated snapshot.",
     )
     parser.add_argument(
         "--no-ensure-schema",
@@ -1976,6 +2058,7 @@ def main(argv: list[str] | None = None) -> None:
             year_max=args.year_max,
             require_doi=args.require_doi,
             reset=args.reset,
+            retire_stale=args.retire_stale,
         )
     except Exception as exc:
         raise SystemExit(f"Failed to load records: {exc}") from exc

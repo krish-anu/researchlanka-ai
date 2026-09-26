@@ -15,13 +15,13 @@ when your EC2 instance is too small for the model and embedding build.
 
 The public app database is intended to contain AI-related publications only, not
 the full 41k publication pool. After the historical AI classifier is ready, run
-one reset load to classify the existing final CSV and replace PostgreSQL with
-only AI-labelled rows:
+the review-preserving upsert flow to classify the existing final CSV and load
+AI-labelled rows without truncating review decisions or audit history:
 
 ```bash
 cd ~/researchlanka-ai/backend
 DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchlanka" \
-make reset-db-ai \
+make load-db-ai \
   AI_DATASET_MODEL="data/models/ai_publication_classifier_5k.joblib" \
   AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD="0.65"
 ```

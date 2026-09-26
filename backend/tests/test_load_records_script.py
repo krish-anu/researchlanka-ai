@@ -7,11 +7,13 @@ from research_analytics.cli import load_database_records
 from src.database.load_records import (
     DatabaseLoadValidationError,
     detect_format,
+    ensure_destructive_reset_allowed,
     filter_records_with_doi,
     filter_records_by_publication_year,
     iter_record_file,
     load_record_file,
     publication_required_title,
+    retire_stale_publications,
     reset_database_tables,
     validate_loaded_database_tables,
 )
@@ -45,6 +47,7 @@ class RecordingCursor:
 
     def execute(self, sql, params=None):
         self.connection.queries.append((sql, params))
+        self.rowcount = self.connection.rowcount
 
     def fetchone(self):
         return self.connection.fetchone_result
@@ -55,6 +58,7 @@ class RecordingConnection(FakeConnection):
         super().__init__()
         self.queries = []
         self.fetchone_result = (0, 0)
+        self.rowcount = 0
 
     def cursor(self):
         return RecordingCursor(self)
@@ -283,7 +287,14 @@ def test_load_record_file_can_require_doi_before_batching(tmp_path, monkeypatch)
     assert captured_batches == [[{"title": "Has DOI", "doi": "10.123/example"}]]
 
 
-def test_reset_database_tables_truncates_publication_data():
+def test_destructive_reset_requires_explicit_local_opt_in(monkeypatch):
+    monkeypatch.delenv("RESEARCHLANKA_ALLOW_DESTRUCTIVE_RESET", raising=False)
+
+    with pytest.raises(RuntimeError, match="--reset is disabled"):
+        ensure_destructive_reset_allowed()
+
+
+def test_reset_database_tables_truncates_publication_data_with_opt_in():
     connection = RecordingConnection()
 
     reset_database_tables(connection, tables=("final_publications",))
@@ -305,7 +316,7 @@ def test_reset_database_tables_refuses_to_drop_review_history():
     assert all("TRUNCATE TABLE" not in sql for sql, _ in connection.queries)
 
 
-def test_load_record_file_can_reset_before_loading(tmp_path, monkeypatch):
+def test_load_record_file_can_reset_before_loading_with_opt_in(tmp_path, monkeypatch):
     path = tmp_path / "records.json"
     path.write_text(
         json.dumps([{"title": "In range", "publication_year": 2024}]),
@@ -328,6 +339,7 @@ def test_load_record_file_can_reset_before_loading(tmp_path, monkeypatch):
         "src.database.load_records.get_connection",
         lambda database_url=None: connection,
     )
+    monkeypatch.setenv("RESEARCHLANKA_ALLOW_DESTRUCTIVE_RESET", "1")
     monkeypatch.setattr(
         "src.database.load_records.ensure_database_schema",
         fake_ensure_database_schema,
@@ -354,6 +366,32 @@ def test_load_record_file_can_reset_before_loading(tmp_path, monkeypatch):
     )
     assert connection.commits == 3
     assert connection.closed is True
+
+
+def test_retire_stale_publications_soft_retires_missing_keys_in_year_range():
+    connection = RecordingConnection()
+    connection.rowcount = 2
+
+    retired = retire_stale_publications(
+        connection,
+        active_publication_keys={"doi:10.1000/active"},
+        year_min=2016,
+        year_max=2026,
+    )
+
+    assert retired == 2
+    sql, params = connection.queries[0]
+    assert "UPDATE final_publications" in sql
+    assert "retired_at = now()" in sql
+    assert "publication_key = ANY" in sql
+    assert "publication_year >= %s" in sql
+    assert "publication_year <= %s" in sql
+    assert params == [
+        "missing_from_latest_validated_snapshot",
+        ["doi:10.1000/active"],
+        2016,
+        2026,
+    ]
 
 
 def test_iter_csv_records_handles_large_fields(tmp_path):

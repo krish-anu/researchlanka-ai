@@ -358,7 +358,7 @@ def final_publications_upsert_sql() -> str:
         f"INSERT INTO {quote_identifier(FINAL_PUBLICATION_TABLE)} ({quoted_columns}) "
         f"VALUES ({placeholders}) "
         "ON CONFLICT (publication_key) DO UPDATE SET "
-        f"{update_assignments}, updated_at = now()"
+        f"{update_assignments}, retired_at = NULL, retirement_reason = NULL, updated_at = now()"
     )
 
 

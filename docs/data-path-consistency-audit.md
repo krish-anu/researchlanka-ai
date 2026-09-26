@@ -12,7 +12,7 @@ The intended contract used for this review comes from the root README's Sri Lank
 
 | Entry point or feature | Actual source and behavior | Assessment |
 |---|---|---|
-| Root fresh-clone instructions | `make reset-db-ai` delegates to a nonexistent backend target | Broken setup |
+| Root fresh-clone instructions | Historical `make reset-db-ai` path now delegates to a non-destructive compatibility alias; prefer `make load-db-ai` | Compatibility path |
 | Manual database Make targets | `common_publications_final_2016_2026.csv`; no AI classification or review backfill | Broader than public corpus |
 | Manual runbook database load | Type/journal-normalized CSV; no AI classification or review backfill | Different branch again |
 | EC2 initial deployment | AI-only CSV with DOI requirement; separate review runbook provides backfill | Depends on following both workflows |
@@ -70,7 +70,7 @@ For newly inserted keys, an AI classification alone does not satisfy the public 
 
 The monthly scripts invoke reset targets, and the historical builder uses `reset=True`. Rebuilding the publication table therefore clears durable review history and queued synchronization work. Running backfill afterward cannot reconstruct completed human decisions or their audit trail.
 
-**Correction:** use staged, validated upserts and controlled retirement of missing records for routine refreshes. Reserve destructive resets for explicit clean setup; preserve review history by stable publication identity.
+**Correction:** use staged, validated upserts and controlled retirement of missing records for routine refreshes. Reserve destructive resets for explicit clean setup; preserve review history by stable publication identity. Current loader safeguards disable `--reset` unless `RESEARCHLANKA_ALLOW_DESTRUCTIVE_RESET=1` is explicitly set, and `--retire-stale` soft-retires missing records instead of deleting them.
 
 ### 6. P1 — Monthly refreshes select the broad CSV instead of the AI workflow output
 
@@ -154,9 +154,9 @@ Running all the normalization commands does not mean the application receives al
 
 ### 16. P1 — The documented AI setup commands do not exist in the backend
 
-Root `Makefile:67` and `:70` delegate `ai-dataset` and `reset-db-ai`; the backend Makefile only mentions them in help text. The root README tells new users to run `make reset-db-ai`.
+Root `Makefile` now exposes `load-db-ai` for the historical AI dataset load. `reset-db-ai` remains only as a compatibility alias that prints a production-safety warning and delegates to the non-destructive load.
 
-**Reproduced safely:** `make -n reset-db-ai` exits 2 with `No rule to make target 'reset-db-ai'`. The AI builder module exists, but is not wired to these commands. Additionally, `backend/docs/PIPELINE_RUNBOOK.md` says all commands run from repository root while its paths (`requirements.txt`, `scripts/...`, `data/...`) are backend-relative in the current layout.
+**Current status:** the AI builder module is wired through `make load-db-ai`; `make reset-db-ai` no longer performs a destructive reset. `backend/docs/PIPELINE_RUNBOOK.md` still says all commands run from repository root while its paths (`requirements.txt`, `scripts/...`, `data/...`) are backend-relative in the current layout.
 
 **Correction:** wire the commands to the shared review-aware pipeline, then verify setup with Make dry runs and a clean-directory smoke test. Correct the runbook's working-directory instruction.
 
@@ -195,7 +195,7 @@ Before calling the paths consistent, test a small shared corpus containing accep
 
 ## Verification performed
 
-- Read-only Make dry run reproduced the missing `reset-db-ai` target.
+- Read-only Make dry run previously reproduced the missing `reset-db-ai` target; this is now covered by the `load-db-ai` target and non-destructive compatibility alias.
 - In-memory SQL capture confirmed that list queries include review acceptance while detail/profile/suggestion/metadata/coauthor queries do not.
 - Synthetic records reproduced ownership exclusion bypass, entry-point-dependent classification, and collection-only checkpoint advancement. External collection and persistence were mocked.
 - Existing NMF fixture reproduced ignored directory filters.

@@ -197,7 +197,7 @@ INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_END_DATE),--end-date $(INCREMENTAL_
 INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
 INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -207,12 +207,11 @@ help:
 	@echo "  make test                    Run the test suite"
 	@echo "  make api                     Serve the read-only ResearchLanka API"
 	@echo "  make load-db-2016-now        Load the AI-reviewed 2016-2026 dataset"
-	@echo "  make reset-db-2016-now       Clear final_publications, then load 2016-2026 records"
+	@echo "  make retire-stale-db-2016-now  Stage, validate, upsert, then soft-retire missing 2016-2026 records"
 	@echo "  make load-full-db-2016-now   Load only 2016-2026 records into all database tables"
 	@echo "  make ai-dataset              Classify historical final CSV and write AI-reviewed dataset"
-	@echo "  make reset-db-ai             Build and load AI-reviewed historical dataset"
+	@echo "  make load-db-ai              Build and upsert AI-reviewed historical dataset"
 	@echo "  make incremental-update      Collect since checkpoint, classify, upsert, and save checkpoint"
-	@echo "  make reset-full-db-2016-now  Clear database tables, then load 2016-2026 records"
 	@echo "  make incremental-update      Collect since checkpoint, classify AI relevance, and upsert AI rows"
 	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
@@ -270,14 +269,11 @@ api:
 load-db-2016-now:
 	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
 
-reset-db-2016-now:
-	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
+retire-stale-db-2016-now:
+	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --retire-stale
 
 load-full-db-2016-now:
 	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
-
-reset-full-db-2016-now:
-	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
 
 ai-dataset: enrich-missing-text
 	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
@@ -290,7 +286,7 @@ ai-dataset: enrich-missing-text
 		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
 		$(AI_DATASET_EXTRA_ARGS)
 
-reset-db-ai: enrich-missing-text
+load-db-ai: enrich-missing-text
 	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
 		--input $(AI_DATASET_INPUT) \
 		--classified-output $(AI_DATASET_CLASSIFIED_OUTPUT) \
@@ -302,6 +298,10 @@ reset-db-ai: enrich-missing-text
 		--batch-size $(DB_LOAD_BATCH_SIZE) \
 		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
 		$(AI_DATASET_EXTRA_ARGS)
+
+reset-db-ai:
+	@echo "reset-db-ai is deprecated for production safety; use make load-db-ai."
+	$(MAKE) load-db-ai
 
 incremental-update:
 	$(PYTHON) -m src.pipeline.incremental_update \
