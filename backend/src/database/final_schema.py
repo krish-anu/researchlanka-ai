@@ -12,10 +12,20 @@ AI_CLASSIFICATION_COLUMNS = (
     "ai_classification_model",
     "ai_classification_reason",
 )
+PUBLIC_TRACE_COLUMNS = (
+    "collected_at",
+    "normalized_at",
+    "classifier_version",
+    "classifier_probability",
+    "classifier_decision",
+    "dataset_version",
+    "pipeline_version",
+)
 FINAL_PUBLICATION_COLUMNS = tuple(FINAL_MAIN_COLUMNS)
 DATABASE_PUBLICATION_COLUMNS = (
     *FINAL_PUBLICATION_COLUMNS,
     *AI_CLASSIFICATION_COLUMNS,
+    *PUBLIC_TRACE_COLUMNS,
 )
 
 INTEGER_COLUMNS = {
@@ -39,6 +49,8 @@ DATE_COLUMNS = {
 
 TIMESTAMPTZ_COLUMNS = {
     "source_datestamp",
+    "collected_at",
+    "normalized_at",
 }
 
 TEXT_COLUMNS = set(DATABASE_PUBLICATION_COLUMNS) - (

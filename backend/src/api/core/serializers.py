@@ -31,6 +31,7 @@ def publication_summary(row: dict[str, Any]) -> dict[str, Any]:
         "ai_classification_label": normalized.get("ai_classification_label"),
         "ai_classification_confidence": normalized.get("ai_classification_confidence"),
         "source_dataset": normalized.get("source_dataset", []),
+        "trace": publication_trace(normalized),
         "quality_flags": quality_flags(normalized),
     }
 
@@ -90,6 +91,9 @@ def publication_detail(row: dict[str, Any]) -> dict[str, Any]:
             "ai_confidence": normalized.get("ai_classification_confidence"),
             "ai_model": normalized.get("ai_classification_model"),
             "ai_reason": normalized.get("ai_classification_reason"),
+            "classifier_version": normalized.get("classifier_version"),
+            "classifier_probability": normalized.get("classifier_probability"),
+            "classifier_decision": normalized.get("classifier_decision"),
         },
         "funding": {
             "funder_name": normalized.get("funder_name", []),
@@ -102,9 +106,39 @@ def publication_detail(row: dict[str, Any]) -> dict[str, Any]:
             "source_institution_id": normalized.get("source_institution_id"),
             "source_record_id": normalized.get("source_record_id"),
             "source_datestamp": normalized.get("source_datestamp"),
+            "collected_at": normalized.get("collected_at"),
+            "normalized_at": normalized.get("normalized_at"),
+            "ownership_version": normalized.get("ownership_policy_version"),
+            "review_status": normalized.get("review_status"),
+            "reviewed_by": normalized.get("reviewed_by"),
+            "reviewed_at": normalized.get("reviewed_at"),
+            "dataset_version": normalized.get("dataset_version"),
+            "pipeline_version": normalized.get("pipeline_version"),
             "raw_identifiers": normalized.get("raw_identifiers"),
             "raw_record_available": bool(normalized.get("raw_record")),
         },
+    }
+
+
+def publication_trace(normalized: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source": normalized.get("source_dataset", []),
+        "source_record_id": normalized.get("source_record_id"),
+        "collected_at": normalized.get("collected_at")
+        or normalized.get("source_datestamp"),
+        "normalized_at": normalized.get("normalized_at"),
+        "classifier_version": normalized.get("classifier_version")
+        or normalized.get("ai_classification_model"),
+        "classifier_probability": normalized.get("classifier_probability")
+        or normalized.get("ai_classification_confidence"),
+        "classifier_decision": normalized.get("classifier_decision")
+        or normalized.get("ai_classification_label"),
+        "ownership_version": normalized.get("ownership_policy_version"),
+        "review_status": normalized.get("review_status"),
+        "reviewed_by": normalized.get("reviewed_by"),
+        "reviewed_at": normalized.get("reviewed_at"),
+        "dataset_version": normalized.get("dataset_version"),
+        "pipeline_version": normalized.get("pipeline_version"),
     }
 
 

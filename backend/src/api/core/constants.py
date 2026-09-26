@@ -70,6 +70,7 @@ PUBLICATION_SUMMARY_FIELDS = [
     "ai_classification_label",
     "ai_classification_confidence",
     "source_dataset",
+    "trace",
     "quality_flags",
     "nmf_topic_id",
     "nmf_topic_name",

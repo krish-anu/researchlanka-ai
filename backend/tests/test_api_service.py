@@ -39,6 +39,17 @@ PUBLICATIONS = [
         "concepts": "public health",
         "source_dataset": "openalex; crossref",
         "source_record_id": "W1",
+        "collected_at": "2026-09-20T10:00:00Z",
+        "normalized_at": "2026-09-21T10:00:00Z",
+        "classifier_version": "ai-rel-xgb-a2-v3",
+        "classifier_probability": "0.91",
+        "classifier_decision": "AI",
+        "ownership_policy_version": "ownership-v1",
+        "review_status": "human_accepted",
+        "reviewed_by": "reviewer@example.test",
+        "reviewed_at": "2026-09-22T10:00:00Z",
+        "dataset_version": "researchlanka-2026-09-26",
+        "pipeline_version": "pipeline-v1.4.2",
         "abstract": "A study abstract.",
         "citation_count_divergence_flag": False,
         "reference_count_divergence_flag": True,
@@ -263,6 +274,21 @@ def test_publication_detail_exposes_nested_contract_and_provenance():
 
     assert payload["data"]["venue"]["journal"] == "Ceylon Medical Journal"
     assert payload["data"]["classification"]["topics"] == ["Epidemiology", "Malaria"]
+    assert payload["data"]["trace"] == {
+        "source": ["openalex", "crossref"],
+        "source_record_id": "W1",
+        "collected_at": "2026-09-20T10:00:00Z",
+        "normalized_at": "2026-09-21T10:00:00Z",
+        "classifier_version": "ai-rel-xgb-a2-v3",
+        "classifier_probability": "0.91",
+        "classifier_decision": "AI",
+        "ownership_version": "ownership-v1",
+        "review_status": "human_accepted",
+        "reviewed_by": "reviewer@example.test",
+        "reviewed_at": "2026-09-22T10:00:00Z",
+        "dataset_version": "researchlanka-2026-09-26",
+        "pipeline_version": "pipeline-v1.4.2",
+    }
     assert payload["data"]["provenance"]["raw_record_available"] is True
 
 
