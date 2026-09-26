@@ -25,6 +25,10 @@ from src.api.services.ai_review import (
     with_connection,
 )
 from src.api.services.publications import ResearchLankaAPI
+from src.api.services.monitoring import (
+    monitoring_dashboard,
+    with_connection as monitoring_with_connection,
+)
 from src.api.services.user_feedback import (
     feedback_hard_training_examples,
     list_feedback_reports,
@@ -82,6 +86,12 @@ def route_get(
     if path == f"{API_PREFIX}/admin/incremental/status":
         require_admin_api_token(headers)
         return {"data": read_incremental_status(), "meta": service._meta()}
+    if path == f"{API_PREFIX}/admin/monitoring":
+        require_admin_api_token(headers)
+        return {
+            "data": monitoring_with_connection(monitoring_dashboard),
+            "meta": service._meta(),
+        }
     if path == f"{API_PREFIX}/admin/ai-review":
         require_admin_api_token(headers)
         actor_email = str((headers or {}).get("x-researchlanka-actor-email") or "")
