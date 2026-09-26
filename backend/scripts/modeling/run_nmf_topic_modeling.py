@@ -59,6 +59,7 @@ from src.modeling.nmf_topic_modeling import (  # noqa: E402
     pick_best_k,
     run_final_pipeline,
 )
+from src.pipeline.accepted_snapshot import validate_accepted_snapshot_frame  # noqa: E402
 from src.preprocessing.text_cleaning import cleaning_report  # noqa: E402
 
 # Reasonable starting default — matches the middle of the range tested in the original
@@ -126,6 +127,14 @@ def parse_args() -> argparse.Namespace:
             "(reproduces the original uncleaned baseline, e.g. for comparison)."
         ),
     )
+    p.add_argument(
+        "--allow-non-accepted-input",
+        action="store_true",
+        help=(
+            "Development-only: allow NMF from a broad/non-accepted corpus. "
+            "Production public NMF artifacts should not use this."
+        ),
+    )
     return p.parse_args()
 
 
@@ -135,6 +144,8 @@ def main() -> None:
 
     print(f"Loading {args.data} ...")
     df = pd.read_csv(args.data, low_memory=False)
+    if not args.allow_non_accepted_input:
+        validate_accepted_snapshot_frame(df, source=args.data)
     print(f"Shape: {df.shape}")
 
     raw_texts = combined_text(df, args.text_columns, clean=False)
