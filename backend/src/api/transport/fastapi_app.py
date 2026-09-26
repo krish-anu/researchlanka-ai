@@ -38,6 +38,10 @@ from src.api.services.ai_review import (
 )
 from src.api.services.ai_review_sheets import reconcile_sheet
 from src.api.services.model_serving import PublicationClassifierService
+from src.api.services.monitoring import (
+    monitoring_dashboard,
+    with_connection as monitoring_with_connection,
+)
 from src.api.services.publications import ResearchLankaAPI
 from src.api.services.user_feedback import (
     feedback_hard_training_examples,
@@ -281,6 +285,14 @@ def create_admin_router(
     async def incremental_status(request: Request) -> dict[str, Any]:
         require_admin_api_token(request.headers)
         return {"data": read_incremental_status(), "meta": service._meta()}
+
+    @router.get("/monitoring")
+    async def monitoring(request: Request) -> dict[str, Any]:
+        require_admin_api_token(request.headers)
+        return {
+            "data": monitoring_with_connection(monitoring_dashboard),
+            "meta": service._meta(),
+        }
 
     @router.post("/incremental/run")
     async def incremental_run(request: Request) -> dict[str, Any]:

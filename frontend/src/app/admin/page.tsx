@@ -11,6 +11,10 @@ import {
   readIncrementalJobStatus,
   type IncrementalJobStatus,
 } from "@/services/admin/incremental";
+import {
+  readMonitoringMetrics,
+  type MonitoringMetrics,
+} from "@/services/admin/monitoring";
 import { countPendingAIReviewCandidates } from "@/services/workspace/aiReview";
 import { countPendingCandidates } from "@/services/workspace/resolution";
 import { countOpenFlags, listAudit } from "@/services/workspace/store";
@@ -39,6 +43,7 @@ export default async function AdminOverviewPage() {
     pendingAIReview,
     audit,
     incrementalStatus,
+    monitoring,
   } = await loadAdminOverviewData();
 
   const apiUp = health.ok && health.value.data.status === "ok";
@@ -97,6 +102,21 @@ export default async function AdminOverviewPage() {
         <PipelineRunPanel
           status={incrementalStatus}
         />
+      </section>
+
+      <section>
+        <SectionHeading
+          title="Monitoring"
+          description="Operational health for the public AI corpus, review workflow, ingestion, and model drift."
+        />
+        {monitoring ? (
+          <MonitoringPanel metrics={monitoring} />
+        ) : (
+          <div className="panel p-4 text-body-sm text-ink-secondary">
+            Monitoring metrics are unavailable. Configure the backend admin API
+            token to read production health counters.
+          </div>
+        )}
       </section>
 
       <section>
@@ -270,6 +290,7 @@ async function loadAdminOverviewData() {
     pendingAIReview,
     audit,
     incrementalStatus,
+    monitoring,
   ] = await Promise.all([
     getHealth(),
     getDatasetMeta(),
@@ -284,6 +305,7 @@ async function loadAdminOverviewData() {
       readIncrementalJobStatus,
       IDLE_INCREMENTAL_STATUS,
     ),
+    safeAdminData("monitoring metrics", readMonitoringMetrics, null),
   ]);
 
   return {
@@ -296,5 +318,136 @@ async function loadAdminOverviewData() {
     pendingAIReview,
     audit,
     incrementalStatus,
+    monitoring,
   };
+}
+
+function MonitoringPanel({ metrics }: { metrics: MonitoringMetrics }) {
+  const drift = metrics.drift;
+  return (
+    <div className="flex flex-col gap-4">
+      {drift.alert ? (
+        <div className="panel border-serious/50 bg-wash p-4">
+          <p className="font-medium text-serious">AI classification drift alert</p>
+          <p className="mt-1 text-body-sm text-ink-secondary">
+            AUTO_AI changed by{" "}
+            {formatSignedPercentPoints(drift.auto_ai_rate_delta_points)} between{" "}
+            {drift.previous_month?.month ?? "previous month"} and{" "}
+            {drift.current_month?.month ?? "current month"}.
+          </p>
+        </div>
+      ) : null}
+
+      <StatTileGrid>
+        <StatTile
+          label="Public publications"
+          value={formatNumber(metrics.public_publications)}
+          caption="currently visible public corpus"
+        />
+        <StatTile
+          label="Pending reviews"
+          value={formatNumber(metrics.pending_reviews)}
+          caption="AI review records awaiting humans"
+        />
+        <StatTile
+          label="AI acceptance rate"
+          value={formatPercent(metrics.ai_acceptance_rate)}
+          caption="accepted over review workflow records"
+        />
+        <StatTile
+          label="Auto AI rate"
+          value={formatPercent(metrics.auto_ai_rate)}
+          caption="auto-accepted by classifier gate"
+        />
+        <StatTile
+          label="Auto NON_AI rate"
+          value={formatPercent(metrics.auto_non_ai_rate)}
+          caption="system rejected as non-AI"
+        />
+        <StatTile
+          label="False positive rate"
+          value={formatPercent(metrics.false_positive_rate)}
+          caption={metrics.metric_notes.false_positive_rate}
+        />
+        <StatTile
+          label="Human disagreement"
+          value={formatPercent(metrics.human_disagreement_rate)}
+          caption="human rejections over human decisions"
+        />
+        <StatTile
+          label="Collected/day"
+          value={formatNumber(metrics.publications_collected_per_day)}
+          caption="average loaded days in last 30 days"
+        />
+        <StatTile
+          label="Failed jobs"
+          value={formatNumber(metrics.failed_ingestion_jobs)}
+          caption="incremental pipeline failures"
+        />
+        <StatTile
+          label="Duplicate rate"
+          value={formatPercent(metrics.duplicate_rate)}
+          caption={metrics.metric_notes.duplicate_rate}
+        />
+        <StatTile
+          label="Missing abstract"
+          value={formatPercent(metrics.missing_abstract_percentage)}
+          caption="public corpus"
+        />
+        <StatTile
+          label="Missing DOI"
+          value={formatPercent(metrics.missing_doi_percentage)}
+          caption="public corpus"
+        />
+        <StatTile
+          label="Ownership review"
+          value={formatNumber(metrics.ownership_review_count)}
+          caption="ownership rows still needing attention"
+        />
+        <StatTile
+          label="Model version"
+          value={metrics.model_version ?? "—"}
+          caption="latest public classifier version"
+        />
+        <StatTile
+          label="Dataset version"
+          value={metrics.dataset_version ?? "—"}
+          caption={metrics.pipeline_version ?? "pipeline version unavailable"}
+        />
+        <StatTile
+          label="Last successful run"
+          value={formatDate(metrics.last_successful_pipeline_run)}
+          caption="incremental pipeline"
+        />
+      </StatTileGrid>
+
+      <div className="panel p-4">
+        <h3 className="font-display text-h3 text-ink">Drift monitoring</h3>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <DriftCard label="Previous month" month={drift.previous_month} />
+          <DriftCard label="Current month" month={drift.current_month} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DriftCard({ label, month }: { label: string; month: MonitoringMetrics["drift"]["current_month"] }) {
+  return (
+    <div className="rounded-md border border-rule p-3">
+      <p className="label-caps text-muted">{label}</p>
+      <p className="mt-1 font-display text-h2 text-ink">
+        {month ? formatPercent(month.auto_ai_rate) : "—"}
+      </p>
+      <p className="text-body-sm text-ink-secondary">
+        {month ? `${month.month} · ${formatNumber(month.auto_ai_count)} AUTO_AI of ${formatNumber(month.total)}` : "No data"}
+      </p>
+    </div>
+  );
+}
+
+function formatSignedPercentPoints(value: number | null): string {
+  if (value === null) return "—";
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${value.toFixed(1)} percentage points`;
 }
