@@ -41,6 +41,7 @@ OPENALEX_EXTRA_ARGS ?=
 
 # Model-ready text extraction settings.
 MODEL_TEXT_INPUT ?= data/processed/common/common_publications_final_text_enriched.csv
+ACCEPTED_SNAPSHOT_INPUT ?= data/processed/common/researchlanka_ai_accepted_snapshot.csv
 MODEL_TITLES_OUTPUT ?= data/processed/common/publication_titles_for_model_all_years.csv
 MODEL_ABSTRACTS_OUTPUT ?= data/processed/common/publication_abstracts_for_model_all_years.csv
 MODEL_KEYWORDS_OUTPUT ?= data/processed/common/publication_keywords_for_model_all_years.csv
@@ -65,7 +66,7 @@ LOGREG_INFERENCE_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN
 LOGREG_INFERENCE_MANIFEST_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_inference_manifest.json
 LOGREG_INFERENCE_METADATA_COLUMNS ?= record_number,publication_year,title,doi,openalex_id,source_dataset,source_institution_id,source_record_id
 LOGREG_INFERENCE_EXTRA_ARGS ?=
-EMBED_INPUT ?= $(MODEL_TEXT_INPUT)
+EMBED_INPUT ?= $(ACCEPTED_SNAPSHOT_INPUT)
 EMBED_OUTPUT ?= data/models/publication_text_embeddings.parquet
 EMBED_MODEL_OUTPUT ?= data/models/publication_text_embedding_model.joblib
 EMBED_MANIFEST_OUTPUT ?= data/models/publication_text_embeddings_manifest.json
@@ -108,7 +109,7 @@ INCREMENTAL_MAX_RECORDS ?=
 INCREMENTAL_MODEL ?=
 INCREMENTAL_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
 INCREMENTAL_DB_LABELS ?= AI,review
-INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?= 0.6
+INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?= 0.85
 INCREMENTAL_EXTRA_ARGS ?=
 AI_DATASET_INPUT ?= data/processed/common/common_publications_final_text_enriched.csv
 AI_DATASET_CLASSIFIED_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_classified.csv
@@ -116,7 +117,7 @@ AI_DATASET_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_a
 AI_DATASET_MODEL ?= data/models/ai_relevance/ai_relevance_linear_svm.joblib
 AI_DATASET_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
 AI_DATASET_DB_LABELS ?= AI,review
-AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD ?=
+AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD ?= 0.85
 AI_DATASET_EXTRA_ARGS ?=
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
@@ -197,7 +198,7 @@ INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_END_DATE),--end-date $(INCREMENTAL_
 INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
 INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -206,13 +207,12 @@ help:
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
 	@echo "  make api                     Serve the read-only ResearchLanka API"
-	@echo "  make load-db-2016-now        Load the AI-reviewed 2016-2026 dataset"
-	@echo "  make reset-db-2016-now       Clear final_publications, then load 2016-2026 records"
+	@echo "  make load-db-2016-now        Compatibility alias for load-db-ai"
+	@echo "  make retire-stale-db-2016-now  Stage, validate, upsert, then soft-retire missing 2016-2026 records"
 	@echo "  make load-full-db-2016-now   Load only 2016-2026 records into all database tables"
 	@echo "  make ai-dataset              Classify historical final CSV and write AI-reviewed dataset"
-	@echo "  make reset-db-ai             Build and load AI-reviewed historical dataset"
+	@echo "  make load-db-ai              Build and upsert AI-reviewed historical dataset"
 	@echo "  make incremental-update      Collect since checkpoint, classify, upsert, and save checkpoint"
-	@echo "  make reset-full-db-2016-now  Clear database tables, then load 2016-2026 records"
 	@echo "  make incremental-update      Collect since checkpoint, classify AI relevance, and upsert AI rows"
 	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
@@ -268,16 +268,14 @@ api:
 	$(PYTHON) scripts/api/serve_api.py --host $(API_HOST) --port $(API_PORT) $(API_EXTRA_ARGS)
 
 load-db-2016-now:
-	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
+	@echo "load-db-2016-now is deprecated; using shared make load-db-ai refresh policy."
+	$(MAKE) load-db-ai
 
-reset-db-2016-now:
-	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
+retire-stale-db-2016-now:
+	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --retire-stale
 
 load-full-db-2016-now:
 	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
-
-reset-full-db-2016-now:
-	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
 
 ai-dataset: enrich-missing-text
 	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
@@ -287,10 +285,10 @@ ai-dataset: enrich-missing-text
 		--model $(AI_DATASET_MODEL) \
 		--text-columns $(AI_DATASET_TEXT_COLUMNS) \
 		--db-labels $(AI_DATASET_DB_LABELS) \
-		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
+		--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD) \
 		$(AI_DATASET_EXTRA_ARGS)
 
-reset-db-ai: enrich-missing-text
+load-db-ai: enrich-missing-text
 	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
 		--input $(AI_DATASET_INPUT) \
 		--classified-output $(AI_DATASET_CLASSIFIED_OUTPUT) \
@@ -300,8 +298,12 @@ reset-db-ai: enrich-missing-text
 		--db-labels $(AI_DATASET_DB_LABELS) \
 		--load-db \
 		--batch-size $(DB_LOAD_BATCH_SIZE) \
-		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
+		--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD) \
 		$(AI_DATASET_EXTRA_ARGS)
+
+reset-db-ai:
+	@echo "reset-db-ai is deprecated for production safety; use make load-db-ai."
+	$(MAKE) load-db-ai
 
 incremental-update:
 	$(PYTHON) -m src.pipeline.incremental_update \

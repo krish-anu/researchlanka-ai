@@ -37,7 +37,7 @@ PUBLICATION_SEARCH_VECTOR_SQL = (
 )
 
 PUBLICATION_YEAR_SQL = "COALESCE(publication_year, EXTRACT(YEAR FROM publication_date)::int)"
-PUBLIC_AI_REVIEW_STATUSES = ("auto_accepted", "human_accepted")
+PUBLIC_PUBLICATION_SOURCE_SQL = "public_eligible_publications AS final_publications"
 SEARCH_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9]+")
 
 SORT_SQL = {
@@ -106,6 +106,17 @@ BASE_COLUMNS = [
     "ai_classification_confidence",
     "ai_classification_model",
     "ai_classification_reason",
+    "collected_at",
+    "normalized_at",
+    "classifier_version",
+    "classifier_probability",
+    "classifier_decision",
+    "dataset_version",
+    "pipeline_version",
+    "ownership_policy_version",
+    "review_status",
+    "reviewed_by",
+    "reviewed_at",
     "funder_name",
     "funder_doi",
     "funder_identifier",
@@ -123,17 +134,8 @@ BASE_COLUMNS = [
 
 
 def build_where(filters: dict[str, Any]) -> tuple[str, list[Any]]:
-    clauses: list[str] = [
-        """
-        EXISTS (
-            SELECT 1
-            FROM ai_review_records air
-            WHERE air.publication_key = final_publications.publication_key
-              AND air.review_status = ANY(%s)
-        )
-        """
-    ]
-    params: list[Any] = [list(PUBLIC_AI_REVIEW_STATUSES)]
+    clauses: list[str] = []
+    params: list[Any] = []
     if filters.get("q"):
         clauses.append(
             f"{PUBLICATION_SEARCH_VECTOR_SQL} @@ to_tsquery('english', %s)"

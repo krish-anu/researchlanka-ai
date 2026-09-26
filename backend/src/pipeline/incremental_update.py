@@ -16,6 +16,11 @@ from typing import Any
 import joblib
 import pandas as pd
 
+from src.ai_relevance.borderline import borderline_false_positive_category
+from src.ai_relevance.calibration import (
+    calibrate_scores,
+    configured_calibrator_path,
+)
 from src.collectors.openalex_collector import (
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
@@ -35,6 +40,16 @@ from src.database.pipeline_state import (
     record_successful_pipeline_run,
 )
 from src.modeling.training import combined_text, parse_text_columns
+from src.pipeline.refresh_policy import (
+    DEFAULT_AUTO_AI_THRESHOLD,
+    DEFAULT_AUTO_NON_AI_THRESHOLD,
+    DEFAULT_AI_RELEVANCE_MODEL_PATH,
+    DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    DEFAULT_DB_LABELS,
+    DEFAULT_TEXT_COLUMNS,
+    configured_confidence_review_threshold,
+    configured_model_path,
+)
 from src.pipeline.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report
 from src.preprocessing.openalex_normalizer import CSV_COLUMNS, work_to_row
 from src.utils.doi import is_valid_doi, normalize_doi
@@ -48,14 +63,12 @@ DEFAULT_STATE_BACKEND = (
     os.getenv("RESEARCHLANKA_INCREMENTAL_STATE_BACKEND")
     or ("database" if os.getenv("DATABASE_URL") else "json")
 )
-DEFAULT_MODEL_PATH = (
-    PROJECT_ROOT / "data" / "models" / "ai_relevance" / "ai_relevance_linear_svm.joblib"
-)
-DEFAULT_TEXT_COLUMNS = ("title", "abstract", "keywords", "topics", "concepts")
-DEFAULT_DB_LABELS = ("AI", "review")
+DEFAULT_MODEL_PATH = DEFAULT_AI_RELEVANCE_MODEL_PATH
 AI_COLUMNS = (
     "ai_classification_label",
     "ai_classification_confidence",
+    "ai_classification_raw_confidence",
+    "ai_classification_calibrator",
     "ai_classification_model",
     "ai_classification_reason",
 )
@@ -188,15 +201,6 @@ def collect_openalex_rows(
     return rows
 
 
-def configured_model_path(value: str | Path | None = None) -> Path | None:
-    raw_value = value or os.getenv("RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH")
-    raw_value = raw_value or os.getenv("INCREMENTAL_MODEL") or DEFAULT_MODEL_PATH
-    if str(raw_value).strip().casefold() in {"none", "disabled", "off"}:
-        return None
-    path = Path(raw_value).expanduser()
-    return path if path.is_absolute() else PROJECT_ROOT / path
-
-
 def validate_model_path(model_path: Path | None) -> None:
     if model_path is None:
         return
@@ -234,6 +238,26 @@ def normalize_prediction_label(value: Any) -> tuple[str, str]:
     return "review", f"unexpected_model_label:{text}"
 
 
+def ai_class_index(model: Any) -> int | None:
+    classes = list(getattr(model, "classes_", ()))
+    for index, label in enumerate(classes):
+        normalized = str(label).strip().casefold().replace("_", "-").replace(" ", "-")
+        if normalized in {"ai", "artificial-intelligence"}:
+            return index
+    return None
+
+
+def label_from_ai_probability(score: float) -> tuple[str, str | None]:
+    if score >= DEFAULT_AUTO_AI_THRESHOLD:
+        return "AI", None
+    if score >= DEFAULT_AUTO_NON_AI_THRESHOLD:
+        return "review", (
+            f"ai_probability_between_{DEFAULT_AUTO_NON_AI_THRESHOLD:.3f}_"
+            f"and_{DEFAULT_AUTO_AI_THRESHOLD:.3f}"
+        )
+    return "non-AI", None
+
+
 def apply_ai_classification(
     rows: list[dict[str, Any]],
     *,
@@ -260,8 +284,16 @@ def apply_ai_classification(
     frame = pd.DataFrame(rows)
     text = combined_text(frame.fillna(""), text_columns)
     predictions = list(model.predict(text)) if len(text) else []
-    if hasattr(model, "predict_proba") and len(text):
-        confidences = [float(values.max()) for values in model.predict_proba(text)]
+    ai_index = ai_class_index(model)
+    raw_confidences: list[float | None]
+    selected_calibrator_path = configured_calibrator_path()
+    if hasattr(model, "predict_proba") and len(text) and ai_index is not None:
+        raw_confidences = [float(values[ai_index]) for values in model.predict_proba(text)]
+        confidences = calibrate_scores(
+            raw_confidences,
+            calibrator_path=selected_calibrator_path,
+        )
+        labels_and_reasons = [label_from_ai_probability(score) for score in confidences]
     elif hasattr(model, "decision_function") and len(text):
         margins = model.decision_function(text)
         if getattr(margins, "ndim", 1) == 1:
@@ -270,25 +302,48 @@ def apply_ai_classification(
             confidences = [
                 confidence_from_margin(float(max(row, key=abs))) for row in margins
             ]
+        raw_confidences = [None] * len(confidences)
+        labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
     else:
         confidences = [None] * len(predictions)
+        raw_confidences = [None] * len(predictions)
+        labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
 
     classified_rows: list[dict[str, Any]] = []
-    for row, prediction, confidence in zip(rows, predictions, confidences, strict=True):
-        label, reason = normalize_prediction_label(prediction)
+    for row, raw_confidence, confidence, label_and_reason in zip(
+        rows,
+        raw_confidences,
+        confidences,
+        labels_and_reasons,
+        strict=True,
+    ):
+        label, reason = label_and_reason
         if (
             confidence_review_threshold is not None
             and confidence is not None
+            and label == "AI"
             and confidence < confidence_review_threshold
         ):
             label = "review"
             reason = f"confidence_below_threshold:{confidence_review_threshold:.3f}"
+        category = borderline_false_positive_category(row)
+        if label == "AI" and category:
+            label = "review"
+            reason = f"borderline_false_positive_risk:{category}"
         classified_rows.append(
             {
                 **row,
                 "ai_classification_label": label,
                 "ai_classification_confidence": (
                     None if confidence is None else f"{confidence:.6f}"
+                ),
+                "ai_classification_raw_confidence": (
+                    None if raw_confidence is None else f"{raw_confidence:.6f}"
+                ),
+                "ai_classification_calibrator": (
+                    str(selected_calibrator_path)
+                    if selected_calibrator_path is not None and raw_confidence is not None
+                    else None
                 ),
                 "ai_classification_model": str(model_path),
                 "ai_classification_reason": reason or None,
@@ -529,7 +584,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--strict-lk-only", action="store_true")
     parser.add_argument("--model", type=Path, default=configured_model_path())
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
-    parser.add_argument("--confidence-review-threshold", type=float, default=None)
+    parser.add_argument(
+        "--confidence-review-threshold",
+        type=configured_confidence_review_threshold,
+        default=DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    )
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--skip-db", action="store_true")

@@ -4,6 +4,7 @@ from src.database.final_schema import (
     AI_CLASSIFICATION_COLUMNS,
     DATABASE_PUBLICATION_COLUMNS,
     FINAL_PUBLICATION_COLUMNS,
+    PUBLIC_TRACE_COLUMNS,
 )
 from src.database.loader import (
     build_final_publication_row,
@@ -23,6 +24,7 @@ def test_final_publication_columns_use_latest_final_dataset_contract():
     assert list(DATABASE_PUBLICATION_COLUMNS) == [
         *FINAL_MAIN_COLUMNS,
         *AI_CLASSIFICATION_COLUMNS,
+        *PUBLIC_TRACE_COLUMNS,
     ]
 
 
@@ -42,6 +44,9 @@ def test_build_final_publication_row_maps_aliases_and_coerces_values():
             "institutions": ["University of Colombo", "University of Peradeniya"],
             "is_oa": "true",
             "reference_count": "12",
+            "ai_classification_label": "AI",
+            "ai_classification_confidence": "0.91",
+            "ai_classification_model": "ai-rel-xgb-a2-v3",
         },
         row_number=1,
     )
@@ -58,6 +63,12 @@ def test_build_final_publication_row_maps_aliases_and_coerces_values():
     assert row["institutions"] == "University of Colombo; University of Peradeniya"
     assert row["is_oa"] is True
     assert row["reference_count"] == 12
+    assert row["collected_at"] == datetime(2024, 1, 16, 12, 30).isoformat()
+    assert row["classifier_version"] == "ai-rel-xgb-a2-v3"
+    assert row["classifier_probability"] == "0.91"
+    assert row["classifier_decision"] == "AI"
+    assert row["dataset_version"].startswith("researchlanka-")
+    assert row["pipeline_version"] == "pipeline-v1.4.2"
 
 
 def test_build_final_publication_row_uses_nested_source_metadata_fallbacks():

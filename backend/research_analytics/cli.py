@@ -38,6 +38,7 @@ def load_database_records(
     year_min: int | None = None,
     year_max: int | None = None,
     reset: bool = False,
+    retire_stale: bool = False,
 ) -> int | dict[str, int]:
     """Load either the configured pipeline output or an explicit final dataset file.
 
@@ -74,6 +75,7 @@ def load_database_records(
             year_min=year_min,
             year_max=year_max,
             reset=reset,
+            retire_stale=retire_stale,
         )
 
     pipeline = ResearchPipeline(config)
@@ -169,7 +171,15 @@ def main(argv: list[str] | None = None) -> None:
         command_parser.add_argument(
             "--reset",
             action="store_true",
-            help="Delete existing loaded database rows before direct dataset loading.",
+            help=(
+                "Destructive local clean-setup only. Requires "
+                "RESEARCHLANKA_ALLOW_DESTRUCTIVE_RESET=1."
+            ),
+        )
+        command_parser.add_argument(
+            "--retire-stale",
+            action="store_true",
+            help="Soft-retire records in the selected year range that are missing from this dataset.",
         )
         command_parser.add_argument(
             "--log-level",
@@ -383,6 +393,7 @@ def main(argv: list[str] | None = None) -> None:
             year_min=args.year_min,
             year_max=args.year_max,
             reset=args.reset,
+            retire_stale=args.retire_stale,
         )
         if args.dataset is not None:
             if isinstance(loaded, dict):

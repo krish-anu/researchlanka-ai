@@ -15,6 +15,10 @@ from psycopg.rows import dict_row
 
 from src.api.core.errors import APIError
 from src.database.connection import get_connection
+from src.pipeline.refresh_policy import (
+    DEFAULT_AUTO_AI_THRESHOLD,
+    DEFAULT_AUTO_NON_AI_THRESHOLD,
+)
 
 
 ACCEPTED_STATUSES = {"auto_accepted", "human_accepted"}
@@ -25,8 +29,11 @@ MAX_SHEETS_CELL_CHARS = 50_000
 
 FINAL_DATASET_COLUMNS = [
     "record_id",
+    "source",
     "source_dataset",
     "source_record_id",
+    "collected_at",
+    "normalized_at",
     "openalex_id",
     "doi",
     "title",
@@ -50,6 +57,15 @@ FINAL_DATASET_COLUMNS = [
     "license",
     "original_data_source",
     "retrieval_timestamp",
+    "classifier_version",
+    "classifier_probability",
+    "classifier_decision",
+    "ownership_version",
+    "review_status",
+    "reviewed_by",
+    "reviewed_at",
+    "dataset_version",
+    "pipeline_version",
     "final_ai_decision",
     "acceptance_method",
     "decision_timestamp",
@@ -105,15 +121,34 @@ def numeric_confidence(value: Any) -> float | None:
     return number
 
 
-def initial_review_status(label: Any, confidence: Any) -> tuple[str, str | None]:
+def ownership_verified(row: Mapping[str, Any]) -> bool:
+    decision = str(row.get("ownership_decision") or "").strip().upper()
+    confidence = str(row.get("ownership_confidence") or "").strip().upper()
+    needs_review = str(row.get("needs_manual_review") or "").strip().casefold()
+    return (
+        decision == "INCLUDE"
+        and confidence in {"HIGH", "MEDIUM"}
+        and needs_review not in {"true", "1", "yes"}
+    )
+
+
+def initial_review_status(
+    label: Any,
+    confidence: Any,
+    *,
+    ownership_is_verified: bool = True,
+) -> tuple[str, str | None]:
+    if not ownership_is_verified:
+        return "human_rejected", None
+
     normalized_label = normalize_ai_label(label)
     normalized_confidence = normalize_confidence(confidence)
     score = numeric_confidence(confidence)
 
     if normalized_label == "AI" and score is not None:
-        if score >= 0.85:
+        if score >= DEFAULT_AUTO_AI_THRESHOLD:
             return "auto_accepted", "auto"
-        if score >= 0.5:
+        if score >= DEFAULT_AUTO_NON_AI_THRESHOLD:
             return "pending_review", None
         return "human_rejected", None
 
@@ -167,7 +202,8 @@ def backfill_review_records(
         connection,
         """
         SELECT publication_key, ai_classification_label, ai_classification_confidence,
-               ai_classification_model, ai_classification_reason
+               ai_classification_model, ai_classification_reason,
+               ownership_decision, ownership_confidence, needs_manual_review
         FROM final_publications
         WHERE (%s::text[] IS NULL OR publication_key = ANY(%s::text[]))
         ORDER BY publication_key
@@ -184,16 +220,19 @@ def backfill_review_records(
             status, method = initial_review_status(
                 row["ai_classification_label"],
                 row["ai_classification_confidence"],
+                ownership_is_verified=ownership_verified(row),
             )
             normalized_label = normalize_ai_label(row["ai_classification_label"])
             normalized_confidence = normalize_confidence(row["ai_classification_confidence"])
             reviewer_notes = (
-                "system_rejected_numeric_confidence_below_0.5"
+                "system_rejected_numeric_confidence_below_0.4"
                 if status == "human_rejected"
                 else ""
             )
             if status == "human_rejected" and normalized_label == "NON_AI":
                 reviewer_notes = "system_rejected_model_predicted_non_ai"
+            if status == "human_rejected" and not ownership_verified(row):
+                reviewer_notes = "system_rejected_sri_lanka_ownership_not_verified"
             cursor.execute(
                 """
                 INSERT INTO ai_review_records (
@@ -227,8 +266,15 @@ def backfill_review_records(
                     sync_status = EXCLUDED.sync_status,
                     record_version = ai_review_records.record_version + 1,
                     updated_at = now()
-                WHERE ai_review_records.review_status = 'pending_review'
-                  AND ai_review_records.decision_timestamp IS NULL
+                WHERE (
+                    ai_review_records.review_status = 'pending_review'
+                    AND ai_review_records.decision_timestamp IS NULL
+                  )
+                  OR (
+                    ai_review_records.review_status = 'auto_accepted'
+                    AND EXCLUDED.review_status = 'human_rejected'
+                    AND EXCLUDED.reviewer_notes = 'system_rejected_sri_lanka_ownership_not_verified'
+                  )
                 RETURNING (xmax = 0) AS inserted, record_version
                 """,
                 (
@@ -480,6 +526,22 @@ def decide_review(
             raise APIError("forbidden", "Only the assigned reviewer can decide this record.", status=403)
         if record["review_status"] != "pending_review":
             raise APIError("already_decided", "This review has already been completed.", status=409)
+        if decision == "human_accepted":
+            cursor.execute(
+                """
+                SELECT ownership_decision, ownership_confidence, needs_manual_review
+                FROM final_publications
+                WHERE publication_key = %s
+                """,
+                (publication_key,),
+            )
+            publication = cursor.fetchone()
+            if publication is None or not ownership_verified(publication):
+                raise APIError(
+                    "ownership_not_verified",
+                    "Sri Lanka ownership must be verified before a publication can be accepted for public AI review.",
+                    status=409,
+                )
 
         next_version = int(record["record_version"]) + 1
         cursor.execute(
@@ -635,7 +697,12 @@ def final_dataset_rows(connection: Any) -> list[dict[str, Any]]:
     rows = _fetch_all(
         connection,
         """
-        SELECT p.*, r.review_status, r.acceptance_method, r.decision_timestamp
+        SELECT p.*, r.review_status, r.acceptance_method, r.decision_timestamp,
+               COALESCE(
+                   r.decided_by_email,
+                   r.decided_by_name,
+                   r.assigned_reviewer_email
+               ) AS reviewed_by
         FROM final_publications p
         JOIN ai_review_records r USING (publication_key)
         WHERE r.review_status IN ('auto_accepted', 'human_accepted')
@@ -649,8 +716,13 @@ def final_dataset_row(row: Mapping[str, Any]) -> dict[str, str]:
     pages = page_range(row)
     return {
         "record_id": sheet_value(row.get("publication_key")),
+        "source": sheet_value(row.get("source_dataset")),
         "source_dataset": sheet_value(row.get("source_dataset")),
         "source_record_id": sheet_value(row.get("source_record_id")),
+        "collected_at": sheet_value(
+            row.get("collected_at") or row.get("source_datestamp")
+        ),
+        "normalized_at": sheet_value(row.get("normalized_at") or row.get("loaded_at")),
         "openalex_id": sheet_value(row.get("openalex_id")),
         "doi": sheet_value(row.get("doi")),
         "title": sheet_value(row.get("title")),
@@ -674,8 +746,26 @@ def final_dataset_row(row: Mapping[str, Any]) -> dict[str, str]:
         "license": sheet_value(row.get("license")),
         "original_data_source": sheet_value(row.get("source_dataset")),
         "retrieval_timestamp": sheet_value(row.get("source_datestamp") or row.get("loaded_at")),
+        "classifier_version": sheet_value(
+            row.get("classifier_version") or row.get("ai_classification_model")
+        ),
+        "classifier_probability": sheet_value(
+            row.get("classifier_probability") or row.get("ai_classification_confidence")
+        ),
+        "classifier_decision": sheet_value(
+            row.get("classifier_decision") or row.get("ai_classification_label")
+        ),
+        "ownership_version": sheet_value(row.get("ownership_policy_version")),
+        "review_status": sheet_value(row.get("review_status")),
+        "reviewed_by": sheet_value(row.get("reviewed_by")),
+        "reviewed_at": sheet_value(row.get("decision_timestamp")),
+        "dataset_version": sheet_value(row.get("dataset_version")),
+        "pipeline_version": sheet_value(row.get("pipeline_version")),
         "final_ai_decision": "AI",
-        "acceptance_method": sheet_value(row.get("acceptance_method") or ("auto" if row.get("review_status") == "auto_accepted" else "human")),
+        "acceptance_method": sheet_value(
+            row.get("acceptance_method")
+            or ("auto" if row.get("review_status") == "auto_accepted" else "human")
+        ),
         "decision_timestamp": sheet_value(row.get("decision_timestamp")),
     }
 
@@ -772,7 +862,7 @@ Generated at: {utc_now()}
 
 Scope: accepted AI-related publication records in `final_publications` after existing Sri Lanka eligibility loading rules.
 
-Acceptance rules: explicit AI prediction with numeric confidence >= 0.85 is auto-accepted; numeric confidence from 0.5 up to but not including 0.85 requires manual review; numeric confidence below 0.5 is rejected. Explicit AI with named HIGH confidence is also auto-accepted. Missing, unrecognized, and non-AI predictions require manual review unless later decided by a reviewer. Auto-accepted records have not necessarily undergone human review.
+Acceptance rules: explicit AI prediction with numeric confidence >= 0.85 is auto-accepted; numeric confidence from 0.4 up to but not including 0.85 requires manual review; numeric confidence below 0.4 is rejected. Explicit AI with named HIGH confidence is also auto-accepted. Missing, unrecognized, and non-AI predictions require manual review unless later decided by a reviewer. Sri Lanka ownership must be verified independently before an AI acceptance can become public.
 
 Missing values: blank cells indicate source metadata was unavailable. The export does not fabricate publication details.
 

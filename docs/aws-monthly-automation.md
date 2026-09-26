@@ -15,15 +15,14 @@ when your EC2 instance is too small for the model and embedding build.
 
 The public app database is intended to contain AI-related publications only, not
 the full 41k publication pool. After the historical AI classifier is ready, run
-one reset load to classify the existing final CSV and replace PostgreSQL with
-only AI-labelled rows:
+the review-preserving upsert flow to classify the existing final CSV and load
+AI-labelled rows without truncating review decisions or audit history:
 
 ```bash
 cd ~/researchlanka-ai/backend
 DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchlanka" \
-make reset-db-ai \
-  AI_DATASET_MODEL="data/models/ai_publication_classifier_5k.joblib" \
-  AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD="0.65"
+make load-db-ai \
+  AI_DATASET_MODEL="data/models/ai_publication_classifier_5k.joblib"
 ```
 
 This writes:
@@ -34,8 +33,9 @@ data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
 ```
 
 `*_ai_classified.csv` is the audit file with AI, non-AI, and review labels.
-`*_ai_review_filtered.csv` is the final dataset loaded into PostgreSQL, so the
-frontend shows only publications that pass AI review and the ownership gate.
+`*_ai_review_filtered.csv` is the ingestion/review dataset loaded into
+PostgreSQL. Public routes still show only publications that pass the centralized
+public eligibility view.
 
 ## Incremental Monthly Flow
 
@@ -55,19 +55,18 @@ target variables:
 ```bash
 DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchlanka" \
 INCREMENTAL_MODEL="data/models/ai_publication_classifier_5k.joblib" \
-INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD="0.65" \
 ./scripts/aws_incremental_pipeline.sh
 ```
 
 The checkpoint is stored at `backend/outputs/incremental/state.json`. Each
 successful run updates `last_collected_date`; the next run collects from that
-date through the current date, predicts every collected record, and upserts only
-AI-labelled rows into PostgreSQL. The full classified audit CSV is still saved
-under `backend/outputs/incremental/runs/<run-id>/`, but
-`openalex_incremental_db_load.csv` is the final AI-only dataset loaded into the
-app database. Until a model is configured, new records are marked `review` with
-`ai_classification_reason=model_not_configured`, so the default AI-only DB load
-will insert zero rows.
+date through the current date, predicts every collected record, and upserts the
+shared refresh-policy labels (`AI,review` by default) into PostgreSQL. The full
+classified audit CSV is still saved under
+`backend/outputs/incremental/runs/<run-id>/`, and
+`openalex_incremental_db_load.csv` is the exact ingestion/review dataset loaded
+into the app database. Public visibility is controlled later by review status
+and ownership through `public_eligible_publications`.
 
 For monthly cron:
 
@@ -83,11 +82,10 @@ DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchl
 make incremental-update INCREMENTAL_FROM_DATE=2026-08-01 INCREMENTAL_TO_DATE=2026-09-01
 ```
 
-To include uncertain records in the database review queue, override the default:
-
-```bash
-make incremental-update INCREMENTAL_MODEL="data/models/ai_publication_classifier_5k.joblib" INCREMENTAL_DB_LABELS="AI,review"
-```
+The default confidence-review threshold is `0.85` across historical, incremental,
+Kaggle-triggered, and admin-triggered refreshes. Override
+`RESEARCHLANKA_CONFIDENCE_REVIEW_THRESHOLD` or the matching Make variable only
+when intentionally changing the shared production policy.
 
 ## Recommended Flow
 

@@ -19,15 +19,16 @@ FRONTEND_NODE_MAX_OLD_SPACE_MB ?= 1536
 DEV_SEMANTIC_EMBEDDINGS ?= data/models/publication_text_embeddings_cli_sample.parquet
 DEV_SEMANTIC_MODEL ?= data/models/publication_text_embedding_model_cli_sample.joblib
 
-.PHONY: help install install-backend install-frontend backend api frontend dev load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update maps-location-confirm maps-location-rescore maps-location-apply test check check-backend check-frontend
+.PHONY: help install install-backend install-frontend backend api frontend dev load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update maps-location-confirm maps-location-rescore maps-location-apply test check check-backend check-frontend
 
 help:
 	@echo "ResearchLanka development shortcuts"
 	@echo ""
 	@echo "  make install            Install backend and frontend dependencies"
 	@echo "  make dev                Run backend API and frontend together"
-	@echo "  make load-db-2016-now   Load the AI-reviewed 2016-2026 dataset into PostgreSQL"
-	@echo "  make reset-db-2016-now  Clear PostgreSQL records, then load configured 2016-2026 data"
+	@echo "  make load-db-2016-now   Compatibility alias for load-db-ai"
+	@echo "  make retire-stale-db-2016-now  Upsert configured data, then soft-retire missing 2016-2026 records"
+	@echo "  make load-db-ai         Build and upsert the AI-reviewed dataset"
 	@echo "  make incremental-update Collect recent OpenAlex records, classify AI relevance, and load review-gated rows"
 	@echo "  make maps-location-confirm  Confirm institution locations with Google Maps evidence"
 	@echo "  make maps-location-apply    Add confirmed Maps aliases to the registry"
@@ -61,11 +62,14 @@ api: backend
 load-db-2016-now:
 	$(MAKE) -C $(BACKEND_DIR) load-db-2016-now
 
-reset-db-2016-now:
-	$(MAKE) -C $(BACKEND_DIR) reset-db-2016-now
+retire-stale-db-2016-now:
+	$(MAKE) -C $(BACKEND_DIR) retire-stale-db-2016-now
 
 ai-dataset:
 	$(MAKE) -C $(BACKEND_DIR) ai-dataset
+
+load-db-ai:
+	$(MAKE) -C $(BACKEND_DIR) load-db-ai
 
 reset-db-ai:
 	$(MAKE) -C $(BACKEND_DIR) reset-db-ai
@@ -75,9 +79,6 @@ incremental-update:
 
 load-full-db-2016-now:
 	$(MAKE) -C $(BACKEND_DIR) load-full-db-2016-now
-
-reset-full-db-2016-now:
-	$(MAKE) -C $(BACKEND_DIR) reset-full-db-2016-now
 
 maps-location-confirm:
 	$(MAKE) -C $(BACKEND_DIR) maps-location-confirm PYTHON=$(BACKEND_PYTHON)

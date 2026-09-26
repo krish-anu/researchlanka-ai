@@ -14,7 +14,8 @@ LOG_DIR="${LOG_DIR:-${BACKEND_DIR}/outputs/monthly_runs/${RUN_ID}}"
 LOCK_DIR="${LOCK_DIR:-${BACKEND_DIR}/outputs/monthly_pipeline.lock}"
 
 MODEL_INPUT="${MODEL_INPUT:-data/processed/common/common_publications_final_2016_2026_analysis_ready.csv}"
-DB_INPUT="${DB_INPUT:-data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv}"
+AI_DATASET_INPUT="${AI_DATASET_INPUT:-data/processed/common/common_publications_final_text_enriched.csv}"
+ACCEPTED_SNAPSHOT_INPUT="${ACCEPTED_SNAPSHOT_INPUT:-data/processed/common/researchlanka_ai_accepted_snapshot.csv}"
 
 EMBED_MAX_FEATURES="${EMBED_MAX_FEATURES:-30000}"
 EMBED_DIM="${EMBED_DIM:-256}"
@@ -69,7 +70,7 @@ make train-logreg \
 
 make model-embeddings \
   PYTHON="${PYTHON}" \
-  EMBED_INPUT="${MODEL_INPUT}" \
+  EMBED_INPUT="${ACCEPTED_SNAPSHOT_INPUT}" \
   EMBED_OUTPUT="data/models/publication_text_embeddings_${RUN_ID}.parquet" \
   EMBED_MODEL_OUTPUT="data/models/publication_text_embedding_model_${RUN_ID}.joblib" \
   EMBED_MANIFEST_OUTPUT="data/models/publication_text_embeddings_${RUN_ID}_manifest.json" \
@@ -80,9 +81,9 @@ make model-embeddings \
   EMBED_MIN_DF="${EMBED_MIN_DF}"
 
 if [[ -n "${DATABASE_URL:-}" ]]; then
-  make load-db-2016-now \
+  make load-db-ai \
     PYTHON="${PYTHON}" \
-    DB_LOAD_INPUT="${DB_INPUT}"
+    AI_DATASET_INPUT="${AI_DATASET_INPUT}"
 fi
 
 if [[ -n "${S3_BUCKET}" ]]; then

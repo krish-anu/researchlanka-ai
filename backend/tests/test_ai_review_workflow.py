@@ -10,6 +10,7 @@ from src.api.services.ai_review import (
     normalize_ai_label,
     normalize_confidence,
     numeric_confidence,
+    ownership_verified,
     overflow_chunks,
     sheet_value,
 )
@@ -20,6 +21,27 @@ def test_high_explicit_ai_auto_accepts() -> None:
     assert initial_review_status("ai-related", "high") == ("auto_accepted", "auto")
     assert initial_review_status("AI", "0.85") == ("auto_accepted", "auto")
     assert initial_review_status("AI", "0.93") == ("auto_accepted", "auto")
+
+
+def test_ai_acceptance_requires_verified_sri_lanka_ownership() -> None:
+    assert initial_review_status("AI", "0.99", ownership_is_verified=False) == (
+        "human_rejected",
+        None,
+    )
+    assert not ownership_verified(
+        {
+            "ownership_decision": "EXCLUDE",
+            "ownership_confidence": "HIGH",
+            "needs_manual_review": "false",
+        }
+    )
+    assert ownership_verified(
+        {
+            "ownership_decision": "INCLUDE",
+            "ownership_confidence": "MEDIUM",
+            "needs_manual_review": "false",
+        }
+    )
 
 
 @pytest.mark.parametrize(
@@ -38,7 +60,7 @@ def test_all_other_predictions_enter_manual_review(label: str, confidence: str) 
     assert initial_review_status(label, confidence) == ("pending_review", None)
 
 
-@pytest.mark.parametrize("confidence", ["0", "0.49", "0.499999"])
+@pytest.mark.parametrize("confidence", ["0", "0.39", "0.399999"])
 def test_low_numeric_ai_confidence_is_rejected(confidence: str) -> None:
     assert initial_review_status("AI", confidence) == ("human_rejected", None)
 

@@ -22,7 +22,7 @@ export function ManualAIUpdatePanel({
   const [fromDate, setFromDate] = useState(initialRun.fromDate ?? "");
   const [toDate, setToDate] = useState(initialRun.toDate ?? "");
   const [threshold, setThreshold] = useState(
-    String(initialRun.reviewThreshold ?? "0.6"),
+    String(initialRun.reviewThreshold ?? "0.85"),
   );
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
