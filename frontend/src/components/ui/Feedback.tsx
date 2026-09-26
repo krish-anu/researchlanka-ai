@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 
-import { API_BASE_URL, type ApiFailure } from "@/services/api";
+import { Button } from "@/components/ui/Button";
+import { RetryButton } from "@/components/ui/RetryButton";
+import { API_BASE_URL, type ApiFailure, type QueryParams } from "@/services/api";
+import { hasFacetFilters } from "@/services/filters";
 
 /**
  * Explains an API failure without pretending the data is merely empty.
@@ -57,26 +60,103 @@ export function ApiErrorPanel({
           {error.status ? ` (HTTP ${error.status})` : null}
         </p>
       )}
+
+      <div className="mt-4">
+        <RetryButton />
+      </div>
     </div>
   );
+}
+
+/** Primary empty-list recovery: Clear filters vs Browse all. */
+export type EmptyRecovery =
+  | { kind: "clear-filters"; href: string }
+  | { kind: "browse-all"; href: string };
+
+/**
+ * Pick the recovery CTA for a zero-result list.
+ * Facet/range filters → Clear filters; search-only → Browse all.
+ */
+export function emptyListRecovery(
+  basePath: string,
+  filters: QueryParams,
+): EmptyRecovery | undefined {
+  if (hasFacetFilters(filters)) {
+    return { kind: "clear-filters", href: basePath };
+  }
+  if (typeof filters.q === "string" && filters.q) {
+    return { kind: "browse-all", href: basePath };
+  }
+  return undefined;
+}
+
+/** Standard empty-list title, description, and recovery for directory pages. */
+export function emptyListState(
+  entity: string,
+  basePath: string,
+  filters: QueryParams,
+): {
+  title: string;
+  description: string;
+  recovery: EmptyRecovery | undefined;
+} {
+  const query = typeof filters.q === "string" ? filters.q : "";
+  const recovery = emptyListRecovery(basePath, filters);
+
+  if (query && !hasFacetFilters(filters)) {
+    return {
+      title: `No ${entity} match this search`,
+      description: `Try a broader term, or browse the full ${entity} list.`,
+      recovery,
+    };
+  }
+
+  if (hasFacetFilters(filters)) {
+    return {
+      title: `No ${entity} match these filters`,
+      description: "Try removing a year or field filter to widen the results.",
+      recovery,
+    };
+  }
+
+  return {
+    title: `No ${entity} found`,
+    description: `No ${entity} are available in this dataset.`,
+    recovery,
+  };
 }
 
 export function EmptyState({
   title,
   description,
+  recovery,
   action,
 }: {
   title: string;
   description?: string;
+  recovery?: EmptyRecovery;
   action?: ReactNode;
 }) {
+  const recoveryLabel =
+    recovery?.kind === "clear-filters"
+      ? "Clear filters"
+      : recovery?.kind === "browse-all"
+        ? "Browse all"
+        : null;
+
   return (
     <div className="panel flex flex-col items-center gap-2 px-6 py-12 text-center">
       <p className="font-display text-h3 text-ink">{title}</p>
       {description ? (
         <p className="max-w-prose text-body-sm text-ink-secondary">{description}</p>
       ) : null}
-      {action}
+      {recovery && recoveryLabel ? (
+        <Button href={recovery.href} variant="primary" size="sm" className="mt-2">
+          {recoveryLabel}
+        </Button>
+      ) : (
+        action
+      )}
     </div>
   );
 }

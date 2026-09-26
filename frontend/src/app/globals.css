@@ -261,6 +261,49 @@
     border-radius: 12px;
   }
 
+  /* Soft filter updates: keep results visible; show a thin progress cue. */
+  .filter-pending {
+    position: relative;
+  }
+  .filter-pending-bar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 25%, transparent);
+  }
+  .filter-pending-bar::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: var(--primary);
+    animation: filter-pending-slide 900ms var(--motion-ease) infinite;
+  }
+  .filter-pending-content {
+    opacity: 0.72;
+    transition: opacity var(--motion-fast) var(--motion-ease);
+  }
+  @keyframes filter-pending-slide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(280%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .filter-pending-bar::after {
+      width: 100%;
+      animation: none;
+    }
+    .filter-pending-content {
+      transition: none;
+    }
+  }
+
   /* Recessed areas — inputs, code blocks, nested metadata — are cut into the page. */
   .sunk {
     background-color: var(--sunk);
@@ -396,6 +439,30 @@
     border-radius: 0 3px 3px 0;
     background: var(--primary);
     transition: background-color var(--motion-fast) var(--motion-ease);
+  }
+  .nav-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding-bottom: 8px;
+  }
+  .nav-section-label {
+    margin: 0 28px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .nav-section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .nav-section + .nav-section {
+    margin-top: 2px;
+    padding-top: 14px;
+    border-top: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
   }
   .page-eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 600; color: var(--ink-secondary); text-transform: uppercase; }
   .ai-scope { display: flex; align-items: center; gap: 9px; border: 1px solid var(--rule); border-radius: 8px; background: var(--wash); padding: 10px 14px; color: var(--ink-secondary); font-size: 10px; margin-bottom: 24px; }

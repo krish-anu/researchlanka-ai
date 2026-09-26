@@ -31,30 +31,81 @@ interface NavLink {
   adminOnly?: boolean;
 }
 
-const NAV_LINKS: NavLink[] = [
-  { href: "/", label: "Overview", Icon: DashboardIcon },
-  { href: "/publications", label: "AI publications", Icon: PublicationsIcon },
-  { href: "/researchers", label: "Researchers", Icon: ResearchersIcon },
-  { href: "/institutions", label: "Institutions", Icon: InstitutionsIcon },
-  { href: "/topics", label: "Topics & fields", Icon: TopicsIcon },
-  { href: "/collaboration", label: "Collaboration", Icon: NetworkIcon },
-  { href: "/data-quality", label: "Data quality", Icon: DataQualityIcon },
-  { href: "/admin", label: "Administration", Icon: AdminIcon, adminOnly: true },
-];
+interface NavSection {
+  id: string;
+  label: string;
+  links: NavLink[];
+}
 
 /**
- * The rail only lists what the viewer can actually open.
- *
- * Hiding the admin entry is presentation, not protection — `middleware.ts` and
- * the admin layout are what stop a visitor typing the URL.
+ * Grouped IA for first-time visitors: scan by job (explore content, find
+ * people/places, see connections, assess trust) rather than 8 peer items.
  */
-function visibleLinks(viewer: Viewer): NavLink[] {
-  return NAV_LINKS.filter((link) => !link.adminOnly || viewer.role === "admin");
+const NAV_SECTIONS: NavSection[] = [
+  {
+    id: "explore",
+    label: "Explore",
+    links: [
+      { href: "/", label: "Overview", Icon: DashboardIcon },
+      { href: "/publications", label: "AI publications", Icon: PublicationsIcon },
+      { href: "/topics", label: "Topics & fields", Icon: TopicsIcon },
+    ],
+  },
+  {
+    id: "people",
+    label: "People & places",
+    links: [
+      { href: "/researchers", label: "Researchers", Icon: ResearchersIcon },
+      { href: "/institutions", label: "Institutions", Icon: InstitutionsIcon },
+    ],
+  },
+  {
+    id: "connections",
+    label: "Connections",
+    links: [{ href: "/collaboration", label: "Collaboration", Icon: NetworkIcon }],
+  },
+  {
+    id: "trust",
+    label: "Trust",
+    links: [{ href: "/data-quality", label: "Data quality", Icon: DataQualityIcon }],
+  },
+];
+
+const ADMIN_SECTION: NavSection = {
+  id: "admin",
+  label: "Admin",
+  links: [{ href: "/admin", label: "Administration", Icon: AdminIcon, adminOnly: true }],
+};
+
+function sectionsForViewer(viewer: Viewer): NavSection[] {
+  const sections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    links: section.links.filter((link) => !link.adminOnly || viewer.role === "admin"),
+  })).filter((section) => section.links.length > 0);
+
+  if (viewer.role === "admin") {
+    return [...sections, ADMIN_SECTION];
+  }
+  return sections;
 }
 
 /** "/" only matches itself; every other entry also owns its detail routes. */
 function isActive(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
+function sectionForPath(pathname: string, viewer: Viewer): { section: string; label: string } {
+  for (const section of sectionsForViewer(viewer)) {
+    for (const link of section.links) {
+      if (isActive(pathname, link.href)) {
+        return { section: section.label, label: link.label };
+      }
+    }
+  }
+  if (pathname.startsWith("/account")) {
+    return { section: "Account", label: "My workspace" };
+  }
+  return { section: "Workspace", label: "Account" };
 }
 
 function NavItem({
@@ -98,18 +149,32 @@ function NavList({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname() ?? "/";
+  const sections = sectionsForViewer(viewer);
+
   return (
-    <ul className="flex flex-col gap-1">
-      {visibleLinks(viewer).map((link) => (
-        <li key={link.href}>
-          <NavItem
-            link={link}
-            active={isActive(pathname, link.href)}
-            onNavigate={onNavigate}
-          />
-        </li>
-      ))}
-    </ul>
+    <div className="nav-sections">
+      {sections.map((section) => {
+        const headingId = `nav-section-${section.id}`;
+        return (
+          <section key={section.id} className="nav-section" aria-labelledby={headingId}>
+            <h2 id={headingId} className="nav-section-label">
+              {section.label}
+            </h2>
+            <ul className="nav-section-list">
+              {section.links.map((link) => (
+                <li key={link.href}>
+                  <NavItem
+                    link={link}
+                    active={isActive(pathname, link.href)}
+                    onNavigate={onNavigate}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
@@ -170,14 +235,8 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
         <div className="mb-8 px-5">
           <Wordmark />
         </div>
-        <div className="flex-1 overflow-y-auto">
-          <p className="page-eyebrow mb-4 px-7">Workspace</p>
+        <div className="flex-1 overflow-y-auto px-0 pb-4">
           <NavList viewer={viewer} />
-        </div>
-        <div className="mx-5 mb-5 rounded-xl border border-rule bg-wash p-4">
-          <p className="text-body-sm font-semibold">Research with perspective.</p>
-          <p className="my-2 text-xs text-muted">Understand the data behind every discovery.</p>
-          <Link href="/data-quality" className="text-xs font-semibold text-primary">Explore data quality →</Link>
         </div>
         <div className="mt-auto flex flex-col gap-2 border-t border-rule px-5 pt-5">
           <RoleBadge role={viewer.role} className="self-start" />
@@ -264,11 +323,13 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
  */
 export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
   const pathname = usePathname() ?? "/";
-  const label = NAV_LINKS.find(link => isActive(pathname, link.href))?.label
-    ?? (pathname.startsWith("/account") ? "My workspace" : "Account");
+  const { section, label } = sectionForPath(pathname, viewer);
   return (
     <div className="app-topbar sticky top-0 z-30 hidden items-center justify-between gap-5 border-b border-rule bg-surface md:flex">
-      <div className="flex items-center gap-3 whitespace-nowrap text-xs text-muted"><span className="hidden xl:inline">Workspace /</span><span className="font-medium text-ink">{label}</span></div>
+      <div className="flex items-center gap-3 whitespace-nowrap text-xs text-muted">
+        <span className="hidden xl:inline">{section} /</span>
+        <span className="font-medium text-ink">{label}</span>
+      </div>
       <div className="flex min-w-0 items-center justify-end gap-4">
         <div className="w-full max-w-sm"><SearchBox placeholder="Search AI publications…" /></div>
         <ThemeToggle />

@@ -1,176 +1,32 @@
-import Link from "next/link";
+import { getPublicationYearCoverage } from "@/services/api";
+import type { SearchParams } from "@/services/filters";
 
-import { Button } from "@/components/ui/Button";
-import { REPEATABLE_FILTERS, toggleFilterHref, type SearchParams } from "@/services/filters";
-import { titleCase } from "@/services/format";
-import { SORT_OPTIONS } from "@/types/api";
+import {
+  ActiveFilters,
+  FilterControlsForm,
+} from "@/components/publications/FilterControlsForm";
 
-function values(searchParams: SearchParams, key: string): string[] {
-  const raw = searchParams[key];
-  if (raw === undefined) return [];
-  return (Array.isArray(raw) ? raw : [raw]).filter((item) => item !== "");
-}
-
-function first(searchParams: SearchParams, key: string): string {
-  return values(searchParams, key)[0] ?? "";
-}
+export { ActiveFilters };
 
 /**
- * Structured controls as a plain GET form, so sorting and range filtering work
- * without client JavaScript. Repeatable filters chosen from the facet panel are
- * carried through as hidden inputs rather than being dropped on submit.
+ * Structured controls as a GET form. Soft-nav submit keeps results visible
+ * while the next filter payload loads.
  */
-export function FilterControls({
+export async function FilterControls({
   searchParams,
   basePath = "/publications",
 }: {
   searchParams: SearchParams;
   basePath?: string;
 }) {
-  const inputClass =
-    "w-full rounded border border-rule bg-sunk px-2 py-1.5 text-body-sm text-ink focus:border-primary focus:outline-none";
-  const labelClass = "label-caps flex flex-col gap-1.5 text-muted";
+  const coverage = await getPublicationYearCoverage();
 
   return (
-    <form method="get" action={basePath} className="panel flex flex-col gap-4 p-4">
-      {/* Preserve free-text query and any facet selections across submits. */}
-      {first(searchParams, "q") ? (
-        <input type="hidden" name="q" value={first(searchParams, "q")} />
-      ) : null}
-      {REPEATABLE_FILTERS.flatMap((name) =>
-        values(searchParams, name).map((value) => (
-          <input key={`${name}-${value}`} type="hidden" name={name} value={value} />
-        )),
-      )}
-
-      <div className="grid grid-cols-2 gap-2">
-        <label className={labelClass}>
-          Year from
-          <input
-            className={inputClass}
-            type="number"
-            name="year_min"
-            inputMode="numeric"
-            min={1900}
-            max={2100}
-            defaultValue={first(searchParams, "year_min")}
-          />
-        </label>
-        <label className={labelClass}>
-          Year to
-          <input
-            className={inputClass}
-            type="number"
-            name="year_max"
-            inputMode="numeric"
-            min={1900}
-            max={2100}
-            defaultValue={first(searchParams, "year_max")}
-          />
-        </label>
-      </div>
-
-      <label className={labelClass}>
-        Sort
-        <select
-          className={inputClass}
-          name="sort"
-          defaultValue={first(searchParams, "sort")}
-        >
-          <option value="">Default</option>
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <fieldset className="flex flex-col gap-1.5">
-        <legend className="label-caps pb-2 text-muted">Record properties</legend>
-        {(
-          [
-            ["is_oa", "Open access only"],
-            ["has_doi", "Has a DOI"],
-            ["has_abstract", "Has an abstract"],
-          ] as const
-        ).map(([name, label]) => (
-          <label
-            key={name}
-            className="flex items-center gap-2 text-body-sm text-ink-secondary"
-          >
-            <input
-              type="checkbox"
-              name={name}
-              value="true"
-              defaultChecked={first(searchParams, name) === "true"}
-              className="size-4"
-            />
-            {label}
-          </label>
-        ))}
-      </fieldset>
-
-      <div className="flex gap-2">
-        <Button type="submit" variant="primary" className="flex-1">
-          Apply
-        </Button>
-        <Button href={basePath} variant="ghost">
-          Reset
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-/** Removable pills for every active filter, so nothing filters invisibly. */
-export function ActiveFilters({
-  searchParams,
-  basePath = "/publications",
-}: {
-  searchParams: SearchParams;
-  basePath?: string;
-}) {
-  const pills: { label: string; href: string; key: string }[] = [];
-
-  for (const name of REPEATABLE_FILTERS) {
-    for (const value of values(searchParams, name)) {
-      pills.push({
-        key: `${name}:${value}`,
-        label: `${titleCase(name)}: ${value}`,
-        href: toggleFilterHref(basePath, searchParams, name, value),
-      });
-    }
-  }
-
-  for (const name of ["year_min", "year_max", "is_oa", "has_doi", "has_abstract"]) {
-    const value = first(searchParams, name);
-    if (!value) continue;
-    pills.push({
-      key: `${name}:${value}`,
-      label: `${titleCase(name)}: ${value}`,
-      href: toggleFilterHref(basePath, searchParams, name, value),
-    });
-  }
-
-  if (pills.length === 0) return null;
-
-  return (
-    <ul className="flex flex-wrap gap-1.5" aria-label="Active filters">
-      {pills.map((pill) => (
-        <li key={pill.key}>
-          <Link
-            href={pill.href}
-            className="chip chip-filter"
-          >
-            {pill.label}
-            <span aria-hidden className="text-muted">
-              ✕
-            </span>
-            <span className="sr-only">Remove filter</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <FilterControlsForm
+      searchParams={searchParams}
+      basePath={basePath}
+      yearStart={coverage?.start}
+      yearEnd={coverage?.end}
+    />
   );
 }

@@ -2,7 +2,7 @@ import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
 import Link from "next/link";
 import { ViewSwitcher } from "@/components/ui/ViewSwitcher";
 import { PageIntro } from "@/components/layout/PageIntro";
-import { ApiErrorPanel, EmptyState } from "@/components/ui/Feedback";
+import { ApiErrorPanel, EmptyState, emptyListState } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
@@ -62,14 +62,7 @@ export default async function ResearchersPage({
       {!result.ok ? (
         <ApiErrorPanel error={result.error} what="the researcher directory" />
       ) : result.value.data.length === 0 ? (
-        <EmptyState
-          title={query ? "No researchers match this search" : "No researchers found"}
-          description={
-            query
-              ? "Try a broader name spelling or search the publications directory."
-              : "No author aggregates matched the current filters."
-          }
-        />
+        <EmptyState {...emptyListState("researchers", "/researchers", filters)} />
       ) : (
         <>
           <p className="text-body-sm text-ink-secondary">

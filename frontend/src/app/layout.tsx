@@ -3,6 +3,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteNav, SiteSearchBar, AIScopeNote } from "@/components/layout/SiteNav";
+import { FilterNavigationProvider } from "@/components/navigation/FilterNavigation";
 import { getViewer } from "@/services/auth/server";
 
 import "./globals.css";
@@ -54,7 +55,7 @@ export default async function RootLayout({
             className="app-main"
           >
             <AIScopeNote />
-            {children}
+            <FilterNavigationProvider>{children}</FilterNavigationProvider>
           </main>
           <SiteFooter />
         </div>
