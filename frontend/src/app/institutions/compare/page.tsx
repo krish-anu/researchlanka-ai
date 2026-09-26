@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CompareBarChart } from "@/components/charts/CompareBarChart";
+import { Button } from "@/components/ui/Button";
 import { ChartPanel } from "@/components/ui/ChartPanel";
 import { DataTable } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
@@ -85,18 +86,12 @@ export default async function CompareInstitutionsPage({
         ) : null}
 
         <div className="flex gap-2">
-          <button
-            type="submit"
-            className="rounded-md border border-rule bg-wash px-4 py-1.5 text-body-sm font-medium text-ink hover:bg-page"
-          >
+          <Button type="submit" variant="primary">
             Compare
-          </button>
-          <Link
-            href="/institutions"
-            className="rounded-md border border-rule px-4 py-1.5 text-body-sm text-ink-secondary hover:bg-wash"
-          >
+          </Button>
+          <Button href="/institutions" variant="ghost">
             Back to directory
-          </Link>
+          </Button>
         </div>
 
         {chosen.length > 0 && !isValidSelection ? (

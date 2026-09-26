@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import type { IncrementalJobStatus } from "@/services/admin/incremental";
 import { formatDate, formatNumber } from "@/services/format";
+import { Button } from "@/components/ui/Button";
 
 export function PipelineRunPanel({
   status,
@@ -111,20 +112,21 @@ export function PipelineRunPanel({
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={running || submitting}
-              className="rounded border border-primary bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
+              loading={submitting}
             >
-              {submitting ? "Starting..." : running ? "Already running" : "Run AI update"}
-            </button>
-            <button
+              {running ? "Already running" : "Run AI update"}
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => void refreshStatus()}
-              className="rounded border border-rule px-3 py-1.5 text-body-sm font-medium text-ink-secondary transition-colors hover:border-primary hover:text-primary"
             >
               Refresh status
-            </button>
+            </Button>
           </div>
           {message ? (
             <p role="status" className="mt-2 border-l-[3px] border-l-good pl-3 text-body-sm text-success-text">

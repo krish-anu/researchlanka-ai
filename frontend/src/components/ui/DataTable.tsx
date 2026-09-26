@@ -62,7 +62,7 @@ export function DataTable<T>({
           {rows.map((row, index) => (
             <tr
               key={rowKey(row, index)}
-              className="border-b border-rule last:border-0 hover:bg-wash"
+              className="interactive border-b border-rule last:border-0 hover:bg-wash"
             >
               {columns.map((column) => (
                 <td
@@ -95,7 +95,7 @@ export function TableDisclosure({
 }) {
   return (
     <details className="mt-4 border-t border-rule pt-3">
-      <summary className="cursor-pointer text-body-sm text-ink-secondary hover:text-primary">
+      <summary className="interactive cursor-pointer text-body-sm text-ink-secondary hover:text-primary">
         {label}
       </summary>
       <div className="mt-2">{children}</div>

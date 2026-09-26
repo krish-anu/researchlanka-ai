@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 
 export default function NotFound() {
   return (
@@ -10,18 +10,12 @@ export default function NotFound() {
         snapshot.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link
-          href="/publications"
-          className="rounded-md border border-rule bg-wash px-3 py-1.5 text-body-sm font-medium text-ink hover:bg-page"
-        >
+        <Button href="/publications" variant="secondary">
           Search publications
-        </Link>
-        <Link
-          href="/"
-          className="rounded-md border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash"
-        >
+        </Button>
+        <Button href="/" variant="ghost">
           National dashboard
-        </Link>
+        </Button>
       </div>
     </div>
   );

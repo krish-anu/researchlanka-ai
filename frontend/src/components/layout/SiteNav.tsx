@@ -197,7 +197,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
           onClick={() => setOpen(true)}
           aria-expanded={open}
           aria-controls="mobile-nav"
-          className="rounded p-2 text-primary hover:bg-wash"
+          className="interactive rounded p-2 text-primary hover:bg-wash"
         >
           <MenuIcon />
           <span className="sr-only">Open navigation</span>
@@ -206,7 +206,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
         {/* Search stays one tap away on mobile rather than only inside the drawer. */}
         <Link
           href="/publications"
-          className="rounded p-2 text-primary hover:bg-wash"
+          className="interactive rounded p-2 text-primary hover:bg-wash"
         >
           <SearchIcon />
           <span className="sr-only">Search publications</span>
@@ -233,7 +233,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
                 ref={closeRef}
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded p-1 text-ink-secondary hover:bg-wash hover:text-ink"
+                className="interactive rounded p-1 text-ink-secondary hover:bg-wash hover:text-ink"
               >
                 <CloseIcon />
                 <span className="sr-only">Close navigation</span>

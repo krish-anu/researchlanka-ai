@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Button } from "@/components/ui/Button";
 import { REPEATABLE_FILTERS, toggleFilterHref, type SearchParams } from "@/services/filters";
 import { titleCase } from "@/services/format";
 import { SORT_OPTIONS } from "@/types/api";
@@ -111,18 +112,12 @@ export function FilterControls({
       </fieldset>
 
       <div className="flex gap-2">
-        <button
-          type="submit"
-          className="flex-1 rounded bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary hover:bg-primary-hover"
-        >
+        <Button type="submit" variant="primary" className="flex-1">
           Apply
-        </button>
-        <Link
-          href={basePath}
-          className="rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
-        >
+        </Button>
+        <Button href={basePath} variant="ghost">
           Reset
-        </Link>
+        </Button>
       </div>
     </form>
   );
@@ -166,7 +161,7 @@ export function ActiveFilters({
         <li key={pill.key}>
           <Link
             href={pill.href}
-            className="inline-flex items-center gap-1.5 rounded border border-rule bg-primary-muted px-2.5 py-1 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
+            className="chip chip-filter"
           >
             {pill.label}
             <span aria-hidden className="text-muted">

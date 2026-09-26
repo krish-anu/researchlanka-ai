@@ -74,7 +74,7 @@ function FacetGroup({
             <li key={value}>
               <Link
                 href={toggleFilterHref(basePath, searchParams, config.param, value)}
-                className={`flex items-start justify-between gap-2 rounded px-2 py-1.5 text-body-sm hover:bg-wash ${
+                className={`interactive flex items-start justify-between gap-2 rounded px-2 py-1.5 text-body-sm hover:bg-wash ${
                   isActive
                     ? "bg-primary-muted font-medium text-ink"
                     : "text-ink-secondary"

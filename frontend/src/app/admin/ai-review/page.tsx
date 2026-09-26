@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-
+import { Button } from "@/components/ui/Button";
 import { assignPendingAIReviewsAction } from "@/app/actions/admin";
 import { AIReviewCard } from "@/components/admin/AIReviewCard";
 import { EmptyState, SectionHeading } from "@/components/ui/Feedback";
@@ -104,9 +104,9 @@ export default async function AdminAIReviewPage({
               <option value="LOW">LOW</option>
               <option value="UNRECOGNIZED">Unrecognized</option>
             </select>
-            <button className="rounded bg-ink px-4 py-2 text-body-sm font-semibold text-surface">
-              Filter
-            </button>
+              <Button type="submit" variant="primary">
+                Filter
+              </Button>
           </form>
 
           <nav className="flex flex-wrap gap-2 text-body-sm">
@@ -175,9 +175,9 @@ function ReviewersTab({
           </p>
         </div>
         <form action={assignPendingFormAction}>
-          <button className="rounded bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary">
+          <Button type="submit" variant="primary">
             Assign unassigned pending
-          </button>
+          </Button>
         </form>
       </div>
 
@@ -237,7 +237,7 @@ function ViewLink({
   return (
     <Link
       href={href}
-      className={`rounded border px-3 py-2 ${active ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-ink-secondary"}`}
+      className={`interactive rounded border px-3 py-2 ${active ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-ink-secondary hover:border-primary hover:text-primary"}`}
     >
       {children}
     </Link>

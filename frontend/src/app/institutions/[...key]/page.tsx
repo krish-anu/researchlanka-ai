@@ -125,7 +125,7 @@ export default async function InstitutionProfilePage({
         </div>
         <Link
           href={`/institutions/compare?institution=${encodeURIComponent(data.label)}`}
-          className="shrink-0 rounded-md border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
+          className="interactive shrink-0 rounded-md border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
         >
           Compare with another →
         </Link>
@@ -278,7 +278,7 @@ export default async function InstitutionProfilePage({
                     field: entry.label,
                     institution: data.label,
                   })}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
+                  className="chip"
                 >
                   {entry.label}
                   <span className="data-mono text-muted">{entry.count}</span>

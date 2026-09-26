@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { Button } from "@/components/ui/Button";
 import { requireCapability } from "@/services/auth/server";
 import { formatDate } from "@/services/format";
 import { publicationHref } from "@/services/links";
@@ -35,12 +36,9 @@ export default async function AccountFlagsPage() {
           title="No flags raised"
           description="Use “Flag this record” on any publication where the metadata looks wrong."
           action={
-            <Link
-              href="/publications"
-              className="mt-2 rounded bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:bg-primary-hover"
-            >
+            <Button href="/publications" variant="primary" className="mt-2">
               Search publications
-            </Link>
+            </Button>
           }
         />
       ) : (

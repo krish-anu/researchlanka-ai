@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-
+import { Button } from "@/components/ui/Button";
 import { PlotlyChart } from "./PlotlyChart";
 import { baseLayout, type ChartTheme } from "./theme";
 
@@ -83,7 +83,8 @@ export function RankingBarChart({
   if (entries.length === 0) return <p className="py-8 text-center text-body-sm text-muted">No records match this selection.</p>;
 
   return (
-    <div><div className="mb-2 flex justify-end"><button type="button" className="button" onClick={() => setAscending(value => !value)} aria-label="Toggle ranking order">{ascending ? "Lowest first" : "Highest first"} ↕</button></div><PlotlyChart
+    <div><div className="mb-2 flex justify-end">
+      <Button type="button" variant="secondary" onClick={() => setAscending(value => !value)} aria-label="Toggle ranking order">{ascending ? "Lowest first" : "Highest first"} ↕</Button></div><PlotlyChart
       build={build}
       height={height ?? Math.max(200, entries.length * 28 + 60)}
       ariaLabel={ariaLabel}

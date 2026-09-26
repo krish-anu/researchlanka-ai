@@ -2,11 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { DownloadIcon } from "@/components/layout/NavIcons";
+import { Button } from "@/components/ui/Button";
 
-/**
- * Standard chart container: heading, optional action, the plot, and a
- * alternate table of the same numbers.
- */
 export function ChartPanel({
   title,
   description,
@@ -36,10 +33,24 @@ export function ChartPanel({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {table ? <div className="chart-segments" aria-label={`${title} view`}>
-            <button type="button" aria-pressed={view === "chart"} onClick={() => setView("chart")}>Chart</button>
-            <button type="button" aria-pressed={view === "table"} onClick={() => setView("table")}>Table</button>
-          </div> : null}
+          {table ? (
+            <div className="chart-segments" aria-label={`${title} view`}>
+              <button
+                type="button"
+                aria-pressed={view === "chart"}
+                onClick={() => setView("chart")}
+              >
+                Chart
+              </button>
+              <button
+                type="button"
+                aria-pressed={view === "table"}
+                onClick={() => setView("table")}
+              >
+                Table
+              </button>
+            </div>
+          ) : null}
           {action}
         </div>
       </div>
@@ -57,13 +68,10 @@ export function DownloadLink({
   children?: ReactNode;
 }) {
   return (
-    <a
-      href={href}
-      className="button"
-    >
+    <Button href={href} variant="secondary" size="sm">
       <DownloadIcon className="h-3.5 w-3.5" />
       {children}
-    </a>
+    </Button>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-
+import { Button } from "@/components/ui/Button";
 import {
   IncrementalUpdateDiagram,
   type IncrementalRunSnapshot,
@@ -108,20 +108,21 @@ export function ManualAIUpdatePanel({
             />
           </label>
           <div className="flex flex-wrap gap-2 pt-2">
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={submitting || running}
-              className="rounded bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-60"
+              loading={submitting}
             >
-              {submitting ? "Starting..." : running ? "Running..." : "Run AI update"}
-            </button>
-            <button
+              {running && !submitting ? "Running..." : "Run AI update"}
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => void refreshStatus()}
-              className="rounded border border-rule px-4 py-2 text-body-sm text-ink"
             >
               Refresh status
-            </button>
+            </Button>
           </div>
           {message ? (
             <p className="text-body-sm text-ink-secondary">{message}</p>
