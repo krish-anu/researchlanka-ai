@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/Button";
 
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { SearchBox } from "@/components/search/SearchBox";
-import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
-import { ApiErrorPanel, EmptyState, SectionHeading, Skeleton } from "@/components/ui/Feedback";
+import { ChartPanel, ChartSkeleton, DownloadLink } from "@/components/ui/ChartPanel";
+import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
@@ -78,7 +78,7 @@ export default async function InstitutionsPage({
               valueLabel="Publications"
               ariaLabel="Bar chart of publications by institution"
             />
-          </ChartPanel><Suspense fallback={<Skeleton className="h-96" />}><InstitutionAccessibilityPanel filters={filters} entries={result.value.data} /></Suspense></div>
+          </ChartPanel><Suspense fallback={<ChartSkeleton label="Loading institution accessibility…" />}><InstitutionAccessibilityPanel filters={filters} entries={result.value.data} /></Suspense></div>
 
           <section>
             <SectionHeading

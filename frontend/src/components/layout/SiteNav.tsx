@@ -203,14 +203,17 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
           <span className="sr-only">Open navigation</span>
         </button>
         <Wordmark compact />
-        {/* Search stays one tap away on mobile rather than only inside the drawer. */}
-        <Link
-          href="/publications"
-          className="interactive rounded p-2 text-primary hover:bg-wash"
-        >
-          <SearchIcon />
-          <span className="sr-only">Search publications</span>
-        </Link>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          {/* Search stays one tap away on mobile rather than only inside the drawer. */}
+          <Link
+            href="/publications"
+            className="interactive rounded p-2 text-primary hover:bg-wash"
+          >
+            <SearchIcon />
+            <span className="sr-only">Search publications</span>
+          </Link>
+        </div>
       </header>
 
       {/* Mobile slide-over */}
@@ -246,7 +249,6 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
               <NavList viewer={viewer} onNavigate={() => setOpen(false)} />
             </div>
             <div className="mt-4 border-t border-rule px-4 pt-4">
-              <div className="mb-3 flex items-center justify-between text-xs text-muted"><span>Theme</span><ThemeToggle /></div>
               <AccountMenu viewer={viewer} />
             </div>
           </nav>

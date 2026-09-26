@@ -1,3 +1,4 @@
+import { ChartSkeleton } from "@/components/ui/ChartPanel";
 import { Skeleton } from "@/components/ui/Feedback";
 
 /**
@@ -12,16 +13,16 @@ import { Skeleton } from "@/components/ui/Feedback";
  */
 export default function Loading() {
   return (
-    <div className="flex flex-col gap-4" aria-busy="true">
+    <div className="flex flex-col gap-4" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading data quality report…</span>
       <Skeleton className="h-9 w-64" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stat-grid">
         <Skeleton className="h-24" />
         <Skeleton className="h-24" />
         <Skeleton className="h-24" />
         <Skeleton className="h-24" />
       </div>
-      <Skeleton className="h-64" />
+      <ChartSkeleton label="Loading data quality charts…" />
     </div>
   );
 }
