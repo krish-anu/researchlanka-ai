@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ViewSwitcher } from "@/components/ui/ViewSwitcher";
 import { DataTable } from "@/components/ui/DataTable";
 
+import { AIRelevanceStatus } from "@/components/publications/AIRelevanceStatus";
 import { QualityFlagList } from "@/components/ui/QualityFlags";
 import { ProvenanceList, ProvenanceStripe } from "@/components/ui/Provenance";
 import { formatDate } from "@/services/format";
@@ -106,6 +107,8 @@ export function PublicationCard({
         </p>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-body-sm">
+          <AIRelevanceStatus trace={publication.trace} compact />
+
           {isOa ? (
             <span className="inline-flex items-center gap-1 text-success-text">
               <span aria-hidden>●</span>
@@ -143,7 +146,7 @@ export function PublicationCardList({ publications, initialView = "cards" }: { p
   return <ViewSwitcher label="Publication view" initialView={initialView} cards={
     <ul className="flex flex-col gap-4">{publications.map(publication => <li key={publication.publication_key}><PublicationCard publication={publication} /></li>)}</ul>
   } table={<section className="panel p-3"><DataTable rows={publications} rowKey={p => p.publication_key} columns={[
-    { key: "title", header: "Publication", render: p => <div><Link href={publicationHref(p.publication_key)} className="font-medium text-ink hover:text-primary">{p.title ?? "Untitled record"}</Link><p className="mt-2 text-xs text-muted"><AuthorLine authors={p.authors} /></p><div className="mt-2"><QualityFlagList flags={p.quality_flags} max={3} /></div></div> },
+    { key: "title", header: "Publication", render: p => <div><Link href={publicationHref(p.publication_key)} className="font-medium text-ink hover:text-primary">{p.title ?? "Untitled record"}</Link><p className="mt-2 text-xs text-muted"><AuthorLine authors={p.authors} /></p><div className="mt-2 flex flex-wrap items-center gap-2"><AIRelevanceStatus trace={p.trace} compact /><QualityFlagList flags={p.quality_flags} max={3} /></div></div> },
     { key: "field", header: "Field", render: p => p.primary_field ?? "Unclassified" },
     { key: "year", header: "Year", numeric: true, render: p => p.publication_year ?? yearFromDate(p.publication_date) ?? "—" },
     { key: "access", header: "Access", render: p => p.is_oa ? <span className="rounded bg-primary-muted px-2 py-1 text-xs text-primary">Open access</span> : "Not marked open" },

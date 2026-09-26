@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AIRelevanceStatus } from "@/components/publications/AIRelevanceStatus";
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { DataTable } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
@@ -78,6 +79,20 @@ function LinkedList({
       ))}
     </ul>
   );
+}
+
+function formatMonthYear(value: string | null | undefined): string {
+  if (!value) return "Not recorded";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "short",
+  });
+}
+
+function firstRecorded(values: (string | null | undefined)[]): string | null {
+  return values.find((value) => value && value.trim().length > 0) ?? null;
 }
 
 function ReferencePanel({ publication }: { publication: PublicationDetail }) {
@@ -350,6 +365,33 @@ export default async function PublicationDetailPage({ params }: PageProps) {
         <section className="panel p-4">
           <h2 className="font-display text-h3 text-ink">Provenance</h2>
           <dl className="mt-2">
+            <Field label="Data source">
+              <ProvenanceList
+                sources={
+                  publication.trace?.source.length
+                    ? publication.trace.source
+                    : publication.provenance.source_dataset
+                }
+              />
+            </Field>
+            <Field label="Last verified">
+              {formatMonthYear(
+                publication.trace?.reviewed_at ??
+                  publication.provenance.reviewed_at ??
+                  publication.trace?.normalized_at ??
+                  publication.provenance.normalized_at,
+              )}
+            </Field>
+            <Field label="Sri Lanka affiliation evidence">
+              {firstRecorded([
+                publication.sri_lankan_institutions.join(", "),
+                publication.sri_lankan_authors,
+                publication.countries.includes("LK") ? "Sri Lanka affiliation present" : null,
+              ]) ?? <span className="text-muted">Not recorded</span>}
+            </Field>
+            <Field label="AI relevance">
+              <AIRelevanceStatus trace={publication.trace} />
+            </Field>
             <Field label="Source datasets">
               <ProvenanceList sources={publication.provenance.source_dataset} />
             </Field>
@@ -360,6 +402,11 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             </Field>
             <Field label="Source datestamp">
               {formatDate(publication.provenance.source_datestamp)}
+            </Field>
+            <Field label="Dataset version">
+              {publication.trace?.dataset_version ??
+                publication.provenance.dataset_version ??
+                <span className="text-muted">Not recorded</span>}
             </Field>
             <Field label="OpenAlex id">
               {publication.openalex_id ? (
