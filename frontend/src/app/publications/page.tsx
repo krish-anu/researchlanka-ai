@@ -56,7 +56,13 @@ export default async function PublicationsPage({
       </StatTileGrid> : null}
 
       <div className="max-w-2xl">
-        <SearchBox initialQuery={query} />
+        <SearchBox
+          initialQuery={query}
+          targetPath="/publications"
+          label="Search AI publications"
+          placeholder="Search titles, abstracts, authors, journals…"
+          suggestionTypes={["publication", "journal"]}
+        />
       </div>
 
       {!result.ok ? (
