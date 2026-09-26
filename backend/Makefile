@@ -108,7 +108,7 @@ INCREMENTAL_MAX_RECORDS ?=
 INCREMENTAL_MODEL ?=
 INCREMENTAL_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
 INCREMENTAL_DB_LABELS ?= AI,review
-INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?= 0.6
+INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?= 0.8
 INCREMENTAL_EXTRA_ARGS ?=
 AI_DATASET_INPUT ?= data/processed/common/common_publications_final_text_enriched.csv
 AI_DATASET_CLASSIFIED_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_classified.csv
@@ -116,7 +116,7 @@ AI_DATASET_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_a
 AI_DATASET_MODEL ?= data/models/ai_relevance/ai_relevance_linear_svm.joblib
 AI_DATASET_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
 AI_DATASET_DB_LABELS ?= AI,review
-AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD ?=
+AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD ?= 0.8
 AI_DATASET_EXTRA_ARGS ?=
 LOGREG_MAX_FEATURES ?= 50000
 LOGREG_MIN_DF ?= 2
@@ -206,7 +206,7 @@ help:
 	@echo "  make install                 Install Python dependencies into .venv"
 	@echo "  make test                    Run the test suite"
 	@echo "  make api                     Serve the read-only ResearchLanka API"
-	@echo "  make load-db-2016-now        Load the AI-reviewed 2016-2026 dataset"
+	@echo "  make load-db-2016-now        Compatibility alias for load-db-ai"
 	@echo "  make retire-stale-db-2016-now  Stage, validate, upsert, then soft-retire missing 2016-2026 records"
 	@echo "  make load-full-db-2016-now   Load only 2016-2026 records into all database tables"
 	@echo "  make ai-dataset              Classify historical final CSV and write AI-reviewed dataset"
@@ -267,7 +267,8 @@ api:
 	$(PYTHON) scripts/api/serve_api.py --host $(API_HOST) --port $(API_PORT) $(API_EXTRA_ARGS)
 
 load-db-2016-now:
-	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX)
+	@echo "load-db-2016-now is deprecated; using shared make load-db-ai refresh policy."
+	$(MAKE) load-db-ai
 
 retire-stale-db-2016-now:
 	$(PYTHON) scripts/database/load_records.py $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --retire-stale
@@ -283,7 +284,7 @@ ai-dataset: enrich-missing-text
 		--model $(AI_DATASET_MODEL) \
 		--text-columns $(AI_DATASET_TEXT_COLUMNS) \
 		--db-labels $(AI_DATASET_DB_LABELS) \
-		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
+		--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD) \
 		$(AI_DATASET_EXTRA_ARGS)
 
 load-db-ai: enrich-missing-text
@@ -296,7 +297,7 @@ load-db-ai: enrich-missing-text
 		--db-labels $(AI_DATASET_DB_LABELS) \
 		--load-db \
 		--batch-size $(DB_LOAD_BATCH_SIZE) \
-		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
+		--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD) \
 		$(AI_DATASET_EXTRA_ARGS)
 
 reset-db-ai:

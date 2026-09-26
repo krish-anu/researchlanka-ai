@@ -35,6 +35,14 @@ from src.database.pipeline_state import (
     record_successful_pipeline_run,
 )
 from src.modeling.training import combined_text, parse_text_columns
+from src.pipeline.refresh_policy import (
+    DEFAULT_AI_RELEVANCE_MODEL_PATH,
+    DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    DEFAULT_DB_LABELS,
+    DEFAULT_TEXT_COLUMNS,
+    configured_confidence_review_threshold,
+    configured_model_path,
+)
 from src.pipeline.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report
 from src.preprocessing.openalex_normalizer import CSV_COLUMNS, work_to_row
 from src.utils.doi import is_valid_doi, normalize_doi
@@ -48,11 +56,7 @@ DEFAULT_STATE_BACKEND = (
     os.getenv("RESEARCHLANKA_INCREMENTAL_STATE_BACKEND")
     or ("database" if os.getenv("DATABASE_URL") else "json")
 )
-DEFAULT_MODEL_PATH = (
-    PROJECT_ROOT / "data" / "models" / "ai_relevance" / "ai_relevance_linear_svm.joblib"
-)
-DEFAULT_TEXT_COLUMNS = ("title", "abstract", "keywords", "topics", "concepts")
-DEFAULT_DB_LABELS = ("AI", "review")
+DEFAULT_MODEL_PATH = DEFAULT_AI_RELEVANCE_MODEL_PATH
 AI_COLUMNS = (
     "ai_classification_label",
     "ai_classification_confidence",
@@ -186,15 +190,6 @@ def collect_openalex_rows(
                 if max_records is not None and len(rows) >= max_records:
                     return rows
     return rows
-
-
-def configured_model_path(value: str | Path | None = None) -> Path | None:
-    raw_value = value or os.getenv("RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH")
-    raw_value = raw_value or os.getenv("INCREMENTAL_MODEL") or DEFAULT_MODEL_PATH
-    if str(raw_value).strip().casefold() in {"none", "disabled", "off"}:
-        return None
-    path = Path(raw_value).expanduser()
-    return path if path.is_absolute() else PROJECT_ROOT / path
 
 
 def validate_model_path(model_path: Path | None) -> None:
@@ -529,7 +524,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--strict-lk-only", action="store_true")
     parser.add_argument("--model", type=Path, default=configured_model_path())
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
-    parser.add_argument("--confidence-review-threshold", type=float, default=None)
+    parser.add_argument(
+        "--confidence-review-threshold",
+        type=configured_confidence_review_threshold,
+        default=DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    )
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--skip-db", action="store_true")
