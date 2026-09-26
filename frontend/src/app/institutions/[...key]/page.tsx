@@ -19,7 +19,7 @@ import {
   getInstitutionPublications,
   isNotFound,
 } from "@/services/api";
-import { topValues, yearHistogram } from "@/services/derive";
+import { publicationsForDisplay, topValues, yearHistogram } from "@/services/derive";
 import { extractPage, type SearchParams } from "@/services/filters";
 import {
   formatCompact,
@@ -84,13 +84,27 @@ export default async function InstitutionProfilePage({
 
   const sample = trendSample.ok ? trendSample.value.data : [];
   const sampleTotal = trendSample.ok ? trendSample.value.pagination.total : 0;
-  const trend = yearHistogram(sample);
   const isTruncated = sampleTotal > TREND_SAMPLE;
+  const displaySample = publicationsForDisplay(sample);
+  const displayPublicationCount = isTruncated
+    ? data.publication_count
+    : displaySample.length;
+  const trend = yearHistogram(displaySample);
   const openAccessShare =
-    sample.length > 0
-      ? sample.filter((item) => item.is_oa).length / sample.length
+    displaySample.length > 0
+      ? displaySample.filter((item) => item.is_oa).length / displaySample.length
       : null;
-  const topFields = topValues(sample, (item) => [item.primary_field], 10);
+  const topFields = topValues(displaySample, (item) => [item.primary_field], 10);
+  const displayPagination =
+    !isTruncated && publications.ok
+      ? {
+          ...publications.value.pagination,
+          total: displayPublicationCount,
+          total_pages: 1,
+        }
+      : publications.ok
+        ? publications.value.pagination
+        : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -120,8 +134,12 @@ export default async function InstitutionProfilePage({
       <StatTileGrid>
         <StatTile
           label="Publications"
-          value={formatCompact(data.publication_count)}
-          caption="records with this affiliation"
+          value={formatCompact(displayPublicationCount)}
+          caption={
+            isTruncated
+              ? "raw accepted records with this affiliation"
+              : "deduplicated records displayed for this affiliation"
+          }
         />
         <StatTile
           label="Open access"
@@ -131,7 +149,7 @@ export default async function InstitutionProfilePage({
           caption={
             isTruncated
               ? `share within the ${TREND_SAMPLE}-record sample`
-              : "share of this institution's records"
+              : "share of displayed institution records"
           }
         />
         <StatTile
@@ -151,7 +169,7 @@ export default async function InstitutionProfilePage({
           description={
             isTruncated
               ? `Derived from the ${TREND_SAMPLE} most recent of ${formatNumber(sampleTotal)} records — not the full history.`
-              : "Derived from this institution's full publication list."
+              : "Derived from this institution's deduplicated publication list."
           }
           table={
             trend.length > 0 ? (
@@ -295,11 +313,13 @@ export default async function InstitutionProfilePage({
         ) : (
           <div className="flex flex-col gap-4">
             <PublicationCardList publications={publications.value.data} />
-            <Pagination
-              pagination={publications.value.pagination}
-              basePath={institutionHref(institutionKey)}
-              searchParams={query}
-            />
+            {displayPagination ? (
+              <Pagination
+                pagination={displayPagination}
+                basePath={institutionHref(institutionKey)}
+                searchParams={query}
+              />
+            ) : null}
           </div>
         )}
       </section>

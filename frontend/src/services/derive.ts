@@ -65,3 +65,65 @@ export function topValues(
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
 }
+
+function normalizedText(value: string | null | undefined): string {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function canonicalDoi(value: string | null | undefined): string | null {
+  const doi = normalizedText(value)
+    .replace(/^https?:\/\/(?:dx\.)?doi\.org\//, "")
+    .replace(/^doi:/, "");
+  if (!doi) return null;
+  return doi.replace(/v\d+$/i, "");
+}
+
+function publicationIdentity(publication: PublicationSummary): string {
+  const title = normalizedText(publication.title);
+  const authors = publication.authors.slice(0, 4).map(normalizedText).join(";");
+  const year = publication.publication_year ?? publicationYear(publication) ?? "";
+  if (title && authors && year) {
+    return ["work", title, authors, year].join("|");
+  }
+  const doi = canonicalDoi(publication.doi);
+  if (doi) return `doi:${doi}`;
+  return ["fallback", title, authors, year].join("|");
+}
+
+function sourceCount(publication: PublicationSummary): number {
+  return publication.source_dataset.length;
+}
+
+function preferredPublication(
+  current: PublicationSummary,
+  candidate: PublicationSummary,
+): PublicationSummary {
+  if (sourceCount(candidate) !== sourceCount(current)) {
+    return sourceCount(candidate) > sourceCount(current) ? candidate : current;
+  }
+  if (candidate.doi && !current.doi) return candidate;
+  if (candidate.quality_flags.length !== current.quality_flags.length) {
+    return candidate.quality_flags.length < current.quality_flags.length
+      ? candidate
+      : current;
+  }
+  return current;
+}
+
+export function publicationsForDisplay(
+  publications: PublicationSummary[],
+): PublicationSummary[] {
+  const byIdentity = new Map<string, PublicationSummary>();
+
+  for (const publication of publications) {
+    if (!normalizedText(publication.title)) continue;
+    const identity = publicationIdentity(publication);
+    const existing = byIdentity.get(identity);
+    byIdentity.set(
+      identity,
+      existing ? preferredPublication(existing, publication) : publication,
+    );
+  }
+
+  return [...byIdentity.values()];
+}

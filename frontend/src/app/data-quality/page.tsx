@@ -1,6 +1,5 @@
 import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
 import { extractFilters, type SearchParams } from "@/services/filters";
-import { QualityCompleteness } from "@/components/analytics/QualityCompleteness";
 import { PageIntro } from "@/components/layout/PageIntro";
 import Link from "next/link";
 
@@ -98,8 +97,6 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
           />
         </StatTileGrid>
       ) : null}
-
-      {quality.ok && groupRows.length > 0 ? <QualityCompleteness groups={groups} /> : null}
 
       <section>
         <SectionHeading
