@@ -62,6 +62,25 @@ export type QueryValue =
 
 export type QueryParams = Record<string, QueryValue>;
 
+export interface FeedbackPayload {
+  publication_key?: string;
+  title?: string;
+  report_type:
+    | "incorrect_ai_classification"
+    | "incorrect_author"
+    | "incorrect_institution"
+    | "duplicate_publication"
+    | "missing_publication";
+  detail: string;
+  reporter_name?: string;
+  reporter_email?: string;
+  page_url?: string;
+  dataset_version?: string | null;
+  classifier_version?: string | null;
+  classifier_decision?: string | null;
+  classifier_probability?: string | null;
+}
+
 /** Repeatable filters are emitted as repeated keys, matching `parse_qs`. */
 export function buildQuery(params: QueryParams = {}): string {
   const search = new URLSearchParams();
@@ -139,6 +158,56 @@ async function request<T>(
   }
 }
 
+async function post<T>(
+  path: string,
+  payload: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  const url = `${API_BASE_URL}${path}`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      let body: ApiErrorBody | null = null;
+      try {
+        body = (await response.json()) as ApiErrorBody;
+      } catch {
+        // Non-JSON error body.
+      }
+      return {
+        ok: false,
+        error: {
+          code: body?.error?.code ?? `http_${response.status}`,
+          message:
+            body?.error?.message ??
+            `Request failed with HTTP ${response.status}.`,
+          status: response.status,
+          details: body?.error?.details,
+        },
+      };
+    }
+    return { ok: true, value: (await response.json()) as T };
+  } catch (cause) {
+    const isTimeout =
+      cause instanceof DOMException && cause.name === "TimeoutError";
+    return {
+      ok: false,
+      error: {
+        code: isTimeout ? "timeout" : "unreachable",
+        message: isTimeout
+          ? `The API did not respond within ${REQUEST_TIMEOUT_MS / 1000}s.`
+          : `Could not reach the API at ${API_BASE_URL}.`,
+        status: null,
+      },
+    };
+  }
+}
+
 /** Narrow an `ApiResult` to its value, or fall back. */
 export function valueOr<T>(result: ApiResult<T>, fallback: T): T {
   return result.ok ? result.value : fallback;
@@ -199,6 +268,12 @@ export const getPublicationReferences = (
   request<ListResponse<PublicationReference>>(
     `/publications/${encodeURIComponent(publicationKey)}/references`,
     params,
+  );
+
+export const submitPublicationFeedback = (payload: FeedbackPayload) =>
+  post<DetailResponse<{ report_id: string; status: string }>>(
+    "/feedback",
+    payload as unknown as Record<string, unknown>,
   );
 
 export const getSuggestions = (q: string, limit = 10) =>

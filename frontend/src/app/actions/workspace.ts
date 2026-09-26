@@ -4,17 +4,22 @@ import { revalidatePath } from "next/cache";
 
 import { requireCapability } from "@/services/auth/server";
 import type { ActionState } from "@/services/forms/state";
+import { submitPublicationFeedback } from "@/services/api";
 import {
   createFlag,
   removeSavedItem,
   toggleSavedItem,
 } from "@/services/workspace/store";
 import type { FlagReason } from "@/services/workspace/types";
-import { FLAG_REASON_LABEL } from "@/services/workspace/types";
+import { FEEDBACK_REASON_LABEL, FLAG_REASON_LABEL } from "@/services/workspace/types";
 import { publicationHref } from "@/services/links";
 
 function isFlagReason(value: string): value is FlagReason {
   return Object.hasOwn(FLAG_REASON_LABEL, value);
+}
+
+function isFeedbackReason(value: string): value is keyof typeof FEEDBACK_REASON_LABEL {
+  return Object.hasOwn(FEEDBACK_REASON_LABEL, value);
 }
 
 /**
@@ -101,5 +106,51 @@ export async function submitFlag(
   return {
     status: "ok",
     message: "Flag submitted. An administrator will review it.",
+  };
+}
+
+export async function submitPublicFeedback(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const publicationKey = String(formData.get("publication_key") ?? "");
+  const title = String(formData.get("title") ?? "Untitled record");
+  const reportType = String(formData.get("report_type") ?? "");
+  const detail = String(formData.get("detail") ?? "");
+
+  if (!isFeedbackReason(reportType)) {
+    return { status: "error", message: "Choose what looks wrong." };
+  }
+  if (detail.trim().length < 10) {
+    return {
+      status: "error",
+      message: "Add a sentence or two so a reviewer knows what to check.",
+    };
+  }
+
+  const result = await submitPublicationFeedback({
+    publication_key: publicationKey,
+    title,
+    report_type: reportType,
+    detail,
+    reporter_name: String(formData.get("reporter_name") ?? ""),
+    reporter_email: String(formData.get("reporter_email") ?? ""),
+    page_url: String(formData.get("page_url") ?? ""),
+    dataset_version: String(formData.get("dataset_version") ?? ""),
+    classifier_version: String(formData.get("classifier_version") ?? ""),
+    classifier_decision: String(formData.get("classifier_decision") ?? ""),
+    classifier_probability: String(formData.get("classifier_probability") ?? ""),
+  });
+
+  if (!result.ok) {
+    return {
+      status: "error",
+      message: result.error.message,
+    };
+  }
+
+  return {
+    status: "ok",
+    message: "Report submitted. A curator will review it.",
   };
 }
