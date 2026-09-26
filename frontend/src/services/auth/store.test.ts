@@ -13,6 +13,9 @@ async function freshStore(env: Record<string, string | undefined> = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), "rl-users-"));
   vi.resetModules();
   vi.stubEnv("APP_DATA_DIR", dir);
+  vi.stubEnv("ADMIN_EMAIL", "");
+  vi.stubEnv("ADMIN_PASSWORD", "");
+  vi.stubEnv("SEED_TEST_ACCOUNTS", "");
   for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
   const store = await import("@/services/auth/store");
   return { dir, store };
@@ -44,6 +47,7 @@ describe("seeded test accounts", () => {
     expect(users.map((user) => [user.email, user.role])).toEqual([
       ["admin@example.com", "admin"],
       ["user@example.com", "user"],
+      ["reviewer@example.com", "reviewer"],
     ]);
     expect(users.every((user) => !user.disabled)).toBe(true);
   });
@@ -51,6 +55,7 @@ describe("seeded test accounts", () => {
   it.each([
     ["admin@example.com", "admin"],
     ["user@example.com", "user"],
+    ["reviewer@example.com", "reviewer"],
   ])("signs %s in with the published password", async (email, role) => {
     const { dir, store } = await freshStore();
     directories.push(dir);
