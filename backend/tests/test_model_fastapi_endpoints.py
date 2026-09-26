@@ -345,6 +345,92 @@ def test_fastapi_publication_endpoints_share_service_contract() -> None:
     assert "Malaria surveillance in Sri Lanka" in export_response.text
 
 
+def test_fastapi_health_endpoint_is_public_and_sets_reliability_headers() -> None:
+    app = app_for_publications()
+
+    response = request(
+        app,
+        "GET",
+        "/api/v1/health",
+        headers={"X-Request-ID": "req-test-123"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "req-test-123"
+    assert response.headers["Cache-Control"] == "public, max-age=60"
+    assert response.headers["X-Response-Time-ms"]
+    assert response.json()["data"]["status"] == "healthy"
+
+
+def test_fastapi_readiness_reports_dataset_and_model_versions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = app_for_publications()
+
+    monkeypatch.setattr(
+        "src.api.transport.fastapi_app.readiness_payload",
+        lambda: {
+            "status": "healthy",
+            "database": "healthy",
+            "dataset_version": "researchlanka-2026-09-26",
+            "model_version": "ai-rel-xgb-a2-v3",
+            "pipeline_version": "pipeline-v1.4.2",
+            "public_publications": 12,
+        },
+    )
+
+    response = request(app, "GET", "/api/v1/ready")
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "status": "healthy",
+        "database": "healthy",
+        "dataset_version": "researchlanka-2026-09-26",
+        "model_version": "ai-rel-xgb-a2-v3",
+        "pipeline_version": "pipeline-v1.4.2",
+        "public_publications": 12,
+    }
+
+
+def test_fastapi_readiness_returns_503_when_database_unhealthy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = app_for_publications()
+
+    monkeypatch.setattr(
+        "src.api.transport.fastapi_app.readiness_payload",
+        lambda: {
+            "status": "unhealthy",
+            "database": "unhealthy",
+            "dataset_version": None,
+            "model_version": None,
+            "pipeline_version": None,
+            "public_publications": 0,
+            "error": "database unavailable",
+        },
+    )
+
+    response = request(app, "GET", "/api/v1/ready")
+
+    assert response.status_code == 503
+    assert response.json()["data"]["database"] == "unhealthy"
+
+
+def test_fastapi_rate_limits_by_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.api.transport import fastapi_app
+
+    fastapi_app._RATE_LIMIT_BUCKETS.clear()
+    monkeypatch.setenv("RESEARCHLANKA_RATE_LIMIT_PER_MINUTE", "1")
+    app = app_for_publications()
+
+    first_response = request(app, "GET", "/api/v1/health")
+    second_response = request(app, "GET", "/api/v1/health")
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 429
+    assert second_response.json()["error"]["code"] == "rate_limited"
+
+
 def test_fastapi_admin_incremental_status(monkeypatch: pytest.MonkeyPatch) -> None:
     app = app_for_publications()
     monkeypatch.setenv("RESEARCHLANKA_ADMIN_API_TOKEN", "test-admin-token")
