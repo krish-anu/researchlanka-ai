@@ -6,6 +6,7 @@ import { ActiveFilters } from "@/components/publications/FilterControls";
 import { ChartSkeleton } from "@/components/ui/ChartPanel";
 import { getAnalyticsFields } from "@/services/api";
 import { extractFilters, type SearchParams } from "@/services/filters";
+import { SoftNavForm } from "@/components/navigation/FilterNavigation";
 import { Button } from "@/components/ui/Button";
 export const metadata = { title: "AI research collaborations", description: "Explore institutional, researcher, and country collaboration networks across Sri Lanka’s accepted AI publications." };
 
@@ -19,13 +20,13 @@ export default async function CollaborationPage({ searchParams }: { searchParams
   return <div className="flex flex-col gap-6"><PageIntro title="Connected by discovery." description="Explore the partnerships bringing AI researchers, institutions, and countries together." />
     <AnalyticsFilters params={params} basePath="/collaboration" fields={fields.ok ? fields.value.data.map(f => f.label) : []} />
     <ActiveFilters searchParams={params} basePath="/collaboration" />
-    <form method="get" action="/collaboration" className="analytics-filters panel p-4">
+    <SoftNavForm action="/collaboration" className="analytics-filters panel p-4">
       {Object.entries(filters).flatMap(([key, value]) => (Array.isArray(value) ? value : value === undefined || value === null ? [] : [value]).map((v, i) => <input key={`${key}-${i}`} type="hidden" name={key} value={String(v)} />))}
       <label>Connections between<select name="scope" defaultValue={scope}><option value="institution">Institutions</option><option value="researcher">Researchers</option><option value="country">Countries</option></select></label>
       <label>Minimum shared publications<input name="min_weight" type="number" min="1" max="10000" defaultValue={minWeight} /></label>
       <label>Maximum nodes<input name="limit" type="number" min="1" max="500" defaultValue={limit} /></label>
       <Button type="submit" variant="primary">Update network</Button>
-    </form>
+    </SoftNavForm>
     <Suspense fallback={<ChartSkeleton label="Loading collaboration network…" size="xl" />}><NetworkPanel filters={filters} scope={scope} limit={limit} minWeight={minWeight} /></Suspense>
   </div>;
 }

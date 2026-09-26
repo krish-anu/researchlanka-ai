@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { SoftNavLink } from "@/components/navigation/FilterNavigation";
 import { toggleFilterHref, type SearchParams } from "@/services/filters";
 import { formatNumber, titleCase } from "@/services/format";
 import type { Facets } from "@/types/api";
@@ -72,7 +71,7 @@ function FacetGroup({
           const isActive = active.has(value);
           return (
             <li key={value}>
-              <Link
+              <SoftNavLink
                 href={toggleFilterHref(basePath, searchParams, config.param, value)}
                 className={`interactive flex items-start justify-between gap-2 rounded px-2 py-1.5 text-body-sm hover:bg-wash ${
                   isActive
@@ -91,7 +90,7 @@ function FacetGroup({
                 <span className="data-mono mt-1 shrink-0 text-muted">
                   {formatNumber(count)}
                 </span>
-              </Link>
+              </SoftNavLink>
             </li>
           );
         })}

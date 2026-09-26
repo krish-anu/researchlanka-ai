@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { SearchBox } from "@/components/search/SearchBox";
 import { ChartPanel, ChartSkeleton, DownloadLink } from "@/components/ui/ChartPanel";
-import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { ApiErrorPanel, EmptyState, SectionHeading, emptyListState } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
@@ -55,14 +55,7 @@ export default async function InstitutionsPage({
       {!result.ok ? (
         <ApiErrorPanel error={result.error} what="the institution directory" />
       ) : result.value.data.length === 0 ? (
-        <EmptyState
-          title={query ? "No institutions match this search" : "No institutions found"}
-          description={
-            query
-              ? "Try a broader institution name or search the publications directory."
-              : "No institution aggregates matched the current filters."
-          }
-        />
+        <EmptyState {...emptyListState("institutions", "/institutions", filters)} />
       ) : (
         <>
           <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2"><ChartPanel

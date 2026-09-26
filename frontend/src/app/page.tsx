@@ -11,8 +11,8 @@ import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
 import { ApiErrorPanel, PanelSkeleton } from "@/components/ui/Feedback";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
-import { analyticsExportUrl, buildQuery, getAnalyticsFields, getAnalyticsInstitutions, getAnalyticsOverview, listPublications, type QueryParams } from "@/services/api";
-import { extractFilters, type SearchParams } from "@/services/filters";
+import { analyticsExportUrl, buildQuery, getAnalyticsFields, getAnalyticsInstitutions, getAnalyticsOverview, getPublicationYearCoverage, listPublications, type QueryParams } from "@/services/api";
+import { clampYearFilters, extractFilters, type SearchParams } from "@/services/filters";
 import { formatCompact, formatNumber, formatRatioAsPercent } from "@/services/format";
 import { institutionHref, publicationHref } from "@/services/links";
 
@@ -20,13 +20,25 @@ export const metadata = { title: "AI research overview", description: "Publicati
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const filters = { year_min: 2016, year_max: new Date().getFullYear(), ...extractFilters(params) };
+  const coverage = await getPublicationYearCoverage();
+  const filters = clampYearFilters(
+    {
+      ...(coverage ? { year_min: coverage.start, year_max: coverage.end } : {}),
+      ...extractFilters(params),
+    },
+    coverage,
+  );
   const [overview, fields, institutions, filterFields] = await Promise.all([getAnalyticsOverview(filters), getAnalyticsFields({ ...filters, limit: 100 }), getAnalyticsInstitutions({ ...filters, limit: 12 }), getAnalyticsFields({ ...filters, field: undefined, limit: 100 })]);
   const entries = fields.ok ? fields.value.data : [];
   return <div className="flex flex-col gap-6">
     <PageIntro title="Sri Lanka’s AI research, in focus." description="Explore the people, ideas, and connections shaping artificial intelligence research." action={<DownloadLink href={analyticsExportUrl("overview", filters)}>Export overview</DownloadLink>} />
     <ResearchHero />
-    <AnalyticsFilters params={params} fields={filterFields.ok ? filterFields.value.data.map(e => e.label) : entries.map(e => e.label)} defaultFrom={2016} defaultTo={new Date().getFullYear()} />
+    <AnalyticsFilters
+      params={params}
+      fields={filterFields.ok ? filterFields.value.data.map(e => e.label) : entries.map(e => e.label)}
+      defaultFrom={coverage?.start}
+      defaultTo={coverage?.end}
+    />
     <ActiveFilters searchParams={params} basePath="/" />
     {!overview.ok ? <ApiErrorPanel error={overview.error} what="AI research metrics" /> : <section aria-label="AI collection metrics"><StatTileGrid>
       <StatTile label="AI publications" icon={<PublicationsIcon />} value={formatCompact(overview.value.data.publication_count)} caption="accepted AI records in this selection" />

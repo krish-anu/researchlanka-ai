@@ -8,7 +8,7 @@ import {
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { SearchBox } from "@/components/search/SearchBox";
 import { DownloadLink } from "@/components/ui/ChartPanel";
-import { ApiErrorPanel, EmptyState } from "@/components/ui/Feedback";
+import { ApiErrorPanel, EmptyState, emptyListState } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
@@ -98,10 +98,7 @@ export default async function PublicationsPage({
             </div>
 
             {result.value.data.length === 0 ? (
-              <EmptyState
-                title="No publications match these filters"
-                description="Try widening the year range, removing a filter, or searching for a broader term."
-              />
+              <EmptyState {...emptyListState("publications", "/publications", filters)} />
             ) : (
               <>
                 <PublicationCardList publications={result.value.data} initialView="table" />

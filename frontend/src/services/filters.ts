@@ -65,6 +65,17 @@ export function extractFilters(searchParams: SearchParams): QueryParams {
     if (Number.isFinite(parsed)) filters[name] = parsed;
   }
 
+  // Never send an inverted range — swap so year_min ≤ year_max.
+  if (
+    typeof filters.year_min === "number" &&
+    typeof filters.year_max === "number" &&
+    filters.year_min > filters.year_max
+  ) {
+    const swapped = filters.year_min;
+    filters.year_min = filters.year_max;
+    filters.year_max = swapped;
+  }
+
   for (const name of BOOLEAN_FILTERS) {
     const raw = firstValue(searchParams[name]);
     if (raw === "true" || raw === "false") filters[name] = raw;
@@ -97,6 +108,45 @@ export function extractPage(
 /** True when any real filter (beyond paging/sorting) is active. */
 export function hasActiveFilters(filters: QueryParams): boolean {
   return Object.keys(filters).length > 0;
+}
+
+/** True when a facet/range/boolean filter is active (excludes free-text `q`). */
+export function hasFacetFilters(filters: QueryParams): boolean {
+  return Object.keys(filters).some((key) => key !== "q");
+}
+
+/** Clamp year filters to dataset coverage and keep year_min ≤ year_max. */
+export function clampYearFilters(
+  filters: QueryParams,
+  coverage: { start: number; end: number } | null | undefined,
+): QueryParams {
+  const next: QueryParams = { ...filters };
+  let yearMin =
+    typeof next.year_min === "number" ? next.year_min : undefined;
+  let yearMax =
+    typeof next.year_max === "number" ? next.year_max : undefined;
+
+  if (coverage) {
+    if (yearMin != null) {
+      yearMin = Math.min(coverage.end, Math.max(coverage.start, yearMin));
+    }
+    if (yearMax != null) {
+      yearMax = Math.min(coverage.end, Math.max(coverage.start, yearMax));
+    }
+  }
+
+  if (yearMin != null && yearMax != null && yearMin > yearMax) {
+    const swapped = yearMin;
+    yearMin = yearMax;
+    yearMax = swapped;
+  }
+
+  if (yearMin != null) next.year_min = yearMin;
+  else delete next.year_min;
+  if (yearMax != null) next.year_max = yearMax;
+  else delete next.year_max;
+
+  return next;
 }
 
 /**

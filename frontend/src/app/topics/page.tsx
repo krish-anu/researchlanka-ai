@@ -7,7 +7,7 @@ import { PageIntro } from "@/components/layout/PageIntro";
 import Link from "next/link";
 
 import { ChartPanel, ChartSkeleton, DownloadLink } from "@/components/ui/ChartPanel";
-import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { ApiErrorPanel, EmptyState, SectionHeading, emptyListState } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
@@ -97,7 +97,7 @@ export default async function TopicsPage({
         {!fields.ok ? (
           <ApiErrorPanel error={fields.error} what="the field breakdown" />
         ) : fields.value.data.length === 0 ? (
-          <EmptyState title="No classification data available" />
+          <EmptyState {...emptyListState("classification results", "/topics", filters)} />
         ) : (
           <ChartPanel
             title={`Publications by ${level}`}
@@ -153,7 +153,7 @@ export default async function TopicsPage({
         {!topics.ok ? (
           <ApiErrorPanel error={topics.error} what="the topic directory" />
         ) : topics.value.data.length === 0 ? (
-          <EmptyState title="No topics available" />
+          <EmptyState {...emptyListState("topics", "/topics", filters)} />
         ) : (
           <>
             <div className="panel p-1">

@@ -129,13 +129,17 @@ export function CollaborationNetwork({
   const [focusId, setFocusId] = useState("");
   const [metric, setMetric] = useState<SizeMetric>("publication_count");
   const selectId = useId();
-
+  const controlsDisabled = !ready;
+  
   // Read by the build effect so a change of measure does not rebuild the graph.
   const metricRef = useRef(metric);
   metricRef.current = metric;
 
   const hasNodes = network.nodes.length > 0;
+  // Keep control `disabled` identical on server and the first client paint.
+ 
 
+ 
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
@@ -388,8 +392,8 @@ export function CollaborationNetwork({
             <option value="">All connections</option>{network.nodes.map(node => <option key={node.id} value={node.id}>{node.label}</option>)}
           </select>
         </label>
-        <Button type="button" variant="secondary" disabled={!ready} onClick={() => { setFocusId(""); instanceRef.current?.fit(undefined, 24); }}>Reset view</Button>
-        <Button type="button" variant="secondary" disabled={!ready} onClick={() => { const instance = instanceRef.current; if (!instance) return; const link = document.createElement("a"); link.download = "researchlanka-ai-collaborations.png"; link.href = instance.png({ bg: readChartTheme().surface, full: true, scale: 2 }); link.click(); }}>Save graph</Button>
+        <Button type="button" variant="secondary" disabled={controlsDisabled} onClick={() => { setFocusId(""); instanceRef.current?.fit(undefined, 24); }}>Reset view</Button>
+        <Button type="button" variant="secondary" disabled={controlsDisabled} onClick={() => { const instance = instanceRef.current; if (!instance) return; const link = document.createElement("a"); link.download = "researchlanka-ai-collaborations.png"; link.href = instance.png({ bg: readChartTheme().surface, full: true, scale: 2 }); link.click(); }}>Save graph</Button>
       </div>
       {focusedNode ? <div className="mb-4 rounded-lg border border-rule bg-wash p-4 text-body-sm"><strong>{focusedNode.label}</strong><p className="mt-1 text-xs text-muted">{focusedNode.publication_count.toLocaleString()} AI publications · {focusedNode.strength.toLocaleString()} co-publications across displayed connections</p>{focusedHref ? <a href={focusedHref} className="mt-2 inline-block text-xs text-primary hover:underline">Open full profile →</a> : null}</div> : null}
       <div className="relative">

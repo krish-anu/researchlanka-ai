@@ -62,7 +62,7 @@ export function Button({
   className = "",
   ...props
 }: ButtonProps) {
-  const isDisabled = Boolean(disabled || loading);
+    const isDisabled = disabled === true || loading === true;
 
   const classes = [
     baseStyles,
@@ -87,7 +87,7 @@ export function Button({
         <span
           role="link"
           aria-disabled="true"
-          aria-busy={loading || undefined}
+          aria-busy={loading ? true : undefined}
           className={classes}
         >
           {content}
@@ -99,7 +99,7 @@ export function Button({
       return (
         <Link
           href={href}
-          aria-busy={loading || undefined}
+          aria-busy={loading ? true : undefined}
           className={classes}
         >
           {content}
@@ -108,7 +108,7 @@ export function Button({
     }
 
     return (
-      <a href={href} aria-busy={loading || undefined} className={classes}>
+      <a href={href} aria-busy={loading ? true : undefined} className={classes}>
         {content}
       </a>
     );
@@ -116,11 +116,11 @@ export function Button({
 
   return (
     <button
-      type={type}
-      disabled={isDisabled}
-      aria-busy={loading || undefined}
-      className={classes}
       {...props}
+      type={type}
+      className={classes}
+      disabled={isDisabled}
+      aria-busy={loading ? true : undefined}
     >
       {loading ? <Spinner /> : null}
       {children}
