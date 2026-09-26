@@ -10,7 +10,7 @@ from src.api.repositories.postgres import (
     PostgresPublicationRepository,
     is_institution_like_author,
 )
-from src.api.repositories.sql import PUBLICATION_YEAR_SQL
+from src.api.repositories.sql import PUBLICATION_YEAR_SQL, PUBLIC_PUBLICATION_SOURCE_SQL
 from src.api.repository import build_where
 from src.api.routes import route_get
 from src.api.service import APIError, ResearchLankaAPI
@@ -617,6 +617,7 @@ def test_postgres_suggestions_can_scope_to_institutions(monkeypatch):
     suggestions = repository.suggest("Uni Col", limit=8, types={"institution"})
 
     assert [suggestion["type"] for suggestion in suggestions] == ["institution"]
+    assert PUBLIC_PUBLICATION_SOURCE_SQL in calls[0]["sql"]
     assert "regexp_split_to_table(coalesce(authors::text, ''), ';')" in calls[0]["sql"]
     assert "sri_lankan_institutions" in calls[0]["sql"]
     assert False in calls[0]["params"]
@@ -930,10 +931,22 @@ def test_build_where_covers_core_filters():
     assert '"institutions" ILIKE %s' in sql
     assert "NULLIF(btrim(coalesce(\"doi\"::text, '')), '') IS NOT NULL" in sql
     assert "reference_count_divergence_flag IS TRUE" in sql
-    assert params[:5] == [
-        ["auto_accepted", "human_accepted"],
-        "malaria:*",
-        2020,
-        2024,
-        ["journal-article"],
-    ]
+    assert "ai_review_records" not in sql
+    assert params[:4] == ["malaria:*", 2020, 2024, ["journal-article"]]
+
+
+def test_publication_repository_centralizes_public_eligibility_in_source_view(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_one(sql, params):
+        calls.append({"sql": " ".join(sql.split()), "params": params})
+        return None
+
+    monkeypatch.setattr(repository, "_fetch_one", fake_fetch_one)
+
+    repository.get_publication("doi:10.1000/rejected")
+
+    assert PUBLIC_PUBLICATION_SOURCE_SQL in calls[0]["sql"]
+    assert "final_publications p" not in calls[0]["sql"]
+    assert "ai_review_records" not in calls[0]["sql"]

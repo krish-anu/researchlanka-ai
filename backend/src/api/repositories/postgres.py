@@ -20,6 +20,7 @@ from src.api.repositories.aggregates import aggregate_profile, normalized_key, p
 from src.api.repositories.sql import (
     BASE_COLUMNS,
     PUBLICATION_SEARCH_VECTOR_SQL,
+    PUBLIC_PUBLICATION_SOURCE_SQL,
     PUBLICATION_YEAR_SQL,
     SORT_SQL,
     build_where,
@@ -50,7 +51,7 @@ SIMILARITY_RESULT_FIELDS = (
     SIMILARITY_RANK_FIELD,
 )
 MAX_SEMANTIC_CANDIDATES = 500
-PUBLICATION_SOURCE_SQL = "accepted_ai_publications AS final_publications"
+PUBLICATION_SOURCE_SQL = PUBLIC_PUBLICATION_SOURCE_SQL
 LOCAL_SOURCE_DATASETS = ["local", "repositories", "repositories_combined", "sljol"]
 GLOBAL_SOURCE_DATASETS = ["openalex", "crossref"]
 MULTIVALUE_ANALYTICS_COLUMNS = {
@@ -326,7 +327,7 @@ class PostgresPublicationRepository:
                     authors,
                     institutions,
                     sri_lankan_institutions
-                FROM accepted_ai_publications AS final_publications
+                FROM {PUBLICATION_SOURCE_SQL}
                 WHERE {PUBLICATION_YEAR_SQL} >= %s
                   AND {PUBLICATION_YEAR_SQL} <= %s
             )
