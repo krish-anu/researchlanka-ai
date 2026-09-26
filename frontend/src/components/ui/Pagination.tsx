@@ -50,7 +50,7 @@ export function Pagination({
   const first = (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, total);
   const linkClass =
-    "inline-flex min-w-9 items-center justify-center rounded border border-rule px-2 py-1 text-body-sm hover:border-primary hover:text-primary";
+    "interactive inline-flex min-w-9 items-center justify-center rounded border border-rule px-2 py-1 text-body-sm hover:border-primary hover:text-primary";
 
   return (
     <nav

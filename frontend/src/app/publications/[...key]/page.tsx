@@ -71,7 +71,7 @@ function LinkedList({
         <li key={`${item}-${index}`}>
           <Link
             href={href(item)}
-            className="rounded border border-rule px-1.5 py-0.5 text-body-sm hover:bg-wash"
+            className="chip rounded-md"
           >
             {item}
           </Link>
@@ -212,7 +212,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={`https://doi.org/${publication.doi}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
+              className="interactive rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               View at DOI ↗
             </a>
@@ -222,7 +222,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={publication.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
+              className="interactive rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               Source record ↗
             </a>
@@ -232,7 +232,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={publication.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
+              className="interactive rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               PDF ↗
             </a>

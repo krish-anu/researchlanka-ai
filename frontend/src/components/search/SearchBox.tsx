@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { SearchIcon } from "@/components/layout/NavIcons";
 import { institutionHref, publicationHref, researcherHref } from "@/services/links";
 import type { Suggestion } from "@/types/api";
+import { Button } from "@/components/ui/Button";
 
 type SuggestionType = "publication" | "journal" | "researcher" | "institution";
 
@@ -186,12 +187,9 @@ export function SearchBox({
             onKeyDown={onKeyDown}
             className="w-full border-none bg-transparent p-0 text-body-sm text-ink outline-none placeholder:text-muted"
           />
-          <button
-            type="submit"
-            className="shrink-0 rounded bg-primary px-3 py-1 text-body-sm font-medium text-on-primary hover:bg-primary-hover"
-          >
+          <Button type="submit" variant="primary" size="sm">
             Search
-          </button>
+          </Button>
         </div>
       </form>
 

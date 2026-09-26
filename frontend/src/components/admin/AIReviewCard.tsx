@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-
+import { Button } from "@/components/ui/Button";
 import { decideAIReviewAction, retryAIReviewSyncAction } from "@/app/actions/admin";
 import { ActionResult, SubmitButton } from "@/components/admin/ActionResult";
 import { SourceBadge } from "@/components/ui/Provenance";
@@ -124,10 +124,10 @@ export function AIReviewCard({ candidate }: { candidate: AIReviewCandidate }) {
       {candidate.sync_status === "failed" ? (
         <form action={retryAction} className="mt-3 flex flex-wrap items-center gap-2">
           <input type="hidden" name="publication_key" value={candidate.publication_key} />
-          <button className="rounded border border-rule px-3 py-2 text-body-sm font-semibold text-ink">
+          <Button type="submit" variant="secondary">
             Retry Sync
-          </button>
-          <span className="text-body-sm text-danger">{candidate.last_sync_error}</span>
+          </Button>
+          <span className="text-body-sm text-critical">{candidate.last_sync_error}</span>
         </form>
       ) : null}
 

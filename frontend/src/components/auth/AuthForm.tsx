@@ -3,19 +3,22 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { Button } from "@/components/ui/Button";
 
 import { EMPTY_FORM_STATE, type AuthFormState } from "@/services/forms/state";
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
+
   return (
-    <button
+    <Button
       type="submit"
-      disabled={pending}
-      className="w-full rounded bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
+      variant="primary"
+      loading={pending}
+      className="w-full"
     >
-      {pending ? "Working…" : label}
-    </button>
+      {label}
+    </Button>
   );
 }
 
@@ -48,9 +51,8 @@ function Field({
         autoComplete={autoComplete}
         aria-invalid={invalid || undefined}
         aria-describedby={hintId}
-        className={`rounded border bg-surface px-3 py-2 text-body-md text-ink placeholder:text-muted ${
-          invalid ? "border-critical" : "border-rule"
-        }`}
+        className={`rounded border bg-surface px-3 py-2 text-body-md text-ink placeholder:text-muted ${invalid ? "border-critical" : "border-rule"
+          }`}
       />
       {hint ? (
         <p id={hintId} className="text-body-sm text-muted">

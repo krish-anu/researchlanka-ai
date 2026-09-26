@@ -79,7 +79,7 @@ export default async function TopicsPage({
                     <Link
                       href={`/topics${buildQuery({ ...filters, level: option.value })}`}
                       aria-current={option.value === level ? "true" : undefined}
-                      className={`inline-block rounded-md border px-2.5 py-1 text-body-sm ${
+                      className={`interactive inline-block rounded-md border px-2.5 py-1 text-body-sm ${
                         option.value === level
                           ? "border-primary font-medium text-primary"
                           : "border-rule text-ink-secondary hover:bg-wash"

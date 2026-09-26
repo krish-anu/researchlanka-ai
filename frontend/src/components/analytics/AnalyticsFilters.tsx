@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { SearchParams } from "@/services/filters";
+import { Button } from "@/components/ui/Button";
 
 /** GET controls retain unrelated filters, making links and exports reproducible. */
 export function AnalyticsFilters({ params, fields = [], basePath = "/", defaultFrom, defaultTo }: { params: SearchParams; fields?: string[]; basePath?: string; defaultFrom?: number; defaultTo?: number }) {
@@ -12,6 +12,14 @@ export function AnalyticsFilters({ params, fields = [], basePath = "/", defaultF
     <label>Year to<input type="number" min="1900" max="2100" name="year_max" defaultValue={first("year_max") ?? defaultTo} /></label>
     <label>Research field<select name="field" defaultValue={selected}><option value="">All fields within AI publications</option>{options.map(field => <option key={field}>{field}</option>)}</select></label>
     {Array.isArray(params.field) ? params.field.slice(1).map((field, i) => <input type="hidden" key={`field-${i}`} name="field" value={field} />) : null}
-    <button type="submit" className="button button-primary">Apply filters</button><Link href={basePath} className="button">Reset</Link>
+    <div className="flex items-center gap-2">
+      <Button type="submit" variant="primary">
+        Apply filters
+      </Button>
+
+      <Button href={basePath} variant="ghost">
+        Reset
+      </Button>
+    </div>
   </form>;
 }

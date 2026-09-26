@@ -6,7 +6,7 @@ import { ActiveFilters } from "@/components/publications/FilterControls";
 import { Skeleton } from "@/components/ui/Feedback";
 import { getAnalyticsFields } from "@/services/api";
 import { extractFilters, type SearchParams } from "@/services/filters";
-
+import { Button } from "@/components/ui/Button";
 export const metadata = { title: "AI research collaborations", description: "Explore institutional, researcher, and country collaboration networks across Sri Lanka’s accepted AI publications." };
 
 export default async function CollaborationPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -24,7 +24,7 @@ export default async function CollaborationPage({ searchParams }: { searchParams
       <label>Connections between<select name="scope" defaultValue={scope}><option value="institution">Institutions</option><option value="researcher">Researchers</option><option value="country">Countries</option></select></label>
       <label>Minimum shared publications<input name="min_weight" type="number" min="1" max="10000" defaultValue={minWeight} /></label>
       <label>Maximum nodes<input name="limit" type="number" min="1" max="500" defaultValue={limit} /></label>
-      <button className="button button-primary" type="submit">Update network</button>
+      <Button type="submit" variant="primary">Update network</Button>
     </form>
     <Suspense fallback={<Skeleton className="h-[30rem]" />}><NetworkPanel filters={filters} scope={scope} limit={limit} minWeight={minWeight} /></Suspense>
   </div>;

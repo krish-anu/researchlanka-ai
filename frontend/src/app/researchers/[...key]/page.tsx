@@ -243,7 +243,7 @@ export default async function ResearcherProfilePage({
               <li key={entry.label}>
                 <Link
                   href={publicationSearchHref({ field: entry.label })}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
+                  className="chip"
                 >
                   {entry.label}
                   <span className="data-mono text-muted">

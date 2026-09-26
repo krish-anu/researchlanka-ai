@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { InstitutionAccessibilityPanel } from "@/components/analytics/ResearchPanels";
 import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
-import Link from "next/link";
+
+import { Button } from "@/components/ui/Button";
 
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { SearchBox } from "@/components/search/SearchBox";
@@ -35,7 +36,11 @@ export default async function InstitutionsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <PageIntro title="Places where AI ideas grow." description="Compare institutional AI research output, accessibility, and partnerships." action={<Link href="/institutions/compare" className="button">Compare institutions →</Link>} />
+      <PageIntro title="Places where AI ideas grow." description="Compare institutional AI research output, accessibility, and partnerships." action={
+        <Button href="/institutions/compare" variant="secondary">
+          Compare institutions →
+        </Button>
+      } />
       <AnalyticsFilters params={params} basePath="/institutions" fields={fields.ok ? fields.value.data.map(f => f.label) : []} />
 
       <div className="max-w-2xl">

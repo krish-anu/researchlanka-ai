@@ -249,7 +249,7 @@ function QueueCard({
   return (
     <Link
       href={href}
-      className="panel flex flex-col gap-1 p-4 transition-colors hover:border-primary"
+      className="panel interactive-card flex flex-col gap-1 p-4"
     >
       <span className="label-caps text-muted">{label}</span>
       <span className="font-display text-h1 tabular text-primary">
