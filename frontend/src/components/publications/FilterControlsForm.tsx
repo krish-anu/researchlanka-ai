@@ -132,7 +132,7 @@ export function ActiveFilters({
     for (const value of values(searchParams, name)) {
       pills.push({
         key: `${name}:${value}`,
-        label: `${titleCase(name)}: ${value}`,
+        label: filterPillLabel(name, value),
         href: toggleFilterHref(basePath, searchParams, name, value),
       });
     }
@@ -143,7 +143,7 @@ export function ActiveFilters({
     if (!value) continue;
     pills.push({
       key: `${name}:${value}`,
-      label: `${titleCase(name)}: ${value}`,
+      label: filterPillLabel(name, value),
       href: toggleFilterHref(basePath, searchParams, name, value),
     });
   }
@@ -151,18 +151,59 @@ export function ActiveFilters({
   if (pills.length === 0) return null;
 
   return (
-    <ul className="flex flex-wrap gap-1.5" aria-label="Active filters">
-      {pills.map((pill) => (
-        <li key={pill.key}>
-          <SoftNavLink href={pill.href} className="chip chip-filter">
-            {pill.label}
-            <span aria-hidden className="text-muted">
-              ✕
-            </span>
-            <span className="sr-only">Remove filter</span>
-          </SoftNavLink>
-        </li>
-      ))}
-    </ul>
+    <div className="active-filters-bar">
+      <p className="active-filters-label">Active filters</p>
+      <ul className="active-filters-list" aria-label="Active filters">
+        {pills.map((pill) => (
+          <li key={pill.key}>
+            <SoftNavLink href={pill.href} className="chip chip-filter">
+              {pill.label}
+              <span aria-hidden className="text-muted">
+                ✕
+              </span>
+              <span className="sr-only">Remove filter</span>
+            </SoftNavLink>
+          </li>
+        ))}
+      </ul>
+      <SoftNavLink href={basePath} className="active-filters-clear">
+        Clear all
+      </SoftNavLink>
+    </div>
   );
+}
+
+const FILTER_KEY_LABELS: Record<string, string> = {
+  type: "Type",
+  institution: "Institution",
+  country: "Country",
+  domain: "Domain",
+  field: "Field",
+  researcher: "Researcher",
+  subfield: "Subfield",
+  topic: "Topic",
+  nmf_topic: "Topic model",
+  nmf_topic_id: "Topic id",
+  journal: "Journal",
+  source_dataset: "Source",
+  quality_flag: "Quality",
+};
+
+/** Human-readable chip copy — never raw keys like `is_oa=true`. */
+function filterPillLabel(name: string, value: string): string {
+  if (name === "is_oa") {
+    return value === "true" ? "Open access" : "Not open access";
+  }
+  if (name === "has_doi") {
+    return value === "true" ? "Has a DOI" : "Missing DOI";
+  }
+  if (name === "has_abstract") {
+    return value === "true" ? "Has an abstract" : "Missing abstract";
+  }
+  if (name === "year_min") return `From ${value}`;
+  if (name === "year_max") return `To ${value}`;
+
+  const key =
+    FILTER_KEY_LABELS[name] ?? titleCase(name.replaceAll("_", " "));
+  return `${key}: ${value}`;
 }
