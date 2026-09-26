@@ -12,12 +12,8 @@ export const metadata = {
 };
 
 /**
- * Shell for the console.
- *
- * Middleware already rejects unsigned and non-admin cookies before this route
- * renders. Keep this layout free of deployment data reads so a broken JSON
- * store or missing artifact cannot collapse the whole admin shell; server
- * actions still re-check capabilities independently.
+ * Console shell — denser than the public chrome so admin work reads as its
+ * own mode. Middleware already rejects non-admins; pages own their headings.
  */
 export default async function AdminLayout({
   children,
@@ -28,27 +24,30 @@ export default async function AdminLayout({
   const user = await readSessionToken(store.get(SESSION_COOKIE)?.value);
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-display text-h1 text-ink">
-            System administration
-          </h1>
-          <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-            Ingestion health, quality control and curation queues. Public
-            figures are computed by the pipeline — nothing here edits a
-            published record directly.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
-          <RoleBadge role={user?.role ?? "admin"} />
-          <span className="text-body-sm text-muted">
-            {user?.email ?? "Administrator session"}
-          </span>
+    <div className="admin-shell flex flex-col gap-5">
+      <header className="admin-shell-strip">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="page-eyebrow">Administration</p>
+            <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
+              Ingestion health, quality control, and curation queues. Public
+              figures come from the pipeline — nothing here edits a published
+              record directly.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+            <RoleBadge role={user?.role ?? "admin"} />
+            <span className="data-mono text-xs text-muted">
+              {user?.email ?? "Administrator session"}
+            </span>
+          </div>
         </div>
       </header>
 
-      <AdminNav badges={{ flags: 0, review: 0, aiReview: 0 }} role={user?.role ?? "admin"} />
+      <AdminNav
+        badges={{ flags: 0, review: 0, aiReview: 0 }}
+        role={user?.role ?? "admin"}
+      />
 
       {children}
     </div>

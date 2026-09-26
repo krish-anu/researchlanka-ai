@@ -117,7 +117,7 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
               onClick={() => setOpen(false)}
               className="interactive rounded px-2 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
             >
-              Your account
+              My workspace
             </Link>
             <Link
               href="/account/saved"
