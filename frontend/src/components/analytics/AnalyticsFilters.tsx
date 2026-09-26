@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import type { SearchParams } from "@/services/filters";
 import { AnalyticsFiltersForm } from "@/components/analytics/AnalyticsFiltersForm";
 import { getPublicationYearCoverage } from "@/services/api";
@@ -9,12 +11,22 @@ export async function AnalyticsFilters({
   basePath = "/",
   defaultFrom,
   defaultTo,
+  title,
+  summaryLabel,
+  extraControls,
+  omitParamKeys,
+  applyLabel,
 }: {
   params: SearchParams;
   fields?: string[];
   basePath?: string;
   defaultFrom?: number;
   defaultTo?: number;
+  title?: string;
+  summaryLabel?: string;
+  extraControls?: ReactNode;
+  omitParamKeys?: string[];
+  applyLabel?: string;
 }) {
   const coverage = await getPublicationYearCoverage();
 
@@ -27,6 +39,11 @@ export async function AnalyticsFilters({
       defaultTo={defaultTo}
       yearStart={coverage?.start}
       yearEnd={coverage?.end}
+      title={title}
+      summaryLabel={summaryLabel}
+      extraControls={extraControls}
+      omitParamKeys={omitParamKeys}
+      applyLabel={applyLabel}
     />
   );
 }

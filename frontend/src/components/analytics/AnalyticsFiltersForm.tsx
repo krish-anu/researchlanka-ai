@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { YearRangeInputs } from "@/components/ui/YearRangeInputs";
@@ -9,6 +9,15 @@ import {
   useFilterNavigation,
 } from "@/components/navigation/FilterNavigation";
 import type { SearchParams } from "@/services/filters";
+
+const BASE_OMIT_KEYS = [
+  "year_min",
+  "year_max",
+  "field",
+  "page",
+  "fields_page",
+  "topics_page",
+] as const;
 
 function firstValue(params: SearchParams, key: string): string {
   const value = params[key];
@@ -103,8 +112,8 @@ function filterSummary({
 }
 
 /**
- * Instant-apply analytics filter card: year presets, dual year selects,
- * searchable field, and an inline “Filters applied” summary.
+ * Analytics filter card: year presets, dual year selects, searchable field,
+ * optional extra controls, and either instant apply or an explicit Apply button.
  */
 export function AnalyticsFiltersForm({
   params,
@@ -114,6 +123,11 @@ export function AnalyticsFiltersForm({
   defaultTo,
   yearStart,
   yearEnd,
+  title = "Filters",
+  summaryLabel = "Filters applied",
+  extraControls,
+  omitParamKeys = [],
+  applyLabel,
 }: {
   params: SearchParams;
   fields: string[];
@@ -122,6 +136,14 @@ export function AnalyticsFiltersForm({
   defaultTo?: number;
   yearStart?: number;
   yearEnd?: number;
+  title?: string;
+  summaryLabel?: string;
+  /** Extra labeled controls rendered inside the same SoftNavForm. */
+  extraControls?: ReactNode;
+  /** Param keys rendered in `extraControls` — skip hidden duplicates. */
+  omitParamKeys?: string[];
+  /** When set, year/field changes wait for this Apply button instead of auto-submitting. */
+  applyLabel?: string;
 }) {
   const { navigate } = useFilterNavigation();
   const fieldListId = useId();
@@ -138,6 +160,7 @@ export function AnalyticsFiltersForm({
     parseYear(firstValue(params, "year_max")) ??
     (prefilledYears ? defaultTo : undefined);
   const [fieldQuery, setFieldQuery] = useState(selected);
+  const requireApply = Boolean(applyLabel);
 
   const summary = filterSummary({
     yearMin,
@@ -152,12 +175,14 @@ export function AnalyticsFiltersForm({
       ? Math.max(yearStart, yearEnd - 4)
       : undefined;
 
+  const hiddenOmit = new Set<string>([...BASE_OMIT_KEYS, ...omitParamKeys]);
+
   return (
-    <section className="analytics-filter-card panel" aria-label="Analytics filters">
+    <section className="analytics-filter-card panel" aria-label={title}>
       <div className="analytics-filter-card-head">
-        <h2 className="analytics-filter-card-title">Filters</h2>
+        <h2 className="analytics-filter-card-title">{title}</h2>
         <p className="analytics-filter-summary">
-          <span className="text-muted">Filters applied:</span> {summary}
+          <span className="text-muted">{summaryLabel}:</span> {summary}
         </p>
       </div>
 
@@ -221,17 +246,7 @@ export function AnalyticsFiltersForm({
 
       <SoftNavForm action={basePath} className="analytics-filters">
         {Object.entries(params)
-          .filter(
-            ([key]) =>
-              ![
-                "year_min",
-                "year_max",
-                "field",
-                "page",
-                "fields_page",
-                "topics_page",
-              ].includes(key),
-          )
+          .filter(([key]) => !hiddenOmit.has(key))
           .flatMap(([key, value]) =>
             (Array.isArray(value) ? value : value ? [value] : []).map(
               (item, index) => (
@@ -251,7 +266,7 @@ export function AnalyticsFiltersForm({
           defaultFrom={firstValue(params, "year_min") || defaultFrom}
           defaultTo={firstValue(params, "year_max") || defaultTo}
           allowEmpty={!prefilledYears}
-          autoSubmit
+          autoSubmit={!requireApply}
         />
 
         <label className="analytics-field-label">
@@ -264,6 +279,7 @@ export function AnalyticsFiltersForm({
             placeholder="All fields — type to search"
             onChange={(event) => setFieldQuery(event.target.value)}
             onBlur={(event) => {
+              if (requireApply) return;
               const next = event.target.value.trim();
               if (next === selected) return;
               event.currentTarget.form?.requestSubmit();
@@ -293,7 +309,14 @@ export function AnalyticsFiltersForm({
             ))
           : null}
 
+        {extraControls}
+
         <div className="analytics-filter-actions">
+          {applyLabel ? (
+            <Button type="submit" variant="primary" size="sm">
+              {applyLabel}
+            </Button>
+          ) : null}
           <ResetFiltersButton href={basePath} />
         </div>
       </SoftNavForm>
