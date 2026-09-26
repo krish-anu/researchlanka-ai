@@ -17,6 +17,10 @@ import joblib
 import pandas as pd
 
 from src.ai_relevance.borderline import borderline_false_positive_category
+from src.ai_relevance.calibration import (
+    calibrate_scores,
+    configured_calibrator_path,
+)
 from src.collectors.openalex_collector import (
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
@@ -63,6 +67,8 @@ DEFAULT_MODEL_PATH = DEFAULT_AI_RELEVANCE_MODEL_PATH
 AI_COLUMNS = (
     "ai_classification_label",
     "ai_classification_confidence",
+    "ai_classification_raw_confidence",
+    "ai_classification_calibrator",
     "ai_classification_model",
     "ai_classification_reason",
 )
@@ -279,8 +285,14 @@ def apply_ai_classification(
     text = combined_text(frame.fillna(""), text_columns)
     predictions = list(model.predict(text)) if len(text) else []
     ai_index = ai_class_index(model)
+    raw_confidences: list[float | None]
+    selected_calibrator_path = configured_calibrator_path()
     if hasattr(model, "predict_proba") and len(text) and ai_index is not None:
-        confidences = [float(values[ai_index]) for values in model.predict_proba(text)]
+        raw_confidences = [float(values[ai_index]) for values in model.predict_proba(text)]
+        confidences = calibrate_scores(
+            raw_confidences,
+            calibrator_path=selected_calibrator_path,
+        )
         labels_and_reasons = [label_from_ai_probability(score) for score in confidences]
     elif hasattr(model, "decision_function") and len(text):
         margins = model.decision_function(text)
@@ -290,13 +302,21 @@ def apply_ai_classification(
             confidences = [
                 confidence_from_margin(float(max(row, key=abs))) for row in margins
             ]
+        raw_confidences = [None] * len(confidences)
         labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
     else:
         confidences = [None] * len(predictions)
+        raw_confidences = [None] * len(predictions)
         labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
 
     classified_rows: list[dict[str, Any]] = []
-    for row, confidence, label_and_reason in zip(rows, confidences, labels_and_reasons, strict=True):
+    for row, raw_confidence, confidence, label_and_reason in zip(
+        rows,
+        raw_confidences,
+        confidences,
+        labels_and_reasons,
+        strict=True,
+    ):
         label, reason = label_and_reason
         if (
             confidence_review_threshold is not None
@@ -316,6 +336,14 @@ def apply_ai_classification(
                 "ai_classification_label": label,
                 "ai_classification_confidence": (
                     None if confidence is None else f"{confidence:.6f}"
+                ),
+                "ai_classification_raw_confidence": (
+                    None if raw_confidence is None else f"{raw_confidence:.6f}"
+                ),
+                "ai_classification_calibrator": (
+                    str(selected_calibrator_path)
+                    if selected_calibrator_path is not None and raw_confidence is not None
+                    else None
                 ),
                 "ai_classification_model": str(model_path),
                 "ai_classification_reason": reason or None,

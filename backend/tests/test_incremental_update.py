@@ -97,3 +97,30 @@ def test_incremental_borderline_detector_sends_smart_system_to_review(monkeypatc
     assert classified[0]["ai_classification_reason"].startswith(
         "borderline_false_positive_risk:"
     )
+
+
+def test_incremental_classification_thresholds_calibrated_probability(monkeypatch) -> None:
+    monkeypatch.setattr(incremental_update.joblib, "load", lambda _path: ProbabilityModel())
+    monkeypatch.setattr(incremental_update, "validate_model_path", lambda _path: None)
+    monkeypatch.setattr(
+        incremental_update,
+        "configured_calibrator_path",
+        lambda: Path("calibrator.joblib"),
+    )
+    monkeypatch.setattr(
+        incremental_update,
+        "calibrate_scores",
+        lambda scores, *, calibrator_path: [0.70 for _score in scores],
+    )
+
+    classified = apply_ai_classification(
+        [{"title": "Machine learning model for crop disease detection"}],
+        model_path=Path("model.joblib"),
+        text_columns=("title",),
+        confidence_review_threshold=0.85,
+    )
+
+    assert classified[0]["ai_classification_label"] == "review"
+    assert classified[0]["ai_classification_confidence"] == "0.700000"
+    assert classified[0]["ai_classification_raw_confidence"] == "0.860000"
+    assert classified[0]["ai_classification_calibrator"] == "calibrator.joblib"

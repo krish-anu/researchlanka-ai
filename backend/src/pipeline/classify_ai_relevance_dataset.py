@@ -12,6 +12,7 @@ import joblib
 import pandas as pd
 
 from src.ai_relevance.borderline import borderline_false_positive_category
+from src.ai_relevance.calibration import calibrate_scores, configured_calibrator_path
 from src.modeling.training import combined_text
 from src.pipeline.refresh_policy import (
     DEFAULT_AUTO_AI_THRESHOLD,
@@ -144,6 +145,7 @@ def classify_ai_relevance_dataframe(
     text_columns: Iterable[str] = DEFAULT_TEXT_COLUMNS,
     ai_threshold: float = DEFAULT_AI_THRESHOLD,
     review_threshold: float = DEFAULT_REVIEW_THRESHOLD,
+    calibrator_path: Path | None = None,
 ) -> pd.DataFrame:
     validate_thresholds(
         ai_threshold=ai_threshold,
@@ -157,7 +159,9 @@ def classify_ai_relevance_dataframe(
         raise ValueError("Analysis-ready dataset has no configured model text columns.")
 
     text = combined_text(cleaned.fillna(""), selected_text_columns)
-    scores = ai_probability_scores(model, text)
+    raw_scores = ai_probability_scores(model, text)
+    selected_calibrator_path = configured_calibrator_path(calibrator_path)
+    scores = calibrate_scores(raw_scores, calibrator_path=selected_calibrator_path)
     labels = [
         label_from_ai_score(
             score,
@@ -185,6 +189,11 @@ def classify_ai_relevance_dataframe(
     cleaned["ai_classification_confidence"] = [f"{score:.6f}" for score in scores]
     cleaned["ai_classification_model"] = model_name
     cleaned["ai_classification_reason"] = reasons
+    if selected_calibrator_path is not None:
+        cleaned["ai_classification_raw_confidence"] = [
+            f"{score:.6f}" for score in raw_scores
+        ]
+        cleaned["ai_classification_calibrator"] = str(selected_calibrator_path)
     return cleaned
 
 
@@ -196,6 +205,7 @@ def classify_ai_relevance_dataset(
     text_columns: Iterable[str] = DEFAULT_TEXT_COLUMNS,
     ai_threshold: float = DEFAULT_AI_THRESHOLD,
     review_threshold: float = DEFAULT_REVIEW_THRESHOLD,
+    calibrator_path: Path | None = None,
 ) -> AIClassificationResult:
     selected_model_path = configured_ai_model_path(model_path)
     if not selected_model_path.is_file():
@@ -213,6 +223,7 @@ def classify_ai_relevance_dataset(
         text_columns=text_columns,
         ai_threshold=ai_threshold,
         review_threshold=review_threshold,
+        calibrator_path=calibrator_path,
     )
     if len(classified) != len(frame):
         raise RuntimeError("Every analysis-ready row must receive an AI classification.")
