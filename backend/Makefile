@@ -40,7 +40,7 @@ OPENALEX_EMAIL ?=
 OPENALEX_EXTRA_ARGS ?=
 
 # Model-ready text extraction settings.
-MODEL_TEXT_INPUT ?= data/processed/common/common_publications_final.csv
+MODEL_TEXT_INPUT ?= data/processed/common/common_publications_final_text_enriched.csv
 MODEL_TITLES_OUTPUT ?= data/processed/common/publication_titles_for_model_all_years.csv
 MODEL_ABSTRACTS_OUTPUT ?= data/processed/common/publication_abstracts_for_model_all_years.csv
 MODEL_KEYWORDS_OUTPUT ?= data/processed/common/publication_keywords_for_model_all_years.csv
@@ -110,7 +110,7 @@ INCREMENTAL_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
 INCREMENTAL_DB_LABELS ?= AI,review
 INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?= 0.6
 INCREMENTAL_EXTRA_ARGS ?=
-AI_DATASET_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
+AI_DATASET_INPUT ?= data/processed/common/common_publications_final_text_enriched.csv
 AI_DATASET_CLASSIFIED_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_classified.csv
 AI_DATASET_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
 AI_DATASET_MODEL ?= data/models/ai_relevance/ai_relevance_linear_svm.joblib
@@ -150,6 +150,11 @@ FINAL_COMMON_INPUT ?= data/processed/common/common_publications_deduplicated.csv
 FINAL_COMMON_OUTPUT ?= data/processed/common/common_publications_final.csv
 FINAL_COMMON_EXTRA_ARGS ?=
 FINAL_REPOSITORY_APPEND_SUMMARY ?= data/processed/common/common_publications_final_repository_append_summary.csv
+ENRICH_TEXT_INPUT ?= $(FINAL_COMMON_OUTPUT)
+ENRICH_TEXT_FETCHED ?= data/processed/common/abstract_fetched.csv
+ENRICH_TEXT_OUTPUT ?= data/processed/common/common_publications_final_text_enriched.csv
+ENRICH_TEXT_SUMMARY ?= data/results/missing_text_enrichment_summary.json
+ENRICH_TEXT_EXTRA_ARGS ?=
 OWNERSHIP_VALIDATE_INPUT ?= $(FINAL_COMMON_OUTPUT)
 
 # Google Maps assisted institution-location confirmation.
@@ -192,7 +197,7 @@ INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_END_DATE),--end-date $(INCREMENTAL_
 INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
 INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
 
-.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now reset-db-2016-now load-full-db-2016-now reset-full-db-2016-now incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -232,6 +237,8 @@ help:
 	@echo "  make validate-dataset        Validate author, institution, citation, collaboration and ownership fields"
 	@echo "  make validate-ownership      Run strict ownership validation only"
 	@echo "  make final-common            Build verified final dataset and ownership sidecars"
+	@echo "  make final-common-enriched   Build final dataset, then fill missing abstracts/keywords"
+	@echo "  make enrich-missing-text     Fill missing abstracts/keywords from fetched metadata before preprocessing"
 	@echo "  make final-common-add-repositories  Append repository review rows to the final dataset with low memory"
 	@echo "  make predict-logreg          Run saved classifier inference on publication text"
 	@echo "  make model-api               Serve FastAPI model endpoints"
@@ -242,7 +249,7 @@ help:
 	@echo "  OPENALEX_EXTRA_ARGS='--strict-lk-only'"
 	@echo "  OPENALEX_DIR=data/processed/openalex"
 	@echo "  NATIONAL_CONFIG=configurations/sri_lanka/config.json"
-	@echo "  MODEL_TEXT_INPUT=data/processed/common/common_publications_final.csv"
+	@echo "  MODEL_TEXT_INPUT=data/processed/common/common_publications_final_text_enriched.csv"
 
 # Install project dependencies into the configured virtual environment.
 install:
@@ -272,7 +279,7 @@ load-full-db-2016-now:
 reset-full-db-2016-now:
 	$(PYTHON) -m research_analytics.cli load_database --config $(NATIONAL_CONFIG) --dataset $(DB_LOAD_INPUT) --batch-size $(DB_LOAD_BATCH_SIZE) --full-database --year-min $(DB_LOAD_YEAR_MIN) --year-max $(DB_LOAD_YEAR_MAX) --reset
 
-ai-dataset:
+ai-dataset: enrich-missing-text
 	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
 		--input $(AI_DATASET_INPUT) \
 		--classified-output $(AI_DATASET_CLASSIFIED_OUTPUT) \
@@ -283,7 +290,7 @@ ai-dataset:
 		$(if $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),--confidence-review-threshold $(AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD),) \
 		$(AI_DATASET_EXTRA_ARGS)
 
-reset-db-ai:
+reset-db-ai: enrich-missing-text
 	$(PYTHON) -m src.pipeline.build_ai_publication_dataset \
 		--input $(AI_DATASET_INPUT) \
 		--classified-output $(AI_DATASET_CLASSIFIED_OUTPUT) \
@@ -313,32 +320,32 @@ incremental-update:
 		$(INCREMENTAL_EXTRA_ARGS)
 
 # Export model-ready text and TF-IDF features from the final dataset.
-model-text: model-titles model-abstracts model-keywords model-tfidf
+model-text: enrich-missing-text model-titles model-abstracts model-keywords model-tfidf
 
-model-titles:
+model-titles: enrich-missing-text
 	$(PYTHON) scripts/extraction/extract_publication_titles_for_model.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_TITLES_OUTPUT)
 
-model-abstracts:
+model-abstracts: enrich-missing-text
 	$(PYTHON) scripts/extraction/extract_publication_abstracts_for_model.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_ABSTRACTS_OUTPUT)
 
-model-keywords:
+model-keywords: enrich-missing-text
 	$(PYTHON) scripts/extraction/extract_publication_keywords_for_model.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_KEYWORDS_OUTPUT)
 
-model-tfidf:
+model-tfidf: enrich-missing-text
 	$(PYTHON) scripts/extraction/build_publication_tfidf_features.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_TFIDF_OUTPUT) --vocabulary-output $(MODEL_TFIDF_VOCABULARY_OUTPUT) --summary-output $(MODEL_TFIDF_SUMMARY_OUTPUT) --max-features $(MODEL_TFIDF_MAX_FEATURES) --min-df $(MODEL_TFIDF_MIN_DF) --max-df $(MODEL_TFIDF_MAX_DF) --ngram-max $(MODEL_TFIDF_NGRAM_MAX) --top-features-per-record $(MODEL_TFIDF_TOP_FEATURES_PER_RECORD)
 
-model-embeddings:
+model-embeddings: enrich-missing-text
 	$(PYTHON) scripts/modeling/generate_publication_text_embeddings.py --input $(EMBED_INPUT) --output $(EMBED_OUTPUT) --model-output $(EMBED_MODEL_OUTPUT) --manifest-output $(EMBED_MANIFEST_OUTPUT) --summary-output $(EMBED_SUMMARY_OUTPUT) --text-columns $(EMBED_TEXT_COLUMNS) --metadata-columns $(EMBED_METADATA_COLUMNS) --embedding-dim $(EMBED_DIM) --max-features $(EMBED_MAX_FEATURES) --min-df $(EMBED_MIN_DF) --max-df $(EMBED_MAX_DF) --ngram-max $(EMBED_NGRAM_MAX) $(EMBED_EXTRA_ARGS)
 
 model-splits:
 	$(PYTHON) scripts/modeling/create_dataset_splits.py --input $(MODEL_SPLIT_INPUT) --output-dir $(MODEL_SPLIT_OUTPUT_DIR) --label-column $(MODEL_SPLIT_LABEL_COLUMN) --text-columns $(MODEL_SPLIT_TEXT_COLUMNS) --train-ratio $(MODEL_SPLIT_TRAIN_RATIO) --validation-ratio $(MODEL_SPLIT_VALIDATION_RATIO) --test-ratio $(MODEL_SPLIT_TEST_RATIO) --random-state $(MODEL_SPLIT_RANDOM_STATE) --min-class-count $(MODEL_SPLIT_MIN_CLASS_COUNT) $(MODEL_SPLIT_EXTRA_ARGS)
 
-train-logreg:
+train-logreg: enrich-missing-text
 	$(PYTHON) scripts/modeling/train_logistic_regression_classifier.py --input $(LOGREG_INPUT) --label-column $(LOGREG_LABEL_COLUMN) --text-columns $(LOGREG_TEXT_COLUMNS) --model-output $(LOGREG_MODEL_OUTPUT) --metrics-output $(LOGREG_METRICS_OUTPUT) --label-counts-output $(LOGREG_LABEL_COUNTS_OUTPUT) --predictions-output $(LOGREG_PREDICTIONS_OUTPUT) --manifest-output $(LOGREG_MANIFEST_OUTPUT) --max-features $(LOGREG_MAX_FEATURES) --min-df $(LOGREG_MIN_DF) --max-df $(LOGREG_MAX_DF) --ngram-max $(LOGREG_NGRAM_MAX) --min-class-count $(LOGREG_MIN_CLASS_COUNT) --test-size $(LOGREG_TEST_SIZE) --max-iter $(LOGREG_MAX_ITER) $(LOGREG_EXTRA_ARGS)
 
 # Train the Multinomial Naive Bayes baseline. Writes the same artifact set as
 # train-logreg, plus its confusion matrix and per-class results.
-train-nb:
+train-nb: enrich-missing-text
 	$(PYTHON) -m src.modeling.training --model-family multinomial_nb --input $(NB_INPUT) --label-column $(NB_LABEL_COLUMN) --text-columns $(NB_TEXT_COLUMNS) --alpha $(NB_ALPHA) --min-class-count $(NB_MIN_CLASS_COUNT) --test-size $(NB_TEST_SIZE) $(NB_EXTRA_ARGS)
 
 # Score saved predictions and write confusion-matrix, per-class and comparison
@@ -356,10 +363,20 @@ validate-ownership:
 final-common:
 	$(PYTHON) scripts/processing/build_final_common_dataset.py --input-csv $(FINAL_COMMON_INPUT) --output-csv $(FINAL_COMMON_OUTPUT) $(FINAL_COMMON_EXTRA_ARGS)
 
+final-common-enriched: final-common enrich-missing-text
+
+enrich-missing-text:
+	$(PYTHON) scripts/processing/merge_scraped_results_with_dataset.py \
+		--current-dataset $(ENRICH_TEXT_INPUT) \
+		--scraped-results $(ENRICH_TEXT_FETCHED) \
+		--output-csv $(ENRICH_TEXT_OUTPUT) \
+		--summary-json $(ENRICH_TEXT_SUMMARY) \
+		$(ENRICH_TEXT_EXTRA_ARGS)
+
 final-common-add-repositories:
 	$(PYTHON) scripts/processing/add_repository_records_to_final.py --deduplicated-csv $(FINAL_COMMON_INPUT) --final-csv $(FINAL_COMMON_OUTPUT) --summary-csv $(FINAL_REPOSITORY_APPEND_SUMMARY)
 
-predict-logreg:
+predict-logreg: enrich-missing-text
 	$(PYTHON) scripts/modeling/predict_publication_classifier.py --input $(LOGREG_INFERENCE_INPUT) --model $(LOGREG_MODEL_OUTPUT) --model-manifest $(LOGREG_MANIFEST_OUTPUT) --output $(LOGREG_INFERENCE_OUTPUT) --inference-manifest $(LOGREG_INFERENCE_MANIFEST_OUTPUT) --text-columns $(LOGREG_TEXT_COLUMNS) --metadata-columns $(LOGREG_INFERENCE_METADATA_COLUMNS) $(LOGREG_INFERENCE_EXTRA_ARGS)
 
 model-api:

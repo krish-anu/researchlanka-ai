@@ -14,7 +14,11 @@ import { decideCandidate } from "@/services/workspace/resolution";
 import { recordAudit, resolveFlag } from "@/services/workspace/store";
 import { isAccountRole } from "@/types/auth";
 import { startIncrementalJob } from "@/services/admin/incremental";
-import { decideAIReview, retryAIReviewSync } from "@/services/workspace/aiReview";
+import {
+  assignPendingAIReviews,
+  decideAIReview,
+  retryAIReviewSync,
+} from "@/services/workspace/aiReview";
 
 /* ---------------------------------------------------------- pipeline runs */
 
@@ -194,6 +198,20 @@ export async function retryAIReviewSyncAction(
   return { status: "ok", message: "Sync retry queued." };
 }
 
+export async function assignPendingAIReviewsAction(): Promise<ActionState> {
+  const actor = await requireCapability(
+    "admin.ai_review.manage",
+    "/admin/ai-review?tab=reviewers",
+  );
+  const result = await assignPendingAIReviews({ actor });
+  if (!result.ok) return { status: "error", message: result.message };
+  revalidatePath("/admin/ai-review");
+  return {
+    status: "ok",
+    message: `Assigned ${result.assigned} pending review records.`,
+  };
+}
+
 /* -------------------------------------------------------- user management */
 
 /**
@@ -223,7 +241,7 @@ export async function changeUserRole(
 
   if (
     target.role === "admin" &&
-    role === "user" &&
+    role !== "admin" &&
     (await countActiveAdmins()) <= 1
   ) {
     return {
@@ -245,7 +263,7 @@ export async function changeUserRole(
   revalidatePath("/admin");
   return {
     status: "ok",
-    message: `${target.name} is now ${role === "admin" ? "an administrator" : "a signed-in user"}. The change applies on their next request.`,
+    message: `${target.name} is now ${role === "admin" ? "an administrator" : role === "reviewer" ? "a reviewer" : "a signed-in user"}. The change applies on their next request.`,
   };
 }
 

@@ -1,25 +1,27 @@
 /**
- * The three roles the web platform recognises.
+ * The roles the web platform recognises.
  *
  * `guest` is not stored anywhere — it is what the app assumes when no valid
  * session cookie is present, so "unsigned visitor" is a first-class role rather
  * than the absence of one. That keeps every permission check a single
  * `can(role, capability)` call instead of a null check followed by a role check.
  */
-export type Role = "guest" | "user" | "admin";
+export type Role = "guest" | "user" | "reviewer" | "admin";
 
-export const ROLES: Role[] = ["guest", "user", "admin"];
+export const ROLES: Role[] = ["guest", "user", "reviewer", "admin"];
 
 /** Roles are ordered: a higher rank includes everything below it. */
 export const ROLE_RANK: Record<Role, number> = {
   guest: 0,
   user: 1,
-  admin: 2,
+  reviewer: 2,
+  admin: 3,
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
   guest: "Visitor",
   user: "Signed in",
+  reviewer: "Reviewer",
   admin: "Administrator",
 };
 
@@ -28,6 +30,8 @@ export const ROLE_DESCRIPTION: Record<Role, string> = {
     "Anyone on the open web. Reads the public corpus, searches, and exports — no account, nothing saved.",
   user:
     "A signed-in researcher or analyst. Everything a visitor can do, plus a saved library and the ability to flag suspect records.",
+  reviewer:
+    "AI review specialist. Can access the AI review queue and decide assigned AI relevance records, but cannot manage the pipeline, users, flags, or other admin tools.",
   admin:
     "Platform steward. Everything a signed-in user can do, plus the pipeline console, the entity-resolution queue, flag triage, and role management.",
 };
@@ -40,7 +44,7 @@ export function isRole(value: unknown): value is Role {
 export type AccountRole = Exclude<Role, "guest">;
 
 export function isAccountRole(value: unknown): value is AccountRole {
-  return value === "user" || value === "admin";
+  return value === "user" || value === "reviewer" || value === "admin";
 }
 
 /** Full stored record. The password hash never leaves the server. */

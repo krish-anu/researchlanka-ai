@@ -28,18 +28,18 @@ export type Capability =
   | "admin.users.manage";
 
 const GRANTS: Record<Capability, Role[]> = {
-  "corpus.read": ["guest", "user", "admin"],
-  "corpus.export": ["guest", "user", "admin"],
+  "corpus.read": ["guest", "user", "reviewer", "admin"],
+  "corpus.export": ["guest", "user", "reviewer", "admin"],
 
-  "library.save": ["user", "admin"],
-  "record.flag": ["user", "admin"],
-  "account.manage": ["user", "admin"],
+  "library.save": ["user", "reviewer", "admin"],
+  "record.flag": ["user", "reviewer", "admin"],
+  "account.manage": ["user", "reviewer", "admin"],
 
-  "admin.access": ["admin"],
+  "admin.access": ["reviewer", "admin"],
   "admin.pipeline.view": ["admin"],
   "admin.pipeline.run": ["admin"],
   "admin.flags.triage": ["admin"],
-  "admin.resolution.decide": ["admin"],
+  "admin.resolution.decide": ["reviewer", "admin"],
   "admin.ai_review.manage": ["admin"],
   "admin.users.manage": ["admin"],
 };
@@ -59,6 +59,11 @@ export const ROLE_CAPABILITY_SUMMARY: Record<Role, string[]> = {
     "Everything a visitor can do",
     "Save publications to a personal library",
     "Flag records that look wrong, for administrator review",
+  ],
+  reviewer: [
+    "Everything a signed-in user can do",
+    "Access the AI review queue",
+    "Accept or reject assigned AI relevance records",
   ],
   admin: [
     "Everything a signed-in user can do",
