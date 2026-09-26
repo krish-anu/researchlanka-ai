@@ -42,9 +42,9 @@ Researcher and institution profiles and their publication lists use `_rows_for_m
 
 ### 2. P1 — Incremental loading does not enforce Sri Lanka ownership
 
-The full Dagster chain validates ownership before downstream processing (`backend/dagster-quickstart/src/dagster_quickstart/defs/researchlanka.py:1367`). Incremental selection only checks the AI label and valid DOI (`backend/src/pipeline/incremental_update.py:312`). Ownership fields are computed by the OpenAlex normalizer but not enforced here; strict collection is optional and defaults off.
+The full Dagster chain validates ownership before downstream processing (`backend/dagster-quickstart/src/dagster_quickstart/defs/researchlanka.py:1367`). Incremental and historical ingestion now call the shared selector, which applies AI/review labels, valid DOI, and the ownership gate before database ingestion.
 
-**Reproduced:** a row with `ownership_decision=EXCLUDE`, an AI label, and a valid DOI is selected for loading. Once its AI review is accepted, the current shared public filter does not independently reject its ownership decision.
+**Current status:** a row with `ownership_decision=EXCLUDE`, an AI label, and a valid DOI is no longer selected by `filter_rows_for_database`, and the public eligibility view independently enforces the same ownership decision/confidence rule.
 
 **Correction:** apply the same `INCLUDE` + HIGH/MEDIUM confidence + no ownership review rule before public eligibility. Retain noneligible evidence separately. Enforce this invariant at the public boundary as well as in ingestion.
 
@@ -58,9 +58,9 @@ This contradicts the README's definition of that same file as verified ownership
 
 ### 4. P1 — Several loaders omit the review records needed for visibility
 
-Dagster explicitly backfills review rows after loading (`backend/dagster-quickstart/src/dagster_quickstart/defs/researchlanka.py:2025`). `load_record_file`, the historical AI-only builder (`backend/src/pipeline/build_ai_publication_dataset.py:75`), and incremental loading (`backend/src/pipeline/incremental_update.py:421`) do not.
+Dagster explicitly backfills review rows after loading (`backend/dagster-quickstart/src/dagster_quickstart/defs/researchlanka.py:2025`). `load_record_file` now does the same by calling `backfill_review_records`, so the historical builder and incremental loading inherit the same review workflow behavior.
 
-For newly inserted keys, an AI classification alone does not satisfy the public `ai_review_records` join. An incremental run can report success while its new records are missing from accepted lists and the review queue until a separate backfill is executed. Reusing an existing key can instead preserve old review state alongside changed model metadata.
+For newly inserted keys, an AI classification alone still does not satisfy the public `ai_review_records` join, but shared ingestion creates the required review records during load and preserves existing human decisions for stable publication keys.
 
 **Correction:** share a transactional ingestion service that upserts publications and creates/updates review workflow records, preserving human decisions under an explicit policy. Report ingested, pending, accepted, and rejected counts separately.
 
@@ -74,7 +74,7 @@ The monthly scripts invoke reset targets, and the historical builder uses `reset
 
 ### 6. P1 — Monthly refreshes select the broad CSV instead of the AI workflow output
 
-EC2 initial deployment loads `common_publications_final_2016_2026_ai_only.csv` (`docs/aws-ec2-app-deployment.md:96`). Both `scripts/aws_monthly_pipeline.sh:17` and `scripts/aws_trigger_kaggle_monthly.sh:22` instead default `DB_INPUT` to `common_publications_final_2016_2026.csv`, then reset/load it. Dagster produces a different downstream file ending `_ai_review_filtered.csv`.
+EC2 monthly and Kaggle-triggered deployment now invoke `make load-db-ai`, which runs the shared classification, threshold, DB-label, ownership, review-backfill, and upsert policy. The old `load-db-2016-now` target remains only as a compatibility alias for that same path.
 
 The broader input may lack AI classification entirely. Combined with findings 1, 4, and 5, a refresh can empty accepted lists while broader detail/profile paths remain readable. These are consequences of the code defaults, not a claim that production has already been refreshed this way.
 
@@ -114,7 +114,7 @@ A successful generation run can leave the API reporting missing artifacts or ser
 
 ### 11. P2 — Classification model, text inputs, and thresholds vary by entry point
 
-Dagster classification defaults to `model_selection/best_ai_relevance_model.joblib`, nine text fields, and P(AI) thresholds 0.85/0.40 (`backend/src/pipeline/classify_ai_relevance_dataset.py:18`). Incremental/historical classification defaults to `ai_relevance_linear_svm.joblib`, five text fields, a predicted-label confidence, and an optional confidence cutoff (`backend/src/pipeline/incremental_update.py:42`, `:224`). Make supplies 0.60; direct CLI and the admin job default to no cutoff. Compose explicitly selects the older SVM path. The model-selection document describes a selected logistic regression model and a 0.60 review cutoff.
+Historical, incremental, Kaggle-triggered, and admin-triggered refreshes now share `refresh_policy.py`: `ai_relevance_linear_svm.joblib`, five text fields, `AI,review` ingestion labels, and a default confidence-review cutoff of `0.8`. Dagster/model-selection artifacts can still drift if they bypass that shared policy.
 
 **Reproduced with the same fake probability model:** P(AI)=0.55 becomes `review` in the Dagster classifier, `AI` in direct incremental classification, and `review` when the Make cutoff is applied. Database backfill adds its own acceptance policy; this does not undo records discarded before loading.
 
@@ -122,9 +122,9 @@ Dagster classification defaults to `model_selection/best_ai_relevance_model.jobl
 
 ### 12. P2 — Uncertain AI records reach review only on some paths
 
-Dagster keeps both `AI` and `review` labels. Historical/incremental selection defaults to only `AI`; the admin launcher explicitly passes `--db-labels AI` (`backend/src/api/services/incremental_admin.py:64`). The selector also requires valid DOI, whereas the Dagster loader does not add that requirement.
+The production refresh policy now keeps both `AI` and `review` labels across historical, incremental, and admin-triggered runs. The admin launcher uses the same default `AI,review` DB labels and confidence-review threshold as the CLI paths. The remaining compatibility risk is older generated Kaggle artifacts or external scripts that bypass the shared refresh policy.
 
-Consequently, uncertain records can be available for human review after a full rebuild but discarded by an incremental refresh. A no-DOI publication can likewise be retained by one path and dropped by another.
+Consequently, uncertain records now follow the same database-review path across those entry points. A no-DOI publication is still excluded by the current ingestion selector, while public display remains governed separately by `public_eligible_publications`.
 
 **Correction:** separate “eligible for ingestion/review” from “accepted for public display.” Preserve review candidates and decide the DOI requirement once for each layer. Do not put a public AI-only filter in front of the review queue.
 

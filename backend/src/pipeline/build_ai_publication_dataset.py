@@ -12,6 +12,7 @@ from typing import Any
 from src.database.load_records import load_record_file
 from src.pipeline.incremental_update import (
     AI_COLUMNS,
+    DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
     DEFAULT_DB_LABELS,
     DEFAULT_TEXT_COLUMNS,
     apply_ai_classification,
@@ -20,6 +21,7 @@ from src.pipeline.incremental_update import (
     parse_label_set,
 )
 from src.modeling.training import parse_text_columns
+from src.pipeline.refresh_policy import configured_confidence_review_threshold
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -91,7 +93,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ai-output", type=Path, default=DEFAULT_AI_OUTPUT)
     parser.add_argument("--model", type=Path, default=configured_model_path())
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
-    parser.add_argument("--confidence-review-threshold", type=float, default=None)
+    parser.add_argument(
+        "--confidence-review-threshold",
+        type=configured_confidence_review_threshold,
+        default=DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    )
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
     parser.add_argument("--load-db", action="store_true")
     parser.add_argument("--batch-size", type=int, default=1000)

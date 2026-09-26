@@ -61,6 +61,7 @@ const ROOT = process.cwd().endsWith(`${path.sep}frontend`)
 const STATUS_PATH = path.join(ROOT, "backend", "outputs", "incremental", "ui_status.json");
 const REMOTE_API_BASE_URL = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;
 const REMOTE_ADMIN_API_TOKEN = process.env.RESEARCHLANKA_ADMIN_API_TOKEN;
+const DEFAULT_DB_LABELS = ["AI", "review"];
 
 export const INCREMENTAL_STATUS_PATH = STATUS_PATH;
 export const INCREMENTAL_ROOT = path.dirname(STATUS_PATH);
@@ -84,7 +85,7 @@ export async function readIncrementalRunSnapshot(): Promise<IncrementalRunSnapsh
     return {
       status: "idle",
       message: "No incremental AI update has been started from this console.",
-      db_labels: ["AI"],
+      db_labels: DEFAULT_DB_LABELS,
     };
   }
 }
@@ -118,8 +119,8 @@ export async function startIncrementalJob(
         request.confidenceReviewThreshold ??
         request.review_threshold ??
         request.confidence_review_threshold ??
-        "0.6",
-    ).trim() || "0.6";
+        "0.8",
+    ).trim() || "0.8";
   const threshold = Number(reviewThreshold);
 
   if (fromDate && !isIsoDate(fromDate)) {
@@ -168,7 +169,7 @@ export async function startIncrementalJob(
     pid: child.pid,
     started_at: startedAt,
     message: "Incremental AI publication update is running.",
-    db_labels: ["AI"],
+    db_labels: DEFAULT_DB_LABELS,
     review_threshold: threshold,
     requested_from_date: fromDate ?? null,
     requested_to_date: toDate ?? null,
@@ -195,7 +196,7 @@ export async function startIncrementalJob(
         code === 0
           ? "Incremental AI publication update completed."
           : `Incremental AI publication update failed with exit code ${code}.`,
-      db_labels: ["AI"],
+      db_labels: DEFAULT_DB_LABELS,
       review_threshold: threshold,
       requested_from_date: fromDate ?? null,
       requested_to_date: toDate ?? null,
@@ -211,7 +212,7 @@ export async function startIncrementalJob(
     message: "Incremental AI publication update started.",
     pid: child.pid,
     logPath,
-    db_labels: ["AI"],
+    db_labels: DEFAULT_DB_LABELS,
   };
 }
 
@@ -271,7 +272,7 @@ async function startRemoteIncrementalJob(
       message: status.message,
       pid: typeof payload.data?.pid === "number" ? payload.data.pid : undefined,
       logPath: status.logPath ?? "",
-      db_labels: status.db_labels ?? ["AI"],
+      db_labels: status.db_labels ?? DEFAULT_DB_LABELS,
     };
   } catch {
     return {
@@ -338,7 +339,7 @@ async function normalizeSnapshot(
     logPath,
     log_path: logPath,
     result,
-    db_labels: payload.db_labels ?? ["AI"],
+    db_labels: payload.db_labels ?? DEFAULT_DB_LABELS,
   };
 }
 

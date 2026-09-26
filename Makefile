@@ -26,7 +26,7 @@ help:
 	@echo ""
 	@echo "  make install            Install backend and frontend dependencies"
 	@echo "  make dev                Run backend API and frontend together"
-	@echo "  make load-db-2016-now   Load the AI-reviewed 2016-2026 dataset into PostgreSQL"
+	@echo "  make load-db-2016-now   Compatibility alias for load-db-ai"
 	@echo "  make retire-stale-db-2016-now  Upsert configured data, then soft-retire missing 2016-2026 records"
 	@echo "  make load-db-ai         Build and upsert the AI-reviewed dataset"
 	@echo "  make incremental-update Collect recent OpenAlex records, classify AI relevance, and load review-gated rows"

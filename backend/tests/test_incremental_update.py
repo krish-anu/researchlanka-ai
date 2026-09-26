@@ -1,4 +1,11 @@
+import sys
+
+from src.pipeline import build_ai_publication_dataset, incremental_update
 from src.pipeline.incremental_update import filter_rows_for_database
+from src.pipeline.refresh_policy import (
+    DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    DEFAULT_DB_LABELS,
+)
 
 
 def test_filter_rows_for_database_requires_allowed_label_and_valid_doi() -> None:
@@ -26,3 +33,16 @@ def test_filter_rows_for_database_requires_allowed_label_and_valid_doi() -> None
     selected = filter_rows_for_database(rows, labels=("AI", "review"))
 
     assert [row["doi"] for row in selected] == ["10.1000/abc", "10.1000/review"]
+
+
+def test_refresh_entry_points_share_policy_defaults(monkeypatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["incremental_update"])
+    incremental_args = incremental_update.parse_args()
+
+    monkeypatch.setattr(sys, "argv", ["build_ai_publication_dataset"])
+    historical_args = build_ai_publication_dataset.parse_args()
+
+    assert incremental_args.db_labels == DEFAULT_DB_LABELS
+    assert historical_args.db_labels == DEFAULT_DB_LABELS
+    assert incremental_args.confidence_review_threshold == DEFAULT_CONFIDENCE_REVIEW_THRESHOLD
+    assert historical_args.confidence_review_threshold == DEFAULT_CONFIDENCE_REVIEW_THRESHOLD
