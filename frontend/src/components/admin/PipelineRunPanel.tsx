@@ -106,7 +106,7 @@ export function PipelineRunPanel({
                 name="confidence_review_threshold"
                 inputMode="decimal"
                 className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
-                placeholder="0.8"
+                placeholder="0.85"
               />
             </label>
           </div>

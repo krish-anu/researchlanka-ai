@@ -60,7 +60,7 @@ def test_all_other_predictions_enter_manual_review(label: str, confidence: str) 
     assert initial_review_status(label, confidence) == ("pending_review", None)
 
 
-@pytest.mark.parametrize("confidence", ["0", "0.49", "0.499999"])
+@pytest.mark.parametrize("confidence", ["0", "0.39", "0.399999"])
 def test_low_numeric_ai_confidence_is_rejected(confidence: str) -> None:
     assert initial_review_status("AI", confidence) == ("human_rejected", None)
 

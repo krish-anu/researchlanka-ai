@@ -12,7 +12,9 @@ DEFAULT_AI_RELEVANCE_MODEL_PATH = (
     PROJECT_ROOT / "data" / "models" / "ai_relevance" / "ai_relevance_linear_svm.joblib"
 )
 DEFAULT_TEXT_COLUMNS = ("title", "abstract", "keywords", "topics", "concepts")
-DEFAULT_CONFIDENCE_REVIEW_THRESHOLD = 0.8
+DEFAULT_AUTO_AI_THRESHOLD = 0.85
+DEFAULT_AUTO_NON_AI_THRESHOLD = 0.4
+DEFAULT_CONFIDENCE_REVIEW_THRESHOLD = DEFAULT_AUTO_AI_THRESHOLD
 DEFAULT_DB_LABELS = ("AI", "review")
 
 

@@ -82,7 +82,7 @@ DATABASE_URL="postgresql://researchlanka_user:change_me@localhost:5433/researchl
 make incremental-update INCREMENTAL_FROM_DATE=2026-08-01 INCREMENTAL_TO_DATE=2026-09-01
 ```
 
-The default confidence-review threshold is `0.8` across historical, incremental,
+The default confidence-review threshold is `0.85` across historical, incremental,
 Kaggle-triggered, and admin-triggered refreshes. Override
 `RESEARCHLANKA_CONFIDENCE_REVIEW_THRESHOLD` or the matching Make variable only
 when intentionally changing the shared production policy.

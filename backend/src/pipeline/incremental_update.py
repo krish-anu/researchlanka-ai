@@ -16,6 +16,7 @@ from typing import Any
 import joblib
 import pandas as pd
 
+from src.ai_relevance.borderline import borderline_false_positive_category
 from src.collectors.openalex_collector import (
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
@@ -36,6 +37,8 @@ from src.database.pipeline_state import (
 )
 from src.modeling.training import combined_text, parse_text_columns
 from src.pipeline.refresh_policy import (
+    DEFAULT_AUTO_AI_THRESHOLD,
+    DEFAULT_AUTO_NON_AI_THRESHOLD,
     DEFAULT_AI_RELEVANCE_MODEL_PATH,
     DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
     DEFAULT_DB_LABELS,
@@ -229,6 +232,26 @@ def normalize_prediction_label(value: Any) -> tuple[str, str]:
     return "review", f"unexpected_model_label:{text}"
 
 
+def ai_class_index(model: Any) -> int | None:
+    classes = list(getattr(model, "classes_", ()))
+    for index, label in enumerate(classes):
+        normalized = str(label).strip().casefold().replace("_", "-").replace(" ", "-")
+        if normalized in {"ai", "artificial-intelligence"}:
+            return index
+    return None
+
+
+def label_from_ai_probability(score: float) -> tuple[str, str | None]:
+    if score >= DEFAULT_AUTO_AI_THRESHOLD:
+        return "AI", None
+    if score >= DEFAULT_AUTO_NON_AI_THRESHOLD:
+        return "review", (
+            f"ai_probability_between_{DEFAULT_AUTO_NON_AI_THRESHOLD:.3f}_"
+            f"and_{DEFAULT_AUTO_AI_THRESHOLD:.3f}"
+        )
+    return "non-AI", None
+
+
 def apply_ai_classification(
     rows: list[dict[str, Any]],
     *,
@@ -255,8 +278,10 @@ def apply_ai_classification(
     frame = pd.DataFrame(rows)
     text = combined_text(frame.fillna(""), text_columns)
     predictions = list(model.predict(text)) if len(text) else []
-    if hasattr(model, "predict_proba") and len(text):
-        confidences = [float(values.max()) for values in model.predict_proba(text)]
+    ai_index = ai_class_index(model)
+    if hasattr(model, "predict_proba") and len(text) and ai_index is not None:
+        confidences = [float(values[ai_index]) for values in model.predict_proba(text)]
+        labels_and_reasons = [label_from_ai_probability(score) for score in confidences]
     elif hasattr(model, "decision_function") and len(text):
         margins = model.decision_function(text)
         if getattr(margins, "ndim", 1) == 1:
@@ -265,19 +290,26 @@ def apply_ai_classification(
             confidences = [
                 confidence_from_margin(float(max(row, key=abs))) for row in margins
             ]
+        labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
     else:
         confidences = [None] * len(predictions)
+        labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
 
     classified_rows: list[dict[str, Any]] = []
-    for row, prediction, confidence in zip(rows, predictions, confidences, strict=True):
-        label, reason = normalize_prediction_label(prediction)
+    for row, confidence, label_and_reason in zip(rows, confidences, labels_and_reasons, strict=True):
+        label, reason = label_and_reason
         if (
             confidence_review_threshold is not None
             and confidence is not None
+            and label == "AI"
             and confidence < confidence_review_threshold
         ):
             label = "review"
             reason = f"confidence_below_threshold:{confidence_review_threshold:.3f}"
+        category = borderline_false_positive_category(row)
+        if label == "AI" and category:
+            label = "review"
+            reason = f"borderline_false_positive_risk:{category}"
         classified_rows.append(
             {
                 **row,

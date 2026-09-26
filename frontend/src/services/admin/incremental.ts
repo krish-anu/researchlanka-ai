@@ -119,8 +119,8 @@ export async function startIncrementalJob(
         request.confidenceReviewThreshold ??
         request.review_threshold ??
         request.confidence_review_threshold ??
-        "0.8",
-    ).trim() || "0.8";
+        "0.85",
+    ).trim() || "0.85";
   const threshold = Number(reviewThreshold);
 
   if (fromDate && !isIsoDate(fromDate)) {
