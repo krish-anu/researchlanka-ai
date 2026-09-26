@@ -64,6 +64,10 @@ logger = logging.getLogger("researchlanka.api")
 _RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 
 
+logger = logging.getLogger("researchlanka.api")
+_RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
+
+
 def query_dict(request: Request) -> dict[str, list[str]]:
     """Return query params in the format expected by the service layer."""
 
