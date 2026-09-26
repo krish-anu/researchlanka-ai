@@ -81,11 +81,28 @@ export interface PublicationSummary {
   ai_classification_label: "AI" | "non-AI" | "review" | null;
   ai_classification_confidence: string | null;
   source_dataset: string[];
+  trace?: PublicationTrace;
   quality_flags: QualityFlag[];
   semantic_score?: number;
   semantic_rank?: number;
   similarity_score?: number;
   similarity_rank?: number;
+}
+
+export interface PublicationTrace {
+  source: string[];
+  source_record_id: string | null;
+  collected_at: string | null;
+  normalized_at: string | null;
+  classifier_version: string | null;
+  classifier_probability: string | null;
+  classifier_decision: "AI" | "non-AI" | "review" | string | null;
+  ownership_version: string | null;
+  review_status: "auto_accepted" | "human_accepted" | string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  dataset_version: string | null;
+  pipeline_version: string | null;
 }
 
 export interface PublicationDetail extends PublicationSummary {
@@ -135,6 +152,9 @@ export interface PublicationDetail extends PublicationSummary {
     ai_confidence: string | null;
     ai_model: string | null;
     ai_reason: string | null;
+    classifier_version: string | null;
+    classifier_probability: string | null;
+    classifier_decision: string | null;
   };
   funding: {
     funder_name: string[];
@@ -147,6 +167,14 @@ export interface PublicationDetail extends PublicationSummary {
     source_institution_id: string | null;
     source_record_id: string | null;
     source_datestamp: string | null;
+    collected_at: string | null;
+    normalized_at: string | null;
+    ownership_version: string | null;
+    review_status: string | null;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    dataset_version: string | null;
+    pipeline_version: string | null;
     raw_identifiers: unknown;
     raw_record_available: boolean;
   };
