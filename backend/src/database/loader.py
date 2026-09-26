@@ -24,6 +24,7 @@ from src.database.final_schema import (
     TIMESTAMPTZ_COLUMNS,
 )
 from src.pipeline.kaggle_merge_common_dataset import is_blank, normalize_doi
+from src.pipeline.versioning import current_dataset_version, current_pipeline_version
 
 
 COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
@@ -124,9 +125,27 @@ def build_final_publication_row(record: dict[str, Any], row_number: int) -> dict
     if is_blank(row.get("raw_identifiers")):
         row["raw_identifiers"] = build_raw_identifiers(row)
 
+    apply_public_trace_defaults(row)
     row["publication_key"] = build_publication_key(row, row_number)
     row["raw_record"] = make_json_safe(record)
     return row
+
+
+def apply_public_trace_defaults(row: dict[str, Any]) -> None:
+    if is_blank(row.get("collected_at")):
+        row["collected_at"] = row.get("source_datestamp")
+    if is_blank(row.get("normalized_at")):
+        row["normalized_at"] = datetime.now().astimezone().isoformat()
+    if is_blank(row.get("classifier_version")):
+        row["classifier_version"] = row.get("ai_classification_model")
+    if is_blank(row.get("classifier_probability")):
+        row["classifier_probability"] = row.get("ai_classification_confidence")
+    if is_blank(row.get("classifier_decision")):
+        row["classifier_decision"] = row.get("ai_classification_label")
+    if is_blank(row.get("dataset_version")):
+        row["dataset_version"] = current_dataset_version()
+    if is_blank(row.get("pipeline_version")):
+        row["pipeline_version"] = current_pipeline_version()
 
 
 def first_available_value(record: dict[str, Any], column: str) -> Any:

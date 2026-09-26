@@ -29,8 +29,11 @@ MAX_SHEETS_CELL_CHARS = 50_000
 
 FINAL_DATASET_COLUMNS = [
     "record_id",
+    "source",
     "source_dataset",
     "source_record_id",
+    "collected_at",
+    "normalized_at",
     "openalex_id",
     "doi",
     "title",
@@ -54,6 +57,15 @@ FINAL_DATASET_COLUMNS = [
     "license",
     "original_data_source",
     "retrieval_timestamp",
+    "classifier_version",
+    "classifier_probability",
+    "classifier_decision",
+    "ownership_version",
+    "review_status",
+    "reviewed_by",
+    "reviewed_at",
+    "dataset_version",
+    "pipeline_version",
     "final_ai_decision",
     "acceptance_method",
     "decision_timestamp",
@@ -685,7 +697,12 @@ def final_dataset_rows(connection: Any) -> list[dict[str, Any]]:
     rows = _fetch_all(
         connection,
         """
-        SELECT p.*, r.review_status, r.acceptance_method, r.decision_timestamp
+        SELECT p.*, r.review_status, r.acceptance_method, r.decision_timestamp,
+               COALESCE(
+                   r.decided_by_email,
+                   r.decided_by_name,
+                   r.assigned_reviewer_email
+               ) AS reviewed_by
         FROM final_publications p
         JOIN ai_review_records r USING (publication_key)
         WHERE r.review_status IN ('auto_accepted', 'human_accepted')
@@ -699,8 +716,13 @@ def final_dataset_row(row: Mapping[str, Any]) -> dict[str, str]:
     pages = page_range(row)
     return {
         "record_id": sheet_value(row.get("publication_key")),
+        "source": sheet_value(row.get("source_dataset")),
         "source_dataset": sheet_value(row.get("source_dataset")),
         "source_record_id": sheet_value(row.get("source_record_id")),
+        "collected_at": sheet_value(
+            row.get("collected_at") or row.get("source_datestamp")
+        ),
+        "normalized_at": sheet_value(row.get("normalized_at") or row.get("loaded_at")),
         "openalex_id": sheet_value(row.get("openalex_id")),
         "doi": sheet_value(row.get("doi")),
         "title": sheet_value(row.get("title")),
@@ -724,8 +746,26 @@ def final_dataset_row(row: Mapping[str, Any]) -> dict[str, str]:
         "license": sheet_value(row.get("license")),
         "original_data_source": sheet_value(row.get("source_dataset")),
         "retrieval_timestamp": sheet_value(row.get("source_datestamp") or row.get("loaded_at")),
+        "classifier_version": sheet_value(
+            row.get("classifier_version") or row.get("ai_classification_model")
+        ),
+        "classifier_probability": sheet_value(
+            row.get("classifier_probability") or row.get("ai_classification_confidence")
+        ),
+        "classifier_decision": sheet_value(
+            row.get("classifier_decision") or row.get("ai_classification_label")
+        ),
+        "ownership_version": sheet_value(row.get("ownership_policy_version")),
+        "review_status": sheet_value(row.get("review_status")),
+        "reviewed_by": sheet_value(row.get("reviewed_by")),
+        "reviewed_at": sheet_value(row.get("decision_timestamp")),
+        "dataset_version": sheet_value(row.get("dataset_version")),
+        "pipeline_version": sheet_value(row.get("pipeline_version")),
         "final_ai_decision": "AI",
-        "acceptance_method": sheet_value(row.get("acceptance_method") or ("auto" if row.get("review_status") == "auto_accepted" else "human")),
+        "acceptance_method": sheet_value(
+            row.get("acceptance_method")
+            or ("auto" if row.get("review_status") == "auto_accepted" else "human")
+        ),
         "decision_timestamp": sheet_value(row.get("decision_timestamp")),
     }
 
