@@ -61,7 +61,7 @@ docker compose -f compose.aws.yml run --rm api python scripts/admin/ai_review_wo
 docker compose -f compose.aws.yml up -d api frontend ai-review-worker
 ```
 
-Backfill is idempotent. It auto-accepts explicit AI records with numeric confidence `>= 0.85` or named `HIGH` confidence, sends explicit AI records with numeric confidence from `0.5` up to `< 0.85` to `pending_review`, rejects explicit AI records below `0.5`, preserves completed human decisions, and assigns unassigned pending records across configured reviewers.
+Backfill is idempotent. It auto-accepts explicit AI records with numeric confidence `>= 0.85` or named `HIGH` confidence, sends explicit AI records with numeric confidence from `0.4` up to `< 0.85` to `pending_review`, rejects explicit AI records below `0.4`, preserves completed human decisions, and assigns unassigned pending records across configured reviewers. Sri Lanka ownership must be verified before any AI acceptance can become public.
 
 ## Health Checks
 

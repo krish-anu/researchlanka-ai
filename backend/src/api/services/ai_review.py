@@ -15,6 +15,10 @@ from psycopg.rows import dict_row
 
 from src.api.core.errors import APIError
 from src.database.connection import get_connection
+from src.pipeline.refresh_policy import (
+    DEFAULT_AUTO_AI_THRESHOLD,
+    DEFAULT_AUTO_NON_AI_THRESHOLD,
+)
 
 
 ACCEPTED_STATUSES = {"auto_accepted", "human_accepted"}
@@ -130,9 +134,9 @@ def initial_review_status(
     score = numeric_confidence(confidence)
 
     if normalized_label == "AI" and score is not None:
-        if score >= 0.85:
+        if score >= DEFAULT_AUTO_AI_THRESHOLD:
             return "auto_accepted", "auto"
-        if score >= 0.5:
+        if score >= DEFAULT_AUTO_NON_AI_THRESHOLD:
             return "pending_review", None
         return "human_rejected", None
 
@@ -209,7 +213,7 @@ def backfill_review_records(
             normalized_label = normalize_ai_label(row["ai_classification_label"])
             normalized_confidence = normalize_confidence(row["ai_classification_confidence"])
             reviewer_notes = (
-                "system_rejected_numeric_confidence_below_0.5"
+                "system_rejected_numeric_confidence_below_0.4"
                 if status == "human_rejected"
                 else ""
             )
@@ -818,7 +822,7 @@ Generated at: {utc_now()}
 
 Scope: accepted AI-related publication records in `final_publications` after existing Sri Lanka eligibility loading rules.
 
-Acceptance rules: explicit AI prediction with numeric confidence >= 0.85 is auto-accepted; numeric confidence from 0.5 up to but not including 0.85 requires manual review; numeric confidence below 0.5 is rejected. Explicit AI with named HIGH confidence is also auto-accepted. Missing, unrecognized, and non-AI predictions require manual review unless later decided by a reviewer. Auto-accepted records have not necessarily undergone human review.
+Acceptance rules: explicit AI prediction with numeric confidence >= 0.85 is auto-accepted; numeric confidence from 0.4 up to but not including 0.85 requires manual review; numeric confidence below 0.4 is rejected. Explicit AI with named HIGH confidence is also auto-accepted. Missing, unrecognized, and non-AI predictions require manual review unless later decided by a reviewer. Sri Lanka ownership must be verified independently before an AI acceptance can become public.
 
 Missing values: blank cells indicate source metadata was unavailable. The export does not fabricate publication details.
 
