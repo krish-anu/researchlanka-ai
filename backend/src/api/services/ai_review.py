@@ -105,7 +105,26 @@ def numeric_confidence(value: Any) -> float | None:
     return number
 
 
-def initial_review_status(label: Any, confidence: Any) -> tuple[str, str | None]:
+def ownership_verified(row: Mapping[str, Any]) -> bool:
+    decision = str(row.get("ownership_decision") or "").strip().upper()
+    confidence = str(row.get("ownership_confidence") or "").strip().upper()
+    needs_review = str(row.get("needs_manual_review") or "").strip().casefold()
+    return (
+        decision == "INCLUDE"
+        and confidence in {"HIGH", "MEDIUM"}
+        and needs_review not in {"true", "1", "yes"}
+    )
+
+
+def initial_review_status(
+    label: Any,
+    confidence: Any,
+    *,
+    ownership_is_verified: bool = True,
+) -> tuple[str, str | None]:
+    if not ownership_is_verified:
+        return "human_rejected", None
+
     normalized_label = normalize_ai_label(label)
     normalized_confidence = normalize_confidence(confidence)
     score = numeric_confidence(confidence)
@@ -167,7 +186,8 @@ def backfill_review_records(
         connection,
         """
         SELECT publication_key, ai_classification_label, ai_classification_confidence,
-               ai_classification_model, ai_classification_reason
+               ai_classification_model, ai_classification_reason,
+               ownership_decision, ownership_confidence, needs_manual_review
         FROM final_publications
         WHERE (%s::text[] IS NULL OR publication_key = ANY(%s::text[]))
         ORDER BY publication_key
@@ -184,6 +204,7 @@ def backfill_review_records(
             status, method = initial_review_status(
                 row["ai_classification_label"],
                 row["ai_classification_confidence"],
+                ownership_is_verified=ownership_verified(row),
             )
             normalized_label = normalize_ai_label(row["ai_classification_label"])
             normalized_confidence = normalize_confidence(row["ai_classification_confidence"])
@@ -194,6 +215,8 @@ def backfill_review_records(
             )
             if status == "human_rejected" and normalized_label == "NON_AI":
                 reviewer_notes = "system_rejected_model_predicted_non_ai"
+            if status == "human_rejected" and not ownership_verified(row):
+                reviewer_notes = "system_rejected_sri_lanka_ownership_not_verified"
             cursor.execute(
                 """
                 INSERT INTO ai_review_records (
@@ -227,8 +250,15 @@ def backfill_review_records(
                     sync_status = EXCLUDED.sync_status,
                     record_version = ai_review_records.record_version + 1,
                     updated_at = now()
-                WHERE ai_review_records.review_status = 'pending_review'
-                  AND ai_review_records.decision_timestamp IS NULL
+                WHERE (
+                    ai_review_records.review_status = 'pending_review'
+                    AND ai_review_records.decision_timestamp IS NULL
+                  )
+                  OR (
+                    ai_review_records.review_status = 'auto_accepted'
+                    AND EXCLUDED.review_status = 'human_rejected'
+                    AND EXCLUDED.reviewer_notes = 'system_rejected_sri_lanka_ownership_not_verified'
+                  )
                 RETURNING (xmax = 0) AS inserted, record_version
                 """,
                 (
@@ -480,6 +510,22 @@ def decide_review(
             raise APIError("forbidden", "Only the assigned reviewer can decide this record.", status=403)
         if record["review_status"] != "pending_review":
             raise APIError("already_decided", "This review has already been completed.", status=409)
+        if decision == "human_accepted":
+            cursor.execute(
+                """
+                SELECT ownership_decision, ownership_confidence, needs_manual_review
+                FROM final_publications
+                WHERE publication_key = %s
+                """,
+                (publication_key,),
+            )
+            publication = cursor.fetchone()
+            if publication is None or not ownership_verified(publication):
+                raise APIError(
+                    "ownership_not_verified",
+                    "Sri Lanka ownership must be verified before a publication can be accepted for public AI review.",
+                    status=409,
+                )
 
         next_version = int(record["record_version"]) + 1
         cursor.execute(
