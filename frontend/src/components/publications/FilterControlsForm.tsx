@@ -187,6 +187,15 @@ const FILTER_KEY_LABELS: Record<string, string> = {
   journal: "Journal",
   source_dataset: "Source",
   quality_flag: "Quality",
+  scope: "Connections",
+  min_weight: "Min shared pubs",
+  limit: "Max nodes",
+};
+
+const SCOPE_VALUE_LABELS: Record<string, string> = {
+  institution: "Institutions",
+  researcher: "Researchers",
+  country: "Countries",
 };
 
 /** Human-readable chip copy — never raw keys like `is_oa=true`. */
@@ -202,6 +211,9 @@ function filterPillLabel(name: string, value: string): string {
   }
   if (name === "year_min") return `From ${value}`;
   if (name === "year_max") return `To ${value}`;
+  if (name === "scope") {
+    return `Connections: ${SCOPE_VALUE_LABELS[value] ?? value}`;
+  }
 
   const key =
     FILTER_KEY_LABELS[name] ?? titleCase(name.replaceAll("_", " "));
