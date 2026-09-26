@@ -41,6 +41,7 @@ OPENALEX_EXTRA_ARGS ?=
 
 # Model-ready text extraction settings.
 MODEL_TEXT_INPUT ?= data/processed/common/common_publications_final_text_enriched.csv
+ACCEPTED_SNAPSHOT_INPUT ?= data/processed/common/researchlanka_ai_accepted_snapshot.csv
 MODEL_TITLES_OUTPUT ?= data/processed/common/publication_titles_for_model_all_years.csv
 MODEL_ABSTRACTS_OUTPUT ?= data/processed/common/publication_abstracts_for_model_all_years.csv
 MODEL_KEYWORDS_OUTPUT ?= data/processed/common/publication_keywords_for_model_all_years.csv
@@ -65,7 +66,7 @@ LOGREG_INFERENCE_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN
 LOGREG_INFERENCE_MANIFEST_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LABEL_COLUMN)_inference_manifest.json
 LOGREG_INFERENCE_METADATA_COLUMNS ?= record_number,publication_year,title,doi,openalex_id,source_dataset,source_institution_id,source_record_id
 LOGREG_INFERENCE_EXTRA_ARGS ?=
-EMBED_INPUT ?= $(MODEL_TEXT_INPUT)
+EMBED_INPUT ?= $(ACCEPTED_SNAPSHOT_INPUT)
 EMBED_OUTPUT ?= data/models/publication_text_embeddings.parquet
 EMBED_MODEL_OUTPUT ?= data/models/publication_text_embedding_model.joblib
 EMBED_MANIFEST_OUTPUT ?= data/models/publication_text_embeddings_manifest.json
