@@ -14,6 +14,7 @@ from src.api.services.incremental_admin import (
     require_admin_api_token,
     start_incremental_update,
 )
+from src.api.services.health import health_payload, readiness_payload
 from src.api.services.ai_review import (
     assign_initial_pending,
     backfill_review_records,
@@ -44,7 +45,9 @@ def route_get(
     headers: Mapping[str, str] | None = None,
 ) -> dict[str, Any] | tuple[bytes, str]:
     if path in {"/health", f"{API_PREFIX}/health"}:
-        return service.health()
+        return {"data": health_payload(), "meta": service._meta()}
+    if path in {"/ready", f"{API_PREFIX}/ready"}:
+        return {"data": readiness_payload(), "meta": service._meta()}
     if path == f"{API_PREFIX}/meta":
         return service.metadata()
     if path == f"{API_PREFIX}/schema/publications":
