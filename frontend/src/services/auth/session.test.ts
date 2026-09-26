@@ -18,6 +18,7 @@ const USER: SessionUser = {
 };
 
 const ADMIN: SessionUser = { ...USER, id: "usr_2", role: "admin" };
+const REVIEWER: SessionUser = { ...USER, id: "usr_3", role: "reviewer" };
 
 function forge(payload: Record<string, unknown>, signature = "AAAA"): string {
   const body = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -35,6 +36,12 @@ describe("round trip", () => {
     const session = await readSessionToken(await createSessionToken(ADMIN));
 
     expect(session?.role).toBe("admin");
+  });
+
+  it("preserves the reviewer role", async () => {
+    const session = await readSessionToken(await createSessionToken(REVIEWER));
+
+    expect(session?.role).toBe("reviewer");
   });
 });
 
