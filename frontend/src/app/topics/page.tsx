@@ -6,8 +6,8 @@ import { DistributionChart } from "@/components/charts/DistributionChart";
 import { PageIntro } from "@/components/layout/PageIntro";
 import Link from "next/link";
 
-import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
-import { ApiErrorPanel, EmptyState, SectionHeading, Skeleton } from "@/components/ui/Feedback";
+import { ChartPanel, ChartSkeleton, DownloadLink } from "@/components/ui/ChartPanel";
+import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
@@ -143,7 +143,7 @@ export default async function TopicsPage({
         )}
       </section>
 
-      {level === "field" && fields.ok ? <Suspense fallback={<Skeleton className="h-80" />}><ActivityPanel filters={filters} fields={fields.value.data.map(f => f.label)} /></Suspense> : null}
+      {level === "field" && fields.ok ? <Suspense fallback={<ChartSkeleton label="Loading field activity…" size="lg" />}><ActivityPanel filters={filters} fields={fields.value.data.map(f => f.label)} /></Suspense> : null}
 
       <section>
         <SectionHeading

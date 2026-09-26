@@ -6,9 +6,9 @@ import { RankingBarChart } from "@/components/charts/RankingBarChart";
 import { PageIntro, ResearchHero } from "@/components/layout/PageIntro";
 import { DataQualityIcon, InstitutionsIcon, OpenAccessIcon, PublicationsIcon } from "@/components/layout/NavIcons";
 import { ActiveFilters } from "@/components/publications/FilterControls";
-import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
+import { ChartPanel, ChartSkeleton, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
-import { ApiErrorPanel, Skeleton } from "@/components/ui/Feedback";
+import { ApiErrorPanel, PanelSkeleton } from "@/components/ui/Feedback";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import { analyticsExportUrl, buildQuery, getAnalyticsFields, getAnalyticsInstitutions, getAnalyticsOverview, listPublications, type QueryParams } from "@/services/api";
@@ -34,16 +34,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <StatTile label="Open access" icon={<OpenAccessIcon />} value={formatRatioAsPercent(overview.value.data.open_access_share)} caption="share of selected AI publications" />
       <StatTile label="DOI coverage" icon={<DataQualityIcon />} value={formatRatioAsPercent(overview.value.data.doi_coverage)} caption={`Abstract coverage ${formatRatioAsPercent(overview.value.data.abstract_coverage)}`} hint={`From ${overview.value.data.source_count} source datasets`} />
     </StatTileGrid><SnapshotNote snapshotDate={overview.value.meta.snapshot_date} datasetStage={overview.value.meta.dataset_stage} className="mt-3" /></section>}
-    <div className="analytics-grid"><Suspense fallback={<Skeleton className="h-96" />}><TrendPanel filters={filters} /></Suspense>{fields.ok ? <FieldDistributionPanel entries={entries} filters={filters} total={overview.ok ? overview.value.data.publication_count : undefined} /> : <ApiErrorPanel error={fields.error} what="research fields" />}</div>
+    <div className="analytics-grid"><Suspense fallback={<ChartSkeleton label="Loading AI research output…" />}><TrendPanel filters={filters} /></Suspense>{fields.ok ? <FieldDistributionPanel entries={entries} filters={filters} total={overview.ok ? overview.value.data.publication_count : undefined} /> : <ApiErrorPanel error={fields.error} what="research fields" />}</div>
     <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
       <ChartPanel title="Institutions advancing AI research" description="Leading institutions by AI publication count." action={<DownloadLink href={analyticsExportUrl("institutions", filters)} />} table={institutions.ok ? <TableDisclosure><DataTable rows={institutions.value.data} rowKey={r => r.key} columns={[{ key: "name", header: "Institution", render: r => <Link href={institutionHref(r.label)} className="hover:underline">{r.label}</Link> }, { key: "count", header: "AI publications", numeric: true, render: r => formatNumber(r.publication_count) }]} /></TableDisclosure> : null}>
         {institutions.ok ? <RankingBarChart entries={institutions.value.data.map(r => ({ label: r.label, value: r.publication_count }))} valueLabel="AI publications" ariaLabel="Leading institutions by AI publication count" /> : <ApiErrorPanel error={institutions.error} what="institution rankings" />}
         <Link href={`/institutions${buildQuery(filters)}`} className="mt-4 inline-block text-xs text-primary hover:underline">Browse institutions →</Link>
       </ChartPanel>
-      <Suspense fallback={<Skeleton className="h-96" />}><ActivityPanel filters={filters} fields={entries.map(e => e.label)} /></Suspense>
+      <Suspense fallback={<ChartSkeleton label="Loading field activity…" size="lg" />}><ActivityPanel filters={filters} fields={entries.map(e => e.label)} /></Suspense>
     </div>
-    <Suspense fallback={<Skeleton className="h-[30rem]" />}><NetworkPanel filters={filters} /></Suspense>
-    <Suspense fallback={<Skeleton className="h-60" />}><RecentPublications filters={filters} /></Suspense>
+    <Suspense fallback={<ChartSkeleton label="Loading collaboration network…" size="xl" />}><NetworkPanel filters={filters} /></Suspense>
+    <Suspense fallback={<PanelSkeleton label="Loading recent publications…" />}><RecentPublications filters={filters} /></Suspense>
   </div>;
 }
 

@@ -112,3 +112,23 @@ export function Skeleton({ className = "h-40" }: { className?: string }) {
     />
   );
 }
+
+/**
+ * Non-chart panel placeholder (tables, lists). Keeps panel chrome so layout
+ * does not jump when the real section streams in.
+ */
+export function PanelSkeleton({
+  label = "Loading…",
+  bodyClassName = "h-60",
+}: {
+  label?: string;
+  bodyClassName?: string;
+}) {
+  return (
+    <section className="panel p-5" aria-busy="true" aria-live="polite">
+      <span className="sr-only">{label}</span>
+      <Skeleton className="mb-4 h-4 w-48" />
+      <Skeleton className={`w-full ${bodyClassName}`} />
+    </section>
+  );
+}

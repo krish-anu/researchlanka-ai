@@ -3,7 +3,7 @@ import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
 import { NetworkPanel } from "@/components/analytics/ResearchPanels";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { ActiveFilters } from "@/components/publications/FilterControls";
-import { Skeleton } from "@/components/ui/Feedback";
+import { ChartSkeleton } from "@/components/ui/ChartPanel";
 import { getAnalyticsFields } from "@/services/api";
 import { extractFilters, type SearchParams } from "@/services/filters";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +26,6 @@ export default async function CollaborationPage({ searchParams }: { searchParams
       <label>Maximum nodes<input name="limit" type="number" min="1" max="500" defaultValue={limit} /></label>
       <Button type="submit" variant="primary">Update network</Button>
     </form>
-    <Suspense fallback={<Skeleton className="h-[30rem]" />}><NetworkPanel filters={filters} scope={scope} limit={limit} minWeight={minWeight} /></Suspense>
+    <Suspense fallback={<ChartSkeleton label="Loading collaboration network…" size="xl" />}><NetworkPanel filters={filters} scope={scope} limit={limit} minWeight={minWeight} /></Suspense>
   </div>;
 }
