@@ -23,6 +23,22 @@ import { SearchBox } from "@/components/search/SearchBox";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import type { Viewer } from "@/types/auth";
 
+/** Directory list pages own a contextual SearchBox — hide the global duplicate. */
+function hasContextualPageSearch(pathname: string): boolean {
+  return (
+    pathname === "/publications" ||
+    pathname === "/researchers" ||
+    pathname === "/institutions"
+  );
+}
+
+const GLOBAL_SEARCH_TYPES = [
+  "publication",
+  "journal",
+  "researcher",
+  "institution",
+] as const;
+
 interface NavLink {
   href: string;
   label: string;
@@ -264,14 +280,16 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
         <Wordmark compact />
         <div className="flex items-center gap-1">
           <ThemeToggle />
-          {/* Search stays one tap away on mobile rather than only inside the drawer. */}
-          <Link
-            href="/publications"
-            className="interactive rounded p-2 text-primary hover:bg-wash"
-          >
-            <SearchIcon />
-            <span className="sr-only">Search publications</span>
-          </Link>
+          {/* Jump to publications search unless this page already has one. */}
+          {!hasContextualPageSearch(pathname ?? "/") ? (
+            <Link
+              href="/publications"
+              className="interactive rounded p-2 text-primary hover:bg-wash"
+            >
+              <SearchIcon />
+              <span className="sr-only">Search publications</span>
+            </Link>
+          ) : null}
         </div>
       </header>
 
@@ -302,7 +320,17 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
               </button>
             </div>
             <div className="mb-6 px-4">
-              <SearchBox />
+              {hasContextualPageSearch(pathname ?? "/") ? (
+                <p className="rounded border border-rule bg-wash px-3 py-2 text-body-sm text-muted">
+                  Use the search on this page to filter the current directory.
+                </p>
+              ) : (
+                <SearchBox
+                  label="Search publications, researchers, and institutions"
+                  placeholder="Search publications, researchers, institutions…"
+                  suggestionTypes={[...GLOBAL_SEARCH_TYPES]}
+                />
+              )}
             </div>
             <div className="flex-1 overflow-y-auto">
               <NavList viewer={viewer} onNavigate={() => setOpen(false)} />
@@ -324,6 +352,8 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
 export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
   const pathname = usePathname() ?? "/";
   const { section, label } = sectionForPath(pathname, viewer);
+  const showGlobalSearch = !hasContextualPageSearch(pathname);
+
   return (
     <div className="app-topbar sticky top-0 z-30 hidden items-center justify-between gap-5 border-b border-rule bg-surface md:flex">
       <div className="flex items-center gap-3 whitespace-nowrap text-xs text-muted">
@@ -331,9 +361,19 @@ export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
         <span className="font-medium text-ink">{label}</span>
       </div>
       <div className="flex min-w-0 items-center justify-end gap-4">
-        <div className="w-full max-w-sm"><SearchBox placeholder="Search AI publications…" /></div>
+        {showGlobalSearch ? (
+          <div className="w-full max-w-sm">
+            <SearchBox
+              label="Search publications, researchers, and institutions"
+              placeholder="Search publications, researchers, institutions…"
+              suggestionTypes={[...GLOBAL_SEARCH_TYPES]}
+            />
+          </div>
+        ) : null}
         <ThemeToggle />
-        <div className="shrink-0"><AccountMenu viewer={viewer} /></div>
+        <div className="shrink-0">
+          <AccountMenu viewer={viewer} />
+        </div>
       </div>
     </div>
   );
