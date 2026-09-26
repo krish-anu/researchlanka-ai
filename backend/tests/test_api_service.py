@@ -12,7 +12,7 @@ from src.api.repositories.postgres import (
 )
 from src.api.repositories.sql import PUBLICATION_YEAR_SQL, PUBLIC_PUBLICATION_SOURCE_SQL
 from src.api.repository import build_where
-from src.api.routes import route_get
+from src.api.routes import route_get, route_post
 from src.api.service import APIError, ResearchLankaAPI
 
 
@@ -298,6 +298,44 @@ def test_publication_detail_raises_not_found():
 
     assert exc_info.value.code == "not_found"
     assert exc_info.value.status == 404
+
+
+def test_public_feedback_route_accepts_public_report(monkeypatch):
+    captured = {}
+
+    def fake_with_connection(callback):
+        return callback("connection")
+
+    def fake_submit_feedback(connection, payload, *, user_agent=None):
+        captured["connection"] = connection
+        captured["payload"] = payload
+        captured["user_agent"] = user_agent
+        return {
+            "report_id": "report-1",
+            "publication_key": payload["publication_key"],
+            "report_type": payload["report_type"],
+            "status": "open",
+        }
+
+    import src.api.routing.routes as routes
+
+    monkeypatch.setattr(routes, "feedback_with_connection", fake_with_connection)
+    monkeypatch.setattr(routes, "submit_feedback", fake_submit_feedback)
+
+    payload = route_post(
+        api(),
+        "/api/v1/feedback",
+        {
+            "publication_key": "doi:10.1000/test",
+            "report_type": "incorrect_ai_classification",
+            "detail": "This appears to be classical statistics, not AI.",
+        },
+        headers={"user-agent": "pytest"},
+    )
+
+    assert payload["data"]["status"] == "open"
+    assert captured["payload"]["report_type"] == "incorrect_ai_classification"
+    assert captured["user_agent"] == "pytest"
 
 
 def test_invalid_year_filter_raises_api_error():

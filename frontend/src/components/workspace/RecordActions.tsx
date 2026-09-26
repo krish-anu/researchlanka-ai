@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { submitFlag, toggleSave } from "@/app/actions/workspace";
+import { submitPublicFeedback, toggleSave } from "@/app/actions/workspace";
 import { IDLE, type ActionState } from "@/services/forms/state";
 import { publicationHref } from "@/services/links";
-import { FLAG_REASON_LABEL } from "@/services/workspace/types";
+import { FEEDBACK_REASON_LABEL } from "@/services/workspace/types";
+import type { PublicationTrace } from "@/types/api";
 
 function Pending({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
@@ -65,14 +66,16 @@ function SaveControl({
   );
 }
 
-function FlagControl({
+function FeedbackControl({
   publicationKey,
   title,
+  trace,
 }: {
   publicationKey: string;
   title: string;
+  trace?: PublicationTrace;
 }) {
-  const [state, formAction] = useActionState(submitFlag, IDLE);
+  const [state, formAction] = useActionState(submitPublicFeedback, IDLE);
   const [open, setOpen] = useState(false);
 
   if (state.status === "ok") {
@@ -86,7 +89,7 @@ function FlagControl({
         onClick={() => setOpen(true)}
         className="rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:border-serious hover:text-serious"
       >
-        Flag this record
+        Report a problem
       </button>
     );
   }
@@ -95,16 +98,33 @@ function FlagControl({
     <form action={formAction} className="flex w-full flex-col gap-3">
       <input type="hidden" name="publication_key" value={publicationKey} />
       <input type="hidden" name="title" value={title} />
+      <input type="hidden" name="page_url" value={publicationHref(publicationKey)} />
+      <input type="hidden" name="dataset_version" value={trace?.dataset_version ?? ""} />
+      <input
+        type="hidden"
+        name="classifier_version"
+        value={trace?.classifier_version ?? ""}
+      />
+      <input
+        type="hidden"
+        name="classifier_decision"
+        value={trace?.classifier_decision ?? ""}
+      />
+      <input
+        type="hidden"
+        name="classifier_probability"
+        value={trace?.classifier_probability ?? ""}
+      />
 
       <label className="flex flex-col gap-1.5">
         <span className="label-caps text-muted">What looks wrong?</span>
         <select
-          name="reason"
+          name="report_type"
           required
-          defaultValue="wrong_metadata"
+          defaultValue="incorrect_ai_classification"
           className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
         >
-          {Object.entries(FLAG_REASON_LABEL).map(([value, label]) => (
+          {Object.entries(FEEDBACK_REASON_LABEL).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>
@@ -126,7 +146,7 @@ function FlagControl({
       </label>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Pending label="Submit flag" pendingLabel="Submitting…" />
+        <Pending label="Submit report" pendingLabel="Submitting…" />
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -138,15 +158,16 @@ function FlagControl({
       </div>
 
       <p className="text-body-sm text-muted">
-        Flags queue a record for an administrator to check. The pipeline owns
-        the data, so nothing you submit edits the record directly.
+        Reports queue this record for curator review and can become hard
+        training examples after a human correction. Nothing you submit edits
+        the public record directly.
       </p>
     </form>
   );
 }
 
 /**
- * Save and flag, or the reason a visitor cannot use them.
+ * Save and public feedback controls.
  *
  * Visitors get the prompt rather than nothing at all: the difference between
  * the two roles is worth stating on the page where it bites, and hiding the
@@ -157,19 +178,22 @@ export function RecordActions({
   title,
   signedIn,
   initiallySaved,
+  trace,
 }: {
   publicationKey: string;
   title: string;
   signedIn: boolean;
   initiallySaved: boolean;
+  trace?: PublicationTrace;
 }) {
+  const next = publicationHref(publicationKey);
+
   if (!signedIn) {
-    const next = publicationHref(publicationKey);
     return (
-      <div className="panel flex flex-col gap-2 p-4">
+      <div className="panel flex flex-col gap-3 p-4">
         <p className="text-body-sm text-ink-secondary">
-          Reading this record needs no account. Signing in adds a saved library
-          and lets you flag it if the metadata is wrong.
+          Reading this record needs no account. Signing in adds a saved library;
+          public reports are open to everyone.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link
@@ -185,6 +209,9 @@ export function RecordActions({
             Create an account
           </Link>
         </div>
+        <div className="border-t border-rule pt-3">
+          <FeedbackControl publicationKey={publicationKey} title={title} trace={trace} />
+        </div>
       </div>
     );
   }
@@ -197,7 +224,7 @@ export function RecordActions({
         initiallySaved={initiallySaved}
       />
       <div className="border-t border-rule pt-3">
-        <FlagControl publicationKey={publicationKey} title={title} />
+        <FeedbackControl publicationKey={publicationKey} title={title} trace={trace} />
       </div>
     </div>
   );

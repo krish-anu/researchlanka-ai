@@ -244,6 +244,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
           title={publication.title ?? "Untitled record"}
           signedIn={Boolean(viewer.user)}
           initiallySaved={saved}
+          trace={publication.trace}
         />
 
         {visibleQualityFlags.length > 0 ? (

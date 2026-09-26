@@ -25,6 +25,21 @@ export const FLAG_REASON_LABEL: Record<FlagReason, string> = {
   other: "Something else",
 };
 
+export type FeedbackReason =
+  | "incorrect_ai_classification"
+  | "incorrect_author"
+  | "incorrect_institution"
+  | "duplicate_publication"
+  | "missing_publication";
+
+export const FEEDBACK_REASON_LABEL: Record<FeedbackReason, string> = {
+  incorrect_ai_classification: "Report incorrect AI classification",
+  incorrect_author: "Report incorrect author",
+  incorrect_institution: "Report incorrect institution",
+  duplicate_publication: "Report duplicate publication",
+  missing_publication: "Report missing publication",
+};
+
 export type FlagStatus = "open" | "accepted" | "rejected";
 
 export const FLAG_STATUS_LABEL: Record<FlagStatus, string> = {

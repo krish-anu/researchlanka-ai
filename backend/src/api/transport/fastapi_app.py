@@ -39,6 +39,12 @@ from src.api.services.ai_review import (
 from src.api.services.ai_review_sheets import reconcile_sheet
 from src.api.services.model_serving import PublicationClassifierService
 from src.api.services.publications import ResearchLankaAPI
+from src.api.services.user_feedback import (
+    feedback_hard_training_examples,
+    list_feedback_reports,
+    submit_feedback,
+    with_connection as feedback_with_connection,
+)
 
 
 def query_dict(request: Request) -> dict[str, list[str]]:
@@ -216,6 +222,20 @@ def create_publication_router(
     async def export_analytics_csv(name: str, request: Request) -> Response:
         return bytes_payload(service.export_analytics(query_dict(request), name=name))
 
+    @router.post("/feedback")
+    async def feedback(request: Request) -> dict[str, Any]:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
+        result = feedback_with_connection(
+            lambda connection: submit_feedback(
+                connection,
+                payload,
+                user_agent=str(request.headers.get("user-agent") or ""),
+            )
+        )
+        return {"data": result, "meta": service._meta()}
+
     return router
 
 
@@ -385,6 +405,29 @@ def create_admin_router(
     async def ai_review_validate_final_dataset(request: Request) -> dict[str, Any]:
         require_admin_api_token(request.headers)
         return {"data": with_connection(validate_final_dataset), "meta": service._meta()}
+
+    @router.get("/feedback")
+    async def feedback_queue(request: Request) -> dict[str, Any]:
+        require_admin_api_token(request.headers)
+        query = query_dict(request)
+        result = feedback_with_connection(
+            lambda connection: list_feedback_reports(
+                connection,
+                status=query.get("status", [None])[0],
+                report_type=query.get("report_type", [None])[0],
+                page=int(query.get("page", ["1"])[0]),
+                page_size=int(query.get("page_size", ["25"])[0]),
+            )
+        )
+        return {"data": result, "meta": service._meta()}
+
+    @router.get("/feedback/hard-training-examples")
+    async def feedback_training_examples(request: Request) -> dict[str, Any]:
+        require_admin_api_token(request.headers)
+        return {
+            "data": feedback_with_connection(feedback_hard_training_examples),
+            "meta": service._meta(),
+        }
 
     return router
 
