@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 
@@ -19,9 +20,9 @@ TEXT_FIELDS = (
 )
 
 CLEAR_AI_PATTERNS = (
-    r"\bartificial intelligence\b",
-    r"\bmachine learning\b",
-    r"\bdeep learning\b",
+    r"\bartificial[- ]intelligence\b",
+    r"\bmachine[- ]learning\b",
+    r"\bdeep[- ]learning\b",
     r"\bneural network",
     r"\bconvolutional neural",
     r"\brecurrent neural",
@@ -88,6 +89,20 @@ BORDERLINE_PATTERNS: dict[str, tuple[str, ...]] = {
 }
 
 
+@dataclass(frozen=True)
+class BorderlineAssessment:
+    """Explain whether a high AI score should be routed to review."""
+
+    has_strong_ai_evidence: bool
+    risk_category: str | None
+    evidence_patterns: tuple[str, ...] = ()
+    risk_patterns: tuple[str, ...] = ()
+
+    @property
+    def requires_review(self) -> bool:
+        return self.risk_category is not None and not self.has_strong_ai_evidence
+
+
 def clean(value: Any) -> str:
     text = "" if value is None else str(value).strip()
     return "" if text.casefold() in {"", "nan", "none", "null"} else text
@@ -102,11 +117,33 @@ def has_pattern(text: str, patterns: tuple[str, ...]) -> bool:
     return any(re.search(pattern, lowered) for pattern in patterns)
 
 
-def borderline_false_positive_category(row: Mapping[str, Any]) -> str | None:
+def matched_patterns(text: str, patterns: tuple[str, ...]) -> tuple[str, ...]:
+    lowered = text.casefold()
+    return tuple(pattern for pattern in patterns if re.search(pattern, lowered))
+
+
+def borderline_false_positive_assessment(row: Mapping[str, Any]) -> BorderlineAssessment:
     text = combined_text(row)
-    if not text or has_pattern(text, CLEAR_AI_PATTERNS):
-        return None
+    if not text:
+        return BorderlineAssessment(has_strong_ai_evidence=False, risk_category=None)
+
+    evidence = matched_patterns(text, CLEAR_AI_PATTERNS)
     for category, patterns in BORDERLINE_PATTERNS.items():
-        if has_pattern(text, patterns):
-            return category
-    return None
+        risk = matched_patterns(text, patterns)
+        if risk:
+            return BorderlineAssessment(
+                has_strong_ai_evidence=bool(evidence),
+                risk_category=category,
+                evidence_patterns=evidence,
+                risk_patterns=risk,
+            )
+    return BorderlineAssessment(
+        has_strong_ai_evidence=bool(evidence),
+        risk_category=None,
+        evidence_patterns=evidence,
+    )
+
+
+def borderline_false_positive_category(row: Mapping[str, Any]) -> str | None:
+    assessment = borderline_false_positive_assessment(row)
+    return assessment.risk_category if assessment.requires_review else None

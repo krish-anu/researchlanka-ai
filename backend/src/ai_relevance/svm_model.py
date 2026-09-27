@@ -22,6 +22,7 @@ from src.ai_relevance.calibration import (
     reliability_table,
     write_calibration_curve_png,
 )
+from src.ai_relevance.hard_negatives import load_hard_negative_csv
 from src.modeling.artifacts import (
     describe_artifact,
     dump_joblib_artifact,
@@ -48,6 +49,9 @@ DEFAULT_LABELLED_INPUT = (
     / "processed"
     / "ai"
     / "ai_llm_5000_predictions_openrouter_gemini_3_8_flash.csv"
+)
+DEFAULT_HARD_NEGATIVE_INPUT = (
+    PROJECT_ROOT / "data" / "processed" / "ai" / "hard_negative_false_positive_non_ai.csv"
 )
 DEFAULT_CORPUS_INPUT = (
     PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
@@ -123,6 +127,7 @@ class AIRelevanceSVMTrainingConfig:
     calibrator_output: Path = DEFAULT_CALIBRATOR_OUTPUT
     calibration_report_output: Path = DEFAULT_CALIBRATION_REPORT_OUTPUT
     calibration_curve_output: Path = DEFAULT_CALIBRATION_CURVE_OUTPUT
+    hard_negative_inputs: tuple[Path, ...] = (DEFAULT_HARD_NEGATIVE_INPUT,)
     text_columns: tuple[str, ...] = DEFAULT_TEXT_COLUMNS
     label_column: str = "ai_llm_label"
     status_column: str = "ai_llm_status"
@@ -209,12 +214,19 @@ class AIRelevanceSVMPredictionResult:
 
 def json_ready_dataclass(value: object) -> dict[str, object]:
     data = asdict(value)
-    for key, item in data.items():
-        if isinstance(item, Path):
-            data[key] = str(item)
-        elif isinstance(item, tuple):
-            data[key] = list(item)
+    for key, item in list(data.items()):
+        data[key] = json_ready_value(item)
     return data
+
+
+def json_ready_value(item: object) -> object:
+    if isinstance(item, Path):
+        return str(item)
+    if isinstance(item, tuple | list):
+        return [json_ready_value(value) for value in item]
+    if isinstance(item, dict):
+        return {str(key): json_ready_value(value) for key, value in item.items()}
+    return item
 
 
 def _binary_ai_labels(labels: Iterable[str]) -> list[int]:
@@ -333,6 +345,41 @@ def load_ai_training_frame(
         & training_frame["label"].isin(label_set)
         & (training_frame["text"] != "")
     ]
+    hard_negative_frames: list[pd.DataFrame] = []
+    for path in config.hard_negative_inputs:
+        if not path.exists():
+            continue
+        hard_negative = load_hard_negative_csv(path)
+        if hard_negative.empty:
+            continue
+        hard_negative = hard_negative.copy()
+        hard_negative.index = [
+            f"hard_negative:{path.name}:{index}" for index in range(len(hard_negative))
+        ]
+        hard_negative.index.name = "source_row"
+        hard_negative_frames.append(
+            pd.DataFrame(
+                {
+                    "publication_id": hard_negative.get(
+                        "record_key",
+                        pd.Series(
+                            [f"hard-negative-{index}" for index in range(len(hard_negative))],
+                            index=hard_negative.index,
+                        ),
+                    ).astype(str),
+                    "text": hard_negative["text"],
+                    "label": "NON_AI",
+                    "status": config.success_status,
+                },
+                index=hard_negative.index,
+            )
+        )
+    if hard_negative_frames:
+        training_frame = pd.concat(
+            [training_frame, *hard_negative_frames],
+            ignore_index=False,
+            sort=False,
+        )
 
     label_counts = training_frame["label"].value_counts()
     eligible_labels = label_counts[label_counts >= config.min_class_count].index
@@ -879,6 +926,16 @@ def parse_train_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_CALIBRATION_CURVE_OUTPUT,
     )
+    parser.add_argument(
+        "--hard-negative-input",
+        type=Path,
+        action="append",
+        default=None,
+        help=(
+            "Optional hard-negative CSV. Repeat to include multiple pools. "
+            "Defaults to the reviewed false-positive hard-negative CSV when present."
+        ),
+    )
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
     parser.add_argument("--labels", type=parse_labels, default=DEFAULT_LABELS)
     parser.add_argument("--test-size", type=float, default=0.2)
@@ -937,6 +994,11 @@ def train_main() -> None:
             calibrator_output=args.calibrator_output,
             calibration_report_output=args.calibration_report_output,
             calibration_curve_output=args.calibration_curve_output,
+            hard_negative_inputs=tuple(
+                args.hard_negative_input
+                if args.hard_negative_input is not None
+                else (DEFAULT_HARD_NEGATIVE_INPUT,)
+            ),
             text_columns=tuple(args.text_columns),
             labels=tuple(args.labels),
             test_size=args.test_size,

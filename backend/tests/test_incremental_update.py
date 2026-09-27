@@ -99,6 +99,21 @@ def test_incremental_borderline_detector_sends_smart_system_to_review(monkeypatc
     )
 
 
+def test_incremental_clear_ai_evidence_overrides_borderline_terms(monkeypatch) -> None:
+    monkeypatch.setattr(incremental_update.joblib, "load", lambda _path: ProbabilityModel())
+    monkeypatch.setattr(incremental_update, "validate_model_path", lambda _path: None)
+
+    classified = apply_ai_classification(
+        [{"title": "Machine-learning based smart IoT system"}],
+        model_path=Path("model.joblib"),
+        text_columns=("title",),
+        confidence_review_threshold=0.85,
+    )
+
+    assert classified[0]["ai_classification_label"] == "AI"
+    assert classified[0]["ai_classification_reason"] is None
+
+
 def test_incremental_classification_thresholds_calibrated_probability(monkeypatch) -> None:
     monkeypatch.setattr(incremental_update.joblib, "load", lambda _path: ProbabilityModel())
     monkeypatch.setattr(incremental_update, "validate_model_path", lambda _path: None)

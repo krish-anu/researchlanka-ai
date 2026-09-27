@@ -12,6 +12,7 @@ from src.api.services.ai_review import (
     numeric_confidence,
     ownership_verified,
     overflow_chunks,
+    review_hard_training_examples,
     sheet_value,
 )
 
@@ -164,3 +165,30 @@ def test_equal_initial_assignment_is_deterministic_and_idempotent() -> None:
 def test_assignment_requires_configured_reviewers() -> None:
     with pytest.raises(APIError):
         assign_initial_pending(FakeAssignmentConnection(["p1"]), [])
+
+
+def test_human_rejected_model_ai_exports_hard_negative(monkeypatch) -> None:
+    import src.api.services.ai_review as ai_review
+
+    monkeypatch.setattr(
+        ai_review,
+        "_fetch_all",
+        lambda _connection, _sql, _params=None: [
+            {
+                "publication_key": "pub1",
+                "original_ai_label": "AI",
+                "review_status": "human_rejected",
+                "reviewer_notes": "IoT sensor automation, not AI.",
+                "title": "Smart IoT sensor platform for irrigation",
+                "abstract": "",
+                "keywords": "IoT; sensors",
+            }
+        ],
+    )
+
+    rows = review_hard_training_examples("connection")
+
+    assert rows[0]["label"] == "NON_AI"
+    assert rows[0]["hard_negative"] is True
+    assert rows[0]["label_source"] == "human_rejected_false_positive"
+    assert rows[0]["hard_negative_category"] == "iot_or_smart_system_without_clear_ai"

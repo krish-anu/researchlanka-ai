@@ -38,6 +38,7 @@ from src.api.services.ai_review import (
     queue_retry,
     reassign_review,
     reopen_review,
+    review_hard_training_examples,
     Reviewer,
     validate_final_dataset,
     with_connection,
@@ -449,7 +450,12 @@ def create_admin_router(
     async def feedback_training_examples(request: Request) -> dict[str, Any]:
         require_admin_api_token(request.headers)
         return {
-            "data": feedback_with_connection(feedback_hard_training_examples),
+            "data": with_connection(
+                lambda connection: [
+                    *review_hard_training_examples(connection),
+                    *feedback_hard_training_examples(connection),
+                ]
+            ),
             "meta": service._meta(),
         }
 

@@ -22,6 +22,7 @@ from src.api.services.ai_review import (
     list_reviews,
     parse_reviewers,
     queue_retry,
+    review_hard_training_examples,
     validate_final_dataset,
     with_connection,
 )
@@ -134,7 +135,12 @@ def route_get(
     if path == f"{API_PREFIX}/admin/feedback/hard-training-examples":
         require_admin_api_token(headers)
         return {
-            "data": feedback_with_connection(feedback_hard_training_examples),
+            "data": with_connection(
+                lambda connection: [
+                    *review_hard_training_examples(connection),
+                    *feedback_hard_training_examples(connection),
+                ]
+            ),
             "meta": service._meta(),
         }
     if path == f"{API_PREFIX}/exports/publications.csv":

@@ -7,6 +7,10 @@ from typing import Any, Mapping
 from psycopg.rows import dict_row
 
 from src.api.core.errors import APIError
+from src.ai_relevance.hard_negatives import (
+    build_hard_negative_frame,
+    normalize_ai_label,
+)
 from src.database.connection import get_connection
 
 
@@ -53,6 +57,15 @@ def submit_feedback(
         )
 
     trace = publication_trace(connection, publication_key) if publication_key else {}
+    classifier_decision = (
+        trace.get("classifier_decision")
+        or clean_text(payload.get("classifier_decision"))
+        or None
+    )
+    hard_training_example = (
+        report_type == "incorrect_ai_classification"
+        and normalize_ai_label(classifier_decision) == "AI"
+    )
     with connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute(
             """
@@ -68,9 +81,10 @@ def submit_feedback(
                 dataset_version,
                 classifier_version,
                 classifier_decision,
-                classifier_probability
+                classifier_probability,
+                hard_training_example
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
             (
@@ -86,12 +100,11 @@ def submit_feedback(
                 trace.get("classifier_version")
                 or clean_text(payload.get("classifier_version"))
                 or None,
-                trace.get("classifier_decision")
-                or clean_text(payload.get("classifier_decision"))
-                or None,
+                classifier_decision,
                 trace.get("classifier_probability")
                 or clean_text(payload.get("classifier_probability"))
                 or None,
+                hard_training_example,
             ),
         )
         report = dict(cursor.fetchone())
@@ -162,30 +175,22 @@ def feedback_hard_training_examples(connection: Any) -> list[dict[str, Any]]:
     with connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute(
             """
-            SELECT f.*, p.title, p.abstract, p.keywords
+            SELECT f.*, p.title, p.abstract, p.keywords, p.doi, p.openalex_id,
+                   p.source_record_id
             FROM user_feedback_reports f
             LEFT JOIN final_publications p USING (publication_key)
             WHERE f.report_type = 'incorrect_ai_classification'
+              AND f.hard_training_example IS TRUE
               AND f.status IN ('resolved', 'in_review', 'open')
             ORDER BY f.created_at DESC
             """
         )
         rows = [dict(row) for row in cursor.fetchall()]
-    return [
-        {
-            "publication_key": row.get("publication_key"),
-            "title": row.get("title"),
-            "abstract": row.get("abstract"),
-            "keywords": row.get("keywords"),
-            "reported_classifier_decision": row.get("classifier_decision"),
-            "reported_classifier_probability": row.get("classifier_probability"),
-            "feedback_detail": row.get("detail"),
-            "feedback_status": row.get("status"),
-            "label_source": "public_feedback",
-            "created_at": row.get("created_at"),
-        }
-        for row in rows
-    ]
+    for row in rows:
+        row["hard_negative"] = True
+        row["label_source"] = "public_feedback_hard_training_example"
+        row["feedback_detail"] = row.get("detail")
+    return build_hard_negative_frame(rows).to_dict("records")
 
 
 def publication_trace(connection: Any, publication_key: str) -> dict[str, Any]:

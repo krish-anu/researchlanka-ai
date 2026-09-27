@@ -16,7 +16,7 @@ from typing import Any
 import joblib
 import pandas as pd
 
-from src.ai_relevance.borderline import borderline_false_positive_category
+from src.ai_relevance.borderline import borderline_false_positive_assessment
 from src.ai_relevance.calibration import (
     calibrate_scores,
     configured_calibrator_path,
@@ -346,10 +346,13 @@ def apply_ai_classification(
         ):
             label = "review"
             reason = f"confidence_below_threshold:{confidence_review_threshold:.3f}"
-        category = borderline_false_positive_category(row)
-        if label == "AI" and category:
+        assessment = borderline_false_positive_assessment(row)
+        if label == "AI" and assessment.requires_review:
             label = "review"
-            reason = f"borderline_false_positive_risk:{category}"
+            reason = (
+                "borderline_false_positive_risk:"
+                f"{assessment.risk_category}:weak_ai_evidence"
+            )
         classified_rows.append(
             {
                 **row,

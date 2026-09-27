@@ -97,3 +97,29 @@ def test_borderline_smart_system_without_clear_ai_goes_to_review(tmp_path: Path)
     assert classified.loc[0, "ai_classification_reason"].startswith(
         "borderline_false_positive_risk:"
     )
+
+
+def test_borderline_smart_iot_with_clear_ai_evidence_stays_ai(tmp_path: Path) -> None:
+    input_csv = tmp_path / "analysis_ready.csv"
+    classified_csv = tmp_path / "classified.csv"
+    model_path = tmp_path / "model.joblib"
+    pd.DataFrame(
+        {
+            "source_record_id": ["ml-smart"],
+            "doi": ["10.1000/ml-smart"],
+            "title": ["Machine-learning based smart IoT system"],
+            "abstract": ["A machine learning classifier controls sensor alerts."],
+        }
+    ).to_csv(input_csv, index=False)
+    joblib.dump(FixedProbabilityModel(), model_path)
+
+    classify_ai_relevance_dataset(
+        input_csv,
+        classified_csv,
+        model_path=model_path,
+        text_columns=("title", "abstract"),
+    )
+
+    classified = pd.read_csv(classified_csv)
+    assert classified["ai_classification_label"].tolist() == ["AI"]
+    assert classified.loc[0, "ai_classification_reason"] == "ai_score_gte_0.85"

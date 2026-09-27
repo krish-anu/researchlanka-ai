@@ -10,7 +10,7 @@ from typing import Any, Iterable
 import joblib
 import pandas as pd
 
-from src.ai_relevance.borderline import borderline_false_positive_category
+from src.ai_relevance.borderline import borderline_false_positive_assessment
 from src.ai_relevance.calibration import calibrate_scores, configured_calibrator_path
 from src.modeling.training import combined_text
 from src.pipeline.refresh_policy import (
@@ -169,10 +169,13 @@ def classify_ai_relevance_dataframe(
         for label in labels
     ]
     for index, record in enumerate(cleaned.to_dict("records")):
-        category = borderline_false_positive_category(record)
-        if labels[index] == "AI" and category:
+        assessment = borderline_false_positive_assessment(record)
+        if labels[index] == "AI" and assessment.requires_review:
             labels[index] = "review"
-            reasons[index] = f"borderline_false_positive_risk:{category}"
+            reasons[index] = (
+                "borderline_false_positive_risk:"
+                f"{assessment.risk_category}:weak_ai_evidence"
+            )
     cleaned["ai_classification_label"] = labels
     cleaned["ai_classification_confidence"] = [f"{score:.6f}" for score in scores]
     cleaned["ai_classification_model"] = model_name
