@@ -6,6 +6,7 @@ from src.api.core.errors import APIError
 from src.api.services.ai_review import (
     Reviewer,
     assign_initial_pending,
+    decide_review,
     initial_review_status,
     normalize_ai_label,
     normalize_confidence,
@@ -192,3 +193,77 @@ def test_human_rejected_model_ai_exports_hard_negative(monkeypatch) -> None:
     assert rows[0]["hard_negative"] is True
     assert rows[0]["label_source"] == "human_rejected_false_positive"
     assert rows[0]["hard_negative_category"] == "iot_or_smart_system_without_clear_ai"
+
+
+class FakeDecisionCursor:
+    def __init__(self, connection: "FakeDecisionConnection") -> None:
+        self.connection = connection
+        self._row = None
+
+    def __enter__(self) -> "FakeDecisionCursor":
+        return self
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+    def execute(self, sql: str, params=None) -> None:
+        if "SELECT * FROM ai_review_records" in sql:
+            self._row = self.connection.record
+        elif "UPDATE ai_review_records" in sql and "SET review_status" in sql:
+            self.connection.update_params = params
+            self._row = {
+                **self.connection.record,
+                "review_status": params[0],
+                "reviewer_notes": params[5],
+                "hard_negative": params[6],
+                "hard_negative_category": params[7],
+                "hard_negative_evidence": params[8],
+                "record_version": params[9],
+            }
+        elif "INSERT INTO ai_review_events" in sql:
+            self.connection.events.append(params)
+        elif "INSERT INTO ai_review_sync_jobs" in sql:
+            self.connection.jobs.append(params)
+        else:
+            raise AssertionError(sql)
+
+    def fetchone(self):
+        return self._row
+
+
+class FakeDecisionConnection:
+    def __init__(self) -> None:
+        self.record = {
+            "publication_key": "pub1",
+            "original_ai_label": "AI",
+            "review_status": "pending_review",
+            "record_version": 3,
+            "assigned_reviewer_email": "reviewer@example.test",
+        }
+        self.update_params = None
+        self.events = []
+        self.jobs = []
+
+    def cursor(self, *_, **__) -> FakeDecisionCursor:
+        return FakeDecisionCursor(self)
+
+
+def test_rejecting_model_ai_persists_hard_negative_flag() -> None:
+    connection = FakeDecisionConnection()
+
+    updated = decide_review(
+        connection,
+        publication_key="pub1",
+        decision="human_rejected",
+        notes="Not AI; smart sensor automation only.",
+        actor={
+            "id": "r1",
+            "email": "reviewer@example.test",
+            "name": "Reviewer",
+        },
+        expected_version=3,
+    )
+
+    assert updated["hard_negative"] is True
+    assert updated["hard_negative_category"] == "human_rejected_model_ai"
+    assert updated["hard_negative_evidence"] == "Not AI; smart sensor automation only."
