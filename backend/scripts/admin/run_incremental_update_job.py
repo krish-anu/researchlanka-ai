@@ -26,13 +26,13 @@ from src.pipeline.incremental_update import (  # noqa: E402
     DEFAULT_STATE_BACKEND,
     DEFAULT_OUTPUT_ROOT,
     DEFAULT_STATE_PATH,
-    DEFAULT_TEXT_COLUMNS,
     configured_model_path,
     parse_iso_date,
     parse_label_set,
     run_incremental_update,
 )
 from src.pipeline.refresh_policy import configured_confidence_review_threshold  # noqa: E402
+from src.pipeline.refresh_policy import configured_text_columns  # noqa: E402
 from src.database.pipeline_state import DEFAULT_INCREMENTAL_STATE_KEY  # noqa: E402
 
 
@@ -86,7 +86,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-key", default=os.getenv("OPENALEX_API_KEY"))
     parser.add_argument("--strict-lk-only", action="store_true")
     parser.add_argument("--model", type=Path, default=configured_model_path())
-    parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
+    parser.add_argument("--text-columns", type=parse_text_columns, default=list(configured_text_columns()))
     parser.add_argument(
         "--confidence-review-threshold",
         type=configured_confidence_review_threshold,

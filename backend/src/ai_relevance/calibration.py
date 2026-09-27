@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -10,6 +9,8 @@ from typing import Any, Iterable
 import joblib
 import numpy as np
 import pandas as pd
+
+from src.pipeline.refresh_policy import configured_calibrator_path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -35,18 +36,6 @@ class ProbabilityCalibrator:
         else:
             raise ValueError(f"Unsupported probability calibration method: {self.method}")
         return [float(min(1.0, max(0.0, score))) for score in calibrated]
-
-
-def configured_calibrator_path(value: str | Path | None = None) -> Path | None:
-    raw_value = value
-    if raw_value is None:
-        raw_value = os.getenv("RESEARCHLANKA_AI_CALIBRATOR_PATH")
-    if raw_value in (None, ""):
-        return None
-    if str(raw_value).strip().casefold() in {"none", "disabled", "off"}:
-        return None
-    path = Path(raw_value).expanduser()
-    return path if path.is_absolute() else PROJECT_ROOT / path
 
 
 def load_probability_calibrator(path: str | Path) -> ProbabilityCalibrator:

@@ -1,0 +1,17 @@
+{
+  "model_id": "ai-relevance-xgb-a2-v1",
+  "model_type": "xgboost",
+  "model_path": "data/models/ai_relevance/metadata_ablation/A2_title_abstract_keywords.joblib",
+  "features": [
+    "title",
+    "abstract",
+    "keywords"
+  ],
+  "calibrator": "sigmoid-v1",
+  "calibrator_path": null,
+  "auto_ai_threshold": 0.85,
+  "auto_non_ai_threshold": 0.4,
+  "training_dataset": "human-reviewed-v4",
+  "created_at": "2026-09-27",
+  "sha256": "fa74b5467f06bcc33336cf1bffdbec2b2a33116c116b1f86b2ef6ec8b5896958"
+}

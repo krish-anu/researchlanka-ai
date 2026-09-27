@@ -15,6 +15,7 @@ from src.api.core.errors import APIError
 from src.pipeline.refresh_policy import (
     DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
     DEFAULT_DB_LABELS,
+    configured_model_path,
 )
 
 
@@ -83,7 +84,8 @@ def start_incremental_update(
     model_path = str(
         payload.get("model")
         or os.getenv("RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH")
-        or "data/models/ai_relevance/ai_relevance_linear_svm.joblib"
+        or configured_model_path()
+        or ""
     ).strip()
     if model_path:
         args.extend(["--model", model_path])

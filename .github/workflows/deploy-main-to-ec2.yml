@@ -81,7 +81,7 @@ jobs:
             printf 'FRONTEND_PORT=3000\n'
             printf 'RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=data/models/publication_text_embeddings_cli_sample.parquet\n'
             printf 'RESEARCHLANKA_SEMANTIC_MODEL_PATH=data/models/publication_text_embedding_model_cli_sample.joblib\n'
-            printf 'RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH=data/models/ai_relevance/ai_relevance_linear_svm.joblib\n'
+            printf 'RESEARCHLANKA_AI_RELEVANCE_MODEL_MANIFEST_PATH=configurations/ai_relevance_model_manifest.json\n'
             printf 'RESEARCHLANKA_INCREMENTAL_STATE_BACKEND=database\n'
             printf 'RESEARCHLANKA_INCREMENTAL_STATE_KEY=openalex_incremental\n'
             printf 'OPENALEX_EMAIL=%s\n' "${OPENALEX_EMAIL:-}"

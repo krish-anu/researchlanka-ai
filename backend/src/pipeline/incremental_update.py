@@ -47,8 +47,11 @@ from src.pipeline.refresh_policy import (
     DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
     DEFAULT_DB_LABELS,
     DEFAULT_TEXT_COLUMNS,
+    configured_auto_ai_threshold,
+    configured_auto_non_ai_threshold,
     configured_confidence_review_threshold,
     configured_model_path,
+    configured_text_columns,
 )
 from src.pipeline.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report
 from src.preprocessing.openalex_normalizer import CSV_COLUMNS, work_to_row
@@ -247,13 +250,18 @@ def ai_class_index(model: Any) -> int | None:
     return None
 
 
-def label_from_ai_probability(score: float) -> tuple[str, str | None]:
-    if score >= DEFAULT_AUTO_AI_THRESHOLD:
+def label_from_ai_probability(
+    score: float,
+    *,
+    ai_threshold: float = DEFAULT_AUTO_AI_THRESHOLD,
+    non_ai_threshold: float = DEFAULT_AUTO_NON_AI_THRESHOLD,
+) -> tuple[str, str | None]:
+    if score >= ai_threshold:
         return "AI", None
-    if score >= DEFAULT_AUTO_NON_AI_THRESHOLD:
+    if score >= non_ai_threshold:
         return "review", (
-            f"ai_probability_between_{DEFAULT_AUTO_NON_AI_THRESHOLD:.3f}_"
-            f"and_{DEFAULT_AUTO_AI_THRESHOLD:.3f}"
+            f"ai_probability_between_{non_ai_threshold:.3f}_"
+            f"and_{ai_threshold:.3f}"
         )
     return "non-AI", None
 
@@ -264,6 +272,9 @@ def apply_ai_classification(
     model_path: Path | None,
     text_columns: tuple[str, ...],
     confidence_review_threshold: float | None,
+    auto_ai_threshold: float | None = None,
+    auto_non_ai_threshold: float | None = None,
+    calibrator_path: Path | None = None,
 ) -> list[dict[str, Any]]:
     if not rows:
         return rows
@@ -281,19 +292,28 @@ def apply_ai_classification(
 
     validate_model_path(model_path)
     model = joblib.load(model_path)
+    selected_auto_ai_threshold = configured_auto_ai_threshold(auto_ai_threshold)
+    selected_auto_non_ai_threshold = configured_auto_non_ai_threshold(auto_non_ai_threshold)
     frame = pd.DataFrame(rows)
     text = combined_text(frame.fillna(""), text_columns)
     predictions = list(model.predict(text)) if len(text) else []
     ai_index = ai_class_index(model)
     raw_confidences: list[float | None]
-    selected_calibrator_path = configured_calibrator_path()
+    selected_calibrator_path = configured_calibrator_path(calibrator_path)
     if hasattr(model, "predict_proba") and len(text) and ai_index is not None:
         raw_confidences = [float(values[ai_index]) for values in model.predict_proba(text)]
         confidences = calibrate_scores(
             raw_confidences,
             calibrator_path=selected_calibrator_path,
         )
-        labels_and_reasons = [label_from_ai_probability(score) for score in confidences]
+        labels_and_reasons = [
+            label_from_ai_probability(
+                score,
+                ai_threshold=selected_auto_ai_threshold,
+                non_ai_threshold=selected_auto_non_ai_threshold,
+            )
+            for score in confidences
+        ]
     elif hasattr(model, "decision_function") and len(text):
         margins = model.decision_function(text)
         if getattr(margins, "ndim", 1) == 1:
@@ -467,6 +487,7 @@ def run_incremental_update(
 
     model_path = configured_model_path(model_path)
     validate_model_path(model_path)
+    text_columns = configured_text_columns(text_columns)
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     run_dir = output_root / run_id
     raw_output = run_dir / "openalex_incremental_raw.jsonl"
@@ -583,7 +604,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-key", default=os.getenv("OPENALEX_API_KEY"))
     parser.add_argument("--strict-lk-only", action="store_true")
     parser.add_argument("--model", type=Path, default=configured_model_path())
-    parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
+    parser.add_argument("--text-columns", type=parse_text_columns, default=list(configured_text_columns()))
     parser.add_argument(
         "--confidence-review-threshold",
         type=configured_confidence_review_threshold,

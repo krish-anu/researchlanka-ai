@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -17,29 +16,17 @@ from src.modeling.training import combined_text
 from src.pipeline.refresh_policy import (
     DEFAULT_AUTO_AI_THRESHOLD,
     DEFAULT_AUTO_NON_AI_THRESHOLD,
+    DEFAULT_AI_RELEVANCE_MODEL_PATH,
+    DEFAULT_TEXT_COLUMNS,
+    configured_auto_ai_threshold,
+    configured_auto_non_ai_threshold,
+    configured_model_path,
+    configured_text_columns,
 )
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_MODEL_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "models"
-    / "ai_relevance"
-    / "model_selection"
-    / "best_ai_relevance_model.joblib"
-)
-DEFAULT_TEXT_COLUMNS = (
-    "title",
-    "abstract",
-    "keywords",
-    "topics",
-    "concepts",
-    "primary_topic",
-    "primary_subfield",
-    "primary_field",
-    "primary_domain",
-)
+DEFAULT_MODEL_PATH = DEFAULT_AI_RELEVANCE_MODEL_PATH
 DEFAULT_AI_THRESHOLD = DEFAULT_AUTO_AI_THRESHOLD
 DEFAULT_REVIEW_THRESHOLD = DEFAULT_AUTO_NON_AI_THRESHOLD
 AI_CLASSIFICATION_COLUMNS = (
@@ -67,9 +54,10 @@ class AIFilterResult:
 
 
 def configured_ai_model_path(value: str | Path | None = None) -> Path:
-    raw = value or os.getenv("RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH") or DEFAULT_MODEL_PATH
-    path = Path(raw).expanduser()
-    return path if path.is_absolute() else PROJECT_ROOT / path
+    path = configured_model_path(value)
+    if path is None:
+        raise ValueError("AI relevance model is disabled for dataset classification.")
+    return path
 
 
 def validate_thresholds(*, ai_threshold: float, review_threshold: float) -> None:
@@ -202,9 +190,9 @@ def classify_ai_relevance_dataset(
     classified_output_csv: Path,
     *,
     model_path: Path | None = None,
-    text_columns: Iterable[str] = DEFAULT_TEXT_COLUMNS,
-    ai_threshold: float = DEFAULT_AI_THRESHOLD,
-    review_threshold: float = DEFAULT_REVIEW_THRESHOLD,
+    text_columns: Iterable[str] | None = None,
+    ai_threshold: float | None = None,
+    review_threshold: float | None = None,
     calibrator_path: Path | None = None,
 ) -> AIClassificationResult:
     selected_model_path = configured_ai_model_path(model_path)
@@ -216,13 +204,15 @@ def classify_ai_relevance_dataset(
 
     frame = pd.read_csv(input_csv, dtype="object", low_memory=False)
     model = joblib.load(selected_model_path)
+    selected_ai_threshold = configured_auto_ai_threshold(ai_threshold)
+    selected_review_threshold = configured_auto_non_ai_threshold(review_threshold)
     classified = classify_ai_relevance_dataframe(
         frame,
         model=model,
         model_name=str(selected_model_path),
-        text_columns=text_columns,
-        ai_threshold=ai_threshold,
-        review_threshold=review_threshold,
+        text_columns=configured_text_columns(tuple(text_columns) if text_columns else None),
+        ai_threshold=selected_ai_threshold,
+        review_threshold=selected_review_threshold,
         calibrator_path=calibrator_path,
     )
     if len(classified) != len(frame):

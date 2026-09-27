@@ -105,7 +105,7 @@ def test_incremental_classification_thresholds_calibrated_probability(monkeypatc
     monkeypatch.setattr(
         incremental_update,
         "configured_calibrator_path",
-        lambda: Path("calibrator.joblib"),
+        lambda _value=None: Path("calibrator.joblib"),
     )
     monkeypatch.setattr(
         incremental_update,
