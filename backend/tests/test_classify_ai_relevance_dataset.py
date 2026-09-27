@@ -20,6 +20,19 @@ class FixedProbabilityModel:
         return [[score, 1.0 - score] for score in scores[: len(text)]]
 
 
+class FixedSecondaryModel:
+    classes_ = ["AI", "NON_AI"]
+
+    def __init__(self, scores):
+        self.scores = scores
+
+    def predict_proba(self, text):
+        return [[score, 1.0 - score] for score in self.scores[: len(text)]]
+
+    def predict(self, text):
+        return ["AI" if score >= 0.85 else "NON_AI" for score in self.scores[: len(text)]]
+
+
 def test_label_from_ai_score_uses_requested_boundaries() -> None:
     assert label_from_ai_score(0.85) == "AI"
     assert label_from_ai_score(0.849999) == "review"
@@ -123,3 +136,58 @@ def test_borderline_smart_iot_with_clear_ai_evidence_stays_ai(tmp_path: Path) ->
     classified = pd.read_csv(classified_csv)
     assert classified["ai_classification_label"].tolist() == ["AI"]
     assert classified.loc[0, "ai_classification_reason"] == "ai_score_gte_0.85"
+
+
+def test_secondary_model_disagreement_forces_review(tmp_path: Path) -> None:
+    input_csv = tmp_path / "analysis_ready.csv"
+    classified_csv = tmp_path / "classified.csv"
+    model_path = tmp_path / "model.joblib"
+    secondary_path = tmp_path / "secondary.joblib"
+    pd.DataFrame(
+        {
+            "source_record_id": ["disagree"],
+            "doi": ["10.1000/disagree"],
+            "title": ["AI research"],
+        }
+    ).to_csv(input_csv, index=False)
+    joblib.dump(FixedProbabilityModel(), model_path)
+    joblib.dump(FixedSecondaryModel([0.35]), secondary_path)
+
+    classify_ai_relevance_dataset(
+        input_csv,
+        classified_csv,
+        model_path=model_path,
+        secondary_model_path=secondary_path,
+        text_columns=("title",),
+    )
+
+    classified = pd.read_csv(classified_csv)
+    assert classified["ai_classification_label"].tolist() == ["review"]
+    assert classified.loc[0, "ai_classification_reason"] == "model_disagreement:AI_vs_non-AI"
+    assert classified.loc[0, "ai_classification_secondary_label"] == "non-AI"
+    assert classified.loc[0, "ai_classification_secondary_confidence"] == 0.35
+
+
+def test_secondary_model_agreement_keeps_auto_ai(tmp_path: Path) -> None:
+    input_csv = tmp_path / "analysis_ready.csv"
+    classified_csv = tmp_path / "classified.csv"
+    model_path = tmp_path / "model.joblib"
+    secondary_path = tmp_path / "secondary.joblib"
+    pd.DataFrame({"source_record_id": ["agree"], "title": ["AI research"]}).to_csv(
+        input_csv,
+        index=False,
+    )
+    joblib.dump(FixedProbabilityModel(), model_path)
+    joblib.dump(FixedSecondaryModel([0.89]), secondary_path)
+
+    classify_ai_relevance_dataset(
+        input_csv,
+        classified_csv,
+        model_path=model_path,
+        secondary_model_path=secondary_path,
+        text_columns=("title",),
+    )
+
+    classified = pd.read_csv(classified_csv)
+    assert classified["ai_classification_label"].tolist() == ["AI"]
+    assert classified.loc[0, "ai_classification_secondary_label"] == "AI"

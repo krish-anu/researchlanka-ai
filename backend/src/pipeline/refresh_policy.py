@@ -36,6 +36,7 @@ class AIRelevanceModelManifest:
     features: tuple[str, ...]
     calibrator: str | None
     calibrator_path: Path | None
+    secondary_model_path: Path | None
     auto_ai_threshold: float
     auto_non_ai_threshold: float
     training_dataset: str | None
@@ -53,6 +54,7 @@ class PublicationRefreshPolicy:
     db_labels: tuple[str, ...] = DEFAULT_DB_LABELS
     auto_non_ai_threshold: float = FALLBACK_AUTO_NON_AI_THRESHOLD
     calibrator_path: Path | None = None
+    secondary_model_path: Path | None = None
     model_manifest_path: Path | None = None
     model_id: str | None = None
 
@@ -87,6 +89,7 @@ def load_ai_relevance_model_manifest(
             features=FALLBACK_TEXT_COLUMNS,
             calibrator="sigmoid-v1",
             calibrator_path=None,
+            secondary_model_path=None,
             auto_ai_threshold=FALLBACK_AUTO_AI_THRESHOLD,
             auto_non_ai_threshold=FALLBACK_AUTO_NON_AI_THRESHOLD,
             training_dataset="human-reviewed-v4",
@@ -115,6 +118,7 @@ def load_ai_relevance_model_manifest(
         features=tuple(features),
         calibrator=payload.get("calibrator"),
         calibrator_path=_resolve_project_path(payload.get("calibrator_path")),
+        secondary_model_path=_resolve_project_path(payload.get("secondary_model_path")),
         auto_ai_threshold=float(payload.get("auto_ai_threshold", FALLBACK_AUTO_AI_THRESHOLD)),
         auto_non_ai_threshold=float(
             payload.get("auto_non_ai_threshold", FALLBACK_AUTO_NON_AI_THRESHOLD)
@@ -191,6 +195,19 @@ def configured_calibrator_path(value: str | Path | None = None) -> Path | None:
     return _resolve_project_path(raw_value)
 
 
+def configured_secondary_model_path(value: str | Path | None = None) -> Path | None:
+    raw_value = value
+    if raw_value is None:
+        raw_value = os.getenv("RESEARCHLANKA_AI_SECONDARY_MODEL_PATH")
+    if raw_value in (None, ""):
+        raw_value = load_ai_relevance_model_manifest().secondary_model_path
+    if raw_value in (None, ""):
+        return None
+    if str(raw_value).strip().casefold() in {"none", "disabled", "off"}:
+        return None
+    return _resolve_project_path(raw_value)
+
+
 def configured_confidence_review_threshold(value: float | str | None = None) -> float:
     raw_value = value
     if raw_value is None:
@@ -220,6 +237,7 @@ def default_refresh_policy(
         db_labels=db_labels,
         auto_non_ai_threshold=configured_auto_non_ai_threshold(),
         calibrator_path=configured_calibrator_path(),
+        secondary_model_path=configured_secondary_model_path(),
         model_manifest_path=configured_model_manifest_path(),
         model_id=manifest.model_id,
     )

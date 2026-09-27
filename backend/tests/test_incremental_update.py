@@ -61,6 +61,16 @@ class ProbabilityModel:
         return [[1.0 - score, score] for score in scores[: len(text)]]
 
 
+class SecondaryProbabilityModel:
+    classes_ = ["non-AI", "AI"]
+
+    def predict(self, text):
+        return ["NON_AI"] * len(text)
+
+    def predict_proba(self, text):
+        return [[0.65, 0.35] for _item in text]
+
+
 def test_incremental_classification_uses_ai_probability_tiers(monkeypatch) -> None:
     monkeypatch.setattr(incremental_update.joblib, "load", lambda _path: ProbabilityModel())
     monkeypatch.setattr(incremental_update, "validate_model_path", lambda _path: None)
@@ -139,3 +149,27 @@ def test_incremental_classification_thresholds_calibrated_probability(monkeypatc
     assert classified[0]["ai_classification_confidence"] == "0.700000"
     assert classified[0]["ai_classification_raw_confidence"] == "0.860000"
     assert classified[0]["ai_classification_calibrator"] == "calibrator.joblib"
+
+
+def test_incremental_secondary_model_disagreement_forces_review(monkeypatch) -> None:
+    def fake_load(path):
+        if Path(path).name == "secondary.joblib":
+            return SecondaryProbabilityModel()
+        return ProbabilityModel()
+
+    monkeypatch.setattr(incremental_update.joblib, "load", fake_load)
+    monkeypatch.setattr(incremental_update, "validate_model_path", lambda _path: None)
+
+    classified = apply_ai_classification(
+        [{"title": "Deep learning for crop disease detection"}],
+        model_path=Path("model.joblib"),
+        secondary_model_path=Path("secondary.joblib"),
+        text_columns=("title",),
+        confidence_review_threshold=0.85,
+    )
+
+    assert classified[0]["ai_classification_label"] == "review"
+    assert classified[0]["ai_classification_reason"] == "model_disagreement:AI_vs_non-AI"
+    assert classified[0]["ai_classification_secondary_label"] == "non-AI"
+    assert classified[0]["ai_classification_secondary_confidence"] == "0.350000"
+    assert classified[0]["ai_classification_disagreement_gap"] == "0.510000"

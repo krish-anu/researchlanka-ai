@@ -12,6 +12,7 @@ import pandas as pd
 
 from src.ai_relevance.borderline import borderline_false_positive_assessment
 from src.ai_relevance.calibration import calibrate_scores, configured_calibrator_path
+from src.ai_relevance.disagreement import disagreement_result, model_votes
 from src.modeling.training import combined_text
 from src.pipeline.refresh_policy import (
     DEFAULT_AUTO_AI_THRESHOLD,
@@ -20,6 +21,7 @@ from src.pipeline.refresh_policy import (
     DEFAULT_TEXT_COLUMNS,
     configured_auto_ai_threshold,
     configured_auto_non_ai_threshold,
+    configured_secondary_model_path,
     configured_model_path,
     configured_text_columns,
 )
@@ -34,6 +36,11 @@ AI_CLASSIFICATION_COLUMNS = (
     "ai_classification_confidence",
     "ai_classification_model",
     "ai_classification_reason",
+    "ai_classification_primary_confidence",
+    "ai_classification_secondary_model",
+    "ai_classification_secondary_label",
+    "ai_classification_secondary_confidence",
+    "ai_classification_disagreement_gap",
 )
 
 
@@ -134,6 +141,9 @@ def classify_ai_relevance_dataframe(
     ai_threshold: float = DEFAULT_AI_THRESHOLD,
     review_threshold: float = DEFAULT_REVIEW_THRESHOLD,
     calibrator_path: Path | None = None,
+    secondary_model: Any | None = None,
+    secondary_model_name: str | None = None,
+    disagreement_gap_threshold: float = 0.35,
 ) -> pd.DataFrame:
     validate_thresholds(
         ai_threshold=ai_threshold,
@@ -150,6 +160,16 @@ def classify_ai_relevance_dataframe(
     raw_scores = ai_probability_scores(model, text)
     selected_calibrator_path = configured_calibrator_path(calibrator_path)
     scores = calibrate_scores(raw_scores, calibrator_path=selected_calibrator_path)
+    secondary_votes = (
+        model_votes(
+            secondary_model,
+            text,
+            ai_threshold=ai_threshold,
+            non_ai_threshold=review_threshold,
+        )
+        if secondary_model is not None
+        else [None for _score in scores]
+    )
     labels = [
         label_from_ai_score(
             score,
@@ -169,6 +189,16 @@ def classify_ai_relevance_dataframe(
         for label in labels
     ]
     for index, record in enumerate(cleaned.to_dict("records")):
+        disagreement = disagreement_result(
+            primary_label=labels[index],
+            primary_probability=scores[index],
+            secondary_vote=secondary_votes[index],
+            probability_gap_threshold=disagreement_gap_threshold,
+        )
+        if disagreement.requires_review:
+            labels[index] = "review"
+            reasons[index] = disagreement.reason or "model_disagreement"
+            continue
         assessment = borderline_false_positive_assessment(record)
         if labels[index] == "AI" and assessment.requires_review:
             labels[index] = "review"
@@ -178,8 +208,28 @@ def classify_ai_relevance_dataframe(
             )
     cleaned["ai_classification_label"] = labels
     cleaned["ai_classification_confidence"] = [f"{score:.6f}" for score in scores]
+    cleaned["ai_classification_primary_confidence"] = [
+        f"{score:.6f}" for score in scores
+    ]
     cleaned["ai_classification_model"] = model_name
     cleaned["ai_classification_reason"] = reasons
+    if secondary_model is not None:
+        cleaned["ai_classification_secondary_model"] = secondary_model_name or ""
+        cleaned["ai_classification_secondary_label"] = [
+            vote.label if vote is not None else "" for vote in secondary_votes
+        ]
+        cleaned["ai_classification_secondary_confidence"] = [
+            ""
+            if vote is None or vote.ai_probability is None
+            else f"{vote.ai_probability:.6f}"
+            for vote in secondary_votes
+        ]
+        cleaned["ai_classification_disagreement_gap"] = [
+            ""
+            if vote is None or vote.ai_probability is None
+            else f"{abs(scores[index] - vote.ai_probability):.6f}"
+            for index, vote in enumerate(secondary_votes)
+        ]
     if selected_calibrator_path is not None:
         cleaned["ai_classification_raw_confidence"] = [
             f"{score:.6f}" for score in raw_scores
@@ -197,6 +247,8 @@ def classify_ai_relevance_dataset(
     ai_threshold: float | None = None,
     review_threshold: float | None = None,
     calibrator_path: Path | None = None,
+    secondary_model_path: Path | None = None,
+    disagreement_gap_threshold: float = 0.35,
 ) -> AIClassificationResult:
     selected_model_path = configured_ai_model_path(model_path)
     if not selected_model_path.is_file():
@@ -207,6 +259,14 @@ def classify_ai_relevance_dataset(
 
     frame = pd.read_csv(input_csv, dtype="object", low_memory=False)
     model = joblib.load(selected_model_path)
+    selected_secondary_model_path = configured_secondary_model_path(secondary_model_path)
+    secondary_model = None
+    if selected_secondary_model_path is not None:
+        if not selected_secondary_model_path.is_file():
+            raise FileNotFoundError(
+                f"Secondary AI relevance model was not found: {selected_secondary_model_path}."
+            )
+        secondary_model = joblib.load(selected_secondary_model_path)
     selected_ai_threshold = configured_auto_ai_threshold(ai_threshold)
     selected_review_threshold = configured_auto_non_ai_threshold(review_threshold)
     classified = classify_ai_relevance_dataframe(
@@ -217,6 +277,13 @@ def classify_ai_relevance_dataset(
         ai_threshold=selected_ai_threshold,
         review_threshold=selected_review_threshold,
         calibrator_path=calibrator_path,
+        secondary_model=secondary_model,
+        secondary_model_name=(
+            str(selected_secondary_model_path)
+            if selected_secondary_model_path is not None
+            else None
+        ),
+        disagreement_gap_threshold=disagreement_gap_threshold,
     )
     if len(classified) != len(frame):
         raise RuntimeError("Every analysis-ready row must receive an AI classification.")

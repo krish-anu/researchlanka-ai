@@ -21,6 +21,7 @@ from src.ai_relevance.calibration import (
     calibrate_scores,
     configured_calibrator_path,
 )
+from src.ai_relevance.disagreement import disagreement_result, model_votes
 from src.collectors.openalex_collector import (
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
@@ -51,6 +52,7 @@ from src.pipeline.refresh_policy import (
     configured_auto_non_ai_threshold,
     configured_confidence_review_threshold,
     configured_model_path,
+    configured_secondary_model_path,
     configured_text_columns,
 )
 from src.pipeline.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report
@@ -74,6 +76,11 @@ AI_COLUMNS = (
     "ai_classification_calibrator",
     "ai_classification_model",
     "ai_classification_reason",
+    "ai_classification_primary_confidence",
+    "ai_classification_secondary_model",
+    "ai_classification_secondary_label",
+    "ai_classification_secondary_confidence",
+    "ai_classification_disagreement_gap",
 )
 
 logger = logging.getLogger(__name__)
@@ -275,6 +282,8 @@ def apply_ai_classification(
     auto_ai_threshold: float | None = None,
     auto_non_ai_threshold: float | None = None,
     calibrator_path: Path | None = None,
+    secondary_model_path: Path | None = None,
+    disagreement_gap_threshold: float = 0.35,
 ) -> list[dict[str, Any]]:
     if not rows:
         return rows
@@ -292,6 +301,11 @@ def apply_ai_classification(
 
     validate_model_path(model_path)
     model = joblib.load(model_path)
+    selected_secondary_model_path = configured_secondary_model_path(secondary_model_path)
+    secondary_model = None
+    if selected_secondary_model_path is not None:
+        validate_model_path(selected_secondary_model_path)
+        secondary_model = joblib.load(selected_secondary_model_path)
     selected_auto_ai_threshold = configured_auto_ai_threshold(auto_ai_threshold)
     selected_auto_non_ai_threshold = configured_auto_non_ai_threshold(auto_non_ai_threshold)
     frame = pd.DataFrame(rows)
@@ -329,14 +343,24 @@ def apply_ai_classification(
         raw_confidences = [None] * len(predictions)
         labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
 
+    secondary_votes = (
+        model_votes(
+            secondary_model,
+            text,
+            ai_threshold=selected_auto_ai_threshold,
+            non_ai_threshold=selected_auto_non_ai_threshold,
+        )
+        if secondary_model is not None
+        else [None for _row in rows]
+    )
     classified_rows: list[dict[str, Any]] = []
-    for row, raw_confidence, confidence, label_and_reason in zip(
+    for index, (row, raw_confidence, confidence, label_and_reason) in enumerate(zip(
         rows,
         raw_confidences,
         confidences,
         labels_and_reasons,
         strict=True,
-    ):
+    )):
         label, reason = label_and_reason
         if (
             confidence_review_threshold is not None
@@ -346,6 +370,15 @@ def apply_ai_classification(
         ):
             label = "review"
             reason = f"confidence_below_threshold:{confidence_review_threshold:.3f}"
+        disagreement = disagreement_result(
+            primary_label=label,
+            primary_probability=confidence,
+            secondary_vote=secondary_votes[index],
+            probability_gap_threshold=disagreement_gap_threshold,
+        )
+        if disagreement.requires_review:
+            label = "review"
+            reason = disagreement.reason or "model_disagreement"
         assessment = borderline_false_positive_assessment(row)
         if label == "AI" and assessment.requires_review:
             label = "review"
@@ -353,11 +386,15 @@ def apply_ai_classification(
                 "borderline_false_positive_risk:"
                 f"{assessment.risk_category}:weak_ai_evidence"
             )
+        secondary_vote = secondary_votes[index]
         classified_rows.append(
             {
                 **row,
                 "ai_classification_label": label,
                 "ai_classification_confidence": (
+                    None if confidence is None else f"{confidence:.6f}"
+                ),
+                "ai_classification_primary_confidence": (
                     None if confidence is None else f"{confidence:.6f}"
                 ),
                 "ai_classification_raw_confidence": (
@@ -370,6 +407,28 @@ def apply_ai_classification(
                 ),
                 "ai_classification_model": str(model_path),
                 "ai_classification_reason": reason or None,
+                "ai_classification_secondary_model": (
+                    str(selected_secondary_model_path)
+                    if selected_secondary_model_path is not None
+                    else None
+                ),
+                "ai_classification_secondary_label": (
+                    secondary_vote.label if secondary_vote is not None else None
+                ),
+                "ai_classification_secondary_confidence": (
+                    None
+                    if secondary_vote is None or secondary_vote.ai_probability is None
+                    else f"{secondary_vote.ai_probability:.6f}"
+                ),
+                "ai_classification_disagreement_gap": (
+                    None
+                    if (
+                        confidence is None
+                        or secondary_vote is None
+                        or secondary_vote.ai_probability is None
+                    )
+                    else f"{abs(confidence - secondary_vote.ai_probability):.6f}"
+                ),
             }
         )
     return classified_rows
