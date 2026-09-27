@@ -50,7 +50,10 @@ PUBLICATIONS = [
         "reviewed_at": "2026-09-22T10:00:00Z",
         "dataset_version": "researchlanka-2026-09-26",
         "pipeline_version": "pipeline-v1.4.2",
-        "abstract": "A study abstract.",
+        "abstract": (
+            "A convolutional neural network with transfer learning performs "
+            "image classification."
+        ),
         "citation_count_divergence_flag": False,
         "reference_count_divergence_flag": True,
         "raw_record": {"id": "W1"},
@@ -275,6 +278,12 @@ def test_publication_detail_exposes_nested_contract_and_provenance():
 
     assert payload["data"]["venue"]["journal"] == "Ceylon Medical Journal"
     assert payload["data"]["classification"]["topics"] == ["Epidemiology", "Malaria"]
+    explanation = payload["data"]["classification"]["ai_explanation"]
+    assert explanation["classification"] == "AI"
+    assert explanation["confidence"] == "High"
+    assert explanation["verification"] == "Human verified"
+    assert "convolutional neural network" in explanation["evidence_detected"]
+    assert explanation["reason"].startswith("Explicit AI/ML methodology")
     assert payload["data"]["trace"] == {
         "source": ["openalex", "crossref"],
         "source_record_id": "W1",

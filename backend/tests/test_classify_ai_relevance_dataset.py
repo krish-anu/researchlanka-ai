@@ -80,6 +80,12 @@ def test_classification_writes_all_predictions_and_filters_ai_review(tmp_path: P
         "not_candidate",
         "not_candidate",
     ]
+    assert classified.loc[0, "ai_explanation_confidence"] == "High"
+    assert pd.isna(classified.loc[0, "ai_explanation_evidence"])
+    assert classified.loc[2, "ai_explanation_confidence"] == "Needs review"
+    assert classified.loc[2, "ai_explanation_reason"].startswith(
+        "The calibrated model score"
+    )
     assert classified.loc[2, "ai_llm_reviewer_decision_effect"] == (
         "human_review_context_only"
     )
@@ -120,6 +126,14 @@ def test_borderline_smart_system_without_clear_ai_goes_to_review(tmp_path: Path)
     assert classified.loc[0, "ai_classification_reason"].startswith(
         "borderline_false_positive_risk:"
     )
+    assert "smart-system terminology" in classified.loc[
+        0,
+        "ai_explanation_borderline_terms",
+    ]
+    assert "no explicit AI/ML methodology" in classified.loc[
+        0,
+        "ai_explanation_reason",
+    ]
 
 
 def test_borderline_smart_iot_with_clear_ai_evidence_stays_ai(tmp_path: Path) -> None:
@@ -146,6 +160,7 @@ def test_borderline_smart_iot_with_clear_ai_evidence_stays_ai(tmp_path: Path) ->
     classified = pd.read_csv(classified_csv)
     assert classified["ai_classification_label"].tolist() == ["AI"]
     assert classified.loc[0, "ai_classification_reason"] == "ai_score_gte_0.85"
+    assert "machine learning" in classified.loc[0, "ai_explanation_evidence"]
 
 
 def test_secondary_model_disagreement_forces_review(tmp_path: Path) -> None:

@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from src.api.core.constants import API_VERSION, ARRAY_FIELDS, DATASET_STAGE
+from src.ai_relevance.explainability import explanation_from_row
 
 
 def publication_summary(row: dict[str, Any]) -> dict[str, Any]:
@@ -94,6 +95,7 @@ def publication_detail(row: dict[str, Any]) -> dict[str, Any]:
             "classifier_version": normalized.get("classifier_version"),
             "classifier_probability": normalized.get("classifier_probability"),
             "classifier_decision": normalized.get("classifier_decision"),
+            "ai_explanation": explanation_from_row(normalized),
         },
         "funding": {
             "funder_name": normalized.get("funder_name", []),

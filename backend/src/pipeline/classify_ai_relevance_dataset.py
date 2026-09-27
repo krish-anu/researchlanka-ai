@@ -13,6 +13,7 @@ import pandas as pd
 from src.ai_relevance.borderline import borderline_false_positive_assessment
 from src.ai_relevance.calibration import calibrate_scores, configured_calibrator_path
 from src.ai_relevance.disagreement import disagreement_result, model_votes
+from src.ai_relevance.explainability import add_explanation_columns
 from src.ai_relevance.llm_reviewer import (
     LLM_REVIEWER_COLUMNS,
     LLMReviewerConfig,
@@ -243,8 +244,9 @@ def classify_ai_relevance_dataframe(
             f"{score:.6f}" for score in raw_scores
         ]
         cleaned["ai_classification_calibrator"] = str(selected_calibrator_path)
+    explained = add_explanation_columns(cleaned)
     return add_llm_reviewer_candidate_columns(
-        cleaned,
+        explained,
         LLMReviewerConfig(
             max_fraction=llm_review_max_fraction,
             max_records=llm_review_max_records,
