@@ -13,6 +13,11 @@ import pandas as pd
 from src.ai_relevance.borderline import borderline_false_positive_assessment
 from src.ai_relevance.calibration import calibrate_scores, configured_calibrator_path
 from src.ai_relevance.disagreement import disagreement_result, model_votes
+from src.ai_relevance.llm_reviewer import (
+    LLM_REVIEWER_COLUMNS,
+    LLMReviewerConfig,
+    add_llm_reviewer_candidate_columns,
+)
 from src.modeling.training import combined_text
 from src.pipeline.refresh_policy import (
     DEFAULT_AUTO_AI_THRESHOLD,
@@ -41,6 +46,7 @@ AI_CLASSIFICATION_COLUMNS = (
     "ai_classification_secondary_label",
     "ai_classification_secondary_confidence",
     "ai_classification_disagreement_gap",
+    *LLM_REVIEWER_COLUMNS,
 )
 
 
@@ -144,6 +150,8 @@ def classify_ai_relevance_dataframe(
     secondary_model: Any | None = None,
     secondary_model_name: str | None = None,
     disagreement_gap_threshold: float = 0.35,
+    llm_review_max_fraction: float = 0.20,
+    llm_review_max_records: int | None = None,
 ) -> pd.DataFrame:
     validate_thresholds(
         ai_threshold=ai_threshold,
@@ -235,7 +243,15 @@ def classify_ai_relevance_dataframe(
             f"{score:.6f}" for score in raw_scores
         ]
         cleaned["ai_classification_calibrator"] = str(selected_calibrator_path)
-    return cleaned
+    return add_llm_reviewer_candidate_columns(
+        cleaned,
+        LLMReviewerConfig(
+            max_fraction=llm_review_max_fraction,
+            max_records=llm_review_max_records,
+            auto_ai_threshold=ai_threshold,
+            auto_non_ai_threshold=review_threshold,
+        ),
+    )
 
 
 def classify_ai_relevance_dataset(
@@ -249,6 +265,8 @@ def classify_ai_relevance_dataset(
     calibrator_path: Path | None = None,
     secondary_model_path: Path | None = None,
     disagreement_gap_threshold: float = 0.35,
+    llm_review_max_fraction: float = 0.20,
+    llm_review_max_records: int | None = None,
 ) -> AIClassificationResult:
     selected_model_path = configured_ai_model_path(model_path)
     if not selected_model_path.is_file():
@@ -284,6 +302,8 @@ def classify_ai_relevance_dataset(
             else None
         ),
         disagreement_gap_threshold=disagreement_gap_threshold,
+        llm_review_max_fraction=llm_review_max_fraction,
+        llm_review_max_records=llm_review_max_records,
     )
     if len(classified) != len(frame):
         raise RuntimeError("Every analysis-ready row must receive an AI classification.")

@@ -73,6 +73,16 @@ def test_classification_writes_all_predictions_and_filters_ai_review(tmp_path: P
     ]
     assert filtered["source_record_id"].tolist() == ["one", "two", "three", "four"]
     assert pd.isna(filtered.loc[1, "doi"])
+    assert classified["ai_llm_reviewer_status"].tolist() == [
+        "not_candidate",
+        "not_candidate",
+        "pending",
+        "not_candidate",
+        "not_candidate",
+    ]
+    assert classified.loc[2, "ai_llm_reviewer_decision_effect"] == (
+        "human_review_context_only"
+    )
     assert result.input_rows == 5
     assert result.ai_rows == 2
     assert result.review_rows == 2
