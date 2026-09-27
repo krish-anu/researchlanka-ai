@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import math
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -13,7 +14,17 @@ import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 from sklearn.model_selection import GridSearchCV, train_test_split
 
+from src.ai_relevance.calibration import (
+    CALIBRATION_METHODS,
+    calibration_metrics,
+    choose_probability_thresholds,
+    fit_probability_calibrator,
+    reliability_table,
+    write_calibration_curve_png,
+)
 from src.modeling.artifacts import (
+    describe_artifact,
+    dump_joblib_artifact,
     file_sha256,
     save_model_artifacts,
     write_csv_artifact,
@@ -42,13 +53,16 @@ DEFAULT_CORPUS_INPUT = (
     PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final.csv"
 )
 DEFAULT_MODEL_DIR = PROJECT_ROOT / "data" / "models" / "ai_relevance"
-DEFAULT_MODEL_OUTPUT = DEFAULT_MODEL_DIR / "ai_relevance_linear_svm.joblib"
+DEFAULT_MODEL_OUTPUT = DEFAULT_MODEL_DIR / "model.joblib"
 DEFAULT_METRICS_OUTPUT = DEFAULT_MODEL_DIR / "ai_relevance_linear_svm_metrics.txt"
 DEFAULT_LABEL_COUNTS_OUTPUT = DEFAULT_MODEL_DIR / "ai_relevance_linear_svm_labels.csv"
 DEFAULT_TEST_PREDICTIONS_OUTPUT = (
     DEFAULT_MODEL_DIR / "ai_relevance_linear_svm_test_predictions.csv"
 )
-DEFAULT_MANIFEST_OUTPUT = DEFAULT_MODEL_DIR / "ai_relevance_linear_svm_manifest.json"
+DEFAULT_MANIFEST_OUTPUT = DEFAULT_MODEL_DIR / "model_manifest.json"
+DEFAULT_CALIBRATOR_OUTPUT = DEFAULT_MODEL_DIR / "calibrator.joblib"
+DEFAULT_CALIBRATION_REPORT_OUTPUT = DEFAULT_MODEL_DIR / "calibration_report.json"
+DEFAULT_CALIBRATION_CURVE_OUTPUT = DEFAULT_MODEL_DIR / "calibration_curve.png"
 DEFAULT_REST_OUTPUT = (
     PROJECT_ROOT
     / "data"
@@ -106,6 +120,9 @@ class AIRelevanceSVMTrainingConfig:
     label_counts_output: Path = DEFAULT_LABEL_COUNTS_OUTPUT
     predictions_output: Path = DEFAULT_TEST_PREDICTIONS_OUTPUT
     manifest_output: Path = DEFAULT_MANIFEST_OUTPUT
+    calibrator_output: Path = DEFAULT_CALIBRATOR_OUTPUT
+    calibration_report_output: Path = DEFAULT_CALIBRATION_REPORT_OUTPUT
+    calibration_curve_output: Path = DEFAULT_CALIBRATION_CURVE_OUTPUT
     text_columns: tuple[str, ...] = DEFAULT_TEXT_COLUMNS
     label_column: str = "ai_llm_label"
     status_column: str = "ai_llm_status"
@@ -124,6 +141,11 @@ class AIRelevanceSVMTrainingConfig:
     max_iter: int = 5000
     cv_folds: int = 3
     scoring: str = "f1_macro"
+    calibration_size: float = 0.2
+    calibration_bins: int = 10
+    calibration_methods: tuple[str, ...] = CALIBRATION_METHODS
+    target_auto_ai_precision: float = 0.90
+    target_auto_non_ai_precision: float = 0.90
 
 
 @dataclass(frozen=True)
@@ -133,16 +155,25 @@ class AIRelevanceSVMTrainingResult:
     label_counts_output: Path
     predictions_output: Path
     manifest_output: Path
+    calibrator_output: Path
+    calibration_report_output: Path
+    calibration_curve_output: Path
     input_rows: int
     usable_rows: int
     train_rows: int
     test_rows: int
+    calibration_rows: int
     class_count: int
     best_c: float
     best_cv_score: float
     accuracy: float
     macro_f1: float
     weighted_f1: float
+    selected_calibrator: str = ""
+    calibration_brier_score: float = 0.0
+    calibration_ece: float = 0.0
+    auto_ai_threshold: float = 0.85
+    auto_non_ai_threshold: float = 0.4
     model_sha256: str = ""
 
 
@@ -184,6 +215,49 @@ def json_ready_dataclass(value: object) -> dict[str, object]:
         elif isinstance(item, tuple):
             data[key] = list(item)
     return data
+
+
+def _binary_ai_labels(labels: Iterable[str]) -> list[int]:
+    binary: list[int] = []
+    for label in labels:
+        normalized = str(label).strip().casefold().replace("_", "-").replace(" ", "-")
+        if normalized == "ai":
+            binary.append(1)
+        elif normalized in {"non-ai", "nonai"}:
+            binary.append(0)
+        else:
+            raise ValueError(f"Unsupported binary AI relevance label: {label}")
+    return binary
+
+
+def _ai_probability_scores(model: Any, text: pd.Series) -> list[float]:
+    if text.empty:
+        return []
+    classes = [str(label).strip().casefold().replace("_", "-") for label in model.classes_]
+    if "ai" not in classes:
+        raise ValueError("AI relevance model does not expose an AI class.")
+    ai_index = classes.index("ai")
+    if hasattr(model, "predict_proba"):
+        probabilities = model.predict_proba(text)
+        return [float(row[ai_index]) for row in probabilities]
+    if hasattr(model, "decision_function"):
+        margins = model.decision_function(text)
+        if len(classes) != 2:
+            raise ValueError("Decision-margin calibration requires a binary model.")
+        scores_for_second_class = [
+            1.0 / (1.0 + math.exp(-float(margin))) for margin in margins
+        ]
+        if ai_index == 1:
+            return scores_for_second_class
+        return [1.0 - score for score in scores_for_second_class]
+    raise ValueError("Model must expose predict_proba or decision_function for calibration.")
+
+
+def _relative_to_project(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(PROJECT_ROOT.resolve()))
+    except ValueError:
+        return str(path)
 
 
 def _read_existing_columns(path: Path) -> list[str]:
@@ -279,12 +353,18 @@ def render_training_metrics(
     usable_rows: int,
     train_rows: int,
     test_rows: int,
+    calibration_rows: int,
     label_counts: pd.Series,
     best_c: float,
     best_cv_score: float,
     accuracy: float,
     macro_f1: float,
     weighted_f1: float,
+    selected_calibrator: str,
+    calibration_brier_score: float,
+    calibration_ece: float,
+    auto_ai_threshold: float,
+    auto_non_ai_threshold: float,
     report: str,
 ) -> str:
     lines = [
@@ -299,12 +379,18 @@ def render_training_metrics(
         f"usable_rows: {usable_rows}",
         f"train_rows: {train_rows}",
         f"test_rows: {test_rows}",
+        f"calibration_rows: {calibration_rows}",
         f"class_count: {len(label_counts)}",
         f"best_C: {best_c}",
         f"cv_macro_f1: {best_cv_score:.4f}",
         f"accuracy: {accuracy:.4f}",
         f"macro_f1: {macro_f1:.4f}",
         f"weighted_f1: {weighted_f1:.4f}",
+        f"selected_calibrator: {selected_calibrator}",
+        f"calibration_brier_score: {calibration_brier_score:.6f}",
+        f"calibration_ece: {calibration_ece:.6f}",
+        f"auto_ai_threshold: {auto_ai_threshold:.6f}",
+        f"auto_non_ai_threshold: {auto_non_ai_threshold:.6f}",
         "",
         "Class distribution:",
     ]
@@ -321,14 +407,35 @@ def train_ai_relevance_svm(
     cv_folds = min(config.cv_folds, min_count)
     if cv_folds < 2:
         raise ValueError("Each class needs at least two rows for cross-validation.")
+    if not 0.0 < config.test_size < 1.0:
+        raise ValueError("test_size must be between 0 and 1.")
+    if not 0.0 < config.calibration_size < 1.0:
+        raise ValueError("calibration_size must be between 0 and 1.")
+    unknown_methods = [
+        method for method in config.calibration_methods if method not in CALIBRATION_METHODS
+    ]
+    if unknown_methods:
+        raise ValueError(f"Unsupported calibration methods: {', '.join(unknown_methods)}")
 
-    train_text, test_text, train_labels, test_labels = train_test_split(
-        training_frame["text"],
-        training_frame["label"],
-        test_size=config.test_size,
+    modeling_frame, calibration_frame = train_test_split(
+        training_frame,
+        test_size=config.calibration_size,
         random_state=config.random_state,
         stratify=training_frame["label"],
     )
+    if calibration_frame["label"].nunique() < 2:
+        raise ValueError("Calibration split must contain both AI and NON_AI labels.")
+
+    train_text, test_text, train_labels, test_labels = train_test_split(
+        modeling_frame["text"],
+        modeling_frame["label"],
+        test_size=config.test_size,
+        random_state=config.random_state,
+        stratify=modeling_frame["label"],
+    )
+    cv_folds = min(config.cv_folds, int(train_labels.value_counts().min()))
+    if cv_folds < 2:
+        raise ValueError("Each train class needs at least two rows for cross-validation.")
     grid_pipeline = build_pipeline(
         max_features=config.max_features,
         min_df=config.min_df,
@@ -365,7 +472,92 @@ def train_ai_relevance_svm(
         random_state=config.random_state,
         c_value=best_c,
     )
-    model.fit(training_frame["text"], training_frame["label"])
+    model.fit(modeling_frame["text"], modeling_frame["label"])
+
+    calibration_labels = _binary_ai_labels(calibration_frame["label"])
+    calibration_raw_scores = _ai_probability_scores(model, calibration_frame["text"])
+    method_reports: dict[str, Any] = {}
+    calibrators: dict[str, Any] = {}
+    for method in config.calibration_methods:
+        calibrator = fit_probability_calibrator(
+            method=method,
+            raw_scores=calibration_raw_scores,
+            labels=calibration_labels,
+            source_model_path=config.model_output,
+            label_column=config.label_column,
+        )
+        calibrated_scores = calibrator.predict(calibration_raw_scores)
+        metrics = calibration_metrics(
+            scores=calibrated_scores,
+            labels=calibration_labels,
+            bins=config.calibration_bins,
+        )
+        method_reports[method] = {
+            **metrics,
+            "reliability": reliability_table(
+                scores=calibrated_scores,
+                labels=calibration_labels,
+                bins=config.calibration_bins,
+            ).to_dict("records"),
+        }
+        calibrators[method] = calibrator
+
+    selected_method = min(
+        method_reports,
+        key=lambda method: (
+            method_reports[method]["brier_score"],
+            method_reports[method]["expected_calibration_error"],
+            0 if method == "sigmoid" else 1,
+        ),
+    )
+    selected_calibrator = calibrators[selected_method]
+    selected_scores = selected_calibrator.predict(calibration_raw_scores)
+    selected_reliability = reliability_table(
+        scores=selected_scores,
+        labels=calibration_labels,
+        bins=config.calibration_bins,
+    )
+    thresholds = choose_probability_thresholds(
+        scores=selected_scores,
+        labels=calibration_labels,
+        target_auto_precision=config.target_auto_ai_precision,
+        target_auto_non_ai_precision=config.target_auto_non_ai_precision,
+    )
+    auto_ai_threshold = float(thresholds["auto_ai_threshold"])
+    auto_non_ai_threshold = float(thresholds["auto_non_ai_threshold"])
+    calibration_report = {
+        "calibration_schema_version": 1,
+        "source": {
+            "input_path": str(config.input_path),
+            "label_column": config.label_column,
+            "text_columns": list(config.text_columns),
+            "calibration_rows": len(calibration_frame),
+            "calibration_split": "stratified holdout excluded from base model fitting",
+        },
+        "raw_scores": calibration_metrics(
+            scores=calibration_raw_scores,
+            labels=calibration_labels,
+            bins=config.calibration_bins,
+        ),
+        "methods": method_reports,
+        "selected_calibrator": selected_method,
+        "selection_rule": "lowest Brier score, then lowest ECE, sigmoid tie-break",
+        "thresholds": {
+            **thresholds,
+            "labels": {
+                "score_gte_auto_ai_threshold": "AUTO_AI",
+                "between_thresholds": "REVIEW",
+                "score_lte_auto_non_ai_threshold": "AUTO_NON_AI",
+            },
+        },
+    }
+    saved_calibrator = dump_joblib_artifact(config.calibrator_output, selected_calibrator)
+    saved_report = write_json_artifact(config.calibration_report_output, calibration_report)
+    write_calibration_curve_png(
+        config.calibration_curve_output,
+        reliability=selected_reliability,
+    )
+    saved_curve = describe_artifact(config.calibration_curve_output)
 
     metrics_text = render_training_metrics(
         config=config,
@@ -373,12 +565,20 @@ def train_ai_relevance_svm(
         usable_rows=len(training_frame),
         train_rows=len(train_text),
         test_rows=len(test_text),
+        calibration_rows=len(calibration_frame),
         label_counts=label_counts,
         best_c=best_c,
         best_cv_score=float(grid.best_score_),
         accuracy=float(accuracy),
         macro_f1=float(macro_f1),
         weighted_f1=float(weighted_f1),
+        selected_calibrator=selected_method,
+        calibration_brier_score=float(method_reports[selected_method]["brier_score"]),
+        calibration_ece=float(
+            method_reports[selected_method]["expected_calibration_error"]
+        ),
+        auto_ai_threshold=auto_ai_threshold,
+        auto_non_ai_threshold=auto_non_ai_threshold,
         report=report,
     )
     result = AIRelevanceSVMTrainingResult(
@@ -387,16 +587,27 @@ def train_ai_relevance_svm(
         label_counts_output=config.label_counts_output,
         predictions_output=config.predictions_output,
         manifest_output=config.manifest_output,
+        calibrator_output=config.calibrator_output,
+        calibration_report_output=config.calibration_report_output,
+        calibration_curve_output=config.calibration_curve_output,
         input_rows=input_rows,
         usable_rows=len(training_frame),
         train_rows=len(train_text),
         test_rows=len(test_text),
+        calibration_rows=len(calibration_frame),
         class_count=len(label_counts),
         best_c=best_c,
         best_cv_score=float(grid.best_score_),
         accuracy=float(accuracy),
         macro_f1=float(macro_f1),
         weighted_f1=float(weighted_f1),
+        selected_calibrator=selected_method,
+        calibration_brier_score=float(method_reports[selected_method]["brier_score"]),
+        calibration_ece=float(
+            method_reports[selected_method]["expected_calibration_error"]
+        ),
+        auto_ai_threshold=auto_ai_threshold,
+        auto_non_ai_threshold=auto_non_ai_threshold,
     )
     saved = save_model_artifacts(
         model=model,
@@ -414,10 +625,53 @@ def train_ai_relevance_svm(
         manifest_output=config.manifest_output,
         manifest_config=json_ready_dataclass(config),
         manifest_result=json_ready_dataclass(result),
+        extra_artifacts={
+            "calibrator": saved_calibrator,
+            "calibration_report": saved_report,
+            "calibration_curve": saved_curve,
+        },
     )
-    return AIRelevanceSVMTrainingResult(
+    created_at = datetime.now(UTC).isoformat()
+    final_result = AIRelevanceSVMTrainingResult(
         **{**asdict(result), "model_sha256": saved.model.sha256}
     )
+    manifest_payload = {
+        "artifact_schema_version": 1,
+        "model_id": config.model_output.stem,
+        "model_type": "linear_svm",
+        "model_path": _relative_to_project(config.model_output),
+        "features": list(config.text_columns),
+        "calibrator": f"{selected_method}-v1",
+        "calibrator_path": _relative_to_project(config.calibrator_output),
+        "auto_ai_threshold": auto_ai_threshold,
+        "auto_non_ai_threshold": auto_non_ai_threshold,
+        "training_dataset": str(config.input_path),
+        "created_at": created_at,
+        "sha256": saved.model.sha256,
+        "config": json_ready_dataclass(config),
+        "result": json_ready_dataclass(final_result),
+        "calibration": {
+            "selected_calibrator": selected_method,
+            "brier_score": method_reports[selected_method]["brier_score"],
+            "expected_calibration_error": method_reports[selected_method][
+                "expected_calibration_error"
+            ],
+            "report_path": _relative_to_project(config.calibration_report_output),
+            "curve_path": _relative_to_project(config.calibration_curve_output),
+        },
+        "artifacts": {
+            "model": saved.model.as_manifest_dict(),
+            "metrics": saved.metrics.as_manifest_dict(),
+            "label_counts": saved.label_counts.as_manifest_dict(),
+            "predictions": saved.predictions.as_manifest_dict(),
+            "calibrator": saved_calibrator.as_manifest_dict(),
+            "calibration_report": saved_report.as_manifest_dict(),
+            "calibration_curve": saved_curve.as_manifest_dict(),
+            "manifest": {"path": str(config.manifest_output)},
+        },
+    }
+    write_json_artifact(config.manifest_output, manifest_payload)
+    return final_result
 
 
 def _load_manifest_sha256(path: Path) -> str | None:
@@ -594,6 +848,18 @@ def parse_labels(value: str) -> tuple[str, ...]:
     return labels
 
 
+def parse_calibration_methods(value: str) -> tuple[str, ...]:
+    methods = tuple(method.strip() for method in value.split(",") if method.strip())
+    if not methods:
+        raise argparse.ArgumentTypeError("at least one calibration method is required")
+    unknown = [method for method in methods if method not in CALIBRATION_METHODS]
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"unsupported calibration method(s): {', '.join(unknown)}"
+        )
+    return methods
+
+
 def parse_train_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train AI relevance Linear SVM.")
     parser.add_argument("--input", type=Path, default=DEFAULT_LABELLED_INPUT)
@@ -602,6 +868,17 @@ def parse_train_args() -> argparse.Namespace:
     parser.add_argument("--label-counts-output", type=Path, default=DEFAULT_LABEL_COUNTS_OUTPUT)
     parser.add_argument("--predictions-output", type=Path, default=DEFAULT_TEST_PREDICTIONS_OUTPUT)
     parser.add_argument("--manifest-output", type=Path, default=DEFAULT_MANIFEST_OUTPUT)
+    parser.add_argument("--calibrator-output", type=Path, default=DEFAULT_CALIBRATOR_OUTPUT)
+    parser.add_argument(
+        "--calibration-report-output",
+        type=Path,
+        default=DEFAULT_CALIBRATION_REPORT_OUTPUT,
+    )
+    parser.add_argument(
+        "--calibration-curve-output",
+        type=Path,
+        default=DEFAULT_CALIBRATION_CURVE_OUTPUT,
+    )
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
     parser.add_argument("--labels", type=parse_labels, default=DEFAULT_LABELS)
     parser.add_argument("--test-size", type=float, default=0.2)
@@ -616,6 +893,16 @@ def parse_train_args() -> argparse.Namespace:
     parser.add_argument("--class-weight", type=parse_class_weight, default="balanced")
     parser.add_argument("--max-iter", type=int, default=5000)
     parser.add_argument("--cv-folds", type=int, default=3)
+    parser.add_argument("--calibration-size", type=float, default=0.2)
+    parser.add_argument("--calibration-bins", type=int, default=10)
+    parser.add_argument(
+        "--calibration-methods",
+        type=parse_calibration_methods,
+        default=CALIBRATION_METHODS,
+        help="Comma-separated subset of sigmoid,isotonic.",
+    )
+    parser.add_argument("--target-auto-ai-precision", type=float, default=0.90)
+    parser.add_argument("--target-auto-non-ai-precision", type=float, default=0.90)
     return parser.parse_args()
 
 
@@ -647,6 +934,9 @@ def train_main() -> None:
             label_counts_output=args.label_counts_output,
             predictions_output=args.predictions_output,
             manifest_output=args.manifest_output,
+            calibrator_output=args.calibrator_output,
+            calibration_report_output=args.calibration_report_output,
+            calibration_curve_output=args.calibration_curve_output,
             text_columns=tuple(args.text_columns),
             labels=tuple(args.labels),
             test_size=args.test_size,
@@ -661,12 +951,25 @@ def train_main() -> None:
             class_weight=args.class_weight,
             max_iter=args.max_iter,
             cv_folds=args.cv_folds,
+            calibration_size=args.calibration_size,
+            calibration_bins=args.calibration_bins,
+            calibration_methods=tuple(args.calibration_methods),
+            target_auto_ai_precision=args.target_auto_ai_precision,
+            target_auto_non_ai_precision=args.target_auto_non_ai_precision,
         )
     )
     print(f"Trained AI relevance SVM on {result.usable_rows:,} rows.")
     print(f"Accuracy: {result.accuracy:.4f}")
     print(f"Macro F1: {result.macro_f1:.4f}")
     print(f"Model: {result.model_output}")
+    print(f"Calibrator: {result.calibrator_output} ({result.selected_calibrator})")
+    print(
+        "Thresholds: "
+        f"AUTO_NON_AI <= {result.auto_non_ai_threshold:.4f}, "
+        f"AUTO_AI >= {result.auto_ai_threshold:.4f}"
+    )
+    print(f"Calibration report: {result.calibration_report_output}")
+    print(f"Calibration curve: {result.calibration_curve_output}")
     print(f"Metrics: {result.metrics_output}")
 
 
