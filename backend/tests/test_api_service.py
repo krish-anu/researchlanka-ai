@@ -203,6 +203,7 @@ class FakeSemanticIndex:
     def __init__(self):
         self.search_calls = []
         self.related_calls = []
+        self.manifest = {}
 
     def search(self, query, *, filters, limit, min_score):
         self.search_calls.append(
@@ -521,6 +522,32 @@ def test_postgres_related_publications_hydrates_database_records(monkeypatch):
             "similarity_rank": 1,
         }
     ]
+
+
+def test_postgres_semantic_index_rejects_database_version_mismatch(monkeypatch):
+    semantic_index = FakeSemanticIndex()
+    semantic_index.manifest = {
+        "dataset_version": "researchlanka-2026-09-27",
+        "records": 2,
+    }
+    repository = PostgresPublicationRepository(
+        connection_factory=lambda _database_url: None,
+        semantic_index=semantic_index,
+    )
+
+    monkeypatch.setattr(
+        repository,
+        "_fetch_one",
+        lambda _sql, _params: {
+            "records": 2,
+            "min_dataset_version": "researchlanka-2026-09-26",
+            "max_dataset_version": "researchlanka-2026-09-26",
+            "dataset_versions": 1,
+        },
+    )
+
+    with pytest.raises(ValueError, match="dataset version does not match"):
+        repository.validate_semantic_index_for_startup()
 
 
 def test_postgres_metadata_counts_public_dataset_coverage(monkeypatch):

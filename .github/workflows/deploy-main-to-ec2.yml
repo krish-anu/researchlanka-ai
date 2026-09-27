@@ -79,8 +79,10 @@ jobs:
             printf 'RESEARCHLANKA_ADMIN_API_TOKEN=%s\n' "$RESEARCHLANKA_ADMIN_API_TOKEN"
             printf 'AUTH_COOKIE_SECURE=false\n'
             printf 'FRONTEND_PORT=3000\n'
-            printf 'RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=data/models/publication_text_embeddings_cli_sample.parquet\n'
-            printf 'RESEARCHLANKA_SEMANTIC_MODEL_PATH=data/models/publication_text_embedding_model_cli_sample.joblib\n'
+            printf 'RESEARCHLANKA_SEMANTIC_MANIFEST_PATH=data/models/semantic-search-index-v2026-09-27.json\n'
+            printf 'RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=data/models/embeddings-v2026-09-27.parquet\n'
+            printf 'RESEARCHLANKA_SEMANTIC_MODEL_PATH=data/models/embedding-model-v3.joblib\n'
+            printf 'RESEARCHLANKA_VALIDATE_SEMANTIC_INDEX_ON_STARTUP=true\n'
             printf 'RESEARCHLANKA_AI_RELEVANCE_MODEL_MANIFEST_PATH=configurations/ai_relevance_model_manifest.json\n'
             printf 'RESEARCHLANKA_INCREMENTAL_STATE_BACKEND=database\n'
             printf 'RESEARCHLANKA_INCREMENTAL_STATE_KEY=openalex_incremental\n'
@@ -96,6 +98,9 @@ jobs:
           ssh -i ~/.ssh/researchlanka_ec2 "$USER_NAME@$EC2_HOST" "APP_DIR='$APP_DIR' bash -s" <<'REMOTE_DEPLOY'
           set -euo pipefail
           cd "$APP_DIR"
+          test -f backend/data/models/semantic-search-index-v2026-09-27.json
+          test -f backend/data/models/embeddings-v2026-09-27.parquet
+          test -f backend/data/models/embedding-model-v3.joblib
           COMPOSE="docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml"
           $COMPOSE config >/tmp/researchlanka-compose.ok
           $COMPOSE build api frontend

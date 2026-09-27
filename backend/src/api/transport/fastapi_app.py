@@ -56,6 +56,7 @@ from src.api.services.user_feedback import (
     submit_feedback,
     with_connection as feedback_with_connection,
 )
+from src.modeling.embeddings import SEMANTIC_STARTUP_VALIDATION_ENV
 
 
 logger = logging.getLogger("researchlanka.api")
@@ -574,6 +575,16 @@ def create_app(
                 {"error": str(exc)},
             ),
         )
+
+    @app.on_event("startup")
+    async def validate_semantic_index_on_startup() -> None:
+        enabled = os.getenv(SEMANTIC_STARTUP_VALIDATION_ENV, "").casefold()
+        if enabled not in {"1", "true", "yes", "on"}:
+            return
+        repository = getattr(publication_api, "repository", None)
+        validator = getattr(repository, "validate_semantic_index_for_startup", None)
+        if validator is not None:
+            validator()
 
     @app.get("/health")
     @app.get(f"{API_PREFIX}/health")

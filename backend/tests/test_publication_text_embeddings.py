@@ -345,3 +345,50 @@ def test_embedding_retrieval_reports_missing_and_malformed_artifacts(tmp_path: P
             embeddings_path=malformed_parquet,
             model_path=model_output,
         )
+
+
+def test_semantic_loader_validates_manifest_contract(tmp_path: Path):
+    input_csv = tmp_path / "publications.csv"
+    output_parquet = tmp_path / "embeddings.parquet"
+    model_output = tmp_path / "embedding_model.joblib"
+    manifest_output = tmp_path / "embeddings_manifest.json"
+    write_publications_csv(input_csv)
+
+    result = generate_publication_text_embeddings(
+        PublicationEmbeddingConfig(
+            input_path=input_csv,
+            output_path=output_parquet,
+            model_output=model_output,
+            manifest_output=manifest_output,
+            text_columns=("title", "abstract", "keywords"),
+            metadata_columns=("record_number", "publication_year", "title", "doi"),
+            embedding_dim=4,
+            max_features=100,
+            min_df=1,
+            max_df=1.0,
+            ngram_max=2,
+            dataset_version="researchlanka-2026-09-27",
+        )
+    )
+
+    manifest = json.loads(manifest_output.read_text(encoding="utf-8"))
+    assert manifest["dataset_version"] == "researchlanka-2026-09-27"
+    assert manifest["records"] == result.embedded_rows
+    assert manifest["dimension"] == result.embedding_dimensions
+
+    index = load_semantic_search_index(
+        embeddings_path=output_parquet,
+        model_path=model_output,
+        manifest_path=manifest_output,
+    )
+    assert index.manifest["dataset_version"] == "researchlanka-2026-09-27"
+
+    manifest["records"] = result.embedded_rows + 1
+    bad_manifest = tmp_path / "bad_manifest.json"
+    bad_manifest.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="row count does not match manifest"):
+        load_semantic_search_index(
+            embeddings_path=output_parquet,
+            model_path=model_output,
+            manifest_path=bad_manifest,
+        )
