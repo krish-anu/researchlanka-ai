@@ -7,6 +7,7 @@ from typing import Any
 from psycopg.rows import dict_row
 
 from src.database.connection import get_connection
+from src.api.services.ml_monitoring import compute_ml_monitoring
 
 
 DRIFT_ALERT_THRESHOLD_POINTS = 20.0
@@ -111,7 +112,8 @@ def monitoring_dashboard(connection: Any) -> dict[str, Any]:
     total_reviews = int(review_row.get("review_records") or 0)
     human_decisions = int(review_row.get("human_decisions") or 0)
     duplicate_reports = int(duplicate_row.get("duplicate_reports") or 0)
-    drift = drift_summary(drift_rows)
+    ml_monitoring = compute_ml_monitoring(connection)
+    drift = drift_summary(drift_rows, ml_monitoring=ml_monitoring)
 
     return {
         "public_publications": total_public,
@@ -140,6 +142,7 @@ def monitoring_dashboard(connection: Any) -> dict[str, Any]:
             pipeline_row.get("avg_publications_collected_per_run") or 0
         ),
         "drift": drift,
+        "ml_monitoring": ml_monitoring,
         "metric_notes": {
             "false_positive_rate": "Proxy: AI-labelled records later human-rejected.",
             "duplicate_rate": "Proxy: active/resolved duplicate reports over public publications.",
@@ -148,7 +151,10 @@ def monitoring_dashboard(connection: Any) -> dict[str, Any]:
     }
 
 
-def drift_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def drift_summary(
+    rows: list[dict[str, Any]],
+    ml_monitoring: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     monthly = [
         {
             "month": row["month"],
@@ -165,13 +171,19 @@ def drift_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if previous and current:
         delta = round(current["auto_ai_rate"] - previous["auto_ai_rate"], 2)
         alert = abs(delta) >= DRIFT_ALERT_THRESHOLD_POINTS
+
+    ml_report = ml_monitoring or {}
+    overall_alert = alert or ml_report.get("overall_alert", False)
+
     return {
         "previous_month": previous,
         "current_month": current,
         "auto_ai_rate_delta_points": delta,
-        "alert": alert,
+        "alert": overall_alert,
+        "legacy_drift_alert": alert,
         "alert_threshold_points": DRIFT_ALERT_THRESHOLD_POINTS,
         "monthly": monthly,
+        "ml_monitoring": ml_report,
     }
 
 
