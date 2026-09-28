@@ -19,6 +19,12 @@ TEXT_FIELDS = (
     "primary_domain",
 )
 
+CORE_EVIDENCE_FIELDS = (
+    "title",
+    "abstract",
+    "keywords",
+)
+
 CLEAR_AI_PATTERNS = (
     r"\bartificial[- ]intelligence\b",
     r"\bmachine[- ]learning\b",
@@ -89,6 +95,16 @@ BORDERLINE_PATTERNS: dict[str, tuple[str, ...]] = {
         r"expert system",
         r"knowledge based",
     ),
+    "decision_optimization_without_clear_ai": (
+        r"fuzzy topsis",
+        r"intuitionistic fuzzy",
+        r"\btopsis\b",
+        r"\bahp\b",
+        r"\bmcdm\b",
+        r"multi-criteria decision",
+        r"multi criteria decision",
+        r"mathematical optimi[sz]ation",
+    ),
 }
 
 
@@ -115,6 +131,10 @@ def combined_text(row: Mapping[str, Any]) -> str:
     return " ".join(clean(row.get(field)) for field in TEXT_FIELDS).strip()
 
 
+def core_evidence_text(row: Mapping[str, Any]) -> str:
+    return " ".join(clean(row.get(field)) for field in CORE_EVIDENCE_FIELDS).strip()
+
+
 def has_pattern(text: str, patterns: tuple[str, ...]) -> bool:
     lowered = text.casefold()
     return any(re.search(pattern, lowered) for pattern in patterns)
@@ -130,7 +150,10 @@ def borderline_false_positive_assessment(row: Mapping[str, Any]) -> BorderlineAs
     if not text:
         return BorderlineAssessment(has_strong_ai_evidence=False, risk_category=None)
 
-    evidence = matched_patterns(text, CLEAR_AI_PATTERNS)
+    # Broad metadata fields such as topics/concepts can contain generic
+    # "Artificial intelligence" tags for otherwise non-AI work. For risky
+    # borderline categories, require clear AI evidence in core publication text.
+    evidence = matched_patterns(core_evidence_text(row), CLEAR_AI_PATTERNS)
     for category, patterns in BORDERLINE_PATTERNS.items():
         risk = matched_patterns(text, patterns)
         if risk:

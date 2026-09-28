@@ -17,10 +17,10 @@ FALLBACK_AI_RELEVANCE_MODEL_PATH = (
     / "data"
     / "models"
     / "ai_relevance"
-    / "metadata_ablation"
-    / "A2_title_abstract_keywords.joblib"
+    / "metadata_ablation_precision_092"
+    / "A1_title_abstract.joblib"
 )
-FALLBACK_TEXT_COLUMNS = ("title", "abstract", "keywords")
+FALLBACK_TEXT_COLUMNS = ("title", "abstract")
 FALLBACK_AUTO_AI_THRESHOLD = 0.85
 FALLBACK_AUTO_NON_AI_THRESHOLD = 0.4
 DEFAULT_DB_LABELS = ("AI", "review")
@@ -39,6 +39,7 @@ class AIRelevanceModelManifest:
     secondary_model_path: Path | None
     auto_ai_threshold: float
     auto_non_ai_threshold: float
+    selected_binary_threshold: float | None
     training_dataset: str | None
     created_at: str | None
     sha256: str | None
@@ -83,7 +84,7 @@ def load_ai_relevance_model_manifest(
     selected_path = configured_model_manifest_path(manifest_path)
     if selected_path is None or not selected_path.is_file():
         return AIRelevanceModelManifest(
-            model_id="ai-relevance-xgb-a2-v1",
+            model_id="ai-relevance-xgb-a1-precision-v1",
             model_type="xgboost",
             model_path=FALLBACK_AI_RELEVANCE_MODEL_PATH,
             features=FALLBACK_TEXT_COLUMNS,
@@ -92,8 +93,9 @@ def load_ai_relevance_model_manifest(
             secondary_model_path=None,
             auto_ai_threshold=FALLBACK_AUTO_AI_THRESHOLD,
             auto_non_ai_threshold=FALLBACK_AUTO_NON_AI_THRESHOLD,
+            selected_binary_threshold=0.4,
             training_dataset="human-reviewed-v4",
-            created_at="2026-09-27",
+            created_at="2026-09-28",
             sha256=None,
         )
 
@@ -122,6 +124,11 @@ def load_ai_relevance_model_manifest(
         auto_ai_threshold=float(payload.get("auto_ai_threshold", FALLBACK_AUTO_AI_THRESHOLD)),
         auto_non_ai_threshold=float(
             payload.get("auto_non_ai_threshold", FALLBACK_AUTO_NON_AI_THRESHOLD)
+        ),
+        selected_binary_threshold=(
+            None
+            if payload.get("selected_binary_threshold") in (None, "")
+            else float(payload["selected_binary_threshold"])
         ),
         training_dataset=payload.get("training_dataset"),
         created_at=payload.get("created_at"),

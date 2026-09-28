@@ -79,6 +79,14 @@ BORDERLINE_PATTERN_LABELS = {
     r"decision support": "decision-support terminology",
     r"expert system": "expert-system terminology",
     r"knowledge based": "knowledge-based terminology",
+    r"fuzzy topsis": "Fuzzy TOPSIS",
+    r"intuitionistic fuzzy": "intuitionistic fuzzy method",
+    r"\btopsis\b": "TOPSIS",
+    r"\bahp\b": "AHP",
+    r"\bmcdm\b": "multi-criteria decision making",
+    r"multi-criteria decision": "multi-criteria decision method",
+    r"multi criteria decision": "multi-criteria decision method",
+    r"mathematical optimi[sz]ation": "mathematical optimization",
 }
 
 

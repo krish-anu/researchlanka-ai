@@ -23,6 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.ai_relevance.borderline import borderline_false_positive_assessment  # noqa: E402
 from src.preprocessing.text_cleaning import CUSTOM_STOP_WORDS, clean_text_series  # noqa: E402
 
 
@@ -58,6 +59,10 @@ class Config:
     output_dir: Path = DEFAULT_OUTPUT_DIR
     human_weight: float = 3.0
     random_state: int = 42
+    threshold_objective: str = "macro_f1"
+    min_ai_precision: float = 0.90
+    auto_ai_threshold: float = 0.85
+    auto_non_ai_threshold: float = 0.40
 
 
 def clean(value: Any) -> str:
@@ -133,13 +138,122 @@ def threshold_predictions(scores: Iterable[float], threshold: float) -> list[str
     return ["AI" if float(score) >= threshold else "NON_AI" for score in scores]
 
 
-def best_threshold(y_true: pd.Series, scores: Iterable[float]) -> dict[str, Any]:
+def routed_predictions(
+    frame: pd.DataFrame,
+    scores: Iterable[float],
+    *,
+    auto_ai_threshold: float,
+    auto_non_ai_threshold: float,
+) -> tuple[list[str], list[str]]:
+    routed: list[str] = []
+    reasons: list[str] = []
+    for record, score in zip(frame.to_dict("records"), scores, strict=True):
+        value = float(score)
+        if value >= auto_ai_threshold:
+            label = "AI"
+            reason = f"score_gte_auto_ai_threshold:{auto_ai_threshold:.2f}"
+        elif value >= auto_non_ai_threshold:
+            label = "review"
+            reason = (
+                f"score_between_{auto_non_ai_threshold:.2f}_"
+                f"and_{auto_ai_threshold:.2f}"
+            )
+        else:
+            label = "NON_AI"
+            reason = f"score_lt_auto_non_ai_threshold:{auto_non_ai_threshold:.2f}"
+
+        assessment = borderline_false_positive_assessment(record)
+        if label == "AI" and assessment.requires_review:
+            label = "review"
+            reason = (
+                "borderline_false_positive_risk:"
+                f"{assessment.risk_category}:weak_ai_evidence"
+            )
+        routed.append(label)
+        reasons.append(reason)
+    return routed, reasons
+
+
+def routed_metrics(y_true: pd.Series, routed: Iterable[str]) -> dict[str, Any]:
+    predictions = list(routed)
+    total = len(predictions)
+    auto_ai_rows = [
+        label
+        for label, prediction in zip(y_true, predictions, strict=True)
+        if prediction == "AI"
+    ]
+    review_rows = [
+        label
+        for label, prediction in zip(y_true, predictions, strict=True)
+        if prediction == "review"
+    ]
+    auto_non_ai_rows = [
+        label
+        for label, prediction in zip(y_true, predictions, strict=True)
+        if prediction == "NON_AI"
+    ]
+    auto_ai_true = sum(label == "AI" for label in auto_ai_rows)
+    auto_ai_false = sum(label == "NON_AI" for label in auto_ai_rows)
+    auto_non_ai_true = sum(label == "NON_AI" for label in auto_non_ai_rows)
+    auto_non_ai_false = sum(label == "AI" for label in auto_non_ai_rows)
+    return {
+        "total_rows": total,
+        "auto_ai_rows": len(auto_ai_rows),
+        "review_rows": len(review_rows),
+        "auto_non_ai_rows": len(auto_non_ai_rows),
+        "auto_ai_true_positives": int(auto_ai_true),
+        "auto_ai_false_positives": int(auto_ai_false),
+        "auto_ai_precision": (
+            float(auto_ai_true / len(auto_ai_rows)) if auto_ai_rows else None
+        ),
+        "auto_non_ai_true_negatives": int(auto_non_ai_true),
+        "auto_non_ai_false_negatives": int(auto_non_ai_false),
+        "auto_non_ai_precision": (
+            float(auto_non_ai_true / len(auto_non_ai_rows))
+            if auto_non_ai_rows
+            else None
+        ),
+        "true_ai_sent_to_review": int(sum(label == "AI" for label in review_rows)),
+        "true_non_ai_sent_to_review": int(
+            sum(label == "NON_AI" for label in review_rows)
+        ),
+        "review_rate": float(len(review_rows) / total) if total else 0.0,
+    }
+
+
+def best_threshold(
+    y_true: pd.Series,
+    scores: Iterable[float],
+    *,
+    objective: str = "macro_f1",
+    min_ai_precision: float = 0.90,
+) -> dict[str, Any]:
     best: dict[str, Any] | None = None
     for value in range(5, 96):
         threshold = round(value / 100, 2)
         metrics = evaluate(y_true, threshold_predictions(scores, threshold))
-        if best is None or metrics["macro_f1"] > best["metrics"]["macro_f1"]:
-            best = {"threshold": threshold, "metrics": metrics}
+        report = metrics["classification_report"]
+        ai_precision = float(report["AI"]["precision"])
+        ai_recall = float(report["AI"]["recall"])
+        non_ai_recall = float(report["NON_AI"]["recall"])
+        if objective == "macro_f1":
+            sort_key = (metrics["macro_f1"], ai_precision, non_ai_recall, ai_recall)
+        elif objective == "ai_precision":
+            precision_floor_met = ai_precision >= min_ai_precision
+            sort_key = (
+                int(precision_floor_met),
+                metrics["macro_f1"] if precision_floor_met else ai_precision,
+                ai_precision,
+                non_ai_recall,
+                ai_recall,
+            )
+        else:
+            raise ValueError(
+                "threshold objective must be 'macro_f1' or 'ai_precision'."
+            )
+        row = {"threshold": threshold, "metrics": metrics, "sort_key": sort_key}
+        if best is None or sort_key > best["sort_key"]:
+            best = row
     assert best is not None
     return best
 
@@ -180,17 +294,34 @@ def run(config: Config) -> dict[str, Any]:
             clf__sample_weight=sample_weights(train, config.human_weight),
         )
         validation_scores = [float(row[1]) for row in model.predict_proba(validation_text)]
-        threshold_result = best_threshold(validation["label"], validation_scores)
+        threshold_result = best_threshold(
+            validation["label"],
+            validation_scores,
+            objective=config.threshold_objective,
+            min_ai_precision=config.min_ai_precision,
+        )
         test_scores = [float(row[1]) for row in model.predict_proba(test_text)]
         test_pred = threshold_predictions(test_scores, threshold_result["threshold"])
+        routed_pred, routed_reason = routed_predictions(
+            test,
+            test_scores,
+            auto_ai_threshold=config.auto_ai_threshold,
+            auto_non_ai_threshold=config.auto_non_ai_threshold,
+        )
         test_metrics = evaluate(test["label"], test_pred)
+        routed_test_metrics = routed_metrics(test["label"], routed_pred)
         model_path = config.output_dir / f"{name}.joblib"
         joblib.dump(model, model_path)
         predictions = test[["record_key", "label", "label_source", "title", "doi"]].copy()
         predictions["prediction"] = test_pred
+        predictions["routed_prediction"] = routed_pred
+        predictions["routed_reason"] = routed_reason
         predictions["ai_score"] = [f"{score:.6f}" for score in test_scores]
         predictions["threshold"] = f"{threshold_result['threshold']:.2f}"
         predictions["correct"] = predictions["label"].eq(predictions["prediction"])
+        predictions["routed_auto_ai_false_positive"] = (
+            predictions["label"].eq("NON_AI") & predictions["routed_prediction"].eq("AI")
+        )
         predictions_path = config.output_dir / f"{name}_frozen_test_predictions.csv"
         predictions.to_csv(predictions_path, index=False)
         report = test_metrics["classification_report"]
@@ -200,12 +331,16 @@ def run(config: Config) -> dict[str, Any]:
                 "columns": list(columns),
                 "selected_threshold": threshold_result["threshold"],
                 "validation_macro_f1": threshold_result["metrics"]["macro_f1"],
+                "validation_ai_precision": threshold_result["metrics"][
+                    "classification_report"
+                ]["AI"]["precision"],
                 "test_accuracy": test_metrics["accuracy"],
                 "test_macro_f1": test_metrics["macro_f1"],
                 "test_ai_precision": report["AI"]["precision"],
                 "test_ai_recall": report["AI"]["recall"],
                 "test_non_ai_recall": report["NON_AI"]["recall"],
                 "test_confusion_matrix": test_metrics["confusion_matrix"],
+                "routed_test_metrics": routed_test_metrics,
                 "model_path": str(model_path),
                 "predictions_path": str(predictions_path),
             }
@@ -241,8 +376,11 @@ def render_text(summary: dict[str, Any]) -> str:
         lines.append(
             f"{row['ablation']}: macro_f1={row['test_macro_f1']:.4f}, "
             f"accuracy={row['test_accuracy']:.4f}, "
+            f"validation_AI_precision={row['validation_ai_precision']:.4f}, "
             f"AI_precision={row['test_ai_precision']:.4f}, "
             f"NON_AI_recall={row['test_non_ai_recall']:.4f}, "
+            f"routed_auto_AI_FP={row['routed_test_metrics']['auto_ai_false_positives']}, "
+            f"routed_review_rows={row['routed_test_metrics']['review_rows']}, "
             f"threshold={row['selected_threshold']}"
         )
     lines.append("")
@@ -255,6 +393,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--selection-dir", type=Path, default=DEFAULT_SELECTION_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--human-weight", type=float, default=3.0)
+    parser.add_argument(
+        "--threshold-objective",
+        choices=("macro_f1", "ai_precision"),
+        default="macro_f1",
+    )
+    parser.add_argument("--min-ai-precision", type=float, default=0.90)
+    parser.add_argument("--auto-ai-threshold", type=float, default=0.85)
+    parser.add_argument("--auto-non-ai-threshold", type=float, default=0.40)
     return parser.parse_args()
 
 
@@ -265,6 +411,10 @@ def main() -> None:
             selection_dir=args.selection_dir,
             output_dir=args.output_dir,
             human_weight=args.human_weight,
+            threshold_objective=args.threshold_objective,
+            min_ai_precision=args.min_ai_precision,
+            auto_ai_threshold=args.auto_ai_threshold,
+            auto_non_ai_threshold=args.auto_non_ai_threshold,
         )
     )
     print(render_text(summary), end="")

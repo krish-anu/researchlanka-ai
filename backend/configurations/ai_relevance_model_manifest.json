@@ -1,17 +1,17 @@
 {
-  "model_id": "ai-relevance-xgb-a2-v1",
+  "model_id": "ai-relevance-xgb-a1-precision-v1",
   "model_type": "xgboost",
-  "model_path": "data/models/ai_relevance/metadata_ablation/A2_title_abstract_keywords.joblib",
+  "model_path": "data/models/ai_relevance/metadata_ablation_precision_092/A1_title_abstract.joblib",
   "features": [
     "title",
-    "abstract",
-    "keywords"
+    "abstract"
   ],
   "calibrator": "sigmoid-v1",
   "calibrator_path": null,
   "auto_ai_threshold": 0.85,
   "auto_non_ai_threshold": 0.4,
+  "selected_binary_threshold": 0.4,
   "training_dataset": "human-reviewed-v4",
-  "created_at": "2026-09-27",
-  "sha256": "fa74b5467f06bcc33336cf1bffdbec2b2a33116c116b1f86b2ef6ec8b5896958"
+  "created_at": "2026-09-28",
+  "sha256": "47acbfca3364b5dcc74e2cf28439d643ba310e3de4ab3cbc189a69a258b311e6"
 }
