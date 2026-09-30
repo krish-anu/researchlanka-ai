@@ -10,7 +10,9 @@ This report consolidates the saved model-score artifacts from the repeated AI re
 | model_type | xgboost |
 | model_path | data/models/ai_relevance/metadata_ablation_precision_092/A1_title_abstract.joblib |
 | features | title, abstract |
-| auto_ai_threshold | 0.8500 |
+| calibrator | sigmoid-v1 |
+| calibrator_path | data/models/ai_relevance/metadata_ablation_precision_092/calibration/probability_calibrator_sigmoid.joblib |
+| auto_ai_threshold | 0.929405 |
 | auto_non_ai_threshold | 0.4000 |
 | selected_binary_threshold | 0.4000 |
 | training_dataset | human-reviewed-v4 |
@@ -21,6 +23,18 @@ This report consolidates the saved model-score artifacts from the repeated AI re
 
 Created at: `2026-09-28T09:11:54.829734+00:00`
 
+Calibration note: production uses a fitted sigmoid calibrator saved at
+`backend/data/models/ai_relevance/metadata_ablation_precision_092/calibration/probability_calibrator_sigmoid.joblib`.
+The AUTO_AI threshold was tightened to `0.929405` for calibrated scores to
+prioritize AI precision.
+
+Calibration evaluation:
+
+| Split | Threshold | AI Precision | AI Recall | Auto-AI TP | Auto-AI FP | Auto-AI Rows | Brier Score | ROC AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Calibration validation | 0.929405 | 1.0000 | 0.2867 | 43 | 0 | 43 | 0.1378 | 0.8213 |
+| Frozen test | 0.929405 | 0.9914 | 0.2926 | 115 | 1 | 116 | 0.1403 | 0.7871 |
+
 | Config | Value |
 | --- | --- |
 | selection_dir | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/validated_human_selection_xgboost_fast |
@@ -29,7 +43,7 @@ Created at: `2026-09-28T09:11:54.829734+00:00`
 | random_state | 42 |
 | threshold_objective | ai_precision |
 | min_ai_precision | 0.9200 |
-| auto_ai_threshold | 0.8500 |
+| auto_ai_threshold | 0.929405 |
 | auto_non_ai_threshold | 0.4000 |
 
 ### Ablation Scores

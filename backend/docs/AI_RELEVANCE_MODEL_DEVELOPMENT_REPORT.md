@@ -535,10 +535,36 @@ routed model:
 Model ID: ai-relevance-xgb-a1-precision-v1
 Model: XGBoost
 Features: title + abstract
-Auto-AI threshold: 0.85
+Calibrator: sigmoid-v1
+Calibrator artifact: backend/data/models/ai_relevance/metadata_ablation_precision_092/calibration/probability_calibrator_sigmoid.joblib
+Auto-AI threshold: 0.929405
 Auto-NON_AI threshold: 0.40
 Binary evaluation threshold: 0.40
 Artifact: backend/data/models/ai_relevance/metadata_ablation_precision_092/A1_title_abstract.joblib
+```
+
+Calibration status:
+
+```text
+Production calibration is enabled.
+A sigmoid calibrator was fitted on the human validation split and evaluated on
+the frozen human test split.
+```
+
+Calibrated AUTO_AI evaluation:
+
+```text
+Calibration validation at threshold 0.929405:
+AI precision: 1.0000
+AI recall: 0.2867
+Auto-AI true positives: 43
+Auto-AI false positives: 0
+
+Frozen test at threshold 0.929405:
+AI precision: 0.9914
+AI recall: 0.2926
+Auto-AI true positives: 115
+Auto-AI false positives: 1
 ```
 
 Binary frozen-test scores:
@@ -565,6 +591,9 @@ Review rate: 0.3100
 
 The routed score is the production-facing metric because uncertain records are
 not forced into binary acceptance or rejection.
+
+Raw ablation scores are retained for model comparison. Production confidence
+values now pass through the configured sigmoid calibrator.
 
 ### A1 vs A2 final decision
 
@@ -596,7 +625,8 @@ For the current project stage, use:
 
 ```text
 XGBoost with title + abstract
-Auto-AI threshold: 0.85
+Sigmoid calibration enabled
+Auto-AI threshold: 0.929405
 Auto-NON_AI threshold: 0.40
 Three-way production decision:
 AUTO_AI / REVIEW / AUTO_NON_AI
@@ -613,7 +643,7 @@ For future improvement, prioritize:
 ```text
 1. Manual categorization of remaining false positives.
 2. More hard NON_AI training examples from similar error families.
-3. Probability calibration.
+3. Continued calibration monitoring as more human labels are added.
 4. Two-threshold AUTO_AI / REVIEW / AUTO_NON_AI validation.
 5. Sentence-transformer embeddings as a next-generation experiment.
 ```

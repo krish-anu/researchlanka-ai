@@ -91,6 +91,9 @@ def _ai_class_index(model: Any) -> int:
     for index, label in enumerate(classes):
         if _normalized_class(label) in {"ai", "artificial-intelligence"}:
             return index
+    normalized_classes = {_normalized_class(label) for label in classes}
+    if len(classes) == 2 and normalized_classes == {"0", "1"}:
+        return [_normalized_class(label) for label in classes].index("1")
     raise ValueError("AI relevance model does not expose an AI class in classes_.")
 
 
@@ -168,7 +171,7 @@ def classify_ai_relevance_dataframe(
     text = combined_text(cleaned.fillna(""), selected_text_columns)
     raw_scores = ai_probability_scores(model, text)
     selected_calibrator_path = configured_calibrator_path(calibrator_path)
-    scores = calibrate_scores(raw_scores, calibrator_path=selected_calibrator_path)
+    scores = calibrate_scores(raw_scores, calibrator_path=calibrator_path)
     secondary_votes = (
         model_votes(
             secondary_model,

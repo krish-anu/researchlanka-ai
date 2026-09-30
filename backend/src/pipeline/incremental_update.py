@@ -254,10 +254,16 @@ def ai_class_index(model: Any) -> int | None:
         normalized = str(label).strip().casefold().replace("_", "-").replace(" ", "-")
         if normalized in {"ai", "artificial-intelligence"}:
             return index
+    normalized_classes = [
+        str(label).strip().casefold().replace("_", "-").replace(" ", "-")
+        for label in classes
+    ]
+    if len(classes) == 2 and set(normalized_classes) == {"0", "1"}:
+        return normalized_classes.index("1")
     return None
 
 
-def label_from_ai_probability(
+def label_from_ai_score(
     score: float,
     *,
     ai_threshold: float = DEFAULT_AUTO_AI_THRESHOLD,
@@ -267,7 +273,7 @@ def label_from_ai_probability(
         return "AI", None
     if score >= non_ai_threshold:
         return "review", (
-            f"ai_probability_between_{non_ai_threshold:.3f}_"
+            f"ai_score_between_{non_ai_threshold:.3f}_"
             f"and_{ai_threshold:.3f}"
         )
     return "non-AI", None
@@ -318,10 +324,10 @@ def apply_ai_classification(
         raw_confidences = [float(values[ai_index]) for values in model.predict_proba(text)]
         confidences = calibrate_scores(
             raw_confidences,
-            calibrator_path=selected_calibrator_path,
+            calibrator_path=calibrator_path,
         )
         labels_and_reasons = [
-            label_from_ai_probability(
+            label_from_ai_score(
                 score,
                 ai_threshold=selected_auto_ai_threshold,
                 non_ai_threshold=selected_auto_non_ai_threshold,

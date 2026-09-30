@@ -20,8 +20,17 @@ FALLBACK_AI_RELEVANCE_MODEL_PATH = (
     / "metadata_ablation_precision_092"
     / "A1_title_abstract.joblib"
 )
+FALLBACK_AI_RELEVANCE_CALIBRATOR_PATH = (
+    PROJECT_ROOT
+    / "data"
+    / "models"
+    / "ai_relevance"
+    / "metadata_ablation_precision_092"
+    / "calibration"
+    / "probability_calibrator_sigmoid.joblib"
+)
 FALLBACK_TEXT_COLUMNS = ("title", "abstract")
-FALLBACK_AUTO_AI_THRESHOLD = 0.85
+FALLBACK_AUTO_AI_THRESHOLD = 0.929405
 FALLBACK_AUTO_NON_AI_THRESHOLD = 0.4
 DEFAULT_DB_LABELS = ("AI", "review")
 
@@ -89,7 +98,7 @@ def load_ai_relevance_model_manifest(
             model_path=FALLBACK_AI_RELEVANCE_MODEL_PATH,
             features=FALLBACK_TEXT_COLUMNS,
             calibrator="sigmoid-v1",
-            calibrator_path=None,
+            calibrator_path=FALLBACK_AI_RELEVANCE_CALIBRATOR_PATH,
             secondary_model_path=None,
             auto_ai_threshold=FALLBACK_AUTO_AI_THRESHOLD,
             auto_non_ai_threshold=FALLBACK_AUTO_NON_AI_THRESHOLD,
