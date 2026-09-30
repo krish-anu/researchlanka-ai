@@ -168,15 +168,21 @@ export function SectionHeading({
   title,
   description,
   action,
+  level = 2,
 }: {
   title: string;
   description?: ReactNode;
   action?: ReactNode;
+  /** Page titles are h1. Sections inside a page stay h2. */
+  level?: 1 | 2;
 }) {
+  const Title = level === 1 ? "h1" : "h2";
   return (
     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h2 className="font-display text-h2 text-ink">{title}</h2>
+        <Title className={`font-display text-ink ${level === 1 ? "text-h1" : "text-h2"}`}>
+          {title}
+        </Title>
         {description ? (
           <p className="mt-1 text-body-sm text-ink-secondary">{description}</p>
         ) : null}

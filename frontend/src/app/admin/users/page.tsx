@@ -28,8 +28,9 @@ export default async function AdminUsersPage() {
   return (
     <div className="flex flex-col gap-6">
       <SectionHeading
-        title="Accounts and roles"
-        description="Every account on the platform."
+        level={1}
+        title="Accounts"
+        description="Every account on the platform. Role changes and suspensions apply on that person's next guarded request."
       />
 
       <StatTileGrid>

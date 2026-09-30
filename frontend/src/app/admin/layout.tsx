@@ -2,6 +2,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { RoleBadge } from "@/components/auth/RoleBadge";
 import { cookies } from "next/headers";
 
+import { loadAdminNavBadges } from "@/services/admin/navBadges";
 import { readSessionToken, SESSION_COOKIE } from "@/services/auth/session";
 
 export const metadata = {
@@ -22,6 +23,12 @@ export default async function AdminLayout({
 }) {
   const store = await cookies();
   const user = await readSessionToken(store.get(SESSION_COOKIE)?.value);
+  const role = user?.role ?? "admin";
+  const badges = (await loadAdminNavBadges(role)) ?? {
+    flags: 0,
+    review: 0,
+    aiReview: 0,
+  };
 
   return (
     <div className="admin-shell flex flex-col gap-5">
@@ -36,7 +43,7 @@ export default async function AdminLayout({
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
-            <RoleBadge role={user?.role ?? "admin"} />
+            <RoleBadge role={role} />
             <span className="data-mono text-label text-muted">
               {user?.email ?? "Administrator session"}
             </span>
@@ -44,10 +51,9 @@ export default async function AdminLayout({
         </div>
       </header>
 
-      <AdminNav
-        badges={{ flags: 0, review: 0, aiReview: 0 }}
-        role={user?.role ?? "admin"}
-      />
+      <div className="md:hidden">
+        <AdminNav badges={badges} role={role} />
+      </div>
 
       {children}
     </div>

@@ -105,11 +105,11 @@
   --baseline: #56645b;
   --wash: #243b2b;
 
-  --primary: #90d1d9;
-  --primary-hover: #aceef6;
-  --on-primary: #002023;
-  --primary-container: #004f55;
-  --primary-muted: #00363b;
+  --primary: #8fceaa;
+  --primary-hover: #b7e4c7;
+  --on-primary: #102018;
+  --primary-container: #1c6b3f;
+  --primary-muted: #163528;
 
   --accent: #f5bd63;
   --accent-container: #604100;
@@ -118,7 +118,7 @@
   --machine-strong: #ecdcff;
   --machine-container: #37206b;
 
-  --src-openalex: #90d1d9;
+  --src-openalex: #8fceaa;
   --src-crossref: #f5bd63;
   --src-sljol: #d6baff;
   --src-repository: #4d9aa4;
@@ -128,11 +128,11 @@
   --series-2: #f5bd63;
   --series-3: #d1478c;
 
-  --seq-200: #00363b;
-  --seq-300: #004f55;
+  --seq-200: #163528;
+  --seq-300: #1c6b3f;
   --seq-450: #347d59;
-  --seq-550: #90d1d9;
-  --seq-650: #aceef6;
+  --seq-550: #8fceaa;
+  --seq-650: #b7e4c7;
 
   --good: #6bd39a;
   --warning: #f5bd63;
@@ -783,6 +783,7 @@
     align-items: center;
     gap: 12px;
     margin: 0 16px;
+    min-height: 44px;
     padding: 10px 13px;
     border-radius: 9px;
     color: var(--ink-secondary);
@@ -857,8 +858,8 @@
     background: var(--wash);
   }
   .admin-shell nav[aria-label="Administration"] {
-    background: color-mix(in srgb, var(--sunk) 55%, var(--surface));
-    border-radius: 10px 10px 0 0;
+    background: var(--sunk);
+    border-radius: 10px;
     padding-inline: 4px;
   }
   .workspace-shell nav[aria-label="My workspace"] {

@@ -60,6 +60,9 @@ export function ResolutionCard({
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-rule pb-3">
         <div className="flex items-center gap-2">
           <span className="label-caps text-primary">Match candidate</span>
+          {decided ? null : (
+            <span className="label-caps text-primary">Needs decision</span>
+          )}
         </div>
         {decided ? (
           <span className="label-caps text-muted">
@@ -106,6 +109,8 @@ export function ResolutionCard({
             name="decision"
             value="rejected"
             label="Different works — keep both"
+            tone="danger"
+            className="sm:ml-auto"
           />
           <p className="text-body-sm text-muted">
             Decisions are recorded now and applied on the next pipeline run.

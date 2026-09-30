@@ -6,6 +6,7 @@ import { SiteNav, SiteSearchBar, AIScopeNote } from "@/components/layout/SiteNav
 import { RouteFocus } from "@/components/layout/RouteFocus";
 import { FilterNavigationProvider } from "@/components/navigation/FilterNavigation";
 import { getViewer } from "@/services/auth/server";
+import { loadAdminNavBadges } from "@/services/admin/navBadges";
 
 import "./globals.css";
 
@@ -29,6 +30,7 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const viewer = await getViewer();
+  const adminBadges = await loadAdminNavBadges(viewer.role);
 
   return (
     <html lang="en">
@@ -47,11 +49,11 @@ export default async function RootLayout({
         </a>
 
         <RouteFocus />
-        <SiteNav viewer={viewer} />
+        <SiteNav viewer={viewer} adminBadges={adminBadges} />
 
         {/* Responsive content canvas, offset by the desktop navigation rail. */}
         <div className="app-canvas grow">
-          <SiteSearchBar viewer={viewer} />
+          <SiteSearchBar viewer={viewer} adminBadges={adminBadges} />
           <main
             id="main"
             tabIndex={-1}

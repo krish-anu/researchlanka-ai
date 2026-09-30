@@ -10,14 +10,15 @@ export default async function AdminFlagsPage() {
   const closed = flags.filter((flag) => flag.status !== "open");
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <SectionHeading
+        level={1}
         title="Flag triage"
         description="Records that signed-in users reported as wrong. Accepting a flag records the decision for the next pipeline correction pass — it does not edit the published record."
       />
 
       <section>
-        <h2 className="mb-3 font-display text-h3 text-ink">
+        <h2 className="mb-3 font-display text-h2 text-ink">
           Open ({open.length})
         </h2>
         {open.length === 0 ? (
@@ -36,7 +37,7 @@ export default async function AdminFlagsPage() {
 
       {closed.length > 0 ? (
         <section>
-          <h2 className="mb-3 font-display text-h3 text-ink">
+          <h2 className="mb-3 font-display text-h2 text-ink">
             Closed ({closed.length})
           </h2>
           <div className="flex flex-col gap-4">

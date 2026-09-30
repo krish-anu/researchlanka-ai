@@ -395,6 +395,7 @@ export interface Limitations {
 }
 
 export interface HealthStatus {
-  status: "ok" | "unavailable";
+  /** Live API returns `healthy`. Older fixtures used `ok`. */
+  status: "ok" | "healthy" | "unavailable" | "unhealthy";
   api_version: string;
 }

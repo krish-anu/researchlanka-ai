@@ -32,7 +32,7 @@ export function FlagCard({ flag }: { flag: RecordFlag }) {
   const open = flag.status === "open";
 
   return (
-    <article className={`panel border-l-[3px] p-5 ${TONE[flag.status]}`}>
+    <article className={`panel border-l-[3px] p-4 ${TONE[flag.status]}`}>
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <Link
           href={publicationHref(flag.publication_key)}
@@ -76,7 +76,7 @@ export function FlagCard({ flag }: { flag: RecordFlag }) {
               type="text"
               maxLength={300}
               placeholder="What you checked, and what happens next"
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink placeholder:text-muted"
+              className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink placeholder:text-muted"
             />
           </label>
           <div className="flex flex-wrap gap-2">
@@ -90,6 +90,8 @@ export function FlagCard({ flag }: { flag: RecordFlag }) {
               name="decision"
               value="rejected"
               label="Reject — record is correct"
+              tone="danger"
+              className="sm:ml-auto"
             />
           </div>
         </form>

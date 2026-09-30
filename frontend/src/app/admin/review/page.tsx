@@ -13,9 +13,10 @@ export default async function AdminReviewPage() {
   const decided = candidates.filter((c) => c.status !== "pending");
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <SectionHeading
-        title="Entity resolution queue"
+        level={1}
+        title="Resolution queue"
         description="Record pairs the deduplication model believes describe the same work. A merge is irreversible in the corpus, so every pair is confirmed by a person before the pipeline applies it."
       />
 
@@ -34,7 +35,7 @@ export default async function AdminReviewPage() {
       ) : null}
 
       <section>
-        <h2 className="mb-3 font-display text-h3 text-ink">
+        <h2 className="mb-3 font-display text-h2 text-ink">
           Awaiting decision ({pending.length})
         </h2>
         {pending.length === 0 ? (
@@ -53,7 +54,7 @@ export default async function AdminReviewPage() {
 
       {decided.length > 0 ? (
         <section>
-          <h2 className="mb-3 font-display text-h3 text-ink">
+          <h2 className="mb-3 font-display text-h2 text-ink">
             Decided ({decided.length})
           </h2>
           <div className="flex flex-col gap-4">

@@ -6,7 +6,6 @@ import {
   IncrementalUpdateDiagram,
   type IncrementalRunSnapshot,
 } from "@/components/admin/IncrementalUpdateDiagram";
-import { formatDate, formatNumber } from "@/services/format";
 
 interface StatusResponse {
   data?: IncrementalRunSnapshot;
@@ -82,13 +81,13 @@ export function ManualAIUpdatePanel({
   }, [running]);
 
   return (
-    <div className="grid items-start gap-3 xl:grid-cols-[22rem_minmax(0,1fr)]">
-      <form className="panel p-3" onSubmit={submit}>
+    <div className="flex flex-col gap-4">
+      <form className="panel p-4" onSubmit={submit}>
         <h3 className="font-display text-h3 text-ink">Manual AI update</h3>
         <p className="mt-1 text-body-sm text-ink-secondary">
-          The date window and threshold are sent with the run. Records below the threshold stay in review and are not loaded as AI.
+          Records below the threshold stay in review and are not loaded as AI.
         </p>
-        <div className="mt-5 grid gap-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
           <label className="grid gap-2">
             <span className="label-caps text-muted">From date</span>
             <input
@@ -119,50 +118,30 @@ export function ManualAIUpdatePanel({
               className="min-h-11 rounded border border-rule bg-surface px-3 text-body-sm text-ink"
             />
           </label>
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={submitting || running}
-              loading={submitting}
-            >
-              {running && !submitting ? "Running..." : "Run AI update"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void refreshStatus()}
-            >
-              Refresh status
-            </Button>
-          </div>
-          {message ? (
-            <p className="text-body-sm text-ink-secondary">{message}</p>
-          ) : null}
         </div>
-
-        <dl className="mt-6 grid gap-3 border-t border-rule pt-4">
-          <SummaryRow label="Status" value={run.status} />
-          <SummaryRow label="Started" value={formatDate(run.startedAt ?? null)} />
-          <SummaryRow label="Finished" value={formatDate(run.finishedAt ?? null)} />
-          <SummaryRow label="Collected" value={formatNumber(run.collected ?? null)} />
-          <SummaryRow label="Selected" value={formatNumber(run.selected ?? null)} />
-          <SummaryRow label="New records" value={formatNumber(run.newRecords ?? null)} />
-          <SummaryRow label="Updated records" value={formatNumber(run.updatedRecords ?? null)} />
-          <SummaryRow label="Loaded / updated" value={formatNumber(run.loaded ?? null)} />
-        </dl>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={submitting || running}
+            loading={submitting}
+          >
+            {running && !submitting ? "Running..." : "Run AI update"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void refreshStatus()}
+          >
+            Refresh status
+          </Button>
+        </div>
+        {message ? (
+          <p className="mt-3 text-body-sm text-ink-secondary">{message}</p>
+        ) : null}
       </form>
 
       <IncrementalUpdateDiagram run={run} />
-    </div>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-2">
-      <dt className="label-caps text-muted">{label}</dt>
-      <dd className="text-right text-body-sm text-ink">{value}</dd>
     </div>
   );
 }
