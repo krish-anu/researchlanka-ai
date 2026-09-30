@@ -107,9 +107,9 @@ export default async function AdminAIReviewPage({
               <option value="LOW">LOW</option>
               <option value="UNRECOGNIZED">Unrecognized</option>
             </select>
-              <Button type="submit" variant="primary">
-                Filter
-              </Button>
+            <Button type="submit" variant="primary">
+              Filter
+            </Button>
           </form>
 
           {result.data.length === 0 ? (

@@ -20,6 +20,7 @@ import {
   listPublications,
 } from "@/services/api";
 import { formatDate, formatNumber, truncate } from "@/services/format";
+import type { PublicationDetail } from "@/types/api";
 import { getViewer } from "@/services/auth/server";
 import { isSaved } from "@/services/workspace/store";
 import {
