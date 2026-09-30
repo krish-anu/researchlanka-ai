@@ -50,6 +50,26 @@ Created at: `2026-09-28T09:11:54.829734+00:00`
 | A4_all_current_fields | 500 | 170 | 166 | 4 | 0.9765 | 231 | 0.4620 | 99 | 0.4444 | 172 | 59 |
 | A3_title_abstract_keywords_primary_topic | 500 | 156 | 156 | 0 | 1.0000 | 195 | 0.3900 | 149 | 0.3960 | 147 | 48 |
 
+### Final A1 vs A2 Decision
+
+Based only on the saved scores, the final project-wide choice is **A1**.
+A2 has slightly higher raw AI precision and a negligible 0.0001 routed Auto-AI
+precision edge, but both A1 and A2 have the same routed Auto-AI false positives
+(`1`). A1 has better accuracy, better macro F1, better AI recall, and lower
+review workload.
+
+| Decision Factor | A1 | A2 | Winner |
+| --- | ---: | ---: | --- |
+| Accuracy | 0.7120 | 0.6940 | A1 |
+| Macro F1 | 0.6571 | 0.6502 | A1 |
+| AI precision | 0.9055 | 0.9225 | A2 |
+| AI recall | 0.7074 | 0.6667 | A1 |
+| Auto-AI precision | 0.9934 | 0.9935 | Tie / negligible A2 edge |
+| Auto-AI false positives | 1 | 1 | Tie |
+| Review rows | 155 | 160 | A1 |
+
+Therefore A1 is the most suitable overall model for the project score balance.
+
 ## XGBoost Human-Selection Run
 
 Created at: `2026-09-25T11:58:21.729019+00:00`

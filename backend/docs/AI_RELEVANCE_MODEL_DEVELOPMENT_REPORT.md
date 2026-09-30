@@ -382,7 +382,8 @@ Results:
 | A4 | all current fields | 0.7640 | 0.6340 | 0.8395 | 0.8651 | 0.3925 | 0.38 |
 | A3 | title + abstract + keywords + primary_topic | 0.7400 | 0.6261 | 0.8433 | 0.8219 | 0.4393 | 0.31 |
 
-**Conclusion:** the best feature representation is:
+**Earlier macro-F1 conclusion:** the best feature representation in this
+initial ablation was:
 
 ```text
 title + abstract + keywords
@@ -390,9 +391,12 @@ title + abstract + keywords
 
 Broad metadata such as `topics`, `concepts`, `primary_field`, `primary_subfield`, and `primary_domain` appears to improve AI recall but hurts NON_AI recall and macro F1. It can inject misleading AI signals.
 
-## 9. Final Selected Model
+This A2 result was kept as an intermediate experiment. It was not the final
+project-wide production choice after the precision-routed comparison was added.
 
-Final selected model for the current stage:
+## 9. Intermediate A2 Model
+
+Intermediate selected model for this stage:
 
 ```text
 Model: XGBoost
@@ -400,7 +404,7 @@ Features: title + abstract + keywords
 Threshold: 0.35
 ```
 
-Final frozen-test scores:
+Intermediate frozen-test scores:
 
 ```text
 Accuracy: 0.7320
@@ -423,7 +427,7 @@ Actual NON_AI     39        68
 Interpretation:
 
 ```text
-The final A2 model is stricter and cleaner.
+The A2 model is stricter and cleaner than the broad-metadata variants.
 It accepts fewer borderline AI records automatically, but improves AI precision and NON_AI recall.
 ```
 
@@ -440,13 +444,13 @@ Compared with clean old SVM on human test:
 
 ```text
 Clean old SVM macro F1: 0.5917
-Final A2 XGBoost macro F1: 0.6601
+Intermediate A2 XGBoost macro F1: 0.6601
 Improvement: +0.0684
 ```
 
 ## 10. Remaining 1,207 Pending Rows
 
-We applied the final A2 model to:
+We applied the intermediate A2 model to:
 
 ```text
 backend/data/pending-review-split/model_predict_remaining_1207.csv
@@ -561,6 +565,30 @@ Review rate: 0.3100
 
 The routed score is the production-facing metric because uncertain records are
 not forced into binary acceptance or rejection.
+
+### A1 vs A2 final decision
+
+The project-wide final selection is **A1**.
+
+Although A2 had slightly higher raw binary AI precision in the current
+precision-ablation run, A1 provided the better overall project score balance:
+
+| Metric | A1 title + abstract | A2 title + abstract + keywords | Selected |
+|---|---:|---:|---|
+| Accuracy | 0.7120 | 0.6940 | A1 |
+| Macro F1 | 0.6571 | 0.6502 | A1 |
+| AI precision | 0.9055 | 0.9225 | A2 |
+| AI recall | 0.7074 | 0.6667 | A1 |
+| NON_AI recall | 0.7290 | 0.7944 | A2 |
+| Auto-AI precision | 0.9934 | 0.9935 | Tie / negligible A2 edge |
+| Auto-AI false positives | 1 | 1 | Tie |
+| Auto-AI rows | 152 | 155 | A2 |
+| Review rows | 155 | 160 | A1 |
+
+The A2 advantage in routed Auto-AI precision is only 0.0001 and both models
+produce the same number of routed Auto-AI false positives. A1 is therefore the
+better final project choice because it keeps near-identical safe Auto-AI
+precision while improving macro F1, accuracy, AI recall, and review workload.
 
 ## 14. Final Recommendation
 
