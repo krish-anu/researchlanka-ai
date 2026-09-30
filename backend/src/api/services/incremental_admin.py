@@ -142,7 +142,8 @@ def start_incremental_update(
         "pid": process.pid,
         "started_at": utc_now(),
         "finished_at": None,
-        "message": "Incremental AI publication update started.",
+        "step": "window",
+        "message": "Resolving the date window.",
         "model": model_path,
         "db_labels": list(DEFAULT_DB_LABELS),
         "from_date": from_date or None,
@@ -235,6 +236,11 @@ def normalize_status(payload: dict[str, Any]) -> dict[str, Any]:
         ),
         "confidence_review_threshold": payload.get(
             "confidence_review_threshold"
+        ),
+        "step": (
+            payload.get("step")
+            if isinstance(payload.get("step"), str)
+            else None
         ),
         "log_path": (
             payload.get("log_path")
