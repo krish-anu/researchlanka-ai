@@ -117,7 +117,7 @@ function loadCytoscape(): Promise<CytoscapeModule> {
 export function CollaborationNetwork({
   network,
   scope,
-  height = 460,
+  height = 380,
 }: CollaborationNetworkProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,6 +126,7 @@ export function CollaborationNetwork({
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [focusId, setFocusId] = useState("");
   const [metric, setMetric] = useState<SizeMetric>("publication_count");
   const selectId = useId();
 
@@ -186,6 +187,7 @@ export function CollaborationNetwork({
                 label: node.label,
                 size: sizes.get(node.id) ?? MIN_DIAMETER,
                 colour: communityColour(node.community),
+                community: node.community,
                 count: node.publication_count,
               },
             })),
@@ -200,6 +202,7 @@ export function CollaborationNetwork({
             })),
           ],
           style: [
+            { selector: ".dimmed", style: { opacity: 0.12 } },
             {
               selector: "node",
               style: {
@@ -275,6 +278,31 @@ export function CollaborationNetwork({
     };
   }, [network, scope, router, visible, hasNodes]);
 
+  // Keep the graph's labels, edges, and community colours in sync with the
+  // selected palette without rerunning its layout or losing the focused node.
+  useEffect(() => {
+    if (!ready) return;
+    const recolour = () => {
+      const instance = instanceRef.current;
+      if (!instance) return;
+      const theme = readChartTheme();
+      instance.batch(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        instance.nodes().forEach((node: any) => {
+          const community = node.data("community");
+          node.data("colour", community >= 0 && community < COLOURED_COMMUNITIES ? theme.series[community] : theme.muted);
+        });
+      });
+      instance.style()
+        .selector("node").style({ "border-color": theme.surface, color: theme.inkSecondary })
+        .selector("edge").style({ "line-color": theme.baseline })
+        .selector("node:selected").style({ "border-color": theme.ink })
+        .update();
+    };
+    window.addEventListener("researchlanka-theme-change", recolour);
+    return () => window.removeEventListener("researchlanka-theme-change", recolour);
+  }, [ready]);
+
   // Resize in place: no relayout, so positions — and the reader's mental map of
   // the structure — survive the change.
   useEffect(() => {
@@ -288,6 +316,22 @@ export function CollaborationNetwork({
       });
     });
   }, [metric, network, ready]);
+
+  useEffect(() => {
+    const instance = instanceRef.current;
+    if (!instance || !ready) return;
+    instance.elements().removeClass("dimmed");
+    instance.nodes().unselect();
+    if (focusId) {
+      const node = instance.getElementById(focusId);
+      const neighborhood = node.closedNeighborhood();
+      instance.elements().difference(neighborhood).addClass("dimmed");
+      node.select();
+    }
+  }, [focusId, ready]);
+
+  const focusedNode = network.nodes.find(node => node.id === focusId);
+  const focusedHref = focusedNode && scope !== "country" ? (scope === "institution" ? institutionHref(focusedNode.label) : researcherHref(focusedNode.label)) : null;
 
   const selected = useMemo(
     () => SIZE_METRICS.find((entry) => entry.value === metric),
@@ -338,11 +382,21 @@ export function CollaborationNetwork({
         ) : null}
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-xs text-muted">Explore a node
+          <select value={focusId} onChange={event => setFocusId(event.target.value)} className="max-w-[230px] rounded-md border border-rule bg-surface p-2 text-ink">
+            <option value="">All connections</option>{network.nodes.map(node => <option key={node.id} value={node.id}>{node.label}</option>)}
+          </select>
+        </label>
+        <button type="button" className="button" disabled={!ready} onClick={() => { setFocusId(""); instanceRef.current?.fit(undefined, 24); }}>Reset view</button>
+        <button type="button" className="button" disabled={!ready} onClick={() => { const instance = instanceRef.current; if (!instance) return; const link = document.createElement("a"); link.download = "researchlanka-ai-collaborations.png"; link.href = instance.png({ bg: readChartTheme().surface, full: true, scale: 2 }); link.click(); }}>Save graph</button>
+      </div>
+      {focusedNode ? <div className="mb-4 rounded-lg border border-rule bg-wash p-4 text-body-sm"><strong>{focusedNode.label}</strong><p className="mt-1 text-xs text-muted">{focusedNode.publication_count.toLocaleString()} AI publications · {focusedNode.strength.toLocaleString()} co-publications across displayed connections</p>{focusedHref ? <a href={focusedHref} className="mt-2 inline-block text-xs text-primary hover:underline">Open full profile →</a> : null}</div> : null}
       <div className="relative">
         <div
           ref={containerRef}
           style={{ height }}
-          className="w-full rounded-md border border-rule bg-surface"
+          className="network-canvas w-full rounded-xl border border-rule bg-surface"
         />
         {!ready ? (
           <p className="absolute inset-0 flex items-center justify-center text-body-sm text-muted">

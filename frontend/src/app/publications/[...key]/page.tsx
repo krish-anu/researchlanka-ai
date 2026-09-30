@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AIRelevanceStatus } from "@/components/publications/AIRelevanceStatus";
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { DataTable } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
@@ -17,7 +18,7 @@ import { formatDate, formatNumber, truncate } from "@/services/format";
 import { getViewer } from "@/services/auth/server";
 import { isSaved } from "@/services/workspace/store";
 import {
-  decodeKeySegments,
+  decodePublicationKeySegments,
   institutionHref,
   publicationSearchHref,
   researcherHref,
@@ -31,7 +32,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { key } = await params;
-  const result = await getPublication(decodeKeySegments(key));
+  const result = await getPublication(decodePublicationKeySegments(key));
   if (!result.ok) return { title: "Publication" };
   return {
     title: truncate(result.value.data.title ?? "Publication", 70),
@@ -80,23 +81,29 @@ function LinkedList({
   );
 }
 
-/** Count divergence is surfaced explicitly rather than silently picking a winner. */
-function ImpactPanel({ publication }: { publication: PublicationDetail }) {
+function formatMonthYear(value: string | null | undefined): string {
+  if (!value) return "Not recorded";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "short",
+  });
+}
+
+function firstRecorded(values: (string | null | undefined)[]): string | null {
+  return values.find((value) => value && value.trim().length > 0) ?? null;
+}
+
+function ReferencePanel({ publication }: { publication: PublicationDetail }) {
   const { impact } = publication;
-  const diverges =
-    impact.citation_count_divergence_flag || impact.reference_count_divergence_flag;
+  const diverges = impact.reference_count_divergence_flag;
 
   return (
     <section className="panel p-4">
-      <h2 className="font-display text-h3 text-ink">Impact</h2>
+      <h2 className="font-display text-h3 text-ink">References</h2>
       <dl className="mt-2">
-        <Field label="Citations">{formatNumber(impact.citation_count)}</Field>
         <Field label="References">{formatNumber(impact.reference_count)}</Field>
-        {impact.citation_count_difference_oa_minus_crossref !== null ? (
-          <Field label="Citation difference (OpenAlex − Crossref)">
-            {formatNumber(impact.citation_count_difference_oa_minus_crossref)}
-          </Field>
-        ) : null}
         {impact.reference_count_difference_oa_minus_crossref !== null ? (
           <Field label="Reference difference (OpenAlex − Crossref)">
             {formatNumber(impact.reference_count_difference_oa_minus_crossref)}
@@ -108,7 +115,7 @@ function ImpactPanel({ publication }: { publication: PublicationDetail }) {
           <span aria-hidden className="text-serious">
             ≠
           </span>
-          Sources disagree on these counts. Treat the figure above as indicative
+          Sources disagree on this count. Treat the figure above as indicative
           rather than authoritative.
         </p>
       ) : null}
@@ -118,7 +125,7 @@ function ImpactPanel({ publication }: { publication: PublicationDetail }) {
 
 export default async function PublicationDetailPage({ params }: PageProps) {
   const { key } = await params;
-  const publicationKey = decodeKeySegments(key);
+  const publicationKey = decodePublicationKeySegments(key);
 
   const result = await getPublication(publicationKey);
   if (isNotFound(result)) notFound();
@@ -143,7 +150,6 @@ export default async function PublicationDetailPage({ params }: PageProps) {
       ? listPublications({
           ...(topic ? { topic } : { field }),
           page_size: 6,
-          sort: "citations_desc",
         })
       : Promise.resolve(null),
     viewer.user
@@ -157,6 +163,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
           (item) => item.publication_key !== publication.publication_key,
         )
       : [];
+  const visibleQualityFlags = publication.quality_flags.filter(
+    (flag) => flag !== "citation_count_divergence",
+  );
 
   return (
     <article className="flex flex-col gap-4">
@@ -235,11 +244,12 @@ export default async function PublicationDetailPage({ params }: PageProps) {
           title={publication.title ?? "Untitled record"}
           signedIn={Boolean(viewer.user)}
           initiallySaved={saved}
+          trace={publication.trace}
         />
 
-        {publication.quality_flags.length > 0 ? (
+        {visibleQualityFlags.length > 0 ? (
           <ul className="flex flex-col gap-1.5 rounded-md border border-rule bg-wash p-3">
-            {publication.quality_flags.map((flag) => (
+            {visibleQualityFlags.map((flag) => (
               <li key={flag} className="flex flex-wrap items-center gap-2">
                 <QualityFlagBadge flag={flag} />
                 <span className="text-body-sm text-ink-secondary">
@@ -312,7 +322,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
           </dl>
         </section>
 
-        <ImpactPanel publication={publication} />
+        <ReferencePanel publication={publication} />
 
         <section className="panel p-4">
           <h2 className="font-display text-h3 text-ink">
@@ -356,6 +366,33 @@ export default async function PublicationDetailPage({ params }: PageProps) {
         <section className="panel p-4">
           <h2 className="font-display text-h3 text-ink">Provenance</h2>
           <dl className="mt-2">
+            <Field label="Data source">
+              <ProvenanceList
+                sources={
+                  publication.trace?.source.length
+                    ? publication.trace.source
+                    : publication.provenance.source_dataset
+                }
+              />
+            </Field>
+            <Field label="Last verified">
+              {formatMonthYear(
+                publication.trace?.reviewed_at ??
+                  publication.provenance.reviewed_at ??
+                  publication.trace?.normalized_at ??
+                  publication.provenance.normalized_at,
+              )}
+            </Field>
+            <Field label="Sri Lanka affiliation evidence">
+              {firstRecorded([
+                publication.sri_lankan_institutions.join(", "),
+                publication.sri_lankan_authors,
+                publication.countries.includes("LK") ? "Sri Lanka affiliation present" : null,
+              ]) ?? <span className="text-muted">Not recorded</span>}
+            </Field>
+            <Field label="AI relevance">
+              <AIRelevanceStatus trace={publication.trace} />
+            </Field>
             <Field label="Source datasets">
               <ProvenanceList sources={publication.provenance.source_dataset} />
             </Field>
@@ -366,6 +403,11 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             </Field>
             <Field label="Source datestamp">
               {formatDate(publication.provenance.source_datestamp)}
+            </Field>
+            <Field label="Dataset version">
+              {publication.trace?.dataset_version ??
+                publication.provenance.dataset_version ??
+                <span className="text-muted">Not recorded</span>}
             </Field>
             <Field label="OpenAlex id">
               {publication.openalex_id ? (
@@ -453,8 +495,8 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             title="Related publications"
             description={
               topic
-                ? `Most-cited records sharing the topic "${topic}". Matched on shared classification, not a semantic recommender.`
-                : `Most-cited records in ${field}. Matched on shared classification, not a semantic recommender.`
+                ? `Records sharing the topic "${topic}". Matched on shared classification, not a semantic recommender.`
+                : `Records in ${field}. Matched on shared classification, not a semantic recommender.`
             }
             action={
               <Link

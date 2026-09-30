@@ -16,9 +16,13 @@ export const REPEATABLE_FILTERS = [
   "type",
   "institution",
   "country",
+  "domain",
   "field",
+  "researcher",
   "subfield",
   "topic",
+  "nmf_topic",
+  "nmf_topic_id",
   "journal",
   "source_dataset",
   "quality_flag",
@@ -32,7 +36,6 @@ const VALID_SORTS = new Set<SortOption>([
   "relevance",
   "year_desc",
   "year_asc",
-  "citations_desc",
   "title_asc",
 ]);
 

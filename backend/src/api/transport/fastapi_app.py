@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+import logging
+import os
 import sys
+import time
+import uuid
+from collections import defaultdict, deque
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, Request
@@ -37,8 +43,23 @@ from src.api.services.ai_review import (
     with_connection,
 )
 from src.api.services.ai_review_sheets import reconcile_sheet
+from src.api.services.health import health_payload, readiness_payload
 from src.api.services.model_serving import PublicationClassifierService
+from src.api.services.monitoring import (
+    monitoring_dashboard,
+    with_connection as monitoring_with_connection,
+)
 from src.api.services.publications import ResearchLankaAPI
+from src.api.services.user_feedback import (
+    feedback_hard_training_examples,
+    list_feedback_reports,
+    submit_feedback,
+    with_connection as feedback_with_connection,
+)
+
+
+logger = logging.getLogger("researchlanka.api")
+_RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 
 
 def query_dict(request: Request) -> dict[str, list[str]]:
@@ -216,6 +237,20 @@ def create_publication_router(
     async def export_analytics_csv(name: str, request: Request) -> Response:
         return bytes_payload(service.export_analytics(query_dict(request), name=name))
 
+    @router.post("/feedback")
+    async def feedback(request: Request) -> dict[str, Any]:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
+        result = feedback_with_connection(
+            lambda connection: submit_feedback(
+                connection,
+                payload,
+                user_agent=str(request.headers.get("user-agent") or ""),
+            )
+        )
+        return {"data": result, "meta": service._meta()}
+
     return router
 
 
@@ -261,6 +296,14 @@ def create_admin_router(
     async def incremental_status(request: Request) -> dict[str, Any]:
         require_admin_api_token(request.headers)
         return {"data": read_incremental_status(), "meta": service._meta()}
+
+    @router.get("/monitoring")
+    async def monitoring(request: Request) -> dict[str, Any]:
+        require_admin_api_token(request.headers)
+        return {
+            "data": monitoring_with_connection(monitoring_dashboard),
+            "meta": service._meta(),
+        }
 
     @router.post("/incremental/run")
     async def incremental_run(request: Request) -> dict[str, Any]:
@@ -386,6 +429,29 @@ def create_admin_router(
         require_admin_api_token(request.headers)
         return {"data": with_connection(validate_final_dataset), "meta": service._meta()}
 
+    @router.get("/feedback")
+    async def feedback_queue(request: Request) -> dict[str, Any]:
+        require_admin_api_token(request.headers)
+        query = query_dict(request)
+        result = feedback_with_connection(
+            lambda connection: list_feedback_reports(
+                connection,
+                status=query.get("status", [None])[0],
+                report_type=query.get("report_type", [None])[0],
+                page=int(query.get("page", ["1"])[0]),
+                page_size=int(query.get("page_size", ["25"])[0]),
+            )
+        )
+        return {"data": result, "meta": service._meta()}
+
+    @router.get("/feedback/hard-training-examples")
+    async def feedback_training_examples(request: Request) -> dict[str, Any]:
+        require_admin_api_token(request.headers)
+        return {
+            "data": feedback_with_connection(feedback_hard_training_examples),
+            "meta": service._meta(),
+        }
+
     return router
 
 
@@ -411,13 +477,65 @@ def create_app(
         redoc_url=f"{API_PREFIX}/redoc",
         openapi_url=f"{API_PREFIX}/openapi.json",
     )
+    cors_origins = configured_cors_origins()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-Request-ID", "X-ResearchLanka-Admin-Token"],
     )
+
+    @app.middleware("http")
+    async def reliability_middleware(request: Request, call_next: Any) -> Response:
+        request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+        start = time.perf_counter()
+        timeout_seconds = float(os.getenv("RESEARCHLANKA_API_TIMEOUT_SECONDS", "30"))
+        rate_limit = int(os.getenv("RESEARCHLANKA_RATE_LIMIT_PER_MINUTE", "120"))
+        client = request.client.host if request.client else "unknown"
+
+        if rate_limit > 0 and is_rate_limited(client, rate_limit):
+            response = JSONResponse(
+                status_code=429,
+                content=error_payload(
+                    "rate_limited",
+                    "Too many requests. Please retry shortly.",
+                    {"request_id": request_id},
+                ),
+            )
+        else:
+            try:
+                response = await asyncio.wait_for(call_next(request), timeout_seconds)
+            except asyncio.TimeoutError:
+                response = JSONResponse(
+                    status_code=504,
+                    content=error_payload(
+                        "request_timeout",
+                        "The request exceeded the API timeout.",
+                        {"request_id": request_id},
+                    ),
+                )
+
+        elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Response-Time-ms"] = str(elapsed_ms)
+        if request.method == "GET" and request.url.path.startswith(API_PREFIX):
+            response.headers.setdefault(
+                "Cache-Control",
+                os.getenv("RESEARCHLANKA_API_CACHE_CONTROL", "public, max-age=60"),
+            )
+        logger.info(
+            "api_request",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": elapsed_ms,
+                "client": client,
+            },
+        )
+        return response
 
     @app.exception_handler(APIError)
     async def api_error_handler(_request: Request, exc: APIError) -> JSONResponse:
@@ -460,12 +578,43 @@ def create_app(
     @app.get("/health")
     @app.get(f"{API_PREFIX}/health")
     async def health() -> dict[str, Any]:
-        return publication_api.health()
+        return {"data": health_payload(), "meta": publication_api._meta()}
+
+    @app.get("/ready")
+    @app.get(f"{API_PREFIX}/ready")
+    async def ready() -> JSONResponse:
+        payload = readiness_payload()
+        return JSONResponse(
+            status_code=200 if payload["status"] == "healthy" else 503,
+            content=normalize_value({"data": payload, "meta": publication_api._meta()}),
+        )
 
     app.include_router(create_publication_router(publication_api))
     app.include_router(create_model_router(model_service))
     app.include_router(create_admin_router(publication_api))
     return app
+
+
+def configured_cors_origins() -> list[str]:
+    raw = os.getenv("RESEARCHLANKA_CORS_ORIGINS", "")
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    if origins:
+        return origins
+    return [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+
+def is_rate_limited(client: str, limit: int) -> bool:
+    now = time.monotonic()
+    bucket = _RATE_LIMIT_BUCKETS[client]
+    while bucket and now - bucket[0] > 60:
+        bucket.popleft()
+    if len(bucket) >= limit:
+        return True
+    bucket.append(now)
+    return False
 
 
 app = create_app()

@@ -77,3 +77,44 @@ session cookies (required in production).
 The pages fetch the Python API server-side; a cold or unreachable API is a
 normal state when running only the frontend, and every page renders an
 explanatory panel rather than crashing.
+
+## AI research interface
+
+The public interface uses the forest-green design approved in
+`../design-preview/researchlanka-ui-preview.html`. All displayed figures come
+from the API; the HTML prototype's sample records are not used in the app.
+The backend's accepted-AI review boundary remains authoritative.
+
+- Overview: year/field filters, annual area/line/bar views with an open-access
+  comparison, field donut/mosaic/bar views, institution rankings, field/year
+  heatmap, collaboration metrics, and recent publications.
+- Publications: switch between the compact table and full metadata cards;
+  existing search, facets, sorting, pagination, CSV/JSONL exports, and record
+  actions remain available.
+- Institutions: rankings, output/open-access scatter plot, profiles, and the
+  existing two/three-institution comparison.
+- Researchers: profile cards or the original ranking table, preserving name
+  disambiguation notes, profile history, publications, and co-author networks.
+- Topics: the domain/field/subfield hierarchy, proportional charts, per-page
+  exports, field activity, and the existing topic directory. NMF topics require
+  the backend's model artifacts; an unavailable model is shown as a data error.
+- Collaboration: institution/researcher/country scopes, year/field filters,
+  minimum edge weight, node limit, size metrics, node exploration, profile
+  navigation, graph reset, PNG/CSV downloads, centrality and community tables.
+- Data quality: source completeness, source coverage, original quality metrics,
+  conflicts, limitations, and required disclosures.
+
+Chart tables remain available for keyboard and screen-reader access. The
+layout responds to mobile screens and the existing system dark-mode preference.
+Authentication, saved records, flagging, role gates, and all administration
+routes continue to use their existing services and server actions. Browser
+exports use the same-origin `/api/v1` rewrite.
+
+Validation: `npm run lint`, `npm test`, `npm run check:palette`, `npm run build`.
+
+Local integration checks found three existing configuration prerequisites:
+NMF topic artifacts for the topic directory, matching
+`RESEARCHLANKA_ADMIN_API_TOKEN` values for backend administrative actions, and
+`AUTH_SECRET` for production sign-in. The redesign preserves their existing
+unavailable/error states; it does not create model artifacts or alter secrets.
+Development sign-in and all public, account, and admin navigation were checked.

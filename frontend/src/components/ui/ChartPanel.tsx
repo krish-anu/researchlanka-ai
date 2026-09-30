@@ -1,8 +1,11 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { DownloadIcon } from "@/components/layout/NavIcons";
 
 /**
  * Standard chart container: heading, optional action, the plot, and a
- * collapsed table of the same numbers underneath.
+ * alternate table of the same numbers.
  */
 export function ChartPanel({
   title,
@@ -17,19 +20,31 @@ export function ChartPanel({
   children: ReactNode;
   table?: ReactNode;
 }) {
+  const [view, setView] = useState<"chart" | "table">("chart");
+  const id = useId();
+  const tableRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (view === "table") tableRef.current?.querySelectorAll("details").forEach(detail => { detail.open = true; });
+  }, [view]);
   return (
-    <section className="panel p-4">
-      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+    <section className="panel chart-panel" aria-labelledby={id}>
+      <div className="chart-panel-head">
         <div>
-          <h2 className="font-display text-h3 text-ink">{title}</h2>
+          <h2 id={id} className="text-ink">{title}</h2>
           {description ? (
             <p className="mt-1 text-body-sm text-ink-secondary">{description}</p>
           ) : null}
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {table ? <div className="chart-segments" aria-label={`${title} view`}>
+            <button type="button" aria-pressed={view === "chart"} onClick={() => setView("chart")}>Chart</button>
+            <button type="button" aria-pressed={view === "table"} onClick={() => setView("table")}>Table</button>
+          </div> : null}
+          {action}
+        </div>
       </div>
-      {children}
-      {table}
+      {view === "chart" ? children : null}
+      {view === "table" ? <div ref={tableRef} className="table-chart-view">{table}</div> : null}
     </section>
   );
 }
@@ -44,9 +59,9 @@ export function DownloadLink({
   return (
     <a
       href={href}
-      className="inline-flex items-center gap-1.5 rounded border border-rule px-2 py-1 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
+      className="button"
     >
-      <span aria-hidden>↓</span>
+      <DownloadIcon className="h-3.5 w-3.5" />
       {children}
     </a>
   );

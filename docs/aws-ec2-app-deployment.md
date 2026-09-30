@@ -12,6 +12,19 @@ frontend behind an Application Load Balancer or Nginx with HTTPS.
 
 ## 1. Create The EC2 Instance
 
+You can provision the EC2 host with Terraform:
+
+```bash
+cp infra/terraform/aws-ec2/terraform.tfvars.example infra/terraform/aws-ec2/terraform.tfvars
+terraform -chdir=infra/terraform/aws-ec2 init
+terraform -chdir=infra/terraform/aws-ec2 apply
+```
+
+See [`../infra/terraform/aws-ec2/README.md`](../infra/terraform/aws-ec2/README.md)
+for variables, SSH key setup, and GitHub Actions handoff.
+
+If creating the instance manually, use:
+
 Recommended first instance:
 
 ```text
@@ -75,7 +88,7 @@ unzip researchlanka-share-data.zip
 At minimum, confirm this file exists:
 
 ```bash
-ls backend/data/processed/common/common_publications_final_2016_2026_ai_only.csv
+ls backend/data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
 ```
 
 If semantic search is enabled, also confirm the model files named in `.env`
@@ -88,12 +101,11 @@ docker compose -f compose.aws.yml up --build -d
 docker compose -f compose.aws.yml ps
 ```
 
-Apply migrations and load the prepared AI-only 2016-2026 dataset. The
-`--require-doi` flag keeps records without DOI out of the public database:
+Apply migrations and load the prepared AI-reviewed 2016-2026 dataset:
 
 ```bash
 docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
-docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_only.csv --year-min 2016 --year-max 2026 --require-doi --reset
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv --year-min 2016 --year-max 2026
 docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml restart api frontend
 ```
 

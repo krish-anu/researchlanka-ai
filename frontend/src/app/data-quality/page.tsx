@@ -1,3 +1,7 @@
+import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
+import { extractFilters, type SearchParams } from "@/services/filters";
+import { QualityCompleteness } from "@/components/analytics/QualityCompleteness";
+import { PageIntro } from "@/components/layout/PageIntro";
 import Link from "next/link";
 
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
@@ -9,6 +13,7 @@ import {
   analyticsExportUrl,
   getDatasetMeta,
   getDataQuality,
+  getAnalyticsFields,
   getLimitations,
 } from "@/services/api";
 import { formatNumber, formatPercent } from "@/services/format";
@@ -28,9 +33,9 @@ const LIMITATION_TEXT: Record<string, string> = {
   source_specific_missingness:
     "Different sources populate different fields. Abstracts, funding and affiliation data are far more complete for OpenAlex and Crossref records than for repository harvests.",
   cross_source_conflicts:
-    "Where sources disagree on citation or reference counts, the platform surfaces the disagreement rather than silently choosing a winner. Records with conflicts carry a flag.",
+    "Where sources disagree on reference counts, the platform surfaces the disagreement rather than silently choosing a winner. Records with conflicts carry a flag.",
   snapshot_counts_can_lag:
-    "Citation counts are point-in-time values from the last data load. They lag the live values at OpenAlex and Crossref.",
+    "Some source-provided counts are point-in-time values from the last data load. They can lag live values at upstream indexes.",
   author_disambiguation_limited:
     "Researcher profiles are grouped by normalised author name unless an ORCID is available. Common names may merge distinct people; name variants may split one person.",
 };
@@ -41,15 +46,17 @@ const DISCLOSURE_TEXT: Record<string, string> = {
   denominator: "What population a share or percentage is calculated against.",
   field_missingness: "How complete the underlying field is.",
   conflict_policy: "How disagreements between sources were resolved.",
-  citation_count_source: "Which source supplied the citation count.",
   known_exclusions: "What the dataset is known not to cover.",
 };
 
-export default async function DataQualityPage() {
-  const [quality, limitations, meta] = await Promise.all([
-    getDataQuality({ group_by: "source_dataset" }),
+export default async function DataQualityPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const filters = extractFilters(params);
+  const [quality, limitations, meta, fields] = await Promise.all([
+    getDataQuality({ ...filters, group_by: "source_dataset" }),
     getLimitations(),
     getDatasetMeta(),
+    getAnalyticsFields({ limit: 100 }),
   ]);
 
   const groups = quality.ok ? (quality.value.data.groups ?? {}) : {};
@@ -59,23 +66,18 @@ export default async function DataQualityPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="font-display text-h1 text-ink">Data quality</h1>
-        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-          What this dataset does and does not support. Read this before citing
-          any figure from the dashboard or profile pages.
-        </p>
-      </div>
+      <PageIntro title="Confidence starts with context." description="Understand source coverage, metadata completeness, and the limitations behind every AI research insight." />
 
+      <AnalyticsFilters params={params} basePath="/data-quality" fields={fields.ok ? fields.value.data.map(f => f.label) : []} />
       {meta.ok ? (
         <StatTileGrid>
           <StatTile
-            label="Records"
+            label="Collection records"
             value={formatNumber(meta.value.data.publication_count ?? null)}
-            caption="rows in the consolidated dataset"
+            caption="accepted AI records across the collection"
           />
           <StatTile
-            label="Year coverage"
+            label="Collection year coverage"
             value={
               meta.value.data.min_publication_year &&
               meta.value.data.max_publication_year
@@ -96,6 +98,8 @@ export default async function DataQualityPage() {
           />
         </StatTileGrid>
       ) : null}
+
+      {quality.ok && groupRows.length > 0 ? <QualityCompleteness groups={groups} /> : null}
 
       <section>
         <SectionHeading
@@ -129,7 +133,7 @@ export default async function DataQualityPage() {
           <SectionHeading
             title="Field completeness"
             description="Missingness across the whole dataset."
-            action={<DownloadLink href={analyticsExportUrl("data-quality")} />}
+            action={<DownloadLink href={analyticsExportUrl("data-quality", filters)} />}
           />
           <StatTileGrid>
             <StatTile
@@ -173,10 +177,6 @@ export default async function DataQualityPage() {
                   },
                 ]}
                 rows={[
-                  {
-                    kind: "Citation counts disagree",
-                    count: quality.value.data.citation_divergence_count,
-                  },
                   {
                     kind: "Reference counts disagree",
                     count: quality.value.data.reference_divergence_count,

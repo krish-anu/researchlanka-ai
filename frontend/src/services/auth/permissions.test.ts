@@ -14,8 +14,23 @@ const SIGNED_IN_CAPABILITIES: Capability[] = [
 const ADMIN_CAPABILITIES: Capability[] = [
   "admin.access",
   "admin.pipeline.view",
+  "admin.pipeline.run",
   "admin.flags.triage",
   "admin.resolution.decide",
+  "admin.ai_review.manage",
+  "admin.users.manage",
+];
+
+const REVIEWER_CAPABILITIES: Capability[] = [
+  "admin.access",
+  "admin.resolution.decide",
+];
+
+const ADMIN_ONLY_CAPABILITIES: Capability[] = [
+  "admin.pipeline.view",
+  "admin.pipeline.run",
+  "admin.flags.triage",
+  "admin.ai_review.manage",
   "admin.users.manage",
 ];
 
@@ -57,6 +72,20 @@ describe("signed-in user", () => {
   });
 });
 
+describe("reviewer", () => {
+  it.each([
+    ...GUEST_ONLY_CAPABILITIES,
+    ...SIGNED_IN_CAPABILITIES,
+    ...REVIEWER_CAPABILITIES,
+  ])("can %s", (capability) => {
+    expect(can("reviewer", capability)).toBe(true);
+  });
+
+  it.each(ADMIN_ONLY_CAPABILITIES)("cannot %s", (capability) => {
+    expect(can("reviewer", capability)).toBe(false);
+  });
+});
+
 describe("admin", () => {
   it.each(ALL)("can %s", (capability) => {
     expect(can("admin", capability)).toBe(true);
@@ -72,18 +101,22 @@ describe("the grant table stays coherent", () => {
 
     const guest = held("guest");
     const user = held("user");
+    const reviewer = held("reviewer");
     const admin = held("admin");
 
     expect(guest.every((capability) => user.includes(capability))).toBe(true);
-    expect(user.every((capability) => admin.includes(capability))).toBe(true);
+    expect(user.every((capability) => reviewer.includes(capability))).toBe(true);
+    expect(reviewer.every((capability) => admin.includes(capability))).toBe(true);
     expect(user.length).toBeGreaterThan(guest.length);
-    expect(admin.length).toBeGreaterThan(user.length);
+    expect(reviewer.length).toBeGreaterThan(user.length);
+    expect(admin.length).toBeGreaterThan(reviewer.length);
   });
 
-  it("grants every admin capability to admins alone", () => {
-    for (const capability of ADMIN_CAPABILITIES) {
+  it("grants platform-management capabilities to admins alone", () => {
+    for (const capability of ADMIN_ONLY_CAPABILITIES) {
       expect(can("guest", capability)).toBe(false);
       expect(can("user", capability)).toBe(false);
+      expect(can("reviewer", capability)).toBe(false);
       expect(can("admin", capability)).toBe(true);
     }
   });
@@ -96,8 +129,8 @@ describe("the grant table stays coherent", () => {
 });
 
 describe("role predicates", () => {
-  it("recognises the three real roles", () => {
-    expect(ROLES).toEqual(["guest", "user", "admin"]);
+  it("recognises the real roles", () => {
+    expect(ROLES).toEqual(["guest", "user", "reviewer", "admin"]);
     for (const role of ROLES) expect(isRole(role)).toBe(true);
   });
 
@@ -114,11 +147,13 @@ describe("role predicates", () => {
     expect(isRole("guest")).toBe(true);
     expect(isAccountRole("guest")).toBe(false);
     expect(isAccountRole("user")).toBe(true);
+    expect(isAccountRole("reviewer")).toBe(true);
     expect(isAccountRole("admin")).toBe(true);
   });
 
   it("orders the roles", () => {
     expect(ROLE_RANK.guest).toBeLessThan(ROLE_RANK.user);
-    expect(ROLE_RANK.user).toBeLessThan(ROLE_RANK.admin);
+    expect(ROLE_RANK.user).toBeLessThan(ROLE_RANK.reviewer);
+    expect(ROLE_RANK.reviewer).toBeLessThan(ROLE_RANK.admin);
   });
 });

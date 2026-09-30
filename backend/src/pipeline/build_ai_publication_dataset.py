@@ -1,4 +1,4 @@
-"""Build and optionally load the AI-only publication dataset."""
+"""Build and optionally load the AI-reviewed publication dataset."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from typing import Any
 from src.database.load_records import load_record_file
 from src.pipeline.incremental_update import (
     AI_COLUMNS,
+    DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
     DEFAULT_DB_LABELS,
     DEFAULT_TEXT_COLUMNS,
     apply_ai_classification,
@@ -20,12 +21,13 @@ from src.pipeline.incremental_update import (
     parse_label_set,
 )
 from src.modeling.training import parse_text_columns
+from src.pipeline.refresh_policy import configured_confidence_review_threshold
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026.csv"
 DEFAULT_CLASSIFIED_OUTPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_ai_classified.csv"
-DEFAULT_AI_OUTPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_ai_only.csv"
+DEFAULT_AI_OUTPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_ai_review_filtered.csv"
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +74,7 @@ def build_ai_publication_dataset(
 
     loaded = 0
     if load_db:
-        loaded = load_record_file(ai_output, batch_size=batch_size, reset=True)
+        loaded = load_record_file(ai_output, batch_size=batch_size)
 
     return {
         "input_rows": len(rows),
@@ -85,13 +87,17 @@ def build_ai_publication_dataset(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Classify the historical dataset and keep AI publications only.")
+    parser = argparse.ArgumentParser(description="Classify the historical dataset and keep AI-reviewed publications.")
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--classified-output", type=Path, default=DEFAULT_CLASSIFIED_OUTPUT)
     parser.add_argument("--ai-output", type=Path, default=DEFAULT_AI_OUTPUT)
     parser.add_argument("--model", type=Path, default=configured_model_path())
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
-    parser.add_argument("--confidence-review-threshold", type=float, default=None)
+    parser.add_argument(
+        "--confidence-review-threshold",
+        type=configured_confidence_review_threshold,
+        default=DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    )
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
     parser.add_argument("--load-db", action="store_true")
     parser.add_argument("--batch-size", type=int, default=1000)

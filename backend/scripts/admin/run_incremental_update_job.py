@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.modeling.training import parse_text_columns  # noqa: E402
 from src.pipeline.incremental_update import (  # noqa: E402
     DEFAULT_DB_LABELS,
+    DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
     DEFAULT_INITIAL_FROM_DATE,
     DEFAULT_STATE_BACKEND,
     DEFAULT_OUTPUT_ROOT,
@@ -31,6 +32,7 @@ from src.pipeline.incremental_update import (  # noqa: E402
     parse_label_set,
     run_incremental_update,
 )
+from src.pipeline.refresh_policy import configured_confidence_review_threshold  # noqa: E402
 from src.database.pipeline_state import DEFAULT_INCREMENTAL_STATE_KEY  # noqa: E402
 
 
@@ -49,7 +51,7 @@ def write_status(path: Path, payload: dict[str, Any]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the incremental AI-only update job.")
+    parser = argparse.ArgumentParser(description="Run the shared incremental publication refresh job.")
     parser.add_argument("--status", type=Path, default=DEFAULT_STATUS_PATH)
     parser.add_argument("--log-path", type=Path, default=None)
     parser.add_argument("--state", type=Path, default=DEFAULT_STATE_PATH)
@@ -85,7 +87,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--strict-lk-only", action="store_true")
     parser.add_argument("--model", type=Path, default=configured_model_path())
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
-    parser.add_argument("--confidence-review-threshold", type=float, default=None)
+    parser.add_argument(
+        "--confidence-review-threshold",
+        type=configured_confidence_review_threshold,
+        default=DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    )
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument(

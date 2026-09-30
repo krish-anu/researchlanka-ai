@@ -112,6 +112,22 @@ export async function retryAIReviewSync(input: {
   return result.ok ? { ok: true } : { ok: false, message: result.message };
 }
 
+export async function assignPendingAIReviews(input: {
+  actor: SessionUser;
+}): Promise<{ ok: true; assigned: number } | { ok: false; message: string }> {
+  const result = await adminRequest<{
+    assignment?: { assigned?: number };
+  }>("/admin/ai-review/backfill", {
+    method: "POST",
+    actor: input.actor,
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+  return {
+    ok: true,
+    assigned: Number(result.data?.assignment?.assigned ?? 0),
+  };
+}
+
 type AdminResult<T> =
   | { ok: true; data: T }
   | { ok: false; message: string; code: string };

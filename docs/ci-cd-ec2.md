@@ -54,6 +54,27 @@ The deploy workflow does not delete Docker volumes or local data files. It
 rebuilds images, recreates containers, applies database migrations, restarts the
 API/frontend, and prunes unused Docker images.
 
+Deployments share one concurrency group. An active deployment finishes before
+a newer deployment starts, so another trigger cannot cancel a frontend build
+or container restart midway through.
+
+The migration container must run with `-T --interactive=false` and stdin
+redirected from `/dev/null`. The remote shell reads its script from stdin;
+an interactive Compose command can consume the remaining restart commands,
+causing a successful job that only builds images and runs migrations.
+
+If the old UI is still visible, check the latest `Deploy Main To EC2` run, not
+just an earlier cancelled run. Confirm its logs include API/frontend container
+recreation and the final Compose status table. If an older workflow stopped
+after migrations, activate the already-built images from the EC2 app directory:
+
+```bash
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml up -d --force-recreate api frontend
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml ps
+```
+
+Then reload the page with `Ctrl+Shift+R` to load the current frontend assets.
+
 ## First-Time Branch Setup
 
 Create and push `dev`:

@@ -132,6 +132,8 @@ Frontend code should be added inside `frontend/`.
 ## AWS Deployment
 
 For the EC2 Docker Compose deployment path, see
-[`docs/aws-ec2-app-deployment.md`](docs/aws-ec2-app-deployment.md). For monthly
+[`docs/aws-ec2-app-deployment.md`](docs/aws-ec2-app-deployment.md). Terraform
+for provisioning the EC2 host lives in
+[`infra/terraform/aws-ec2`](infra/terraform/aws-ec2). For monthly
 data/model refresh automation on AWS, see
 [`docs/aws-monthly-automation.md`](docs/aws-monthly-automation.md).

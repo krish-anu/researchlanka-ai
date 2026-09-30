@@ -23,12 +23,15 @@ from src.modeling.artifacts import (
 )
 from src.modeling.inference import DEFAULT_METADATA_COLUMNS, parse_columns
 from src.modeling.training import (
-    DEFAULT_INPUT,
     DEFAULT_MODEL_DIR,
     DEFAULT_TEXT_COLUMNS,
     combined_text,
     parse_document_frequency,
     parse_text_columns,
+)
+from src.pipeline.accepted_snapshot import (
+    DEFAULT_ACCEPTED_SNAPSHOT_PATH,
+    validate_accepted_snapshot_frame,
 )
 
 DEFAULT_MODEL_FAMILY = "publication_tfidf_svd"
@@ -76,13 +79,22 @@ SEMANTIC_LOOKUP_COLUMNS = (
     "source_record_id",
     "record_number",
 )
+ACCEPTED_SNAPSHOT_MARKER_COLUMNS = (
+    "final_ai_decision",
+    "acceptance_method",
+    "review_status",
+    "ai_classification_label",
+    "ownership_decision",
+    "ownership_confidence",
+    "needs_manual_review",
+)
 
 
 @dataclass(frozen=True)
 class PublicationEmbeddingConfig:
     """Configuration for one reusable publication embedding run."""
 
-    input_path: Path = DEFAULT_INPUT
+    input_path: Path = DEFAULT_ACCEPTED_SNAPSHOT_PATH
     output_path: Path | None = None
     model_output: Path | None = None
     manifest_output: Path | None = None
@@ -99,6 +111,7 @@ class PublicationEmbeddingConfig:
     keep_stop_words: bool = False
     normalize_embeddings: bool = True
     random_state: int = 42
+    require_accepted_snapshot: bool = True
 
 
 @dataclass(frozen=True)
@@ -275,6 +288,7 @@ def resolved_config(config: PublicationEmbeddingConfig) -> PublicationEmbeddingC
         keep_stop_words=config.keep_stop_words,
         normalize_embeddings=config.normalize_embeddings,
         random_state=config.random_state,
+        require_accepted_snapshot=config.require_accepted_snapshot,
     )
 
 
@@ -299,6 +313,7 @@ def selected_input_columns(
     input_path: Path,
     text_columns: tuple[str, ...],
     metadata_columns: tuple[str, ...],
+    require_accepted_snapshot: bool,
 ) -> tuple[list[str], list[str]]:
     available_columns = existing_columns(input_path)
     missing_text_columns = [
@@ -313,7 +328,14 @@ def selected_input_columns(
     present_metadata_columns = [
         column for column in metadata_columns if column in available_columns
     ]
-    usecols = list(dict.fromkeys([*text_columns, *present_metadata_columns]))
+    validation_columns = [
+        column
+        for column in ACCEPTED_SNAPSHOT_MARKER_COLUMNS
+        if require_accepted_snapshot and column in available_columns
+    ]
+    usecols = list(
+        dict.fromkeys([*text_columns, *present_metadata_columns, *validation_columns])
+    )
     return usecols, present_metadata_columns
 
 
@@ -323,11 +345,13 @@ def load_embedding_frame(
     text_columns: tuple[str, ...],
     metadata_columns: tuple[str, ...],
     max_rows: int | None,
+    require_accepted_snapshot: bool,
 ) -> tuple[pd.DataFrame, int, list[str]]:
     usecols, present_metadata_columns = selected_input_columns(
         input_path=input_path,
         text_columns=text_columns,
         metadata_columns=metadata_columns,
+        require_accepted_snapshot=require_accepted_snapshot,
     )
     frame = pd.read_csv(
         input_path,
@@ -336,6 +360,8 @@ def load_embedding_frame(
         keep_default_na=False,
         nrows=max_rows,
     )
+    if require_accepted_snapshot:
+        validate_accepted_snapshot_frame(frame, source=input_path)
     input_rows = len(frame)
     embedding_frame = frame[present_metadata_columns].copy()
     embedding_frame.insert(0, "source_row", frame.index)
@@ -731,6 +757,7 @@ def generate_publication_text_embeddings(
         text_columns=config.text_columns,
         metadata_columns=config.metadata_columns,
         max_rows=config.max_rows,
+        require_accepted_snapshot=config.require_accepted_snapshot,
     )
     if embedding_frame.empty:
         raise ValueError("No usable rows found after combining text columns")
@@ -822,8 +849,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input",
         type=Path,
-        default=DEFAULT_INPUT,
-        help=f"Input publication CSV. Default: {DEFAULT_INPUT}",
+        default=DEFAULT_ACCEPTED_SNAPSHOT_PATH,
+        help=f"Accepted publication snapshot CSV. Default: {DEFAULT_ACCEPTED_SNAPSHOT_PATH}",
     )
     parser.add_argument(
         "--output",
@@ -919,6 +946,14 @@ def parse_args() -> argparse.Namespace:
         default=42,
         help="Random seed used by SVD. Default: 42",
     )
+    parser.add_argument(
+        "--allow-non-accepted-input",
+        action="store_true",
+        help=(
+            "Development-only: allow embeddings from a broad/non-accepted corpus. "
+            "Production public embeddings should not use this."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -942,6 +977,7 @@ def main() -> None:
             keep_stop_words=args.keep_stop_words,
             normalize_embeddings=not args.disable_normalize,
             random_state=args.random_state,
+            require_accepted_snapshot=not args.allow_non_accepted_input,
         )
     )
     print(result_summary(result))

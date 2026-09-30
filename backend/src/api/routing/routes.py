@@ -14,6 +14,7 @@ from src.api.services.incremental_admin import (
     require_admin_api_token,
     start_incremental_update,
 )
+from src.api.services.health import health_payload, readiness_payload
 from src.api.services.ai_review import (
     assign_initial_pending,
     backfill_review_records,
@@ -25,6 +26,16 @@ from src.api.services.ai_review import (
     with_connection,
 )
 from src.api.services.publications import ResearchLankaAPI
+from src.api.services.monitoring import (
+    monitoring_dashboard,
+    with_connection as monitoring_with_connection,
+)
+from src.api.services.user_feedback import (
+    feedback_hard_training_examples,
+    list_feedback_reports,
+    submit_feedback,
+    with_connection as feedback_with_connection,
+)
 
 
 def route_get(
@@ -34,7 +45,9 @@ def route_get(
     headers: Mapping[str, str] | None = None,
 ) -> dict[str, Any] | tuple[bytes, str]:
     if path in {"/health", f"{API_PREFIX}/health"}:
-        return service.health()
+        return {"data": health_payload(), "meta": service._meta()}
+    if path in {"/ready", f"{API_PREFIX}/ready"}:
+        return {"data": readiness_payload(), "meta": service._meta()}
     if path == f"{API_PREFIX}/meta":
         return service.metadata()
     if path == f"{API_PREFIX}/schema/publications":
@@ -76,6 +89,12 @@ def route_get(
     if path == f"{API_PREFIX}/admin/incremental/status":
         require_admin_api_token(headers)
         return {"data": read_incremental_status(), "meta": service._meta()}
+    if path == f"{API_PREFIX}/admin/monitoring":
+        require_admin_api_token(headers)
+        return {
+            "data": monitoring_with_connection(monitoring_dashboard),
+            "meta": service._meta(),
+        }
     if path == f"{API_PREFIX}/admin/ai-review":
         require_admin_api_token(headers)
         actor_email = str((headers or {}).get("x-researchlanka-actor-email") or "")
@@ -98,6 +117,26 @@ def route_get(
     if path == f"{API_PREFIX}/admin/ai-review/validate-final-dataset":
         require_admin_api_token(headers)
         return {"data": with_connection(validate_final_dataset), "meta": service._meta()}
+    if path == f"{API_PREFIX}/admin/feedback":
+        require_admin_api_token(headers)
+        return {
+            "data": feedback_with_connection(
+                lambda connection: list_feedback_reports(
+                    connection,
+                    status=query.get("status", [None])[0],
+                    report_type=query.get("report_type", [None])[0],
+                    page=int(query.get("page", ["1"])[0]),
+                    page_size=int(query.get("page_size", ["25"])[0]),
+                )
+            ),
+            "meta": service._meta(),
+        }
+    if path == f"{API_PREFIX}/admin/feedback/hard-training-examples":
+        require_admin_api_token(headers)
+        return {
+            "data": feedback_with_connection(feedback_hard_training_examples),
+            "meta": service._meta(),
+        }
     if path == f"{API_PREFIX}/exports/publications.csv":
         return service.export_publications(query, file_format="csv")
     if path == f"{API_PREFIX}/exports/publications.jsonl":
@@ -206,6 +245,17 @@ def route_post(
         return {
             "data": with_connection(
                 lambda connection: queue_retry(connection, str(payload.get("publication_key") or ""))
+            ),
+            "meta": service._meta(),
+        }
+    if path == f"{API_PREFIX}/feedback":
+        return {
+            "data": feedback_with_connection(
+                lambda connection: submit_feedback(
+                    connection,
+                    payload,
+                    user_agent=str((headers or {}).get("user-agent") or ""),
+                )
             ),
             "meta": service._meta(),
         }

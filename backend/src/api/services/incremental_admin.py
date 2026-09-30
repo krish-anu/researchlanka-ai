@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from src.api.core.errors import APIError
+from src.pipeline.refresh_policy import (
+    DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    DEFAULT_DB_LABELS,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -73,7 +77,7 @@ def start_incremental_update(
         "--log-path",
         str(log_path),
         "--db-labels",
-        "AI",
+        ",".join(DEFAULT_DB_LABELS),
     ]
 
     model_path = str(
@@ -84,6 +88,7 @@ def start_incremental_update(
     if model_path:
         args.extend(["--model", model_path])
 
+    threshold_supplied = False
     for field, argument in (
         ("from_date", "--from-date"),
         ("to_date", "--to-date"),
@@ -92,6 +97,15 @@ def start_incremental_update(
         value = str(payload.get(field) or "").strip()
         if value:
             args.extend([argument, value])
+            if field == "confidence_review_threshold":
+                threshold_supplied = True
+    if not threshold_supplied:
+        args.extend(
+            [
+                "--confidence-review-threshold",
+                str(DEFAULT_CONFIDENCE_REVIEW_THRESHOLD),
+            ]
+        )
 
     with log_path.open("a", encoding="utf-8") as log_file:
         process = subprocess.Popen(
@@ -111,7 +125,7 @@ def start_incremental_update(
         "finished_at": None,
         "message": "Incremental AI publication update started.",
         "model": model_path,
-        "db_labels": ["AI"],
+        "db_labels": list(DEFAULT_DB_LABELS),
         "log_path": str(log_path),
     }
     write_status(status_path, status_payload)
@@ -152,7 +166,7 @@ def idle_status() -> dict[str, Any]:
         "finished_at": None,
         "message": "No manual update has been started from this console.",
         "model": None,
-        "db_labels": ["AI"],
+        "db_labels": list(DEFAULT_DB_LABELS),
         "log_path": None,
     }
 
@@ -168,7 +182,11 @@ def normalize_status(payload: dict[str, Any]) -> dict[str, Any]:
         "finished_at": payload.get("finished_at") if isinstance(payload.get("finished_at"), str) else None,
         "message": str(payload.get("message") or "No status message is available."),
         "model": payload.get("model") if isinstance(payload.get("model"), str) else None,
-        "db_labels": payload.get("db_labels") if isinstance(payload.get("db_labels"), list) else ["AI"],
+        "db_labels": (
+            payload.get("db_labels")
+            if isinstance(payload.get("db_labels"), list)
+            else list(DEFAULT_DB_LABELS)
+        ),
         "log_path": payload.get("log_path") if isinstance(payload.get("log_path"), str) else None,
         "result": payload.get("result") if isinstance(payload.get("result"), dict) else None,
     }

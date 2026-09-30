@@ -11,6 +11,7 @@ import {
   CloseIcon,
   DashboardIcon,
   DataQualityIcon,
+  NetworkIcon,
   InstitutionsIcon,
   MenuIcon,
   PublicationsIcon,
@@ -19,6 +20,7 @@ import {
   TopicsIcon,
 } from "@/components/layout/NavIcons";
 import { SearchBox } from "@/components/search/SearchBox";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import type { Viewer } from "@/types/auth";
 
 interface NavLink {
@@ -30,11 +32,12 @@ interface NavLink {
 }
 
 const NAV_LINKS: NavLink[] = [
-  { href: "/", label: "Dashboard", Icon: DashboardIcon },
-  { href: "/publications", label: "Publications", Icon: PublicationsIcon },
+  { href: "/", label: "Overview", Icon: DashboardIcon },
+  { href: "/publications", label: "AI publications", Icon: PublicationsIcon },
   { href: "/researchers", label: "Researchers", Icon: ResearchersIcon },
   { href: "/institutions", label: "Institutions", Icon: InstitutionsIcon },
-  { href: "/topics", label: "Topics", Icon: TopicsIcon },
+  { href: "/topics", label: "Topics & fields", Icon: TopicsIcon },
+  { href: "/collaboration", label: "Collaboration", Icon: NetworkIcon },
   { href: "/data-quality", label: "Data quality", Icon: DataQualityIcon },
   { href: "/admin", label: "Administration", Icon: AdminIcon, adminOnly: true },
 ];
@@ -69,11 +72,7 @@ function NavItem({
       href={href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={`mx-2 flex items-center gap-3 rounded px-3 py-2.5 text-body-sm transition-colors ${
-        active
-          ? "bg-primary-container font-semibold text-on-primary"
-          : "text-ink-secondary hover:bg-wash hover:text-ink"
-      }`}
+      className="nav-item"
     >
       <Icon />
       <span>{label}</span>
@@ -83,19 +82,10 @@ function NavItem({
 
 function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="flex flex-col leading-tight">
-      <span
-        className={`font-display font-bold text-primary ${
-          compact ? "text-h3" : "text-h3"
-        }`}
-      >
-        ResearchLanka
-      </span>
-      {!compact ? (
-        <span className="mt-1 text-body-sm text-ink-secondary">
-          Sri Lanka research intelligence
-        </span>
-      ) : null}
+    <Link href="/" className="brand" aria-label="ResearchLanka overview">
+      <span className="brand-mark"><NetworkIcon /></span>
+      <span><span className="brand-name">Research<span className="text-primary">Lanka</span></span>
+      {!compact ? <span className="brand-tagline">AI RESEARCH, CONNECTED.</span> : null}</span>
     </Link>
   );
 }
@@ -124,10 +114,10 @@ function NavList({
 }
 
 /**
- * The navigation drawer from the Stitch screens: a fixed 288px rail on desktop,
+ * The responsive navigation drawer: a fixed 240px rail on desktop,
  * and a top app bar with a slide-over on mobile.
  *
- * The mobile drawer is real rather than decorative — all six sections have to
+ * The mobile drawer is real rather than decorative — all public and role-specific sections have to
  * stay reachable on a phone, so the hamburger opens a focusable panel that
  * closes on route change, on Escape, and on backdrop click.
  */
@@ -144,6 +134,12 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
+      if (event.key === "Tab") {
+        const nodes = document.querySelectorAll<HTMLElement>('#mobile-nav a[href], #mobile-nav button, #mobile-nav input');
+        const first = nodes[0], last = nodes[nodes.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
     }
     document.addEventListener("keydown", onKeyDown);
 
@@ -169,26 +165,32 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
       {/* Desktop rail */}
       <nav
         aria-label="Primary"
-        className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-rule bg-surface py-6 md:flex"
+        className="app-rail fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-rule bg-surface py-8 md:flex"
       >
         <div className="mb-8 px-5">
           <Wordmark />
         </div>
         <div className="flex-1 overflow-y-auto">
+          <p className="page-eyebrow mb-4 px-7">Workspace</p>
           <NavList viewer={viewer} />
+        </div>
+        <div className="mx-5 mb-5 rounded-xl border border-rule bg-wash p-4">
+          <p className="text-body-sm font-semibold">Research with perspective.</p>
+          <p className="my-2 text-xs text-muted">Understand the data behind every discovery.</p>
+          <Link href="/data-quality" className="text-xs font-semibold text-primary">Explore data quality →</Link>
         </div>
         <div className="mt-auto flex flex-col gap-2 border-t border-rule px-5 pt-5">
           <RoleBadge role={viewer.role} className="self-start" />
           <p className="text-body-sm text-muted">
             {viewer.user
               ? "Signed in. Public figures are unchanged by your account — it adds a library and flagging."
-              : "Read-only public view of the consolidated national research corpus."}
+              : "Explore accepted AI-related publications from Sri Lanka."}
           </p>
         </div>
       </nav>
 
       {/* Mobile top app bar */}
-      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-rule bg-surface px-4 md:hidden">
+      <header className="mobile-appbar sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-rule bg-surface px-4 md:hidden">
         <button
           ref={toggleRef}
           type="button"
@@ -244,6 +246,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
               <NavList viewer={viewer} onNavigate={() => setOpen(false)} />
             </div>
             <div className="mt-4 border-t border-rule px-4 pt-4">
+              <div className="mb-3 flex items-center justify-between text-xs text-muted"><span>Theme</span><ThemeToggle /></div>
               <AccountMenu viewer={viewer} />
             </div>
           </nav>
@@ -255,17 +258,26 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
 
 /**
  * Desktop search bar. Sits above the content column rather than in the rail,
- * matching the docked top bar on the Stitch content screens.
+ * keeping search and account actions available across public and protected routes.
  */
 export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
+  const pathname = usePathname() ?? "/";
+  const label = NAV_LINKS.find(link => isActive(pathname, link.href))?.label
+    ?? (pathname.startsWith("/account") ? "My workspace" : "Account");
   return (
-    <div className="sticky top-0 z-30 hidden shrink-0 border-b border-rule bg-surface md:block">
-      <div className="mx-auto flex h-16 max-w-[1140px] items-center justify-end gap-4 px-8 lg:px-16">
-        <div className="w-full max-w-md">
-          <SearchBox />
-        </div>
-        <AccountMenu viewer={viewer} />
+    <div className="app-topbar sticky top-0 z-30 hidden items-center justify-between gap-5 border-b border-rule bg-surface md:flex">
+      <div className="flex items-center gap-3 whitespace-nowrap text-xs text-muted"><span className="hidden xl:inline">Workspace /</span><span className="font-medium text-ink">{label}</span></div>
+      <div className="flex min-w-0 items-center justify-end gap-4">
+        <div className="w-full max-w-sm"><SearchBox placeholder="Search AI publications…" /></div>
+        <ThemeToggle />
+        <div className="shrink-0"><AccountMenu viewer={viewer} /></div>
       </div>
     </div>
   );
+}
+
+export function AIScopeNote() {
+  const pathname = usePathname() ?? "/";
+  if (["/admin", "/account", "/login", "/register", "/forbidden"].some(path => pathname.startsWith(path))) return null;
+  return <div className="ai-scope"><span className="ai-scope-dot" /><span><strong>AI-related publications only.</strong> Charts, rankings, profiles, and exports describe the accepted AI collection.</span><Link href="/data-quality" className="ml-auto shrink-0 text-primary hover:underline">About the data ↗</Link></div>;
 }

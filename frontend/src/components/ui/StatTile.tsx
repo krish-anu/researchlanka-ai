@@ -6,6 +6,7 @@ interface StatTileProps {
   /** Denominator or qualifier — dashboards must state what the number is over. */
   caption?: string;
   hint?: ReactNode;
+  icon?: ReactNode;
   /**
    * Marks the figure as AI-synthesised. The design system reserves the violet
    * machine tier for generated content so it is never read as verified metadata.
@@ -22,25 +23,26 @@ export function StatTile({
   value,
   caption,
   hint,
+  icon,
   machine = false,
 }: StatTileProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center gap-1 rounded border p-4 text-center ${
+      className={`stat-tile ${
         machine
           ? "border-rule bg-machine-container"
           : "border-rule bg-surface"
       }`}
     >
-      <span
-        className={`label-caps ${machine ? "text-machine" : "text-muted"}`}
-      >
-        {machine ? "AI · " : ""}
-        {label}
+      <span className="flex items-start justify-between gap-3">
+        <span className={`text-xs font-medium ${machine ? "text-machine" : "text-muted"}`}>
+          {machine ? "AI · " : ""}{label}
+        </span>
+        {icon ? <span className="stat-icon" aria-hidden="true">{icon}</span> : null}
       </span>
       <span
-        className={`font-display text-h2 font-bold tabular ${
-          machine ? "text-machine" : "text-primary"
+        className={`stat-value tabular ${
+          machine ? "text-machine" : "text-ink"
         }`}
       >
         {value}
@@ -55,7 +57,7 @@ export function StatTile({
 
 export function StatTileGrid({ children }: { children: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="stat-grid">
       {children}
     </div>
   );

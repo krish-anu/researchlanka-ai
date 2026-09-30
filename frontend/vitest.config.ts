@@ -18,10 +18,14 @@ export default defineConfig({
     // resolve on the defaults here, while an aliased `.ts` module does.
     extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".json"],
   },
-  // The app's tsconfig sets `jsx: preserve` and lets Next compile it, so nothing
-  // tells esbuild which runtime to use here. Without this it emits the classic
-  // `React.createElement` form and every render fails on an undefined React.
-  esbuild: { jsx: "automatic" },
+  // The app's tsconfig keeps JSX preserved for Next. Vitest/Vite still needs
+  // to lower TSX during tests so Rolldown can parse component test files.
+  oxc: {
+    jsx: {
+      runtime: "automatic",
+      importSource: "react",
+    },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],

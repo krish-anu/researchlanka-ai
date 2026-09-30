@@ -13,7 +13,9 @@ permissions:
 
 concurrency:
   group: deploy-main-to-ec2
-  cancel-in-progress: true
+  # Finish the active remote build/restart before a newer deployment begins.
+  # Cancelling the SSH job can interrupt deployment and leave the old UI live.
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -98,7 +100,9 @@ jobs:
           $COMPOSE config >/tmp/researchlanka-compose.ok
           $COMPOSE build api frontend
           $COMPOSE up -d --force-recreate --remove-orphans db
-          $COMPOSE run --rm api python scripts/database/apply_database_migrations.py
+          # bash -s reads this script from stdin. Do not let Compose consume
+          # the remaining commands while attaching to the migration container.
+          $COMPOSE run --rm -T --interactive=false api python scripts/database/apply_database_migrations.py </dev/null
           $COMPOSE up -d --force-recreate --remove-orphans api frontend
           docker image prune -f
           $COMPOSE ps

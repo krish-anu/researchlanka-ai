@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { PlotlyChart } from "./PlotlyChart";
 import { baseLayout, type ChartTheme } from "./theme";
@@ -33,7 +33,8 @@ export function RankingBarChart({
   // Plotly draws the first category at the bottom; reverse so rank 1 is on top.
   // Memoised because a fresh array on every render would change `build`, and
   // the chart host reads a new `build` as new data to draw.
-  const ordered = useMemo(() => [...entries].reverse(), [entries]);
+  const [ascending, setAscending] = useState(false);
+  const ordered = useMemo(() => [...entries].sort((a, b) => ascending ? b.value - a.value : a.value - b.value), [entries, ascending]);
 
   const build = useCallback(
     (theme: ChartTheme) => {
@@ -79,11 +80,13 @@ export function RankingBarChart({
     [ordered, valueLabel],
   );
 
+  if (entries.length === 0) return <p className="py-8 text-center text-body-sm text-muted">No records match this selection.</p>;
+
   return (
-    <PlotlyChart
+    <div><div className="mb-2 flex justify-end"><button type="button" className="button" onClick={() => setAscending(value => !value)} aria-label="Toggle ranking order">{ascending ? "Lowest first" : "Highest first"} ↕</button></div><PlotlyChart
       build={build}
       height={height ?? Math.max(200, entries.length * 28 + 60)}
       ariaLabel={ariaLabel}
-    />
+    /></div>
   );
 }

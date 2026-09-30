@@ -16,12 +16,23 @@ from typing import Any
 import joblib
 import pandas as pd
 
+from src.ai_relevance.borderline import borderline_false_positive_category
+from src.ai_relevance.calibration import (
+    calibrate_scores,
+    configured_calibrator_path,
+)
 from src.collectors.openalex_collector import (
     LK_AUTHORSHIP_FILTER,
     OpenAlexCollector,
     openalex_work_id,
 )
+from src.database.connection import get_connection
 from src.database.load_records import load_record_file
+from src.database.loader import (
+    build_final_publication_row,
+    ensure_database_schema,
+    find_existing_publication_key,
+)
 from src.database.pipeline_state import (
     DEFAULT_INCREMENTAL_STATE_KEY,
     PipelineRunRecord,
@@ -29,6 +40,16 @@ from src.database.pipeline_state import (
     record_successful_pipeline_run,
 )
 from src.modeling.training import combined_text, parse_text_columns
+from src.pipeline.refresh_policy import (
+    DEFAULT_AUTO_AI_THRESHOLD,
+    DEFAULT_AUTO_NON_AI_THRESHOLD,
+    DEFAULT_AI_RELEVANCE_MODEL_PATH,
+    DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    DEFAULT_DB_LABELS,
+    DEFAULT_TEXT_COLUMNS,
+    configured_confidence_review_threshold,
+    configured_model_path,
+)
 from src.pipeline.kaggle_collect_openalex_sri_lanka import write_doi_conflict_report
 from src.preprocessing.openalex_normalizer import CSV_COLUMNS, work_to_row
 from src.utils.doi import is_valid_doi, normalize_doi
@@ -38,15 +59,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_STATE_PATH = PROJECT_ROOT / "outputs" / "incremental" / "state.json"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "outputs" / "incremental" / "runs"
 DEFAULT_INITIAL_FROM_DATE = date(2016, 1, 1)
-DEFAULT_STATE_BACKEND = "json"
-DEFAULT_MODEL_PATH = (
-    PROJECT_ROOT / "data" / "models" / "ai_relevance" / "ai_relevance_linear_svm.joblib"
+DEFAULT_STATE_BACKEND = (
+    os.getenv("RESEARCHLANKA_INCREMENTAL_STATE_BACKEND")
+    or ("database" if os.getenv("DATABASE_URL") else "json")
 )
-DEFAULT_TEXT_COLUMNS = ("title", "abstract", "keywords", "topics", "concepts")
-DEFAULT_DB_LABELS = ("AI",)
+DEFAULT_MODEL_PATH = DEFAULT_AI_RELEVANCE_MODEL_PATH
 AI_COLUMNS = (
     "ai_classification_label",
     "ai_classification_confidence",
+    "ai_classification_raw_confidence",
+    "ai_classification_calibrator",
     "ai_classification_model",
     "ai_classification_reason",
 )
@@ -64,6 +86,8 @@ class IncrementalRunResult:
     db_load_output: Path
     records_collected: int
     records_selected_for_db: int
+    records_new_for_db: int | None
+    records_updated_for_db: int | None
     records_loaded: int
     checkpoint_output: Path
     model_path: Path | None
@@ -121,6 +145,8 @@ def save_checkpoint(path: Path, *, result: IncrementalRunResult) -> None:
         "last_from_date": result.from_date,
         "last_records_collected": result.records_collected,
         "last_records_loaded": result.records_loaded,
+        "last_records_new_for_db": result.records_new_for_db,
+        "last_records_updated_for_db": result.records_updated_for_db,
         "last_raw_output": str(result.raw_output),
         "last_csv_output": str(result.csv_output),
         "last_db_load_output": str(result.db_load_output),
@@ -175,15 +201,6 @@ def collect_openalex_rows(
     return rows
 
 
-def configured_model_path(value: str | Path | None = None) -> Path | None:
-    raw_value = value or os.getenv("RESEARCHLANKA_AI_RELEVANCE_MODEL_PATH")
-    raw_value = raw_value or os.getenv("INCREMENTAL_MODEL") or DEFAULT_MODEL_PATH
-    if str(raw_value).strip().casefold() in {"none", "disabled", "off"}:
-        return None
-    path = Path(raw_value).expanduser()
-    return path if path.is_absolute() else PROJECT_ROOT / path
-
-
 def validate_model_path(model_path: Path | None) -> None:
     if model_path is None:
         return
@@ -221,6 +238,26 @@ def normalize_prediction_label(value: Any) -> tuple[str, str]:
     return "review", f"unexpected_model_label:{text}"
 
 
+def ai_class_index(model: Any) -> int | None:
+    classes = list(getattr(model, "classes_", ()))
+    for index, label in enumerate(classes):
+        normalized = str(label).strip().casefold().replace("_", "-").replace(" ", "-")
+        if normalized in {"ai", "artificial-intelligence"}:
+            return index
+    return None
+
+
+def label_from_ai_probability(score: float) -> tuple[str, str | None]:
+    if score >= DEFAULT_AUTO_AI_THRESHOLD:
+        return "AI", None
+    if score >= DEFAULT_AUTO_NON_AI_THRESHOLD:
+        return "review", (
+            f"ai_probability_between_{DEFAULT_AUTO_NON_AI_THRESHOLD:.3f}_"
+            f"and_{DEFAULT_AUTO_AI_THRESHOLD:.3f}"
+        )
+    return "non-AI", None
+
+
 def apply_ai_classification(
     rows: list[dict[str, Any]],
     *,
@@ -247,8 +284,16 @@ def apply_ai_classification(
     frame = pd.DataFrame(rows)
     text = combined_text(frame.fillna(""), text_columns)
     predictions = list(model.predict(text)) if len(text) else []
-    if hasattr(model, "predict_proba") and len(text):
-        confidences = [float(values.max()) for values in model.predict_proba(text)]
+    ai_index = ai_class_index(model)
+    raw_confidences: list[float | None]
+    selected_calibrator_path = configured_calibrator_path()
+    if hasattr(model, "predict_proba") and len(text) and ai_index is not None:
+        raw_confidences = [float(values[ai_index]) for values in model.predict_proba(text)]
+        confidences = calibrate_scores(
+            raw_confidences,
+            calibrator_path=selected_calibrator_path,
+        )
+        labels_and_reasons = [label_from_ai_probability(score) for score in confidences]
     elif hasattr(model, "decision_function") and len(text):
         margins = model.decision_function(text)
         if getattr(margins, "ndim", 1) == 1:
@@ -257,19 +302,34 @@ def apply_ai_classification(
             confidences = [
                 confidence_from_margin(float(max(row, key=abs))) for row in margins
             ]
+        raw_confidences = [None] * len(confidences)
+        labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
     else:
         confidences = [None] * len(predictions)
+        raw_confidences = [None] * len(predictions)
+        labels_and_reasons = [normalize_prediction_label(prediction) for prediction in predictions]
 
     classified_rows: list[dict[str, Any]] = []
-    for row, prediction, confidence in zip(rows, predictions, confidences, strict=True):
-        label, reason = normalize_prediction_label(prediction)
+    for row, raw_confidence, confidence, label_and_reason in zip(
+        rows,
+        raw_confidences,
+        confidences,
+        labels_and_reasons,
+        strict=True,
+    ):
+        label, reason = label_and_reason
         if (
             confidence_review_threshold is not None
             and confidence is not None
+            and label == "AI"
             and confidence < confidence_review_threshold
         ):
             label = "review"
             reason = f"confidence_below_threshold:{confidence_review_threshold:.3f}"
+        category = borderline_false_positive_category(row)
+        if label == "AI" and category:
+            label = "review"
+            reason = f"borderline_false_positive_risk:{category}"
         classified_rows.append(
             {
                 **row,
@@ -277,23 +337,19 @@ def apply_ai_classification(
                 "ai_classification_confidence": (
                     None if confidence is None else f"{confidence:.6f}"
                 ),
+                "ai_classification_raw_confidence": (
+                    None if raw_confidence is None else f"{raw_confidence:.6f}"
+                ),
+                "ai_classification_calibrator": (
+                    str(selected_calibrator_path)
+                    if selected_calibrator_path is not None and raw_confidence is not None
+                    else None
+                ),
                 "ai_classification_model": str(model_path),
                 "ai_classification_reason": reason or None,
             }
         )
     return classified_rows
-
-
-def normalize_prediction_label(value: Any) -> tuple[str, str]:
-    text = str(value or "").strip()
-    normalized = text.casefold().replace("_", "-")
-    if normalized in {"ai", "artificial-intelligence", "artificial intelligence"}:
-        return "AI", ""
-    if normalized in {"non-ai", "non ai", "not-ai", "not ai", "nonai"}:
-        return "non-AI", ""
-    if normalized in {"review", "manual-review", "manual review", "uncertain"}:
-        return "review", ""
-    return "review", f"unexpected_model_label:{text}"
 
 
 def parse_label_set(value: str | list[str] | tuple[str, ...]) -> tuple[str, ...]:
@@ -309,6 +365,23 @@ def parse_label_set(value: str | list[str] | tuple[str, ...]) -> tuple[str, ...]
     return tuple(dict.fromkeys(labels))
 
 
+def _normalized_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def row_passes_public_ownership_policy(row: dict[str, Any]) -> bool:
+    """Match the ownership gate used by accepted_ai_publications."""
+
+    decision = _normalized_text(row.get("ownership_decision")).upper()
+    confidence = _normalized_text(row.get("ownership_confidence")).upper()
+    needs_review = _normalized_text(row.get("needs_manual_review")).casefold()
+    return (
+        decision == "INCLUDE"
+        and confidence in {"HIGH", "MEDIUM"}
+        and needs_review not in {"true", "1", "yes"}
+    )
+
+
 def filter_rows_for_database(
     rows: list[dict[str, Any]],
     *,
@@ -319,6 +392,8 @@ def filter_rows_for_database(
     for row in rows:
         label = str(row.get("ai_classification_label") or "").strip()
         if label not in allowed:
+            continue
+        if not row_passes_public_ownership_policy(row):
             continue
         doi = normalize_doi(row.get("doi"))
         if not is_valid_doi(doi):
@@ -334,6 +409,29 @@ def write_rows_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(file, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
+
+
+def count_database_upsert_types(rows: list[dict[str, Any]]) -> tuple[int, int]:
+    """Return incoming rows that will insert vs update before the DB upsert runs."""
+
+    if not rows:
+        return 0, 0
+
+    connection = get_connection()
+    new_count = 0
+    update_count = 0
+    try:
+        ensure_database_schema(connection)
+        with connection.cursor() as cursor:
+            for row_number, record in enumerate(rows, start=1):
+                db_row = build_final_publication_row(record, row_number)
+                if find_existing_publication_key(cursor, db_row) is None:
+                    new_count += 1
+                else:
+                    update_count += 1
+        return new_count, update_count
+    finally:
+        connection.close()
 
 
 def run_incremental_update(
@@ -397,6 +495,8 @@ def run_incremental_update(
     write_doi_conflict_report(raw_output, run_dir / "openalex_incremental_doi_conflicts.csv")
 
     records_loaded = 0
+    records_new_for_db = None
+    records_updated_for_db = None
     partial_result = {
         "run_id": run_id,
         "from_date": from_date.isoformat(),
@@ -406,6 +506,8 @@ def run_incremental_update(
         "db_load_output": db_load_output,
         "records_collected": len(rows),
         "records_selected_for_db": 0,
+        "records_new_for_db": None,
+        "records_updated_for_db": None,
         "records_loaded": 0,
         "checkpoint_output": state_path,
         "model_path": model_path,
@@ -418,6 +520,7 @@ def run_incremental_update(
         print(json.dumps(partial_result, indent=2, default=str))
         raise RuntimeError("DATABASE_URL is not set. Use --skip-db for a collection-only run.")
     else:
+        records_new_for_db, records_updated_for_db = count_database_upsert_types(db_rows)
         records_loaded = load_record_file(db_load_output, batch_size=batch_size)
 
     result = IncrementalRunResult(
@@ -429,12 +532,20 @@ def run_incremental_update(
         db_load_output=db_load_output,
         records_collected=len(rows),
         records_selected_for_db=len(db_rows),
+        records_new_for_db=records_new_for_db,
+        records_updated_for_db=records_updated_for_db,
         records_loaded=records_loaded,
         checkpoint_output=state_path,
         model_path=model_path,
         db_labels=db_labels,
     )
-    if state_backend == "database":
+    should_checkpoint = not skip_db and max_records is None
+    if not should_checkpoint:
+        logger.info(
+            "Checkpoint not advanced because this run was %s.",
+            "--skip-db" if skip_db else "limited by --max-records",
+        )
+    elif state_backend == "database":
         record_successful_pipeline_run(
             run=PipelineRunRecord(
                 run_id=result.run_id,
@@ -452,7 +563,7 @@ def run_incremental_update(
                 db_labels=result.db_labels,
             )
         )
-    else:
+    elif state_backend == "json":
         save_checkpoint(state_path, result=result)
     return result
 
@@ -460,8 +571,8 @@ def run_incremental_update(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run an incremental ResearchLanka AI refresh.")
     parser.add_argument("--state", type=Path, default=DEFAULT_STATE_PATH)
-    parser.add_argument("--state-backend", choices=("database", "json"), default="json")
-    parser.add_argument("--state-key", default="incremental_update")
+    parser.add_argument("--state-backend", choices=("database", "json"), default=DEFAULT_STATE_BACKEND)
+    parser.add_argument("--state-key", default=os.getenv("RESEARCHLANKA_INCREMENTAL_STATE_KEY", DEFAULT_INCREMENTAL_STATE_KEY))
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--from-date", type=parse_iso_date, default=None)
     parser.add_argument("--initial-from-date", type=parse_iso_date, default=DEFAULT_INITIAL_FROM_DATE)
@@ -473,7 +584,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--strict-lk-only", action="store_true")
     parser.add_argument("--model", type=Path, default=configured_model_path())
     parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
-    parser.add_argument("--confidence-review-threshold", type=float, default=None)
+    parser.add_argument(
+        "--confidence-review-threshold",
+        type=configured_confidence_review_threshold,
+        default=DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
+    )
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--skip-db", action="store_true")

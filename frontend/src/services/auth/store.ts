@@ -8,7 +8,7 @@
  *
  *   - `ADMIN_EMAIL` + `ADMIN_PASSWORD` set — the deployment path. Exactly that
  *     one administrator is created, on first run only.
- *   - neither set — the development path. Two fixed accounts are kept in
+ *   - neither set — the development path. Three fixed accounts are kept in
  *     place, one per signed-in role, so both sides of the role system can be
  *     exercised without going through sign-up. Their credentials are published
  *     in the README and are therefore public: set `SEED_TEST_ACCOUNTS=false`
@@ -42,6 +42,12 @@ const TEST_ACCOUNTS: SeedAccount[] = [
     password: "password123",
     name: "Test user",
     role: "user",
+  },
+  {
+    email: "reviewer@example.com",
+    password: "password123",
+    name: "Test reviewer",
+    role: "reviewer",
   },
 ];
 

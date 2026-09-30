@@ -33,6 +33,8 @@ def write_publications_csv(path: Path) -> None:
                 "source_dataset": "openalex",
                 "source_institution_id": "uoc",
                 "source_record_id": "record-1",
+                "final_ai_decision": "AI",
+                "acceptance_method": "auto",
             },
             {
                 "record_number": "2",
@@ -45,6 +47,8 @@ def write_publications_csv(path: Path) -> None:
                 "source_dataset": "crossref",
                 "source_institution_id": "uom",
                 "source_record_id": "record-2",
+                "final_ai_decision": "AI",
+                "acceptance_method": "human",
             },
             {
                 "record_number": "3",
@@ -57,6 +61,8 @@ def write_publications_csv(path: Path) -> None:
                 "source_dataset": "manual",
                 "source_institution_id": "",
                 "source_record_id": "record-3",
+                "final_ai_decision": "AI",
+                "acceptance_method": "auto",
             },
         ]
     )
@@ -108,6 +114,37 @@ def test_generate_publication_text_embeddings_writes_expected_artifacts(tmp_path
     manifest = json.loads(manifest_output.read_text(encoding="utf-8"))
     assert manifest["result"]["embedded_rows"] == 2
     assert manifest["artifacts"]["embeddings"]["sha256"] == result.output_sha256
+
+
+def test_generate_embeddings_rejects_non_accepted_snapshot(tmp_path: Path):
+    input_csv = tmp_path / "review_queue.csv"
+    output_parquet = tmp_path / "embeddings.parquet"
+    frame = pd.DataFrame(
+        [
+            {
+                "title": "Machine learning for tea",
+                "abstract": "AI text",
+                "keywords": "ai",
+                "ai_classification_label": "review",
+                "ownership_decision": "INCLUDE",
+                "ownership_confidence": "HIGH",
+                "needs_manual_review": "false",
+            }
+        ]
+    )
+    frame.to_csv(input_csv, index=False)
+
+    with pytest.raises(ValueError, match="not an accepted AI snapshot"):
+        generate_publication_text_embeddings(
+            PublicationEmbeddingConfig(
+                input_path=input_csv,
+                output_path=output_parquet,
+                text_columns=("title", "abstract", "keywords"),
+                metadata_columns=(),
+                min_df=1,
+                max_df=1.0,
+            )
+        )
 
 
 def test_generate_embeddings_cli_command(tmp_path: Path, capsys):

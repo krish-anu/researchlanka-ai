@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import sys
 from pathlib import Path
 from typing import Any, Iterator
 from xml.etree import ElementTree
@@ -87,6 +88,8 @@ class CSVAdapter(LocalFileAdapter):
         self.delimiter = delimiter
 
     def collect(self) -> Iterator[dict]:
+        # Publication metadata can contain large abstracts or embedded raw JSON.
+        csv.field_size_limit(sys.maxsize)
         with self.path.open(newline="", encoding=self.encoding) as csv_file:
             yield from csv.DictReader(csv_file, delimiter=self.delimiter)
 

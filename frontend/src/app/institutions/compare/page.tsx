@@ -6,17 +6,13 @@ import { DataTable } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { compareInstitutions, listInstitutions } from "@/services/api";
 import type { SearchParams } from "@/services/filters";
-import {
-  formatDecimal,
-  formatNumber,
-  formatYearRange,
-} from "@/services/format";
+import { formatNumber, formatYearRange } from "@/services/format";
 import { institutionHref } from "@/services/links";
 
 export const metadata = {
   title: "Compare institutions",
   description:
-    "Compare publication output, citations and active years across two or three Sri Lankan research institutions.",
+    "Compare publication output and active years across two or three Sri Lankan research institutions.",
 };
 
 function selected(params: SearchParams): string[] {
@@ -51,7 +47,7 @@ export default async function CompareInstitutionsPage({
         <h1 className="font-display text-h1 text-ink">Compare institutions</h1>
         <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
           Benchmark two or three institutions against each other on recorded
-          output and citations.
+          output and active years.
         </p>
       </div>
 
@@ -129,9 +125,7 @@ export default async function CompareInstitutionsPage({
             </p>
           ) : null}
 
-          {/* Two measures of very different magnitude get two charts with one
-              axis each, never a single plot with a second y-scale. */}
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
             <ChartPanel
               title="Publications"
               description="Total records with an affiliation to each institution."
@@ -143,20 +137,6 @@ export default async function CompareInstitutionsPage({
                 }))}
                 valueLabel="Publications"
                 ariaLabel="Bar chart comparing publication counts across institutions"
-              />
-            </ChartPanel>
-
-            <ChartPanel
-              title="Citations"
-              description="Total citations accruing to those records."
-            >
-              <CompareBarChart
-                entries={comparison.value.data.map((profile) => ({
-                  label: profile.label,
-                  value: profile.citation_total,
-                }))}
-                valueLabel="Citations"
-                ariaLabel="Bar chart comparing citation totals across institutions"
               />
             </ChartPanel>
           </div>
@@ -185,18 +165,6 @@ export default async function CompareInstitutionsPage({
                   header: "Publications",
                   numeric: true,
                   render: (row) => formatNumber(row.publication_count),
-                },
-                {
-                  key: "citations",
-                  header: "Citations",
-                  numeric: true,
-                  render: (row) => formatNumber(row.citation_total),
-                },
-                {
-                  key: "average",
-                  header: "Citations / publication",
-                  numeric: true,
-                  render: (row) => formatDecimal(row.average_citations),
                 },
                 {
                   key: "years",

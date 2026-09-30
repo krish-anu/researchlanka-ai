@@ -8,6 +8,7 @@ import {
   UsersIcon,
 } from "@/components/layout/NavIcons";
 import { TabBar, TabLink } from "@/components/layout/TabNav";
+import type { Role } from "@/types/auth";
 
 interface AdminTab {
   href: string;
@@ -17,15 +18,16 @@ interface AdminTab {
   badgeKey?: "flags" | "review" | "aiReview";
   /** The console root; without this it stays lit on every nested tab. */
   exact?: boolean;
+  roles: Role[];
 }
 
 const TABS: AdminTab[] = [
-  { href: "/admin", label: "Overview", Icon: AdminIcon, exact: true },
-  { href: "/admin/pipeline", label: "Pipeline", Icon: PipelineIcon },
-  { href: "/admin/ai-review", label: "AI review", Icon: QueueIcon, badgeKey: "aiReview" },
-  { href: "/admin/review", label: "Resolution queue", Icon: QueueIcon, badgeKey: "review" },
-  { href: "/admin/flags", label: "Flag triage", Icon: FlagIcon, badgeKey: "flags" },
-  { href: "/admin/users", label: "Accounts", Icon: UsersIcon },
+  { href: "/admin", label: "Overview", Icon: AdminIcon, exact: true, roles: ["admin"] },
+  { href: "/admin/pipeline", label: "Pipeline", Icon: PipelineIcon, roles: ["admin"] },
+  { href: "/admin/ai-review", label: "AI review", Icon: QueueIcon, badgeKey: "aiReview", roles: ["reviewer", "admin"] },
+  { href: "/admin/review", label: "Resolution queue", Icon: QueueIcon, badgeKey: "review", roles: ["admin"] },
+  { href: "/admin/flags", label: "Flag triage", Icon: FlagIcon, badgeKey: "flags", roles: ["admin"] },
+  { href: "/admin/users", label: "Accounts", Icon: UsersIcon, roles: ["admin"] },
 ];
 
 export interface AdminBadges {
@@ -35,10 +37,10 @@ export interface AdminBadges {
 }
 
 /** Sub-navigation for the console. */
-export function AdminNav({ badges }: { badges: AdminBadges }) {
+export function AdminNav({ badges, role }: { badges: AdminBadges; role: Role }) {
   return (
     <TabBar label="Administration">
-      {TABS.map((tab) => {
+      {TABS.filter((tab) => tab.roles.includes(role)).map((tab) => {
         const count = tab.badgeKey ? badges[tab.badgeKey] : 0;
 
         return (

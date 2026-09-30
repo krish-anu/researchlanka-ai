@@ -22,7 +22,6 @@ import { topValues, yearHistogram } from "@/services/derive";
 import { extractPage, type SearchParams } from "@/services/filters";
 import {
   formatCompact,
-  formatDecimal,
   formatNumber,
   formatYearRange,
 } from "@/services/format";
@@ -135,11 +134,6 @@ export default async function ResearcherProfilePage({
           caption="records attributed to this name"
         />
         <StatTile
-          label="Citations"
-          value={formatCompact(data.citation_total)}
-          caption={`${formatDecimal(data.average_citations)} per publication`}
-        />
-        <StatTile
           label="Active years"
           value={formatYearRange(data.year_min, data.year_max)}
           caption="first to most recent record"
@@ -172,12 +166,6 @@ export default async function ResearcherProfilePage({
                       header: "Publications",
                       numeric: true,
                       render: (row) => formatNumber(row.publication_count),
-                    },
-                    {
-                      key: "citations",
-                      header: "Citations",
-                      numeric: true,
-                      render: (row) => formatNumber(row.citation_total),
                     },
                   ]}
                   rows={trend}

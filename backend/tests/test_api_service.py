@@ -10,9 +10,9 @@ from src.api.repositories.postgres import (
     PostgresPublicationRepository,
     is_institution_like_author,
 )
-from src.api.repositories.sql import PUBLICATION_YEAR_SQL
+from src.api.repositories.sql import PUBLICATION_YEAR_SQL, PUBLIC_PUBLICATION_SOURCE_SQL
 from src.api.repository import build_where
-from src.api.routes import route_get
+from src.api.routes import route_get, route_post
 from src.api.service import APIError, ResearchLankaAPI
 
 
@@ -39,6 +39,17 @@ PUBLICATIONS = [
         "concepts": "public health",
         "source_dataset": "openalex; crossref",
         "source_record_id": "W1",
+        "collected_at": "2026-09-20T10:00:00Z",
+        "normalized_at": "2026-09-21T10:00:00Z",
+        "classifier_version": "ai-rel-xgb-a2-v3",
+        "classifier_probability": "0.91",
+        "classifier_decision": "AI",
+        "ownership_policy_version": "ownership-v1",
+        "review_status": "human_accepted",
+        "reviewed_by": "reviewer@example.test",
+        "reviewed_at": "2026-09-22T10:00:00Z",
+        "dataset_version": "researchlanka-2026-09-26",
+        "pipeline_version": "pipeline-v1.4.2",
         "abstract": "A study abstract.",
         "citation_count_divergence_flag": False,
         "reference_count_divergence_flag": True,
@@ -263,6 +274,21 @@ def test_publication_detail_exposes_nested_contract_and_provenance():
 
     assert payload["data"]["venue"]["journal"] == "Ceylon Medical Journal"
     assert payload["data"]["classification"]["topics"] == ["Epidemiology", "Malaria"]
+    assert payload["data"]["trace"] == {
+        "source": ["openalex", "crossref"],
+        "source_record_id": "W1",
+        "collected_at": "2026-09-20T10:00:00Z",
+        "normalized_at": "2026-09-21T10:00:00Z",
+        "classifier_version": "ai-rel-xgb-a2-v3",
+        "classifier_probability": "0.91",
+        "classifier_decision": "AI",
+        "ownership_version": "ownership-v1",
+        "review_status": "human_accepted",
+        "reviewed_by": "reviewer@example.test",
+        "reviewed_at": "2026-09-22T10:00:00Z",
+        "dataset_version": "researchlanka-2026-09-26",
+        "pipeline_version": "pipeline-v1.4.2",
+    }
     assert payload["data"]["provenance"]["raw_record_available"] is True
 
 
@@ -272,6 +298,44 @@ def test_publication_detail_raises_not_found():
 
     assert exc_info.value.code == "not_found"
     assert exc_info.value.status == 404
+
+
+def test_public_feedback_route_accepts_public_report(monkeypatch):
+    captured = {}
+
+    def fake_with_connection(callback):
+        return callback("connection")
+
+    def fake_submit_feedback(connection, payload, *, user_agent=None):
+        captured["connection"] = connection
+        captured["payload"] = payload
+        captured["user_agent"] = user_agent
+        return {
+            "report_id": "report-1",
+            "publication_key": payload["publication_key"],
+            "report_type": payload["report_type"],
+            "status": "open",
+        }
+
+    import src.api.routing.routes as routes
+
+    monkeypatch.setattr(routes, "feedback_with_connection", fake_with_connection)
+    monkeypatch.setattr(routes, "submit_feedback", fake_submit_feedback)
+
+    payload = route_post(
+        api(),
+        "/api/v1/feedback",
+        {
+            "publication_key": "doi:10.1000/test",
+            "report_type": "incorrect_ai_classification",
+            "detail": "This appears to be classical statistics, not AI.",
+        },
+        headers={"user-agent": "pytest"},
+    )
+
+    assert payload["data"]["status"] == "open"
+    assert captured["payload"]["report_type"] == "incorrect_ai_classification"
+    assert captured["user_agent"] == "pytest"
 
 
 def test_invalid_year_filter_raises_api_error():
@@ -617,6 +681,7 @@ def test_postgres_suggestions_can_scope_to_institutions(monkeypatch):
     suggestions = repository.suggest("Uni Col", limit=8, types={"institution"})
 
     assert [suggestion["type"] for suggestion in suggestions] == ["institution"]
+    assert PUBLIC_PUBLICATION_SOURCE_SQL in calls[0]["sql"]
     assert "regexp_split_to_table(coalesce(authors::text, ''), ';')" in calls[0]["sql"]
     assert "sri_lankan_institutions" in calls[0]["sql"]
     assert False in calls[0]["params"]
@@ -930,10 +995,22 @@ def test_build_where_covers_core_filters():
     assert '"institutions" ILIKE %s' in sql
     assert "NULLIF(btrim(coalesce(\"doi\"::text, '')), '') IS NOT NULL" in sql
     assert "reference_count_divergence_flag IS TRUE" in sql
-    assert params[:5] == [
-        ["auto_accepted", "human_accepted"],
-        "malaria:*",
-        2020,
-        2024,
-        ["journal-article"],
-    ]
+    assert "ai_review_records" not in sql
+    assert params[:4] == ["malaria:*", 2020, 2024, ["journal-article"]]
+
+
+def test_publication_repository_centralizes_public_eligibility_in_source_view(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    calls = []
+
+    def fake_fetch_one(sql, params):
+        calls.append({"sql": " ".join(sql.split()), "params": params})
+        return None
+
+    monkeypatch.setattr(repository, "_fetch_one", fake_fetch_one)
+
+    repository.get_publication("doi:10.1000/rejected")
+
+    assert PUBLIC_PUBLICATION_SOURCE_SQL in calls[0]["sql"]
+    assert "final_publications p" not in calls[0]["sql"]
+    assert "ai_review_records" not in calls[0]["sql"]
