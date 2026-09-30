@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from collections import Counter
@@ -136,6 +137,22 @@ def author_value_sql_filter(expression: str) -> str:
     )
 
 
+def _min_count_having(filters: dict[str, Any]) -> tuple[str, list[Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    raw_min = filters.get("min_count")
+    raw_max = filters.get("max_count")
+    if isinstance(raw_min, int) and raw_min > 0:
+        clauses.append("count(*) >= %s")
+        params.append(raw_min)
+    if isinstance(raw_max, int) and raw_max > 0:
+        clauses.append("count(*) <= %s")
+        params.append(raw_max)
+    if not clauses:
+        return "", []
+    return "HAVING " + " AND ".join(clauses), params
+
+
 def ilike_token_patterns(query: Any) -> list[str]:
     return [f"%{token}%" for token in search_tokens(query)]
 
@@ -154,6 +171,18 @@ def _network_publication_year(value: Any) -> int | None:
     except ValueError:
         return None
     return year if 1500 <= year <= 2100 else None
+
+
+def _clean_suggestion_value(value: object) -> str:
+    text = str(value or "").strip()
+    if text.startswith("["):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            text = "; ".join(str(item).strip() for item in parsed if str(item).strip())
+    return text.strip().strip('"')
 
 
 class PostgresPublicationRepository:
@@ -330,8 +359,9 @@ class PostgresPublicationRepository:
                 FROM {PUBLICATION_SOURCE_SQL}
                 WHERE {PUBLICATION_YEAR_SQL} >= %s
                   AND {PUBLICATION_YEAR_SQL} <= %s
-            )
-            SELECT value, type, key
+            ),
+            raw_suggestions AS (
+            SELECT value, type, key, priority
             FROM (
                 SELECT title AS value, 'publication' AS type, publication_key AS key, 1 AS priority
                 FROM scoped
@@ -376,8 +406,21 @@ class PostgresPublicationRepository:
             ) suggestions
             WHERE value IS NOT NULL
               AND btrim(value) <> ''
-            ORDER BY priority, value
-            LIMIT %s
+        ),
+        balanced AS (
+            SELECT
+                value,
+                type,
+                key,
+                priority,
+                row_number() OVER (PARTITION BY type ORDER BY value) AS type_rank
+            FROM raw_suggestions
+        )
+        SELECT value, type, key
+        FROM balanced
+        WHERE type_rank <= 4
+        ORDER BY priority, value
+        LIMIT %s
             """,
             [
                 PUBLICATION_COVERAGE_START_YEAR,
@@ -397,11 +440,11 @@ class PostgresPublicationRepository:
         seen = set()
         suggestions = []
         for row in rows:
-            value = row.get("value")
+            value = _clean_suggestion_value(row.get("value"))
             if not value or value in seen:
                 continue
             seen.add(value)
-            suggestions.append(row)
+            suggestions.append({**row, "value": value, "key": value if row.get("type") != "publication" else row.get("key")})
         return suggestions[:limit]
 
     def semantic_search(
@@ -619,6 +662,8 @@ class PostgresPublicationRepository:
                         f"AND {ilike_all_tokens_sql('btrim(split.value)', len(patterns))}"
                     )
                     query_params.extend(patterns)
+            having_sql, having_params = _min_count_having(filters)
+            query_params.extend(having_params)
             query_params.extend([page_size, offset])
             rows = self._fetch_all(
                 f"""
@@ -633,6 +678,7 @@ class PostgresPublicationRepository:
                     CROSS JOIN LATERAL regexp_split_to_table(coalesce({label_ref}::text, ''), ';') AS split(value)
                     WHERE {value_filter}
                     GROUP BY 1
+                    {having_sql}
                 ) ranked
                 ORDER BY {order_metric} DESC, label ASC
                 LIMIT %s
@@ -641,6 +687,7 @@ class PostgresPublicationRepository:
                 query_params,
             )
         else:
+            having_sql, having_params = _min_count_having(filters)
             rows = self._fetch_all(
                 f"""
                 {cte_sql}
@@ -653,12 +700,13 @@ class PostgresPublicationRepository:
                     FROM filtered
                     WHERE {nonempty_text_condition(label_ref)}
                     GROUP BY 1
+                    {having_sql}
                 ) ranked
                 ORDER BY {order_metric} DESC, label ASC
                 LIMIT %s
                 OFFSET %s
                 """,
-                [*params, page_size, offset],
+                [*params, *having_params, page_size, offset],
             )
         records = [
             {
@@ -671,6 +719,170 @@ class PostgresPublicationRepository:
         ]
         total = metric_count(rows[0].get("total")) if rows else 0
         return {"records": records, "total": total}
+
+    def researcher_page_facts(
+        self,
+        filters: dict[str, Any],
+        labels: list[str],
+    ) -> dict[str, dict[str, Any]]:
+        names = [str(label).strip() for label in labels if str(label or "").strip()]
+        if not names:
+            return {}
+        cleaned = {key: value for key, value in filters.items() if key not in {"min_count", "max_count", "dimension"}}
+        cte_sql, params = self._filtered_cte(
+            cleaned,
+            [
+                "authors",
+                "institutions",
+                "sri_lankan_institutions",
+                "primary_field",
+                "primary_subfield",
+                "publication_year",
+            ],
+        )
+        rows = self._fetch_all(
+            f"""
+            {cte_sql}
+            SELECT
+                btrim(author.value) AS author,
+                publication_year,
+                primary_field,
+                primary_subfield,
+                sri_lankan_institutions,
+                institutions
+            FROM filtered
+            CROSS JOIN LATERAL regexp_split_to_table(coalesce(authors::text, ''), ';') AS author(value)
+            WHERE {author_value_sql_filter("author.value")}
+              AND btrim(author.value) = ANY(%s)
+            """,
+            [*params, INSTITUTION_LIKE_AUTHOR_SQL_PATTERN, names],
+        )
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            grouped.setdefault(str(row["author"]), []).append(row)
+        facts: dict[str, dict[str, Any]] = {}
+        for author, items in grouped.items():
+            years = [
+                int(item["publication_year"])
+                for item in items
+                if item.get("publication_year") not in (None, "")
+            ]
+            institutions: Counter[str] = Counter()
+            areas: Counter[str] = Counter()
+            for item in items:
+                named = split_semicolon_value(item.get("sri_lankan_institutions")) or split_semicolon_value(
+                    item.get("institutions")
+                )
+                for name in named:
+                    text = str(name).strip()
+                    if text:
+                        institutions[text] += 1
+                subfield = str(item.get("primary_subfield") or "").strip()
+                field = str(item.get("primary_field") or "").strip()
+                if subfield:
+                    areas[subfield] += 1
+                elif field:
+                    areas[field] += 1
+            top_institution = institutions.most_common(1)
+            facts[author] = {
+                "affiliation": top_institution[0][0] if top_institution else None,
+                "areas": [name for name, _count in areas.most_common(2)],
+                "year_min": min(years) if years else None,
+                "year_max": max(years) if years else None,
+            }
+        return facts
+
+    def researcher_landscape(self, filters: dict[str, Any]) -> dict[str, Any]:
+        cleaned = {key: value for key, value in filters.items() if key not in {"min_count", "max_count", "dimension"}}
+        count_filters: dict[str, Any] = {}
+        if isinstance(filters.get("min_count"), int):
+            count_filters["min_count"] = filters["min_count"]
+        if isinstance(filters.get("max_count"), int):
+            count_filters["max_count"] = filters["max_count"]
+        having_sql, having_params = _min_count_having(count_filters)
+        cte_sql, params = self._filtered_cte(
+            cleaned,
+            ["authors", "institutions", "sri_lankan_institutions"],
+        )
+        author_filter = author_value_sql_filter("author.value")
+        buckets = self._fetch_all(
+            f"""
+            {cte_sql}
+            SELECT label, count(*) AS researcher_count
+            FROM (
+                SELECT
+                    CASE
+                        WHEN publication_count <= 1 THEN '1'
+                        WHEN publication_count <= 4 THEN '2–4'
+                        WHEN publication_count <= 9 THEN '5–9'
+                        WHEN publication_count <= 24 THEN '10–24'
+                        ELSE '25+'
+                    END AS label
+                FROM (
+                    SELECT btrim(author.value) AS author, count(*) AS publication_count
+                    FROM filtered
+                    CROSS JOIN LATERAL regexp_split_to_table(coalesce(authors::text, ''), ';') AS author(value)
+                    WHERE {author_filter}
+                    GROUP BY 1
+                    {having_sql}
+                ) authors
+            ) grouped
+            GROUP BY label
+            """,
+            [*params, INSTITUTION_LIKE_AUTHOR_SQL_PATTERN, *having_params],
+        )
+        institutions = self._fetch_all(
+            f"""
+            {cte_sql},
+            qualifying AS (
+                SELECT btrim(author.value) AS author
+                FROM filtered
+                CROSS JOIN LATERAL regexp_split_to_table(coalesce(authors::text, ''), ';') AS author(value)
+                WHERE {author_filter}
+                GROUP BY 1
+                {having_sql}
+            )
+            SELECT label, count(DISTINCT author) AS researcher_count
+            FROM (
+                SELECT
+                    qualifying.author,
+                    btrim(inst.value) AS label
+                FROM filtered
+                CROSS JOIN LATERAL regexp_split_to_table(coalesce(authors::text, ''), ';') AS author(value)
+                JOIN qualifying ON qualifying.author = btrim(author.value)
+                CROSS JOIN LATERAL regexp_split_to_table(
+                    CASE
+                        WHEN btrim(coalesce(sri_lankan_institutions::text, '')) <> ''
+                        THEN sri_lankan_institutions::text
+                        ELSE coalesce(institutions::text, '')
+                    END,
+                    ';'
+                ) AS inst(value)
+                WHERE btrim(inst.value) <> ''
+            ) pairs
+            GROUP BY label
+            ORDER BY researcher_count DESC, label ASC
+            LIMIT 8
+            """,
+            [*params, INSTITUTION_LIKE_AUTHOR_SQL_PATTERN, *having_params],
+        )
+        order = ["1", "2–4", "5–9", "10–24", "25+"]
+        by_output = {str(row["label"]): metric_count(row.get("researcher_count")) for row in buckets}
+        return {
+            "by_output": [
+                {"label": label, "researcher_count": by_output[label]}
+                for label in order
+                if by_output.get(label)
+            ],
+            "by_institution": [
+                {
+                    "label": str(row["label"]),
+                    "researcher_count": metric_count(row.get("researcher_count")),
+                }
+                for row in institutions
+                if row.get("label")
+            ],
+        }
 
     def collaboration_network(
         self,

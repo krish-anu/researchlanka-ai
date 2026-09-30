@@ -1,19 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
-import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
-import { NetworkSummaryPanel } from "@/components/network/NetworkMetrics";
+import { ProfileHeader, ProfileTabs } from "@/components/layout/ProfileHeader";
+import { InstitutionNetworkPanel } from "@/components/network/ProfileNetworkPanels";
 import { PublicationCardList } from "@/components/publications/PublicationCard";
-import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
+import { ChartPanel, ChartSkeleton, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
 import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
+import { PrintMeta } from "@/components/ui/PrintMeta";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import {
   exportUrl,
-  getCollaborationNetwork,
   getInstitution,
   getInstitutionCollaborators,
   getInstitutionPublications,
@@ -67,18 +68,12 @@ export default async function InstitutionProfilePage({
 
   const data = profile.value.data;
 
-  const [publications, collaborators, trendSample, network] = await Promise.all([
+  const [publications, collaborators, trendSample] = await Promise.all([
     getInstitutionPublications(institutionKey, { page, page_size: PAGE_SIZE }),
     getInstitutionCollaborators(institutionKey, { limit: 25 }),
     getInstitutionPublications(institutionKey, {
       page: 1,
       page_size: TREND_SAMPLE,
-    }),
-    getCollaborationNetwork({
-      scope: "institution",
-      institution: [data.label],
-      limit: 40,
-      min_weight: 1,
     }),
   ]);
 
@@ -92,218 +87,234 @@ export default async function InstitutionProfilePage({
       : null;
   const topFields = topValues(sample, (item) => [item.primary_field], 10);
 
-  return (
-    <div className="flex flex-col gap-5">
-      <nav className="text-body-sm text-muted">
-        <Link href="/institutions" className="hover:text-ink hover:underline">
-          Institutions
-        </Link>
-        <span aria-hidden> / </span>
-        <span>{data.label}</span>
-      </nav>
+  const breadcrumbs = (
+    <nav className="text-body-sm text-muted">
+      <Link href="/institutions" className="hover:text-ink hover:underline">
+        Institutions
+      </Link>
+      <span aria-hidden> / </span>
+      <span>{data.label}</span>
+    </nav>
+  );
 
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-h1 text-ink">{data.label}</h1>
-          <p className="mt-1 text-body-sm text-ink-secondary">
-            Records span {formatYearRange(data.year_min, data.year_max)}
-          </p>
-        </div>
-        <Link
-          href={`/institutions/compare?institution=${encodeURIComponent(data.label)}`}
-          className="interactive shrink-0 rounded-md border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
-        >
-          Compare with another →
-        </Link>
-      </header>
+  const metrics = (
+    <StatTileGrid>
+      <StatTile
+        label="Publications"
+        value={formatCompact(data.publication_count)}
+        caption="records with this affiliation"
+      />
+      <StatTile
+        label="Open access"
+        value={
+          openAccessShare === null ? "—" : formatRatioAsPercent(openAccessShare)
+        }
+        caption={
+          isTruncated
+            ? `share within the ${TREND_SAMPLE}-record sample`
+            : "share of this institution's records"
+        }
+      />
+      <StatTile
+        label="Partner institutions"
+        value={
+          collaborators.ok
+            ? formatNumber(collaborators.value.data.length)
+            : "—"
+        }
+        caption="co-publishing partners (top 25 shown)"
+      />
+    </StatTileGrid>
+  );
 
-      <StatTileGrid>
-        <StatTile
-          label="Publications"
-          value={formatCompact(data.publication_count)}
-          caption="records with this affiliation"
-        />
-        <StatTile
-          label="Open access"
-          value={
-            openAccessShare === null ? "—" : formatRatioAsPercent(openAccessShare)
-          }
-          caption={
-            isTruncated
-              ? `share within the ${TREND_SAMPLE}-record sample`
-              : "share of this institution's records"
-          }
-        />
-        <StatTile
-          label="Partner institutions"
-          value={
-            collaborators.ok
-              ? formatNumber(collaborators.value.data.length)
-              : "—"
-          }
-          caption="co-publishing partners (top 25 shown)"
-        />
-      </StatTileGrid>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <ChartPanel
-          title="Publications per year"
-          description={
-            isTruncated
-              ? `Derived from the ${TREND_SAMPLE} most recent of ${formatNumber(sampleTotal)} records — not the full history.`
-              : "Derived from this institution's full publication list."
-          }
-          table={
-            trend.length > 0 ? (
-              <TableDisclosure>
-                <DataTable
-                  columns={[
-                    { key: "year", header: "Year", render: (row) => String(row.key) },
-                    {
-                      key: "count",
-                      header: "Publications",
-                      numeric: true,
-                      render: (row) => formatNumber(row.publication_count),
-                    },
-                  ]}
-                  rows={trend}
-                  rowKey={(row) => String(row.key)}
-                />
-              </TableDisclosure>
-            ) : null
-          }
-        >
-          {trend.length > 0 ? (
-            <TrendLineChart
-              points={trend.map((bucket) => ({
-                key: bucket.key,
-                value: bucket.publication_count,
-              }))}
-              valueLabel="Publications"
-              ariaLabel={`Publications per year for ${data.label}`}
-              height={240}
-            />
-          ) : (
-            <p className="p-4 text-body-sm text-muted">
-              No records with a publication year.
-            </p>
-          )}
-        </ChartPanel>
-
-        <section className="panel p-4">
-          <SectionHeading
-            title="Collaborating institutions"
-            description="Institutions appearing alongside this one on shared publications."
+  const overviewTab = (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <ChartPanel
+        title="Publications per year"
+        description={
+          isTruncated
+            ? `Derived from the ${TREND_SAMPLE} most recent of ${formatNumber(sampleTotal)} records — not the full history.`
+            : "Derived from this institution's full publication list."
+        }
+        table={
+          trend.length > 0 ? (
+            <TableDisclosure>
+              <DataTable
+                columns={[
+                  { key: "year", header: "Year", render: (row) => String(row.key) },
+                  {
+                    key: "count",
+                    header: "Publications",
+                    numeric: true,
+                    render: (row) => formatNumber(row.publication_count),
+                  },
+                ]}
+                rows={trend}
+                rowKey={(row) => String(row.key)}
+              />
+            </TableDisclosure>
+          ) : null
+        }
+      >
+        {trend.length > 0 ? (
+          <TrendLineChart
+            points={trend.map((bucket) => ({
+              key: bucket.key,
+              value: bucket.publication_count,
+            }))}
+            valueLabel="Publications"
+            ariaLabel={`Publications per year for ${data.label}`}
+            height={240}
           />
-          {!collaborators.ok ? (
-            <ApiErrorPanel error={collaborators.error} what="collaborators" />
-          ) : collaborators.value.data.length === 0 ? (
-            <p className="p-4 text-body-sm text-muted">
-              No co-publishing partners recorded.
-            </p>
-          ) : (
-            <DataTable
-              columns={[
-                {
-                  key: "institution",
-                  header: "Institution",
-                  render: (row) => (
-                    <Link
-                      href={institutionHref(row.institution)}
-                      className="hover:underline"
-                    >
-                      {row.institution}
-                    </Link>
-                  ),
-                },
-                {
-                  key: "count",
-                  header: "Shared publications",
-                  numeric: true,
-                  render: (row) => formatNumber(row.publication_count),
-                },
-              ]}
-              rows={collaborators.value.data}
-              rowKey={(row) => row.institution}
-            />
-          )}
-        </section>
-      </div>
-
-      {network.ok && network.value.data.nodes.length > 0 ? (
-        <ChartPanel
-          title="Collaboration network"
-          description="Co-publishing structure around this institution."
-        >
-          <div className="flex flex-col gap-5">
-            <CollaborationNetwork
-              network={network.value.data}
-              scope="institution"
-              height={380}
-            />
-            <NetworkSummaryPanel summary={network.value.data.summary} />
-          </div>
-        </ChartPanel>
-      ) : null}
-
-      {topFields.length > 0 ? (
-        <section className="panel p-4">
-          <SectionHeading
-            title="Research fields"
-            description="Fields most represented across the sampled publication list."
-          />
-          <ul className="flex flex-wrap gap-2">
-            {topFields.map((entry) => (
-              <li key={entry.label}>
-                <Link
-                  href={publicationSearchHref({
-                    field: entry.label,
-                    institution: data.label,
-                  })}
-                  className="chip"
-                >
-                  {entry.label}
-                  <span className="data-mono text-muted">{entry.count}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-body-sm text-muted">
-            Department and faculty breakdowns are not available: the consolidated
-            dataset records institution-level affiliations only, with no
-            sub-unit field to group by.
-          </p>
-        </section>
-      ) : null}
-
-      <section>
-        <SectionHeading
-          title="Publications"
-          description="Every record affiliated with this institution, newest first."
-          action={
-            <DownloadLink
-              href={exportUrl("publications.csv", { institution: [data.label] })}
-            >
-              Export list (CSV)
-            </DownloadLink>
-          }
-        />
-        {!publications.ok ? (
-          <ApiErrorPanel error={publications.error} what="publications" />
-        ) : publications.value.data.length === 0 ? (
-          <EmptyState title="No publications found for this institution" />
         ) : (
-          <div className="flex flex-col gap-4">
-            <PublicationCardList publications={publications.value.data} />
-            <Pagination
-              pagination={publications.value.pagination}
-              basePath={institutionHref(institutionKey)}
-              searchParams={query}
-            />
-          </div>
+          <EmptyState bare title="No records with a publication year" />
+        )}
+      </ChartPanel>
+
+      <section className="panel p-4">
+        <SectionHeading
+          title="Collaborating institutions"
+          description="Institutions appearing alongside this one on shared publications."
+        />
+        {!collaborators.ok ? (
+          <ApiErrorPanel error={collaborators.error} what="collaborators" />
+        ) : collaborators.value.data.length === 0 ? (
+          <p className="p-4 text-body-sm text-muted">
+            No co-publishing partners recorded.
+          </p>
+        ) : (
+          <DataTable
+            columns={[
+              {
+                key: "institution",
+                header: "Institution",
+                render: (row) => (
+                  <Link
+                    href={institutionHref(row.institution)}
+                    className="hover:underline"
+                  >
+                    {row.institution}
+                  </Link>
+                ),
+              },
+              {
+                key: "count",
+                header: "Shared publications",
+                numeric: true,
+                render: (row) => formatNumber(row.publication_count),
+              },
+            ]}
+            rows={collaborators.value.data}
+            rowKey={(row) => row.institution}
+          />
         )}
       </section>
+    </div>
+  );
 
+  const publicationsTab = (
+    <section>
+      <SectionHeading
+        title="Publications"
+        description="Every record affiliated with this institution, newest first."
+        action={
+          <DownloadLink
+            href={exportUrl("publications.csv", { institution: [data.label] })}
+          >
+            Export list (CSV)
+          </DownloadLink>
+        }
+      />
+      {!publications.ok ? (
+        <ApiErrorPanel error={publications.error} what="publications" />
+      ) : publications.value.data.length === 0 ? (
+        <EmptyState title="No publications found for this institution" />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <PublicationCardList publications={publications.value.data} />
+          <Pagination
+            pagination={publications.value.pagination}
+            basePath={institutionHref(institutionKey)}
+            searchParams={query}
+          />
+        </div>
+      )}
+    </section>
+  );
+
+  const networkTab = (
+    <Suspense
+      fallback={<ChartSkeleton label="Loading collaboration network…" size="lg" />}
+    >
+      <InstitutionNetworkPanel label={data.label} />
+    </Suspense>
+  );
+
+  const topicsTab =
+    topFields.length > 0 ? (
+      <section className="panel p-4 detail-measure">
+        <SectionHeading
+          title="Research fields"
+          description="Fields most represented across the sampled publication list."
+        />
+        <ul className="flex flex-wrap gap-2">
+          {topFields.map((entry) => (
+            <li key={entry.label}>
+              <Link
+                href={publicationSearchHref({
+                  field: entry.label,
+                  institution: data.label,
+                })}
+                className="chip"
+              >
+                {entry.label}
+                <span className="data-mono text-muted">{entry.count}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-body-sm text-muted">
+          Department and faculty breakdowns are not available: the consolidated
+          dataset records institution-level affiliations only.
+        </p>
+      </section>
+    ) : (
+      <EmptyState bare title="No field assignments in the sample" />
+    );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PrintMeta
+        title={data.label}
+        snapshotDate={profile.value.meta.snapshot_date}
+        extra={
+          profile.value.meta.dataset_stage
+            ? [`Stage: ${profile.value.meta.dataset_stage}`]
+            : undefined
+        }
+      />
+      <ProfileHeader
+        title={data.label}
+        subtitle={`Records span ${formatYearRange(data.year_min, data.year_max)}`}
+        breadcrumbs={breadcrumbs}
+        metrics={metrics}
+        actions={
+          <Link
+            href={`/institutions/compare?institution=${encodeURIComponent(data.label)}`}
+            className="interactive shrink-0 rounded-md border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
+          >
+            Compare with another →
+          </Link>
+        }
+      />
+      <ProfileTabs
+        tabs={[
+          { id: "overview", content: overviewTab },
+          { id: "publications", content: publicationsTab },
+          { id: "network", content: networkTab },
+          { id: "topics", content: topicsTab, hidden: topFields.length === 0 },
+        ]}
+      />
       <SnapshotNote
         snapshotDate={profile.value.meta.snapshot_date}
         datasetStage={profile.value.meta.dataset_stage}

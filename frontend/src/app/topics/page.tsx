@@ -1,8 +1,8 @@
 import { CsvDownload } from "@/components/ui/CsvDownload";
 import { Suspense } from "react";
-import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
+import { AnalyticsFilters, toFilterChoices, withoutQueryKey } from "@/components/analytics/AnalyticsFilters";
 import { ActivityPanel } from "@/components/analytics/ResearchPanels";
-import { DistributionChart } from "@/components/charts/DistributionChart";
+import { DistributionChart, type MosaicEntry } from "@/components/charts/DistributionChart";
 import { PageIntro } from "@/components/layout/PageIntro";
 import Link from "next/link";
 
@@ -11,9 +11,34 @@ import { ApiErrorPanel, EmptyState, SectionHeading, emptyListState } from "@/com
 import { Pagination } from "@/components/ui/Pagination";
 import { RankingTable } from "@/components/ui/RankingTable";
 import { SnapshotNote } from "@/components/ui/Provenance";
-import { analyticsExportUrl, buildQuery, listFields, listTopics, getAnalyticsFields } from "@/services/api";
-import { extractFilters, extractPage, type SearchParams } from "@/services/filters";
+import { PrintMeta } from "@/components/ui/PrintMeta";
+import { analyticsExportUrl, buildQuery, listFields, listTopics, getAnalyticsFields, type QueryParams } from "@/services/api";
+import { extractFilters, extractMinCount, extractPage, type SearchParams } from "@/services/filters";
 import { publicationSearchHref, topicHref } from "@/services/links";
+
+async function subfieldBranches(
+  filters: QueryParams,
+  labels: string[],
+): Promise<Record<string, MosaicEntry[]>> {
+  const results = await Promise.all(
+    labels.map(async (label) => {
+      const result = await listFields({
+        ...filters,
+        field: [label],
+        level: "subfield",
+        page: 1,
+        page_size: 12,
+      });
+      const children = result.ok
+        ? result.value.data
+            .filter((row) => row.publication_count > 0)
+            .map((row) => ({ label: row.label, value: row.publication_count }))
+        : [];
+      return [label, children] as const;
+    }),
+  );
+  return Object.fromEntries(results);
+}
 
 export const metadata = {
   title: "Topics and fields",
@@ -36,6 +61,7 @@ export default async function TopicsPage({
 }) {
   const params = await searchParams;
   const filters = extractFilters(params);
+  const minCount = extractMinCount(params);
   const rawLevel = typeof params.level === "string" ? params.level : "field";
   const level: Level = LEVELS.some((option) => option.value === rawLevel)
     ? (rawLevel as Level)
@@ -44,38 +70,57 @@ export default async function TopicsPage({
   const topicsPage = extractPage(params, "topics_page");
 
   const [fields, topics, filterFields] = await Promise.all([
-    listFields({ ...filters, level, page: fieldsPage, page_size: 25 }),
+    listFields({
+      ...filters,
+      ...(minCount ? { min_count: minCount } : {}),
+      level,
+      page: fieldsPage,
+      page_size: 25,
+    }),
     listTopics({ ...filters, page: topicsPage, page_size: 25 }),
-    getAnalyticsFields({ limit: 100 }),
+    getAnalyticsFields({ ...withoutQueryKey(filters, "field"), limit: 100 }),
   ]);
+  const fieldBranches =
+    level === "field" && fields.ok
+      ? await subfieldBranches(
+          filters,
+          fields.value.data.map((entry) => entry.label),
+        )
+      : {};
 
   return (
-    <div className="flex flex-col gap-5">
-      <PageIntro title="Follow the AI ideas." description="Explore the fields and topics represented within Sri Lanka’s AI-related publications." />
+    <div className="flex flex-col gap-3">
+      <PrintMeta
+        title="Topics and fields"
+        snapshotDate={topics.ok ? topics.value.meta.snapshot_date : null}
+        searchParams={params}
+      />
+      <PageIntro
+        title="Topics and fields"
+        description="OpenAlex fields and topics in the Sri Lankan AI corpus, ranked by publication count."
+      />
 
-      <AnalyticsFilters params={params} basePath="/topics" fields={filterFields.ok ? filterFields.value.data.map(f => f.label) : []} />
-      <div className="panel p-3">
-        <p className="flex gap-2 text-body-sm text-ink-secondary">
-          <span aria-hidden className="text-muted">
-            ⓘ
-          </span>
-          <span>
-            Topics and fields come from source and index classification
-            (OpenAlex), not an official national research taxonomy. They are
-            automated assignments and carry the usual misclassification risk.
-          </span>
-        </p>
-      </div>
+      <AnalyticsFilters
+        params={params}
+        basePath="/topics"
+        fields={toFilterChoices(filterFields.ok ? filterFields.value.data : [])}
+        showMinCount
+      />
 
       <section>
         <SectionHeading
           title="Classification breakdown"
-          description="Publication counts at the selected level of the classification hierarchy."
+          description="Drill Domain → Field → Subfield. Counts are assignment tallies, not exclusive shares."
           action={
             <nav aria-label="Classification level">
-              <ul className="flex gap-1">
-                {LEVELS.map((option) => (
-                  <li key={option.value}>
+              <ol className="flex flex-wrap items-center gap-1">
+                {LEVELS.map((option, index) => (
+                  <li key={option.value} className="flex items-center gap-1">
+                    {index > 0 ? (
+                      <span aria-hidden className="text-muted">
+                        →
+                      </span>
+                    ) : null}
                     <Link
                       href={`/topics${buildQuery({ ...filters, level: option.value })}`}
                       aria-current={option.value === level ? "true" : undefined}
@@ -89,7 +134,7 @@ export default async function TopicsPage({
                     </Link>
                   </li>
                 ))}
-              </ul>
+              </ol>
             </nav>
           }
         />
@@ -137,8 +182,23 @@ export default async function TopicsPage({
               </details>
             }
           >
-            <DistributionChart entries={fields.value.data.map(entry => ({ label: entry.label, value: entry.publication_count }))} initialView="mosaic" ariaLabel={`AI publication distribution by ${level}`} />
-            <p className="mt-3 text-xs text-muted">Distribution covers the current directory page. Topics can overlap; counts are assignments, not distinct-publication shares.</p>
+            <DistributionChart
+              entries={fields.value.data.map((entry) => ({
+                label: entry.label,
+                value: entry.publication_count,
+              }))}
+              branches={fieldBranches}
+              initialView="mosaic"
+              ariaLabel={
+                level === "field"
+                  ? "AI publications by field. Select a field to open its subfields."
+                  : `AI publication distribution by ${level}`
+              }
+            />
+            <p className="mt-3 text-body-sm text-muted">
+              Counts on this page.
+              {level === "field" ? " Select a field to open its subfields." : ""}
+            </p>
           </ChartPanel>
         )}
       </section>
@@ -148,16 +208,28 @@ export default async function TopicsPage({
       <section>
         <SectionHeading
           title="Topics"
-          description="Fine-grained topic assignments, ranked by publication count."
+          description="Fine-grained OpenAlex topic assignments, ranked by publication count."
         />
         {!topics.ok ? (
-          <ApiErrorPanel error={topics.error} what="the topic directory" />
+          <details className="panel p-4" open>
+            <summary className="cursor-pointer font-medium text-ink">
+              Topic directory unavailable
+            </summary>
+            <div className="mt-3">
+              <ApiErrorPanel error={topics.error} what="the topic directory" />
+              <p className="mt-3 text-body-sm text-ink-secondary">
+                Classification fields above may still load. Try Domain / Field /
+                Subfield, or clear filters.
+              </p>
+            </div>
+          </details>
         ) : topics.value.data.length === 0 ? (
           <EmptyState {...emptyListState("topics", "/topics", filters)} />
         ) : (
           <>
             <div className="panel p-1">
               <RankingTable
+                fitWidth
                 entries={topics.value.data}
                 labelHeader="Topic"
                 href={topicHref}

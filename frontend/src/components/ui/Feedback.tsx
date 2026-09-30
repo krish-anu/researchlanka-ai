@@ -131,11 +131,14 @@ export function EmptyState({
   description,
   recovery,
   action,
+  bare = false,
 }: {
   title: string;
   description?: string;
   recovery?: EmptyRecovery;
   action?: ReactNode;
+  /** Skip the card chrome when this already sits inside a panel. */
+  bare?: boolean;
 }) {
   const recoveryLabel =
     recovery?.kind === "clear-filters"
@@ -145,10 +148,10 @@ export function EmptyState({
         : null;
 
   return (
-    <div className="panel flex flex-col items-center gap-2 px-6 py-12 text-center">
-      <p className="font-display text-h3 text-ink">{title}</p>
+    <div className={bare ? "py-2" : "panel px-4 py-3"}>
+      <p className="text-body-md font-medium text-ink">{title}</p>
       {description ? (
-        <p className="max-w-prose text-body-sm text-ink-secondary">{description}</p>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">{description}</p>
       ) : null}
       {recovery && recoveryLabel ? (
         <Button href={recovery.href} variant="primary" size="sm" className="mt-2">

@@ -9,7 +9,7 @@ import {
 } from "@/components/navigation/FilterNavigation";
 import { REPEATABLE_FILTERS, toggleFilterHref, type SearchParams } from "@/services/filters";
 import { titleCase } from "@/services/format";
-import { SORT_OPTIONS } from "@/types/api";
+import { SORT_OPTIONS, type Facets } from "@/types/api";
 
 function values(searchParams: SearchParams, key: string): string[] {
   const raw = searchParams[key];
@@ -21,11 +21,51 @@ function first(searchParams: SearchParams, key: string): string {
   return values(searchParams, key)[0] ?? "";
 }
 
+const APPLY_FACETS = ["type", "institution", "journal"] as const;
+
+function FacetSelect({
+  name,
+  label,
+  values,
+  current,
+}: {
+  name: string;
+  label: string;
+  values: Record<string, number>;
+  current: string;
+}) {
+  const entries = Object.entries(values)
+    .filter(([value]) => value !== "")
+    .sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return null;
+  return (
+    <label className="flex flex-col gap-1 border-b border-rule py-2 text-body-sm text-ink-secondary">
+      {label}
+      <select
+        name={name}
+        defaultValue={current}
+        aria-label={label}
+        className="min-h-11 rounded border border-rule bg-surface px-2 text-body-sm text-ink"
+      >
+        <option value="">All</option>
+        {current && !entries.some(([value]) => value === current) ? (
+          <option value={current}>{current}</option>
+        ) : null}
+        {entries.map(([value, count]) => (
+          <option key={value} value={value}>
+            {titleCase(value)} ({count})
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function ResetFiltersButton({ href }: { href: string }) {
   const { navigate } = useFilterNavigation();
   return (
     <Button type="button" variant="ghost" onClick={() => navigate(href)}>
-      Reset
+      Clear all
     </Button>
   );
 }
@@ -35,87 +75,154 @@ export function FilterControlsForm({
   basePath,
   yearStart,
   yearEnd,
+  facets,
 }: {
   searchParams: SearchParams;
   basePath: string;
   yearStart?: number;
   yearEnd?: number;
+  facets?: Facets;
 }) {
   const inputClass =
-    "w-full rounded border border-rule bg-sunk px-2 py-1.5 text-body-sm text-ink focus:border-primary focus:outline-none";
-  const labelClass = "label-caps flex flex-col gap-1.5 text-muted";
-
+    "min-h-11 w-full rounded border border-rule bg-surface px-2 py-1.5 text-body-md text-ink";
+  const labelClass = "flex flex-col gap-1 text-body-sm text-ink-secondary";
   return (
-    <SoftNavForm action={basePath} className="panel flex flex-col gap-4 p-4">
+    <SoftNavForm action={basePath} className="flex flex-col">
       {first(searchParams, "q") ? (
         <input type="hidden" name="q" value={first(searchParams, "q")} />
       ) : null}
-      {REPEATABLE_FILTERS.flatMap((name) =>
+      {first(searchParams, "sort") &&
+      !(first(searchParams, "sort") === "relevance" && !first(searchParams, "q")) ? (
+        <input type="hidden" name="sort" value={first(searchParams, "sort")} />
+      ) : null}
+      {REPEATABLE_FILTERS.filter(
+        (name) => !APPLY_FACETS.includes(name as (typeof APPLY_FACETS)[number]),
+      ).flatMap((name) =>
         values(searchParams, name).map((value) => (
           <input key={`${name}-${value}`} type="hidden" name={name} value={value} />
         )),
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <YearRangeInputs
-          startYear={yearStart}
-          endYear={yearEnd}
-          defaultFrom={first(searchParams, "year_min")}
-          defaultTo={first(searchParams, "year_max")}
-          inputClassName={inputClass}
-          labelClassName={labelClass}
-          allowEmpty
-        />
-      </div>
-
-      <label className={labelClass}>
-        Sort
-        <select
-          className={inputClass}
-          name="sort"
-          defaultValue={first(searchParams, "sort")}
-        >
-          <option value="">Default</option>
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
+      <details className="refine-disclosure border-b border-rule">
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between py-2 text-body-sm font-medium text-ink">
+          Access
+        </summary>
+        <fieldset className="flex flex-col gap-2 pb-3">
+          <legend className="sr-only">Access</legend>
+          {(
+            [
+              ["is_oa", "Open access only"],
+              ["has_doi", "Has a DOI"],
+              ["has_abstract", "Has an abstract"],
+            ] as const
+          ).map(([name, label]) => (
+            <label
+              key={name}
+              className="flex min-h-11 items-center gap-2 text-body-sm text-ink-secondary"
+            >
+              <input
+                type="checkbox"
+                name={name}
+                value="true"
+                defaultChecked={first(searchParams, name) === "true"}
+                className="size-4"
+              />
+              {label}
+            </label>
           ))}
-        </select>
-      </label>
+        </fieldset>
+      </details>
 
-      <fieldset className="flex flex-col gap-1.5">
-        <legend className="label-caps pb-2 text-muted">Record properties</legend>
-        {(
-          [
-            ["is_oa", "Open access only"],
-            ["has_doi", "Has a DOI"],
-            ["has_abstract", "Has an abstract"],
-          ] as const
-        ).map(([name, label]) => (
-          <label
-            key={name}
-            className="flex items-center gap-2 text-body-sm text-ink-secondary"
-          >
-            <input
-              type="checkbox"
-              name={name}
-              value="true"
-              defaultChecked={first(searchParams, name) === "true"}
-              className="size-4"
-            />
-            {label}
-          </label>
-        ))}
-      </fieldset>
+      <details className="refine-disclosure border-b border-rule">
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between py-2 text-body-sm font-medium text-ink">
+          Publication year
+        </summary>
+        <div className="grid grid-cols-2 gap-2 pb-3">
+          <YearRangeInputs
+            key={`${first(searchParams, "year_min") || "any"}-${first(searchParams, "year_max") || "any"}`}
+            startYear={yearStart}
+            endYear={yearEnd}
+            defaultFrom={first(searchParams, "year_min")}
+            defaultTo={first(searchParams, "year_max")}
+            inputClassName={inputClass}
+            labelClassName={labelClass}
+            allowEmpty
+          />
+        </div>
+      </details>
 
-      <div className="flex gap-2">
-        <Button type="submit" variant="primary" className="flex-1">
+      <FacetSelect
+        name="type"
+        label="Publication type"
+        values={facets?.type ?? {}}
+        current={first(searchParams, "type")}
+      />
+      <FacetSelect
+        name="institution"
+        label="Institution"
+        values={facets?.sri_lankan_institutions ?? {}}
+        current={first(searchParams, "institution")}
+      />
+      <FacetSelect
+        name="journal"
+        label="Journal"
+        values={facets?.journal ?? {}}
+        current={first(searchParams, "journal")}
+      />
+
+      <div className="mt-3 flex gap-2">
+        <Button type="submit" variant="primary" size="sm">
           Apply
         </Button>
         <ResetFiltersButton href={basePath} />
       </div>
     </SoftNavForm>
+  );
+}
+
+export function PublicationSort({
+  searchParams,
+  basePath = "/publications",
+}: {
+  searchParams: SearchParams;
+  basePath?: string;
+}) {
+  const { navigate } = useFilterNavigation();
+  const hasQuery = Boolean(first(searchParams, "q"));
+  const current = first(searchParams, "sort");
+  const value = current === "relevance" && !hasQuery ? "" : current;
+  const options = SORT_OPTIONS.filter(
+    (option) => option.value !== "relevance" || hasQuery,
+  );
+
+  return (
+    <label className="flex items-center gap-2 text-body-sm text-ink-secondary">
+      Sort
+      <select
+        aria-label="Sort publications"
+        className="min-h-11 rounded border border-rule bg-surface px-2 text-body-sm text-ink"
+        value={value}
+        onChange={(event) => {
+          const search = new URLSearchParams();
+          for (const [key, raw] of Object.entries(searchParams)) {
+            if (key === "page" || key === "sort") continue;
+            for (const item of Array.isArray(raw) ? raw : raw ? [raw] : []) {
+              if (item) search.append(key, item);
+            }
+          }
+          if (event.target.value) search.set("sort", event.target.value);
+          const qs = search.toString();
+          navigate(qs ? `${basePath}?${qs}` : basePath);
+        }}
+      >
+        <option value="">Default</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -138,7 +245,57 @@ export function ActiveFilters({
     }
   }
 
-  for (const name of ["year_min", "year_max", "is_oa", "has_doi", "has_abstract"]) {
+  const yearMin = first(searchParams, "year_min");
+  const yearMax = first(searchParams, "year_max");
+  if (yearMin && yearMax) {
+    pills.push({
+      key: "year-range",
+      label: `Year: ${yearMin}–${yearMax}`,
+      href: withoutParams(basePath, searchParams, ["year_min", "year_max"]),
+    });
+  } else {
+    if (yearMin) {
+      pills.push({
+        key: `year_min:${yearMin}`,
+        label: `Year: from ${yearMin}`,
+        href: toggleFilterHref(basePath, searchParams, "year_min", yearMin),
+      });
+    }
+    if (yearMax) {
+      pills.push({
+        key: `year_max:${yearMax}`,
+        label: `Year: to ${yearMax}`,
+        href: toggleFilterHref(basePath, searchParams, "year_max", yearMax),
+      });
+    }
+  }
+
+  const minCount = first(searchParams, "min_count");
+  const maxCount = first(searchParams, "max_count");
+  if (minCount && maxCount) {
+    pills.push({
+      key: `count:${minCount}:${maxCount}`,
+      label:
+        minCount === maxCount
+          ? `Publications: ${minCount}`
+          : `Publications: ${minCount}–${maxCount}`,
+      href: withoutParams(basePath, searchParams, ["min_count", "max_count"]),
+    });
+  } else if (minCount) {
+    pills.push({
+      key: `min_count:${minCount}`,
+      label: `Publications: ${minCount}+`,
+      href: withoutParams(basePath, searchParams, ["min_count", "max_count"]),
+    });
+  } else if (maxCount) {
+    pills.push({
+      key: `max_count:${maxCount}`,
+      label: `Publications: up to ${maxCount}`,
+      href: withoutParams(basePath, searchParams, ["min_count", "max_count"]),
+    });
+  }
+
+  for (const name of ["is_oa", "has_doi", "has_abstract"]) {
     const value = first(searchParams, name);
     if (!value) continue;
     pills.push({
@@ -171,6 +328,22 @@ export function ActiveFilters({
       </SoftNavLink>
     </div>
   );
+}
+
+function withoutParams(
+  basePath: string,
+  searchParams: SearchParams,
+  keys: string[],
+): string {
+  const search = new URLSearchParams();
+  for (const [key, raw] of Object.entries(searchParams)) {
+    if (key === "page" || keys.includes(key)) continue;
+    for (const item of Array.isArray(raw) ? raw : raw ? [raw] : []) {
+      if (item) search.append(key, item);
+    }
+  }
+  const qs = search.toString();
+  return qs ? `${basePath}?${qs}` : basePath;
 }
 
 const FILTER_KEY_LABELS: Record<string, string> = {

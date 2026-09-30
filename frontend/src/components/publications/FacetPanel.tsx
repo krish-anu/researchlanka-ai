@@ -11,7 +11,7 @@ import type { Facets } from "@/types/api";
 const FACET_TO_FILTER: Record<string, { param: string; label: string }> = {
   publication_year: { param: "year_min", label: "Year" },
   type: { param: "type", label: "Publication type" },
-  primary_field: { param: "field", label: "Field" },
+  primary_field: { param: "field", label: "Research field" },
   primary_subfield: { param: "subfield", label: "Subfield" },
   topics: { param: "topic", label: "Topic" },
   sri_lankan_institutions: { param: "institution", label: "Institution" },
@@ -62,8 +62,8 @@ function FacetGroup({
   );
 
   return (
-    <details className="border-b border-rule pb-2 last:border-0" open>
-      <summary className="label-caps cursor-pointer py-3 text-ink">
+    <details className="refine-disclosure border-b border-rule">
+      <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 py-2 text-body-sm font-medium text-ink">
         {config.label}
       </summary>
       <ul className="flex flex-col gap-0.5 pb-1">
@@ -107,16 +107,24 @@ export function FacetPanel({
   facets,
   searchParams,
   basePath = "/publications",
+  names,
+  embedded = false,
 }: {
   facets: Facets;
   searchParams: SearchParams;
   basePath?: string;
+  /** Limit to these facet keys, in this order. */
+  names?: string[];
+  /** Render only the groups, for a parent that already supplies the Refine heading. */
+  embedded?: boolean;
 }) {
-  const groups = FACET_ORDER.filter(
+  const order = names ?? FACET_ORDER;
+  const groups = order.filter(
     (name) => facets[name] && Object.keys(facets[name]).length > 0,
   );
 
   if (groups.length === 0) {
+    if (embedded) return null;
     return (
       <p className="p-3 text-body-sm text-muted">
         No facet counts are available for this result set.
@@ -124,10 +132,7 @@ export function FacetPanel({
     );
   }
 
-  return (
-    <div className="panel p-4">
-      <h2 className="label-caps mb-2 text-muted">Refine</h2>
-      {groups.map((name) => (
+  const groupList = groups.map((name) => (
         <FacetGroup
           key={name}
           facetName={name}
@@ -135,7 +140,14 @@ export function FacetPanel({
           searchParams={searchParams}
           basePath={basePath}
         />
-      ))}
+      ));
+
+  if (embedded) return <div>{groupList}</div>;
+
+  return (
+    <div className="panel p-4">
+      <h2 className="label-caps mb-2 text-muted">Refine</h2>
+      {groupList}
     </div>
   );
 }

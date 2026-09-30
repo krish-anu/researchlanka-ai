@@ -1,7 +1,25 @@
 import type { ReactNode } from "react";
 
 import type { SearchParams } from "@/services/filters";
-import { AnalyticsFiltersForm } from "@/components/analytics/AnalyticsFiltersForm";
+import {
+  AnalyticsFiltersForm,
+  type FilterChoice,
+} from "@/components/analytics/AnalyticsFiltersForm";
+import type { QueryParams } from "@/services/api";
+import type { RankingEntry } from "@/types/api";
+
+export function toFilterChoices(rows: RankingEntry[] | undefined): FilterChoice[] {
+  return (rows ?? [])
+    .filter((row) => row.publication_count > 0 && row.label)
+    .map((row) => ({ label: row.label, count: row.publication_count }));
+}
+
+export function withoutQueryKey(params: QueryParams, key: string): QueryParams {
+  if (!(key in params)) return params;
+  const next = { ...params };
+  delete next[key];
+  return next;
+}
 import { getPublicationYearCoverage } from "@/services/api";
 
 /** GET controls retain unrelated filters, making links and exports reproducible. */
@@ -16,9 +34,16 @@ export async function AnalyticsFilters({
   extraControls,
   omitParamKeys,
   applyLabel,
+  institutions,
+  yearPhrase,
+  fromLabel,
+  toLabel,
+  showMinCount,
+  layout = "card",
+  deferUntilField = false,
 }: {
   params: SearchParams;
-  fields?: string[];
+  fields?: Array<string | FilterChoice>;
   basePath?: string;
   defaultFrom?: number;
   defaultTo?: number;
@@ -27,6 +52,14 @@ export async function AnalyticsFilters({
   extraControls?: ReactNode;
   omitParamKeys?: string[];
   applyLabel?: string;
+  institutions?: Array<string | FilterChoice>;
+  yearPhrase?: string;
+  fromLabel?: string;
+  toLabel?: string;
+  showMinCount?: boolean;
+  /** `refine` stacks collapsed sections for a narrow directory sidebar. */
+  layout?: "card" | "refine";
+  deferUntilField?: boolean;
 }) {
   const coverage = await getPublicationYearCoverage();
 
@@ -44,6 +77,13 @@ export async function AnalyticsFilters({
       extraControls={extraControls}
       omitParamKeys={omitParamKeys}
       applyLabel={applyLabel}
+      institutions={institutions}
+      yearPhrase={yearPhrase}
+      fromLabel={fromLabel}
+      toLabel={toLabel}
+      showMinCount={showMinCount}
+      layout={layout}
+      deferUntilField={deferUntilField}
     />
   );
 }

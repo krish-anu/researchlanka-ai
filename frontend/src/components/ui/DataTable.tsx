@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { EmptyState } from "@/components/ui/Feedback";
+
 export interface Column<T> {
   key: string;
   header: string;
@@ -14,6 +16,8 @@ interface DataTableProps<T> {
   rowKey: (row: T, index: number) => string;
   caption?: string;
   emptyMessage?: string;
+  /** Shrink to the container and wrap cells. Wide tables keep a horizontal scroller. */
+  fit?: boolean;
 }
 
 /**
@@ -30,14 +34,17 @@ export function DataTable<T>({
   rowKey,
   caption,
   emptyMessage = "No data available.",
+  fit = false,
 }: DataTableProps<T>) {
   if (rows.length === 0) {
-    return <p className="p-4 text-body-sm text-muted">{emptyMessage}</p>;
+    return <EmptyState bare title={emptyMessage} />;
   }
 
   return (
-    <div className="scroll-x">
-      <table className="w-full min-w-[32rem] border-collapse text-body-sm">
+    <div className={fit ? "min-w-0" : "scroll-x"}>
+      <table
+        className={`w-full border-collapse text-body-sm ${fit ? "min-w-0" : "min-w-[32rem]"}`}
+      >
         {caption ? (
           <caption className="pb-2 text-left text-body-sm text-muted">
             {caption}
@@ -67,7 +74,7 @@ export function DataTable<T>({
               {columns.map((column) => (
                 <td
                   key={column.key}
-                  className={`px-3 py-3 align-top text-ink-secondary ${
+                  className={`px-3 py-2 align-middle text-ink-secondary ${
                     column.numeric ? "text-right font-mono" : "text-left"
                   }`}
                 >

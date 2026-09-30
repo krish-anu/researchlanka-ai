@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
-import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
+import { AnalyticsFilters, toFilterChoices, withoutQueryKey } from "@/components/analytics/AnalyticsFilters";
 import {
   ActivityPanel,
   FieldDistributionPanel,
@@ -16,11 +16,15 @@ import {
   PublicationsIcon,
 } from "@/components/layout/NavIcons";
 import { ActiveFilters } from "@/components/publications/FilterControls";
-import { ChartPanel, ChartSkeleton, DownloadLink } from "@/components/ui/ChartPanel";
+import { PublicationCardList } from "@/components/publications/PublicationCard";
+import { ChartPanel, ChartSkeleton, NestedChartTitles } from "@/components/ui/ChartPanel";
+import { ChartExportMenu } from "@/components/ui/ChartExportMenu";
 import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
-import { ApiErrorPanel, PanelSkeleton } from "@/components/ui/Feedback";
-import { SnapshotNote } from "@/components/ui/Provenance";
-import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
+import { ApiErrorPanel, EmptyState, PanelSkeleton } from "@/components/ui/Feedback";
+import { PrintMeta } from "@/components/ui/PrintMeta";
+import { SnapshotNote, formatSnapshotDate } from "@/components/ui/Provenance";
+import { StickyChrome } from "@/components/ui/StickyChrome";
+import { StatTile, StatTileGrid, TrendSparkline } from "@/components/ui/StatTile";
 import { Button } from "@/components/ui/Button";
 import {
   analyticsExportUrl,
@@ -28,38 +32,41 @@ import {
   getAnalyticsFields,
   getAnalyticsInstitutions,
   getAnalyticsOverview,
+  getAnalyticsTrends,
   getPublicationYearCoverage,
   listPublications,
   type QueryParams,
 } from "@/services/api";
+import {
+  CAPTION,
+  filtersNarrowSelection,
+  withSelectionScope,
+} from "@/services/copy";
 import { clampYearFilters, extractFilters, type SearchParams } from "@/services/filters";
 import { formatCompact, formatNumber, formatRatioAsPercent } from "@/services/format";
-import { institutionHref, publicationHref } from "@/services/links";
+import { institutionHref } from "@/services/links";
 
 export const metadata = {
   title: "AI research overview",
   description:
-    "Publication trends, institutions, fields, and collaborations within Sri Lanka’s accepted AI research collection.",
+    "Publication trends, institutions, fields, and collaborations within Sri Lanka’s accepted AI collection.",
 };
 
 function StorySection({
+  id,
   title,
-  description,
   children,
 }: {
+  id?: string;
   title: string;
-  description: string;
   children: ReactNode;
 }) {
   return (
-    <section className="overview-story">
-      <header className="mb-4">
+    <section id={id} className="overview-story">
+      <header className="mb-3">
         <h2 className="font-display text-h2 text-ink">{title}</h2>
-        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-          {description}
-        </p>
       </header>
-      {children}
+      <NestedChartTitles>{children}</NestedChartTitles>
     </section>
   );
 }
@@ -78,16 +85,36 @@ export default async function DashboardPage({
     },
     coverage,
   );
-  const [overview, fields, institutions, filterFields] = await Promise.all([
+  const [overview, fields, institutions, filterFields, trends] = await Promise.all([
     getAnalyticsOverview(filters),
     getAnalyticsFields({ ...filters, limit: 100 }),
     getAnalyticsInstitutions({ ...filters, limit: 12 }),
-    getAnalyticsFields({ ...filters, field: undefined, limit: 100 }),
+    getAnalyticsFields({ ...withoutQueryKey(filters, "field"), limit: 100 }),
+    getAnalyticsTrends({ ...filters, group_by: "year" }),
   ]);
   const entries = fields.ok ? fields.value.data : [];
+  const selectionScoped = filtersNarrowSelection(filters);
+  const sparkValues = trends.ok
+    ? [...trends.value.data]
+        .sort((a, b) => Number(a.key) - Number(b.key))
+        .map((point) => point.publication_count)
+    : [];
+  const asOf = overview.ok
+    ? formatSnapshotDate(overview.value.meta.snapshot_date)
+    : null;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
+      <PrintMeta
+        title="AI research overview"
+        snapshotDate={overview.ok ? overview.value.meta.snapshot_date : null}
+        searchParams={params}
+        extra={
+          overview.ok && overview.value.meta.dataset_stage
+            ? [`Stage: ${overview.value.meta.dataset_stage}`]
+            : undefined
+        }
+      />
       <OverviewHero
         action={
           <Button
@@ -101,30 +128,36 @@ export default async function DashboardPage({
         }
       />
 
-      <div className="overview-controls">
+      <StickyChrome className="overview-controls-wrap" stickyClassName="overview-controls">
         <AnalyticsFilters
           params={params}
-          fields={
-            filterFields.ok
-              ? filterFields.value.data.map((entry) => entry.label)
-              : entries.map((entry) => entry.label)
-          }
+          fields={toFilterChoices(
+            filterFields.ok ? filterFields.value.data : entries,
+          )}
           defaultFrom={coverage?.start}
           defaultTo={coverage?.end}
+          deferUntilField
         />
         <ActiveFilters searchParams={params} basePath="/" />
-      </div>
+      </StickyChrome>
 
       {!overview.ok ? (
         <ApiErrorPanel error={overview.error} what="AI research metrics" />
       ) : (
         <section aria-label="AI collection metrics">
-          <StatTileGrid>
+          <StatTileGrid asOf={asOf}>
             <StatTile
               label="AI publications"
               icon={<PublicationsIcon />}
               value={formatCompact(overview.value.data.publication_count)}
-              caption="accepted AI records in this selection"
+              caption={CAPTION.recordsInSelection}
+              spark={
+                <TrendSparkline
+                  values={sparkValues}
+                  href="#ai-output-trends"
+                  label="Publications over time — jump to trend chart"
+                />
+              }
             />
             <StatTile
               label="Institutions"
@@ -134,13 +167,13 @@ export default async function DashboardPage({
                   ? formatNumber(institutions.value.pagination.total)
                   : "—"
               }
-              caption="with AI publications in this selection"
+              caption={CAPTION.institutionsInSelection}
             />
             <StatTile
               label="Open access"
               icon={<OpenAccessIcon />}
               value={formatRatioAsPercent(overview.value.data.open_access_share)}
-              caption="share of selected AI publications"
+              caption={CAPTION.shareOfSelected}
             />
             <StatTile
               label="DOI coverage"
@@ -153,14 +186,15 @@ export default async function DashboardPage({
           <SnapshotNote
             snapshotDate={overview.value.meta.snapshot_date}
             datasetStage={overview.value.meta.dataset_stage}
+            includeDate={false}
             className="mt-3"
           />
         </section>
       )}
 
       <StorySection
+        id="ai-output-trends"
         title="How AI output is changing"
-        description="Annual publication trends and the share of work across research fields in the current selection."
       >
         <div className="analytics-grid">
           <Suspense
@@ -168,30 +202,40 @@ export default async function DashboardPage({
           >
             <TrendPanel filters={filters} />
           </Suspense>
-          {fields.ok ? (
-            <FieldDistributionPanel
-              entries={entries}
-              filters={filters}
-              total={
-                overview.ok ? overview.value.data.publication_count : undefined
-              }
-            />
-          ) : (
-            <ApiErrorPanel error={fields.error} what="research fields" />
-          )}
+          <Suspense
+            fallback={<ChartSkeleton label="Loading field distribution…" />}
+          >
+            {fields.ok ? (
+              <FieldDistributionPanel
+                entries={entries}
+                filters={filters}
+                total={
+                  overview.ok
+                    ? overview.value.data.publication_count
+                    : undefined
+                }
+              />
+            ) : (
+              <ApiErrorPanel error={fields.error} what="research fields" />
+            )}
+          </Suspense>
         </div>
       </StorySection>
 
       <StorySection
         title="Where research concentrates"
-        description="Leading institutions by AI publication count, and how field activity shifts over recent years."
       >
         <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
           <ChartPanel
             title="Institutions advancing AI research"
-            description="Leading institutions by AI publication count."
+            description={withSelectionScope(
+              "Institutions ranked by AI publication count",
+              selectionScoped,
+            )}
             action={
-              <DownloadLink href={analyticsExportUrl("institutions", filters)} />
+              <ChartExportMenu
+                csvHref={analyticsExportUrl("institutions", filters)}
+              />
             }
             table={
               institutions.ok ? (
@@ -229,9 +273,11 @@ export default async function DashboardPage({
                 entries={institutions.value.data.map((row) => ({
                   label: row.label,
                   value: row.publication_count,
+                  href: institutionHref(row.label),
                 }))}
                 valueLabel="AI publications"
                 ariaLabel="Leading institutions by AI publication count"
+                clearHref={selectionScoped ? "/" : undefined}
               />
             ) : (
               <ApiErrorPanel
@@ -241,7 +287,7 @@ export default async function DashboardPage({
             )}
             <Link
               href={`/institutions${buildQuery(filters)}`}
-              className="mt-4 inline-block text-xs text-primary hover:underline"
+              className="mt-3 inline-block text-body-sm text-primary hover:underline"
             >
               Browse institutions →
             </Link>
@@ -259,20 +305,18 @@ export default async function DashboardPage({
 
       <StorySection
         title="Who works with whom"
-        description="Institutional collaboration links in the current selection — shared publications as edges."
       >
         <Suspense
           fallback={
             <ChartSkeleton label="Loading collaboration network…" size="xl" />
           }
         >
-          <NetworkPanel filters={filters} />
+          <NetworkPanel filters={filters} compact />
         </Suspense>
       </StorySection>
 
       <StorySection
         title="Recent publications"
-        description="A sample of the newest AI-related records matching the filters above."
       >
         <Suspense
           fallback={<PanelSkeleton label="Loading recent publications…" />}
@@ -293,65 +337,40 @@ async function RecentPublications({ filters }: { filters: QueryParams }) {
   if (!result.ok) {
     return <ApiErrorPanel error={result.error} what="recent publications" />;
   }
+  const scoped = filtersNarrowSelection(filters);
   return (
     <ChartPanel
       title="A closer look at AI research"
-      description="Recent publications in the current selection."
+      description={withSelectionScope(
+        "Newest matching publications",
+        scoped,
+      )}
       action={
         <Link
           href={`/publications${buildQuery(filters)}`}
-          className="text-xs text-primary hover:underline"
+          className="text-body-sm text-primary hover:underline"
         >
           Browse AI publications →
         </Link>
       }
     >
-      <DataTable
-        rows={result.value.data}
-        rowKey={(row) => row.publication_key}
-        columns={[
-          {
-            key: "title",
-            header: "Publication",
-            render: (row) => (
-              <div>
-                <Link
-                  href={publicationHref(row.publication_key)}
-                  className="font-medium text-ink hover:text-primary"
-                >
-                  {row.title ?? "Untitled record"}
-                </Link>
-                <p className="mt-1 text-xs text-muted">
-                  {row.authors.slice(0, 3).join(", ")}
-                </p>
-              </div>
-            ),
-          },
-          {
-            key: "field",
-            header: "Field",
-            render: (row) => row.primary_field ?? "Unclassified",
-          },
-          {
-            key: "year",
-            header: "Year",
-            numeric: true,
-            render: (row) => row.publication_year ?? "—",
-          },
-          {
-            key: "access",
-            header: "Access",
-            render: (row) =>
-              row.is_oa ? (
-                <span className="rounded bg-primary-muted px-2 py-1 text-xs text-primary">
-                  Open access
-                </span>
-              ) : (
-                "Not marked open"
-              ),
-          },
-        ]}
-      />
+      {result.value.data.length === 0 ? (
+        <EmptyState
+          bare
+          title="No publications match the current filters"
+          description={
+            scoped
+              ? "Try removing a year or field filter to widen the results."
+              : undefined
+          }
+          recovery={scoped ? { kind: "clear-filters", href: "/" } : undefined}
+        />
+      ) : (
+        <PublicationCardList
+          publications={result.value.data}
+          initialView="cards"
+        />
+      )}
     </ChartPanel>
   );
 }

@@ -43,8 +43,17 @@ export function ManualAIUpdatePanel({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitting(true);
     setMessage("");
+    if (fromDate && toDate && fromDate > toDate) {
+      setMessage("From date has to be on or before the to date.");
+      return;
+    }
+    const thresholdValue = Number(threshold);
+    if (!Number.isFinite(thresholdValue) || thresholdValue < 0 || thresholdValue > 1) {
+      setMessage("Review threshold has to be a number from 0 to 1.");
+      return;
+    }
+    setSubmitting(true);
     const response = await fetch("/api/admin/incremental/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -73,9 +82,12 @@ export function ManualAIUpdatePanel({
   }, [running]);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-      <form className="panel p-5" onSubmit={submit}>
+    <div className="grid items-start gap-3 xl:grid-cols-[22rem_minmax(0,1fr)]">
+      <form className="panel p-3" onSubmit={submit}>
         <h3 className="font-display text-h3 text-ink">Manual AI update</h3>
+        <p className="mt-1 text-body-sm text-ink-secondary">
+          The date window and threshold are sent with the run. Records below the threshold stay in review and are not loaded as AI.
+        </p>
         <div className="mt-5 grid gap-4">
           <label className="grid gap-2">
             <span className="label-caps text-muted">From date</span>
@@ -83,7 +95,7 @@ export function ManualAIUpdatePanel({
               type="date"
               value={fromDate}
               onChange={(event) => setFromDate(event.target.value)}
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+              className="min-h-11 rounded border border-rule bg-surface px-3 text-body-sm text-ink"
             />
           </label>
           <label className="grid gap-2">
@@ -92,7 +104,7 @@ export function ManualAIUpdatePanel({
               type="date"
               value={toDate}
               onChange={(event) => setToDate(event.target.value)}
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+              className="min-h-11 rounded border border-rule bg-surface px-3 text-body-sm text-ink"
             />
           </label>
           <label className="grid gap-2">
@@ -104,7 +116,7 @@ export function ManualAIUpdatePanel({
               step="0.01"
               value={threshold}
               onChange={(event) => setThreshold(event.target.value)}
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+              className="min-h-11 rounded border border-rule bg-surface px-3 text-body-sm text-ink"
             />
           </label>
           <div className="flex flex-wrap gap-2 pt-2">

@@ -88,6 +88,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Short **120–180ms** transitions on colour/shadow for cards, nav, chips; respect `prefers-reduced-motion` (already global) |
 | **Code** | `globals.css` utilities `.interactive`, `PublicationCard.tsx`, `.nav-item` |
 | **Priority** | P2 |
+| **Status** | Done — `.interactive` / `.interactive-card` / `.chip`, motion tokens, wired across nav, cards, filters, pagination, tabs |
 
 #### A5. Theme toggle discoverability
 | | |
@@ -96,6 +97,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Keep desktop placement; add theme control to **mobile app bar** (next to search) |
 | **Code** | `SiteNav.tsx` mobile header; `ThemeToggle.tsx` |
 | **Priority** | P2 |
+| **Status** | Done — theme toggle in mobile app bar beside search; removed drawer duplicate |
 
 #### A6. Skeleton → content continuity
 | | |
@@ -104,6 +106,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Chart-shaped skeletons matching `chart-panel` height; announce “Loading …” with `aria-busy` on panel |
 | **Code** | `Feedback.tsx` `Skeleton`; wrap in `ChartPanel` loading variant; `app/page.tsx` Suspense fallbacks |
 | **Priority** | P1 |
+| **Status** | Done — `ChartSkeleton` / `PanelSkeleton` / `ChartPanel loading`; Suspense fallbacks on overview, institutions, topics, collaboration, data-quality |
 
 #### A7. Empty vs error vs zero-filter confusion
 | | |
@@ -112,6 +115,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Standardise three states with **primary recovery**: Retry (error), Clear filters (empty), Browse all (zero query) |
 | **Code** | `Feedback.tsx`; use on publications, researchers, institutions, topics pages |
 | **Priority** | P1 |
+| **Status** | Done — `ApiErrorPanel` Retry; `emptyListState` Clear filters / Browse all on publications, researchers, institutions, topics |
 
 ---
 
@@ -124,6 +128,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Group into **Explore** (Overview, Publications, Topics), **People & places** (Researchers, Institutions), **Connections** (Collaboration), **Trust** (Data quality) |
 | **Code** | `SiteNav.tsx` `NAV_LINKS` + section headers; `globals.css` nav section styles |
 | **Priority** | P1 |
+| **Status** | Done — grouped rail/drawer sections; top bar shows section / page; removed duplicate data-quality promo card |
 
 #### B2. Breadcrumb is label-only, not navigable
 | | |
@@ -140,6 +145,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Keep on Overview + first visit; elsewhere collapse to compact chip in top bar or allow **Dismiss for session** (`sessionStorage`) |
 | **Code** | `SiteNav.tsx` `AIScopeNote`; optional `components/ui/ScopeChip.tsx` |
 | **Priority** | P1 |
+| **Status** | Done — full note always on Overview; elsewhere dismissible for session, then compact chip |
 
 #### B4. Overview page stacks hero + intro + filters + stats (cognitive overload)
 | | |
@@ -148,6 +154,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | **Merge** intro + hero into one composition; put filters in a sticky **control bar**; lead with 4 KPIs then “story” sections (trend → fields → institutions → network → recent) |
 | **Code** | `PageIntro.tsx`, `app/page.tsx`, `globals.css` `.research-hero` |
 | **Priority** | P0 |
+| **Status** | Done — merged `OverviewHero`; sticky `.overview-controls`; KPI strip then story sections (trend → places → network → recent) |
 
 #### B5. Duplicate search surfaces
 | | |
@@ -156,6 +163,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Global search = **cross-entity**; page search = contextual (hide global duplicate on `/publications` when page search is primary, or sync query params both ways) |
 | **Code** | `SiteSearchBar`, page headers, `SearchBox` `targetPath` / `suggestionTypes` |
 | **Priority** | P1 |
+| **Status** | Done — global search is cross-entity; hidden on publications/researchers/institutions list pages that own contextual search |
 
 #### B6. Account & admin feel bolted onto public shell
 | | |
@@ -164,6 +172,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Slightly denser **admin theme strip** (eyebrow “Administration”); account as “My workspace” with simpler nav subset |
 | **Code** | `app/admin/layout.tsx`, `AdminNav.tsx`, `app/account/layout.tsx` |
 | **Priority** | P2 |
+| **Status** | Done — denser Administration strip + console nav; account framed as My workspace |
 
 ---
 
@@ -176,6 +185,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | **Filter bar card**: year range as dual control or year chips (2016–now presets); field as searchable select; show “Filters applied” summary inline |
 | **Code** | `AnalyticsFilters.tsx`, `globals.css` `.analytics-filters`; reuse on Overview, Collaboration, Institutions, Data quality |
 | **Priority** | P0 |
+| **Status** | Done — filter card with year presets (coverage-based), searchable field, inline “Filters applied” summary |
 
 #### C2. Active filters chips exist but are easy to miss
 | | |
@@ -184,6 +194,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Sticky chip row under top bar; one-click clear-all; human labels (“Open access”, not `is_oa=true`) |
 | **Code** | `FilterControls.tsx` `ActiveFilters`; layout sticky class |
 | **Priority** | P1 |
+| **Status** | Done — sticky chip bar, Clear all, human labels (e.g. Open access) |
 
 #### C3. Collaboration controls split across two forms
 | | |
@@ -192,6 +203,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | **One** “Network controls” panel: year/field + scope + density (min weight, max nodes) + Apply |
 | **Code** | `app/collaboration/page.tsx`; optionally extend `AnalyticsFilters` with `extraControls` slot |
 | **Priority** | P0 |
+| **Status** | Done — single Network controls card via `extraControls` + Apply (`Update network`) |
 
 #### C4. Publications facet sidebar heavy on mobile
 | | |
@@ -200,6 +212,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Mobile: facets in **drawer / bottom sheet**; show “Filters (n)” badge |
 | **Code** | `publications/page.tsx`, `FacetPanel.tsx`, new `FilterDrawer` client wrapper |
 | **Priority** | P1 |
+| **Status** | Done — mobile bottom sheet + Filters (n); desktop aside unchanged |
 
 #### C5. Search suggestions lack “no results” and type grouping
 | | |
@@ -208,6 +221,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Group by type (Publications / Researchers / Institutions); empty state “No matches — search all publications”; subtle error toast |
 | **Code** | `SearchBox.tsx` |
 | **Priority** | P1 |
+| **Status** | Done — grouped listbox, empty → full search, 3.5s error toast |
 
 #### C6. Compare institutions is a hidden secondary flow
 | | |
@@ -216,6 +230,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | From ranking charts / cards: **“Compare”** checkbox (up to 3) → sticky “Compare selected” CTA → `/institutions/compare?...` |
 | **Code** | `institutions/page.tsx`, `institutions/compare/page.tsx`, small client `CompareTray` |
 | **Priority** | P1 |
+| **Status** | Done — chart + table checkboxes (max 3), sticky Compare selected tray |
 
 #### C7. Saved library / flags under-explained for guests
 | | |
@@ -224,6 +239,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Guest sees soft prompt once: “Sign in to save & flag” near `RecordActions` |
 | **Code** | `RecordActions.tsx`, `login/page.tsx` copy already strong — wire contextual CTA |
 | **Priority** | P2 |
+| **Status** | Done — once-per-session soft prompt; quiet link after dismiss |
 
 ---
 
@@ -236,6 +252,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Put **snapshot date inside** first tile row or as shared subtitle; optional mini sparkline for publications over time (links to trend section) |
 | **Code** | `StatTile.tsx`, `app/page.tsx`, `Provenance.tsx` `SnapshotNote` |
 | **Priority** | P0 |
+| **Status** | Done — `StatTileGrid` As of subtitle; pubs spark → `#ai-output-trends`; note omits duplicate date |
 
 #### D2. Denominator language inconsistent
 | | |
@@ -244,14 +261,16 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Glossary of 5 phrases used everywhere; chart descriptions always say “of selected AI publications” when filters apply |
 | **Code** | Copy pass: `PageIntro` titles, chart `description` props in `ResearchPanels.tsx`, publications stats |
 | **Priority** | P0 |
+| **Status** | Done — `services/copy.ts` glossary + `withSelectionScope` on panels / overview / pubs |
 
 #### D3. Open-access % without absolute counts
 | | |
 |---|---|
 | **Current** | Ratio-only on tiles |
-| **Change** | Show **“42% (1,204 of 2,867)”** pattern where totals exist |
-| **Code** | `format.ts` helper; `StatTile` optional `detail`; Overview + publications |
+| **Change** | ~~Show “42% (1,204 of 2,867)”~~ — **rejected**: keep percent only (same as DOI / abstract coverage) |
+| **Code** | Overview + publications StatTiles |
 | **Priority** | P1 |
+| **Status** | Done — percent-only; dual %+(count) removed |
 
 #### D4. Chart titles are poetic; axes need plainer language
 | | |
@@ -260,6 +279,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Keep poetic **section** titles; add plain **subtitle**: “Share of publications by primary field (top 5)” |
 | **Code** | `ResearchPanels.tsx`, `app/page.tsx` `ChartPanel` props |
 | **Priority** | P0 |
+| **Status** | Done — plain `description` subtitles under poetic chart titles |
 
 #### D5. Data quality page is long prose + charts
 | | |
@@ -268,6 +288,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Lead with **“Read this before citing”** 3 bullets; accordion for full limitations; “How to cite a figure” mini guide |
 | **Code** | `app/data-quality/page.tsx`, `QualityCompleteness.tsx` |
 | **Priority** | P1 |
+| **Status** | Done — citing lead, cite guide, limitations `<details>` accordion |
 
 #### D6. Machine / AI synthesis vs harvested metadata
 | | |
@@ -276,6 +297,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Audit every AI-ish surface; legend in footer or data-quality: “Violet = model-generated” |
 | **Code** | `MachinePanel`, admin AI review cards, any profile summaries |
 | **Priority** | P1 |
+| **Status** | Done — Gemini/match score in `MachinePanel`; `MachineLegend` in footer + data-quality; RoleBadge no longer uses violet |
 
 ---
 
@@ -285,9 +307,10 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | | |
 |---|---|
 | **Current** | Plotly modebar floating above; custom segments for chart/table |
-| **Change** | Always: title, plain subtitle, insight line (1 sentence), view toggle, download, optional “How to read” |
+| **Change** | Always: title, plain subtitle, insight line (1 sentence), view toggle, download |
 | **Code** | Extend `ChartPanel.tsx`; theme via `charts/theme.ts` |
 | **Priority** | P0 |
+| **Status** | Done — `insight` slot + Chart/Table toolbar; How to read removed (noise) |
 
 #### E2. Trend chart: clearer dual series
 | | |
@@ -296,14 +319,16 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Default **area + line**; legend with exact last-year values; optional “% OA” toggle; annotate major policy years if known (optional later) |
 | **Code** | `TrendLineChart.tsx`, `TrendPanel` in `ResearchPanels.tsx` |
 | **Priority** | P1 |
+| **Status** | Done — area default, last-year legend labels, Counts / % OA toggle |
 
 #### E3. Field distribution: donut alone is weak for many categories
 | | |
 |---|---|
 | **Current** | Top-5 + other (`DistributionChart.tsx`) |
-| **Change** | Segmented control: **Share (donut) | Counts (horizontal bars)** — bars better for comparison; keep table |
+| **Change** | Segmented control: **Mosaic | Counts (horizontal bars)** — mosaic default; no donut; keep table |
 | **Code** | `DistributionChart.tsx`, `FieldDistributionPanel` |
 | **Priority** | P1 |
+| **Status** | Done — **Mosaic \| Counts** (no donut); mosaic default |
 
 #### E4. Heatmap readability
 | | |
@@ -312,6 +337,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Stronger sequential ramp from tokens; row sort by total; tooltip with field+year+count; colour-blind safe check already via tokens — document in UI |
 | **Code** | `ActivityHeatmap.tsx`, `theme.ts` |
 | **Priority** | P1 |
+| **Status** | Done — sorted rows, stronger ramp, hover copy, colour-blind note in UI |
 
 #### E5. Institution scatter interpretability
 | | |
@@ -320,6 +346,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Quadrant labels (“High output · High OA”); click → institution profile; size legend explicit |
 | **Code** | `InstitutionScatterChart.tsx`, `InstitutionAccessibilityPanel` |
 | **Priority** | P1 |
+| **Status** | Done — quadrant labels, click-through, size legend |
 
 #### E6. Ranking bars: more scannable
 | | |
@@ -328,6 +355,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Truncate long labels with tooltip; value labels at bar end; link bars to profiles where keys exist |
 | **Code** | `RankingBarChart.tsx`; Overview + institutions usage |
 | **Priority** | P2 |
+| **Status** | Done — full-label hover, end values, optional `href` clicks on overview/institutions |
 
 #### E7. Collaboration network — biggest visualisation UX debt
 | | |
@@ -336,6 +364,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | **Desktop:** guided “Explore” mode — select node → side inspector (metrics, top partners, Open profile). **Mobile:** default to **table / adjacency** first; graph optional behind “Show map”. Add keyboard move controls (skill guidance). Reset + PNG/CSV already conceptually present — surface them in one toolbar. |
 | **Code** | `CollaborationNetwork.tsx`, `NetworkMetrics.tsx`, `NetworkPanel`, `collaboration/page.tsx` |
 | **Priority** | P0 |
+| **Status** | Done — select-to-inspect, side inspector, mobile table-first + Show map, keyboard pan/zoom, unified toolbar |
 
 #### E8. Overview network preview too heavy
 | | |
@@ -344,6 +373,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Compact preview (fewer nodes) + strong CTA to `/collaboration`; or summary metrics only + thumbnail |
 | **Code** | `app/page.tsx`, `NetworkPanel` props (`limit`, `compact`) |
 | **Priority** | P1 |
+| **Status** | Done — `compact` (40 nodes, short canvas, no brokers) + CTA with filters |
 
 #### E9. “Insight captions” under charts
 | | |
@@ -352,6 +382,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Compute 1-line insight when data allows: “Output rose ~X% since 2016; OA share is Y%.” (client or server derive in `services/derive.ts`) |
 | **Code** | `derive.ts`, panel components |
 | **Priority** | P2 |
+| **Status** | Done — `trendInsight` / `fieldShareInsight` / `networkInsight` in `derive.ts`; ChartPanel `insight` (E1) |
 
 #### E10. Export UX
 | | |
@@ -360,8 +391,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Per-panel **Export** menu: CSV / PNG / “Copy link with filters” |
 | **Code** | `ChartPanel` action slot; `DownloadLink`; share URL helper from current query |
 | **Priority** | P2 |
-
----
+| **Status** | Done — `ChartExportMenu` (CSV + copy link); Plotly/network PNG stay where they are |
 
 ### F. Page-level composition (large)
 
@@ -370,42 +400,49 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 |---|---|
 | Intro + hero + filters + KPIs + 2-col charts + rankings + heatmap + full network + recent pubs | **Single hero** → sticky filters → KPI strip with snapshot → narrative sections with clear H2s → compact network teaser → recent pubs as cards option |
 | Code focus | `page.tsx`, `ResearchPanels.tsx`, `PageIntro.tsx` |
+| **Status** | Done — hero + sticky filters + story H2s + compact network + recent pubs cards |
 
 #### F2. Publications (`app/publications/page.tsx`)
 | Current | Proposed |
 |---|---|
 | Stats + search + sidebar filters + table/cards | Collapse duplicate stats when identical to Overview; results-first on mobile; sticky sort + view switcher; richer `PublicationCard` hierarchy (title → authors → field/year/OA) |
 | Code focus | `PublicationCard.tsx`, `ViewSwitcher.tsx`, `FilterControls`, `FacetPanel` |
+| **Status** | Done — KPIs removed; results-first mobile; sticky toolbar; card hierarchy title→authors→field/year/OA |
 
 #### F3. Researchers / Institutions directories
 | Current | Proposed |
 |---|---|
 | Search + charts + table/cards | **Directory-first**: search + view switcher + ranking; charts in “Insights” tab or collapsible so scan-mode users aren’t pushed past plots |
 | Code focus | `researchers/page.tsx`, `institutions/page.tsx`, `ViewSwitcher.tsx` |
+| **Status** | Done — institutions directory-first + `InsightsDisclosure`; researchers already directory-first |
 
 #### F4. Detail profiles (`*/[...key]/page.tsx`)
 | Current | Proposed |
 |---|---|
 | Long vertical stacks | Sticky profile header (name, key metrics, actions); tabbed sections: Overview · Publications · Network · Topics; consistent `RecordActions` placement |
 | Code focus | Detail pages; shared `ProfileHeader` component (new) |
+| **Status** | Done — `ProfileHeader` + `ProfileTabs` on researcher & institution profiles |
 
 #### F5. Topics (`topics/page.tsx`)
 | Current | Proposed |
 |---|---|
 | Hierarchy + charts; NMF errors as data errors | Explain NMF vs taxonomy in plain language; progressive disclosure for model-unavailable; visual hierarchy Domain → Field → Subfield as tree or drill chips |
 | Code focus | Topics pages + panels |
+| **Status** | Done — taxonomy vs NMF copy; Domain→Field→Subfield chips; topic error disclosure |
 
 #### F6. Login / Register
 | Current | Proposed |
 |---|---|
 | Clear copy + form | Add **visual of benefit** (saved library mock) without fake data claims; social proof not needed — keep trust-first |
 | Code focus | `login/page.tsx`, `register/page.tsx`, `AuthForm.tsx` |
+| **Status** | Done — `LibraryBenefitVisual` skeleton mock (no fake titles) |
 
 #### F7. Admin console
 | Current | Proposed |
 |---|---|
 | Corpus vs queues already split | Status **health banner** (API up/down); queue cards as actionable tiles with counts + primary buttons; reduce table density on overview |
 | Code focus | `admin/page.tsx`, `AdminNav.tsx`, `ActionResult.tsx` |
+| **Status** | Done — health banner; queue “Open queue →”; audit trimmed to 5 |
 
 ---
 
@@ -418,6 +455,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Keep for dashboards; constrain **prose/detail** to ~72–80ch; use full width only for charts/network |
 | **Code** | `globals.css`; profile/publication detail layouts |
 | **Priority** | P2 |
+| **Status** | Done — `.detail-prose` (72ch) / `.detail-measure` (80ch); charts stay full of `.app-main` |
 
 #### G2. Mobile rail → app bar OK; chart overflow
 | | |
@@ -426,6 +464,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Horizontal scroll only inside chart hosts; touch tooltips; network table-first (E7) |
 | **Code** | `PlotlyChart`, `CollaborationNetwork`, `.scroll-x` |
 | **Priority** | P0 |
+| **Status** | Done — `.chart-scroll` on Plotly; touch-action; network table-first (E7) |
 
 #### G3. Perceived performance
 | | |
@@ -434,6 +473,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Prefer streaming/Suspense boundaries per section (already partly done); avoid blocking whole page on one slow panel |
 | **Code** | Page-level `Suspense` boundaries; skeleton quality (A6) |
 | **Priority** | P1 |
+| **Status** | Done — split overview field Suspense; profile network streamed via `ProfileNetworkPanels` |
 
 #### G4. Print / cite
 | | |
@@ -442,6 +482,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | **Change** | Print stylesheet includes snapshot date + filter summary in header |
 | **Code** | `globals.css` `@media print`; small `PrintMeta` component |
 | **Priority** | P3 |
+| **Status** | Done — `PrintMeta` + `summarizeActiveFilters`; print CSS header |
 
 ---
 
@@ -457,6 +498,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 | Network keyboard | Focusable nodes / inspector, not drag-only | `CollaborationNetwork.tsx` |
 
 **Priority:** P0 for contrast + network fallback; P1 for live regions.
+**Status:** Done — muted `#556655` (≥4.5:1); pubs `aria-live`; FilterDrawer focus trap; network inspector focus + select overlay; Chart/Table dual path; palette check passes
 
 ---
 
@@ -472,6 +514,7 @@ Each item is **Current → Change → Code touchpoints**. Priority: **P0** (trus
 Implement as CSS utilities in `globals.css`; gate with `prefers-reduced-motion` (already present).
 
 **Priority:** P2.
+**Status:** Done — `.motion-fade-in` on ChartPanel; `StickyChrome` stuck shadow; inspector pulse; reduced-motion disables
 
 ---
 
@@ -485,13 +528,13 @@ Implement as CSS utilities in `globals.css`; gate with `prefers-reduced-motion` 
 | `PageIntro` + `ResearchHero` | Two stacked blocks | One overview composition |
 | `SiteNav` | Flat list | Grouped IA + better mobile theme |
 | `SiteSearchBar` | Static section label | Navigable breadcrumbs |
-| `ChartPanel` | Title + toggle + plot | + insight + export menu + how-to-read |
+| `ChartPanel` | Title + toggle + plot | + insight + export menu (How to read removed) — **Done** |
 | `StatTile` | Big number | Number + absolute context + snapshot affinity |
 | `SearchBox` | Flat suggestion list | Grouped types + empty/error |
 | `AnalyticsFilters` | Year/field only | Shared filter shell for analytics routes |
 | `CollaborationNetwork` | Graph-first | Inspector + mobile table-first |
 | `NetworkPanel` on Overview | Full graph | Compact teaser |
-| `ViewSwitcher` | Local only | Persist preference (`localStorage`) |
+| `ViewSwitcher` | Local only | Persist preference (`localStorage`) — **Done** |
 | `Feedback` Skeleton | Generic pulse box | Structure-matching skeletons |
 | `ActiveFilters` | Below fold chips | Sticky, plain-language chips |
 | Detail pages | Long scroll | Sticky header + tabs |

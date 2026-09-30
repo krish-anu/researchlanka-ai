@@ -91,9 +91,36 @@ export function extractFilters(searchParams: SearchParams): QueryParams {
 
 export function extractSort(searchParams: SearchParams): SortOption | undefined {
   const raw = firstValue(searchParams.sort);
-  return raw && VALID_SORTS.has(raw as SortOption)
-    ? (raw as SortOption)
-    : undefined;
+  if (!raw || !VALID_SORTS.has(raw as SortOption)) return undefined;
+  if (raw === "relevance" && !firstValue(searchParams.q)) return undefined;
+  return raw as SortOption;
+}
+
+export const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 50] as const;
+
+/** Directory page length. Unknown values fall back so the API is not sent junk. */
+export function extractPageSize(
+  searchParams: SearchParams,
+  fallback: (typeof PAGE_SIZE_OPTIONS)[number] = 15,
+): number {
+  const parsed = Number.parseInt(firstValue(searchParams.page_size) ?? "", 10);
+  return (PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed) ? parsed : fallback;
+}
+
+/** Publication-count floor for ranked directories. Not sent to other endpoints. */
+export function extractMinCount(searchParams: SearchParams): number | undefined {
+  const raw = firstValue(searchParams.min_count);
+  if (!raw) return undefined;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/** Publication-count ceiling. Used with the floor to match one landscape band. */
+export function extractMaxCount(searchParams: SearchParams): number | undefined {
+  const raw = firstValue(searchParams.max_count);
+  if (!raw) return undefined;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 export function extractPage(
@@ -113,6 +140,25 @@ export function hasActiveFilters(filters: QueryParams): boolean {
 /** True when a facet/range/boolean filter is active (excludes free-text `q`). */
 export function hasFacetFilters(filters: QueryParams): boolean {
   return Object.keys(filters).some((key) => key !== "q");
+}
+
+/**
+ * Count of active facet/range/boolean filters for “Filters (n)” badges.
+ * Excludes free-text `q`, sort, and paging — matches ActiveFilters chips.
+ */
+export function countActiveFilters(searchParams: SearchParams): number {
+  let count = 0;
+  for (const name of REPEATABLE_FILTERS) {
+    count += toArray(searchParams[name]).length;
+  }
+  for (const name of NUMERIC_FILTERS) {
+    if (firstValue(searchParams[name])) count += 1;
+  }
+  for (const name of BOOLEAN_FILTERS) {
+    const raw = firstValue(searchParams[name]);
+    if (raw === "true" || raw === "false") count += 1;
+  }
+  return count;
 }
 
 /** Clamp year filters to dataset coverage and keep year_min ≤ year_max. */
@@ -189,6 +235,22 @@ export function pageHref(
     for (const item of toArray(raw)) search.append(paramKey, item);
   }
   if (page > 1) search.set(pageKey, String(page));
+  const qs = search.toString();
+  return qs ? `${basePath}?${qs}` : basePath;
+}
+
+/** Same filters, a new page length, and page reset to the first page. */
+export function pageSizeHref(
+  basePath: string,
+  searchParams: SearchParams,
+  pageSize: number,
+): string {
+  const search = new URLSearchParams();
+  for (const [paramKey, raw] of Object.entries(searchParams)) {
+    if (paramKey === "page" || paramKey === "page_size") continue;
+    for (const item of toArray(raw)) search.append(paramKey, item);
+  }
+  search.set("page_size", String(pageSize));
   const qs = search.toString();
   return qs ? `${basePath}?${qs}` : basePath;
 }

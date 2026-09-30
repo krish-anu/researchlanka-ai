@@ -55,7 +55,7 @@ export function FilterNavigationProvider({ children }: { children: ReactNode }) 
       >
         {isPending ? (
           <div className="filter-pending-bar" role="status" aria-live="polite">
-            <span className="sr-only">Updating results…</span>
+            Updating results
           </div>
         ) : null}
         <div className={isPending ? "filter-pending-content" : undefined}>

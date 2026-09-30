@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { signIn } from "@/app/actions/auth";
 import { AuthForm } from "@/components/auth/AuthForm";
+import { LibraryBenefitVisual } from "@/components/auth/LibraryBenefitVisual";
 import { getViewer } from "@/services/auth/server";
 import { ROLE_CAPABILITY_SUMMARY } from "@/services/auth/permissions";
 
@@ -16,7 +17,6 @@ interface PageProps {
   searchParams: Promise<{ next?: string }>;
 }
 
-/** Never bounce someone off-site after sign-in; see `safeNext` in the action. */
 function safeNext(value: string | undefined): string {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
   return value;
@@ -26,11 +26,10 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const { next } = await searchParams;
   const destination = safeNext(next);
 
-  // Already signed in — the form would be a dead end.
   if ((await getViewer()).user) redirect(destination);
 
   return (
-    <div className="mx-auto grid w-full max-w-4xl gap-8 md:grid-cols-[minmax(0,1fr)_18rem]">
+    <div className="mx-auto grid w-full max-w-4xl gap-8 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
       <div className="panel p-6 md:p-8">
         <h1 className="font-display text-h1 text-ink">Sign in</h1>
         <p className="mt-2 max-w-prose text-body-sm text-ink-secondary">
@@ -42,25 +41,28 @@ export default async function LoginPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <aside className="panel h-fit p-5">
-        <h2 className="label-caps text-muted">Without an account</h2>
-        <ul className="mt-3 flex flex-col gap-2 text-body-sm text-ink-secondary">
-          {ROLE_CAPABILITY_SUMMARY.guest.map((line) => (
-            <li key={line} className="flex gap-2">
-              <span aria-hidden className="text-muted">
-                ·
-              </span>
-              {line}
-            </li>
-          ))}
-        </ul>
-        <Link
-          href="/"
-          className="mt-4 inline-block text-body-sm text-primary underline"
-        >
-          Continue as a visitor
-        </Link>
-      </aside>
+      <div className="flex flex-col gap-4">
+        <LibraryBenefitVisual />
+        <aside className="panel h-fit p-5">
+          <h2 className="label-caps text-muted">Without an account</h2>
+          <ul className="mt-3 flex flex-col gap-2 text-body-sm text-ink-secondary">
+            {ROLE_CAPABILITY_SUMMARY.guest.map((line) => (
+              <li key={line} className="flex gap-2">
+                <span aria-hidden className="text-muted">
+                  ·
+                </span>
+                {line}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/"
+            className="mt-4 inline-block text-body-sm text-primary underline"
+          >
+            Continue as a visitor
+          </Link>
+        </aside>
+      </div>
     </div>
   );
 }
