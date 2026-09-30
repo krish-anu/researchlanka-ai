@@ -99,7 +99,6 @@ def start_incremental_update(
     if model_path:
         args.extend(["--model", model_path])
 
-<<<<<<< HEAD
     from_date = _payload_text(payload, "from_date", "fromDate")
     to_date = _payload_text(payload, "to_date", "toDate")
     threshold = _payload_text(
@@ -113,25 +112,9 @@ def start_incremental_update(
         ("--from-date", from_date),
         ("--to-date", to_date),
         ("--confidence-review-threshold", threshold),
-=======
-    threshold_supplied = False
-    for field, argument in (
-        ("from_date", "--from-date"),
-        ("to_date", "--to-date"),
-        ("confidence_review_threshold", "--confidence-review-threshold"),
->>>>>>> origin/main
     ):
         if value:
             args.extend([argument, value])
-            if field == "confidence_review_threshold":
-                threshold_supplied = True
-    if not threshold_supplied:
-        args.extend(
-            [
-                "--confidence-review-threshold",
-                str(DEFAULT_CONFIDENCE_REVIEW_THRESHOLD),
-            ]
-        )
 
     if not threshold:
         args.extend(
@@ -161,12 +144,9 @@ def start_incremental_update(
         "message": "Resolving the date window.",
         "model": model_path,
         "db_labels": list(DEFAULT_DB_LABELS),
-<<<<<<< HEAD
         "from_date": from_date or None,
         "to_date": to_date or None,
         "confidence_review_threshold": threshold or None,
-=======
->>>>>>> origin/main
         "log_path": str(log_path),
     }
     write_status(status_path, status_payload)
@@ -219,69 +199,21 @@ def normalize_status(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "status": status,
         "pid": payload.get("pid") if isinstance(payload.get("pid"), int) else None,
-<<<<<<< HEAD
-        "started_at": (
-            payload.get("started_at")
-            if isinstance(payload.get("started_at"), str)
-            else None
-        ),
-        "finished_at": (
-            payload.get("finished_at")
-            if isinstance(payload.get("finished_at"), str)
-            else None
-        ),
-        "message": str(
-            payload.get("message") or "No status message is available."
-        ),
-        "model": (
-            payload.get("model")
-            if isinstance(payload.get("model"), str)
-            else None
-        ),
-=======
         "started_at": payload.get("started_at") if isinstance(payload.get("started_at"), str) else None,
         "finished_at": payload.get("finished_at") if isinstance(payload.get("finished_at"), str) else None,
         "message": str(payload.get("message") or "No status message is available."),
         "model": payload.get("model") if isinstance(payload.get("model"), str) else None,
->>>>>>> origin/main
         "db_labels": (
             payload.get("db_labels")
             if isinstance(payload.get("db_labels"), list)
             else list(DEFAULT_DB_LABELS)
         ),
-<<<<<<< HEAD
-        "from_date": (
-            payload.get("from_date")
-            if isinstance(payload.get("from_date"), str)
-            else None
-        ),
-        "to_date": (
-            payload.get("to_date")
-            if isinstance(payload.get("to_date"), str)
-            else None
-        ),
-        "confidence_review_threshold": payload.get(
-            "confidence_review_threshold"
-        ),
-        "step": (
-            payload.get("step")
-            if isinstance(payload.get("step"), str)
-            else None
-        ),
-        "log_path": (
-            payload.get("log_path")
-            if isinstance(payload.get("log_path"), str)
-            else None
-        ),
-        "result": (
-            payload.get("result")
-            if isinstance(payload.get("result"), dict)
-            else None
-        ),
-=======
+        "from_date": payload.get("from_date") if isinstance(payload.get("from_date"), str) else None,
+        "to_date": payload.get("to_date") if isinstance(payload.get("to_date"), str) else None,
+        "confidence_review_threshold": payload.get("confidence_review_threshold"),
+        "step": payload.get("step") if isinstance(payload.get("step"), str) else None,
         "log_path": payload.get("log_path") if isinstance(payload.get("log_path"), str) else None,
         "result": payload.get("result") if isinstance(payload.get("result"), dict) else None,
->>>>>>> origin/main
     }
 
 

@@ -169,12 +169,8 @@ export async function startIncrementalJob(
     status: "running",
     pid: child.pid,
     started_at: startedAt,
-<<<<<<< HEAD
     step: "window",
     message: "Resolving the date window.",
-=======
-    message: "Incremental AI publication update is running.",
->>>>>>> origin/main
     db_labels: DEFAULT_DB_LABELS,
     review_threshold: threshold,
     requested_from_date: fromDate ?? null,
@@ -193,7 +189,6 @@ export async function startIncrementalJob(
     void appendFile(logPath, text);
   });
   child.on("close", (code) => {
-<<<<<<< HEAD
     void (async () => {
       let step: string | null = null;
       try {
@@ -221,25 +216,6 @@ export async function startIncrementalJob(
         error: code === 0 ? undefined : stderr.slice(-4000),
       });
     })();
-=======
-    void writeIncrementalStatus({
-      status: code === 0 ? "succeeded" : "failed",
-      pid: child.pid,
-      started_at: startedAt,
-      finished_at: nowIso(),
-      message:
-        code === 0
-          ? "Incremental AI publication update completed."
-          : `Incremental AI publication update failed with exit code ${code}.`,
-      db_labels: DEFAULT_DB_LABELS,
-      review_threshold: threshold,
-      requested_from_date: fromDate ?? null,
-      requested_to_date: toDate ?? null,
-      log_path: logPath,
-      result: extractResult(stdout),
-      error: code === 0 ? undefined : stderr.slice(-4000),
-    });
->>>>>>> origin/main
   });
 
   return {

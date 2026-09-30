@@ -163,18 +163,12 @@ export default async function AdminOverviewPage() {
         {monitoring ? (
           <MonitoringPanel metrics={monitoring} />
         ) : (
-<<<<<<< HEAD
           <div className="panel flex flex-wrap items-center justify-between gap-3 p-4 text-body-sm text-ink-secondary">
             <p>
               Monitoring metrics are unavailable. Configure the backend admin API
               token to read production health counters, then retry.
             </p>
             <RetryButton variant="secondary" />
-=======
-          <div className="panel p-4 text-body-sm text-ink-secondary">
-            Monitoring metrics are unavailable. Configure the backend admin API
-            token to read production health counters.
->>>>>>> origin/main
           </div>
         )}
       </section>

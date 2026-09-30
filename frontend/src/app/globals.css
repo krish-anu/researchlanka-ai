@@ -64,7 +64,6 @@
   --critical: #ba1a1a;
   --success-text: #1c6b3f;
 
-<<<<<<< HEAD
   /* Filled destructive controls — keep separate from --critical text tint. */
   --danger: #ba1a1a;
   --danger-hover: #930000;
@@ -81,23 +80,13 @@
   --motion-panel: 180ms;
   --motion-ease: ease;
 
-=======
->>>>>>> origin/main
   /*
    * Keep builds deterministic by using local system stacks. The semantic
    * variables preserve the design-system API without fetching Google Fonts.
    */
-<<<<<<< HEAD
-  --font-archivo:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-plex-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-plex-mono:
-    ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-=======
   --font-archivo: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-plex-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-plex-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
->>>>>>> origin/main
 }
 
 :root[data-theme="dark"] {

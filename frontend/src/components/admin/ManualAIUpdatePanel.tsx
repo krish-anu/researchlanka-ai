@@ -119,7 +119,6 @@ export function ManualAIUpdatePanel({
             />
           </label>
         </div>
-<<<<<<< HEAD
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button
             type="submit"
@@ -140,19 +139,6 @@ export function ManualAIUpdatePanel({
         {message ? (
           <p className="mt-3 text-body-sm text-ink-secondary">{message}</p>
         ) : null}
-=======
-
-        <dl className="mt-6 grid gap-3 border-t border-rule pt-4">
-          <SummaryRow label="Status" value={run.status} />
-          <SummaryRow label="Started" value={formatDate(run.startedAt ?? null)} />
-          <SummaryRow label="Finished" value={formatDate(run.finishedAt ?? null)} />
-          <SummaryRow label="Collected" value={formatNumber(run.collected ?? null)} />
-          <SummaryRow label="Selected" value={formatNumber(run.selected ?? null)} />
-          <SummaryRow label="New records" value={formatNumber(run.newRecords ?? null)} />
-          <SummaryRow label="Updated records" value={formatNumber(run.updatedRecords ?? null)} />
-          <SummaryRow label="Loaded / updated" value={formatNumber(run.loaded ?? null)} />
-        </dl>
->>>>>>> origin/main
       </form>
 
       <IncrementalUpdateDiagram run={run} />
