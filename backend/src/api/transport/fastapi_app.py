@@ -38,6 +38,7 @@ from src.api.services.ai_review import (
     queue_retry,
     reassign_review,
     reopen_review,
+    review_hard_training_examples,
     Reviewer,
     validate_final_dataset,
     with_connection,
@@ -56,6 +57,7 @@ from src.api.services.user_feedback import (
     submit_feedback,
     with_connection as feedback_with_connection,
 )
+from src.modeling.embeddings import SEMANTIC_STARTUP_VALIDATION_ENV
 
 
 logger = logging.getLogger("researchlanka.api")
@@ -448,7 +450,12 @@ def create_admin_router(
     async def feedback_training_examples(request: Request) -> dict[str, Any]:
         require_admin_api_token(request.headers)
         return {
-            "data": feedback_with_connection(feedback_hard_training_examples),
+            "data": with_connection(
+                lambda connection: [
+                    *review_hard_training_examples(connection),
+                    *feedback_hard_training_examples(connection),
+                ]
+            ),
             "meta": service._meta(),
         }
 
@@ -574,6 +581,16 @@ def create_app(
                 {"error": str(exc)},
             ),
         )
+
+    @app.on_event("startup")
+    async def validate_semantic_index_on_startup() -> None:
+        enabled = os.getenv(SEMANTIC_STARTUP_VALIDATION_ENV, "").casefold()
+        if enabled not in {"1", "true", "yes", "on"}:
+            return
+        repository = getattr(publication_api, "repository", None)
+        validator = getattr(repository, "validate_semantic_index_for_startup", None)
+        if validator is not None:
+            validator()
 
     @app.get("/health")
     @app.get(f"{API_PREFIX}/health")

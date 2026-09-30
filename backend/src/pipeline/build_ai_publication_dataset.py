@@ -14,7 +14,6 @@ from src.pipeline.incremental_update import (
     AI_COLUMNS,
     DEFAULT_CONFIDENCE_REVIEW_THRESHOLD,
     DEFAULT_DB_LABELS,
-    DEFAULT_TEXT_COLUMNS,
     apply_ai_classification,
     configured_model_path,
     filter_rows_for_database,
@@ -22,6 +21,7 @@ from src.pipeline.incremental_update import (
 )
 from src.modeling.training import parse_text_columns
 from src.pipeline.refresh_policy import configured_confidence_review_threshold
+from src.pipeline.refresh_policy import configured_text_columns
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -92,7 +92,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--classified-output", type=Path, default=DEFAULT_CLASSIFIED_OUTPUT)
     parser.add_argument("--ai-output", type=Path, default=DEFAULT_AI_OUTPUT)
     parser.add_argument("--model", type=Path, default=configured_model_path())
-    parser.add_argument("--text-columns", type=parse_text_columns, default=list(DEFAULT_TEXT_COLUMNS))
+    parser.add_argument("--text-columns", type=parse_text_columns, default=list(configured_text_columns()))
     parser.add_argument(
         "--confidence-review-threshold",
         type=configured_confidence_review_threshold,

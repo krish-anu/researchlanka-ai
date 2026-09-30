@@ -1,0 +1,10 @@
+{
+  "dataset_version": "researchlanka-2026-09-27",
+  "records": 4177,
+  "dimension": 384,
+  "embeddings_path": "data/models/embeddings-v2026-09-27.parquet",
+  "model_path": "data/models/embedding-model-v3.joblib",
+  "manifest_path": "data/models/semantic-search-index-v2026-09-27.json",
+  "source": "accepted_public_snapshot",
+  "created_at": "2026-09-27"
+}

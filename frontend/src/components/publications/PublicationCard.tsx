@@ -5,6 +5,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { AIRelevanceStatus } from "@/components/publications/AIRelevanceStatus";
 import { QualityFlagList } from "@/components/ui/QualityFlags";
 import { ProvenanceList, ProvenanceStripe } from "@/components/ui/Provenance";
+import { publicationsForDisplay } from "@/services/derive";
 import { formatDate } from "@/services/format";
 import { publicationHref, researcherHref } from "@/services/links";
 import type { PublicationSummary } from "@/types/api";
@@ -143,9 +144,15 @@ export function PublicationCard({
 }
 
 export function PublicationCardList({ publications, initialView = "cards" }: { publications: PublicationSummary[]; initialView?: "cards" | "table" }) {
+  const displayPublications = publicationsForDisplay(publications);
+
+  if (displayPublications.length === 0) {
+    return <p className="panel p-4 text-body-sm text-muted">No displayable publication records.</p>;
+  }
+
   return <ViewSwitcher label="Publication view" initialView={initialView} cards={
-    <ul className="flex flex-col gap-4">{publications.map(publication => <li key={publication.publication_key}><PublicationCard publication={publication} /></li>)}</ul>
-  } table={<section className="panel p-3"><DataTable rows={publications} rowKey={p => p.publication_key} columns={[
+    <ul className="flex flex-col gap-4">{displayPublications.map(publication => <li key={publication.publication_key}><PublicationCard publication={publication} /></li>)}</ul>
+  } table={<section className="panel p-3"><DataTable rows={displayPublications} rowKey={p => p.publication_key} columns={[
     { key: "title", header: "Publication", render: p => <div><Link href={publicationHref(p.publication_key)} className="font-medium text-ink hover:text-primary">{p.title ?? "Untitled record"}</Link><p className="mt-2 text-xs text-muted"><AuthorLine authors={p.authors} /></p><div className="mt-2 flex flex-wrap items-center gap-2"><AIRelevanceStatus trace={p.trace} compact /><QualityFlagList flags={p.quality_flags} max={3} /></div></div> },
     { key: "field", header: "Field", render: p => p.primary_field ?? "Unclassified" },
     { key: "year", header: "Year", numeric: true, render: p => p.publication_year ?? yearFromDate(p.publication_date) ?? "—" },

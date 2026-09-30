@@ -22,6 +22,13 @@ def test_migration_preserves_remaining_remote_commands(tmp_path, migration_exit)
     remote = deploy.split("<<'REMOTE_DEPLOY'\n", 1)[1].split("\nREMOTE_DEPLOY", 1)[0]
     # Avoid the production script's fixed temporary path during this test.
     remote = remote.replace("/tmp/researchlanka-compose.ok", str(tmp_path / "compose.ok"))
+    for model_path in (
+        "backend/data/models/semantic-search-index-v2026-09-27.json",
+        "backend/data/models/embeddings-v2026-09-27.parquet",
+        "backend/data/models/embedding-model-v3.joblib",
+    ):
+        (tmp_path / model_path).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / model_path).touch()
     docker = tmp_path / "docker"
     docker.write_text(
         '#!/bin/bash\n'

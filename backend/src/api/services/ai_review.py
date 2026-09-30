@@ -14,6 +14,7 @@ from typing import Any, Iterable, Mapping
 from psycopg.rows import dict_row
 
 from src.api.core.errors import APIError
+from src.ai_relevance.hard_negatives import build_hard_negative_frame
 from src.database.connection import get_connection
 from src.pipeline.refresh_policy import (
     DEFAULT_AUTO_AI_THRESHOLD,
@@ -494,6 +495,11 @@ def review_stats(connection: Any) -> dict[str, Any]:
     }
 
 
+def is_model_ai_false_positive_decision(record: Mapping[str, Any], decision: str) -> bool:
+    original_label = normalize_ai_label(record.get("original_ai_label"))
+    return decision == "human_rejected" and original_label == "AI"
+
+
 def decide_review(
     connection: Any,
     *,
@@ -544,6 +550,9 @@ def decide_review(
                 )
 
         next_version = int(record["record_version"]) + 1
+        hard_negative = is_model_ai_false_positive_decision(record, decision)
+        hard_negative_category = "human_rejected_model_ai" if hard_negative else None
+        hard_negative_evidence = notes.strip() if hard_negative else None
         cursor.execute(
             """
             UPDATE ai_review_records
@@ -553,6 +562,9 @@ def decide_review(
                 decided_by_email = %s,
                 decided_by_name = %s,
                 reviewer_notes = %s,
+                hard_negative = %s,
+                hard_negative_category = %s,
+                hard_negative_evidence = %s,
                 decision_timestamp = now(),
                 record_version = %s,
                 sync_status = 'pending',
@@ -567,6 +579,9 @@ def decide_review(
                 actor.get("email"),
                 actor.get("name"),
                 notes.strip(),
+                hard_negative,
+                hard_negative_category,
+                hard_negative_evidence,
                 next_version,
                 publication_key,
             ),
@@ -608,6 +623,9 @@ def reopen_review(
                 decided_by_id = NULL,
                 decided_by_email = NULL,
                 decided_by_name = NULL,
+                hard_negative = false,
+                hard_negative_category = NULL,
+                hard_negative_evidence = NULL,
                 decision_timestamp = NULL,
                 record_version = %s,
                 sync_status = 'pending',
@@ -710,6 +728,42 @@ def final_dataset_rows(connection: Any) -> list[dict[str, Any]]:
         """,
     )
     return [final_dataset_row(row) for row in rows]
+
+
+def review_hard_training_examples(connection: Any) -> list[dict[str, Any]]:
+    rows = _fetch_all(
+        connection,
+        """
+        SELECT r.publication_key,
+               r.original_ai_label,
+               r.original_ai_confidence,
+               r.original_ai_model,
+               r.original_ai_reason,
+               r.review_status,
+               r.reviewer_notes,
+               r.hard_negative,
+               r.hard_negative_category,
+               r.hard_negative_evidence,
+               r.decision_timestamp,
+               p.title,
+               p.abstract,
+               p.keywords,
+               p.topics,
+               p.concepts,
+               p.primary_topic,
+               p.primary_subfield,
+               p.primary_field,
+               p.primary_domain,
+               p.doi,
+               p.openalex_id,
+               p.source_record_id
+        FROM ai_review_records r
+        JOIN final_publications p USING (publication_key)
+        WHERE r.hard_negative IS TRUE
+        ORDER BY r.decision_timestamp DESC NULLS LAST, r.publication_key
+        """,
+    )
+    return build_hard_negative_frame(rows).to_dict("records")
 
 
 def final_dataset_row(row: Mapping[str, Any]) -> dict[str, str]:

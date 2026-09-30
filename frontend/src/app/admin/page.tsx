@@ -324,9 +324,28 @@ async function loadAdminOverviewData() {
 
 function MonitoringPanel({ metrics }: { metrics: MonitoringMetrics }) {
   const drift = metrics.drift;
+  const ml = metrics.ml_monitoring ?? drift.ml_monitoring;
+  const activeAlerts = ml?.active_alerts ?? [];
+
   return (
     <div className="flex flex-col gap-4">
-      {drift.alert ? (
+      {activeAlerts.length > 0 ? (
+        <div className="panel border-amber-500/40 bg-amber-500/5 p-4 dark:border-amber-500/30 dark:bg-amber-950/20">
+          <div className="flex items-center gap-2">
+            <span className="text-h3">⚠</span>
+            <p className="font-semibold text-amber-700 dark:text-amber-400">
+              Active ML Pipeline Drift Alerts ({activeAlerts.length})
+            </p>
+          </div>
+          <ul className="mt-2 space-y-1 pl-6 list-disc text-body-sm text-ink-secondary">
+            {activeAlerts.map((alert, idx) => (
+              <li key={idx} className="font-medium">
+                {alert.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : drift.alert ? (
         <div className="panel border-serious/50 bg-wash p-4">
           <p className="font-medium text-serious">AI classification drift alert</p>
           <p className="mt-1 text-body-sm text-ink-secondary">
@@ -421,11 +440,244 @@ function MonitoringPanel({ metrics }: { metrics: MonitoringMetrics }) {
         />
       </StatTileGrid>
 
+      {ml ? <RealMLMonitoringSection ml={ml} /> : null}
+
       <div className="panel p-4">
-        <h3 className="font-display text-h3 text-ink">Drift monitoring</h3>
+        <h3 className="font-display text-h3 text-ink">Monthly auto AI drift</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <DriftCard label="Previous month" month={drift.previous_month} />
           <DriftCard label="Current month" month={drift.current_month} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RealMLMonitoringSection({ ml }: { ml: NonNullable<MonitoringMetrics["ml_monitoring"]> }) {
+  return (
+    <div className="panel flex flex-col gap-4 p-4">
+      <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-center">
+        <div>
+          <h3 className="font-display text-h3 text-ink">Real ML Monitoring (7 Drift Dimensions)</h3>
+          <p className="text-body-sm text-ink-secondary">
+            Comparing <strong className="text-ink">{ml.previous_period ?? "Baseline"}</strong> with{" "}
+            <strong className="text-ink">{ml.current_period ?? "Current"}</strong> (Cohort basis: {ml.date_basis})
+          </p>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-caption font-semibold ${
+            ml.overall_alert
+              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+              : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+          }`}
+        >
+          {ml.overall_alert ? "⚠ Drift Alerts Active" : "✓ All Dimensions Stable"}
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {/* 1. Confidence Drift */}
+        <div className="rounded-md border border-rule p-3 bg-canvas-subtle/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="label-caps text-muted">Confidence Drift (P(AI))</span>
+              {ml.confidence_drift.alert ? (
+                <span className="text-caption font-bold text-amber-600">⚠ Drift</span>
+              ) : (
+                <span className="text-caption text-emerald-600">Stable</span>
+              )}
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <p className="font-display text-h2 text-ink">
+                {ml.confidence_drift.current_mean_p_ai.toFixed(2)}
+              </p>
+              <span className="text-body-sm font-medium text-ink-secondary">
+                from {ml.confidence_drift.previous_mean_p_ai.toFixed(2)} (
+                <span className={ml.confidence_drift.mean_p_ai_delta > 0 ? "text-amber-600 font-semibold" : ""}>
+                  {ml.confidence_drift.mean_p_ai_delta > 0 ? "+" : ""}
+                  {ml.confidence_drift.mean_p_ai_delta.toFixed(2)}
+                </span>
+                )
+              </span>
+            </div>
+            <p className="mt-1 text-caption text-ink-secondary">
+              Median: {ml.confidence_drift.current_median_p_ai.toFixed(2)} · High confidence share:{" "}
+              {formatPercent(ml.confidence_drift.bins.high.current_pct)}
+            </p>
+          </div>
+        </div>
+
+        {/* 2. Prediction Drift */}
+        <div className="rounded-md border border-rule p-3 bg-canvas-subtle/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="label-caps text-muted">Prediction Drift</span>
+              {ml.prediction_drift.alert ? (
+                <span className="text-caption font-bold text-amber-600">⚠ Shift</span>
+              ) : (
+                <span className="text-caption text-emerald-600">Stable</span>
+              )}
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <p className="font-display text-h2 text-ink">
+                {formatPercent(ml.prediction_drift.current_ai_rate)}
+              </p>
+              <span className="text-body-sm font-medium text-ink-secondary">
+                AI rate (
+                <span className={Math.abs(ml.prediction_drift.ai_rate_delta_points) >= 15 ? "text-amber-600 font-semibold" : ""}>
+                  {ml.prediction_drift.ai_rate_delta_points > 0 ? "+" : ""}
+                  {ml.prediction_drift.ai_rate_delta_points.toFixed(1)} pts
+                </span>
+                )
+              </span>
+            </div>
+            <p className="mt-1 text-caption text-ink-secondary">
+              PSI score: <span className="font-semibold text-ink">{ml.prediction_drift.psi_score.toFixed(4)}</span> · Non-AI:{" "}
+              {formatPercent(ml.prediction_drift.current_non_ai_rate)}
+            </p>
+          </div>
+        </div>
+
+        {/* 3. Source Drift */}
+        <div className="rounded-md border border-rule p-3 bg-canvas-subtle/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="label-caps text-muted">Source Drift</span>
+              {ml.source_drift.alert ? (
+                <span className="text-caption font-bold text-amber-600">⚠ Imbalance</span>
+              ) : (
+                <span className="text-caption text-emerald-600">Stable</span>
+              )}
+            </div>
+            <div className="mt-2 space-y-1">
+              {ml.source_drift.sources.map((src) => (
+                <div key={src.name} className="flex justify-between text-body-sm">
+                  <span className="text-ink-secondary">{src.name}</span>
+                  <span className={`font-medium ${src.alert ? "text-amber-600 font-bold" : "text-ink"}`}>
+                    {src.current_pct.toFixed(1)}%{" "}
+                    <span className="text-caption text-muted">
+                      ({src.delta_points > 0 ? "+" : ""}
+                      {src.delta_points.toFixed(1)})
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Feature Drift */}
+        <div className="rounded-md border border-rule p-3 bg-canvas-subtle/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="label-caps text-muted">Feature Drift</span>
+              {ml.feature_drift.alert ? (
+                <span className="text-caption font-bold text-amber-600">⚠ Diverged</span>
+              ) : (
+                <span className="text-caption text-emerald-600">Stable</span>
+              )}
+            </div>
+            <p className="mt-2 font-display text-h2 text-ink">
+              {ml.feature_drift.current_avg_title_words} <span className="text-body-sm font-normal text-muted">words/title</span>
+            </p>
+            <p className="mt-1 text-caption text-ink-secondary">
+              Abstract words: {ml.feature_drift.current_avg_abstract_words} · Abstract presence:{" "}
+              {formatPercent(ml.feature_drift.current_abstract_presence_pct)}
+            </p>
+          </div>
+        </div>
+
+        {/* 5. Missing Data Drift */}
+        <div className="rounded-md border border-rule p-3 bg-canvas-subtle/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="label-caps text-muted">Missing-Data Drift</span>
+              {ml.missing_data_drift.alert ? (
+                <span className="text-caption font-bold text-amber-600">⚠ Surge</span>
+              ) : (
+                <span className="text-caption text-emerald-600">Stable</span>
+              )}
+            </div>
+            <div className="mt-2 space-y-1">
+              {Object.entries(ml.missing_data_drift.fields).map(([k, item]) => (
+                <div key={k} className="flex justify-between text-body-sm">
+                  <span className="text-ink-secondary">{item.label}</span>
+                  <span className={`font-medium ${item.alert ? "text-amber-600 font-bold" : "text-ink"}`}>
+                    {item.current_pct.toFixed(1)}%{" "}
+                    <span className="text-caption text-muted">
+                      ({item.delta_points > 0 ? "+" : ""}
+                      {item.delta_points.toFixed(1)})
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Institution Drift */}
+        <div className="rounded-md border border-rule p-3 bg-canvas-subtle/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="label-caps text-muted">Institution Drift</span>
+              {ml.institution_drift.alert ? (
+                <span className="text-caption font-bold text-amber-600">⚠ Skewed</span>
+              ) : (
+                <span className="text-caption text-emerald-600">Stable</span>
+              )}
+            </div>
+            <p className="mt-2 text-caption text-ink-secondary">
+              Top 3 Concentration:{" "}
+              <strong className="text-ink">
+                {formatPercent(ml.institution_drift.top3_concentration_current_pct)}
+              </strong>
+            </p>
+            <div className="mt-1 space-y-0.5">
+              {ml.institution_drift.top_institutions.slice(0, 3).map((inst) => (
+                <div key={inst.institution} className="truncate text-caption text-ink-secondary">
+                  · {inst.institution} ({inst.current_share_pct.toFixed(1)}%)
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 7. Human Disagreement Drift */}
+        <div className="rounded-md border border-rule p-3 bg-canvas-subtle/50 flex flex-col justify-between sm:col-span-2 lg:col-span-3">
+          <div className="flex items-center justify-between">
+            <span className="label-caps text-muted">Human Disagreement & Overturn Drift</span>
+            {ml.human_disagreement_drift.alert ? (
+              <span className="text-caption font-bold text-amber-600">⚠ High Overturns</span>
+            ) : (
+              <span className="text-caption text-emerald-600">Stable</span>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-6">
+            <div>
+              <p className="text-caption text-muted">Disagreement Rate</p>
+              <p className="font-display text-h3 text-ink">
+                {formatPercent(ml.human_disagreement_drift.current_disagreement_rate)}
+              </p>
+            </div>
+            <div>
+              <p className="text-caption text-muted">Human Decisions</p>
+              <p className="font-display text-h3 text-ink">
+                {formatNumber(ml.human_disagreement_drift.current_human_decisions)}
+              </p>
+            </div>
+            <div>
+              <p className="text-caption text-muted">False Positive Overturns</p>
+              <p className="font-display text-h3 text-ink">
+                {formatNumber(ml.human_disagreement_drift.current_fp_overturns)}
+              </p>
+            </div>
+            <div>
+              <p className="text-caption text-muted">False Negative Overturns</p>
+              <p className="font-display text-h3 text-ink">
+                {formatNumber(ml.human_disagreement_drift.current_fn_overturns)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

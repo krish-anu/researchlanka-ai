@@ -67,10 +67,11 @@ LOGREG_INFERENCE_MANIFEST_OUTPUT ?= data/models/logistic_regression_$(LOGREG_LAB
 LOGREG_INFERENCE_METADATA_COLUMNS ?= record_number,publication_year,title,doi,openalex_id,source_dataset,source_institution_id,source_record_id
 LOGREG_INFERENCE_EXTRA_ARGS ?=
 EMBED_INPUT ?= $(ACCEPTED_SNAPSHOT_INPUT)
-EMBED_OUTPUT ?= data/models/publication_text_embeddings.parquet
-EMBED_MODEL_OUTPUT ?= data/models/publication_text_embedding_model.joblib
-EMBED_MANIFEST_OUTPUT ?= data/models/publication_text_embeddings_manifest.json
-EMBED_SUMMARY_OUTPUT ?= data/models/publication_text_embeddings_summary.txt
+SEMANTIC_DATASET_VERSION ?= researchlanka-2026-09-27
+EMBED_OUTPUT ?= data/models/embeddings-v2026-09-27.parquet
+EMBED_MODEL_OUTPUT ?= data/models/embedding-model-v3.joblib
+EMBED_MANIFEST_OUTPUT ?= data/models/semantic-search-index-v2026-09-27.json
+EMBED_SUMMARY_OUTPUT ?= data/models/semantic-search-index-v2026-09-27.txt
 EMBED_TEXT_COLUMNS ?= title,abstract,keywords
 EMBED_METADATA_COLUMNS ?= record_number,publication_year,title,doi,openalex_id,source_dataset,source_institution_id,source_record_id
 EMBED_DIM ?= 384
@@ -107,15 +108,15 @@ INCREMENTAL_END_DATE ?=
 INCREMENTAL_PER_PAGE ?= 200
 INCREMENTAL_MAX_RECORDS ?=
 INCREMENTAL_MODEL ?=
-INCREMENTAL_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
+INCREMENTAL_TEXT_COLUMNS ?= title,abstract
 INCREMENTAL_DB_LABELS ?= AI,review
 INCREMENTAL_CONFIDENCE_REVIEW_THRESHOLD ?= 0.85
 INCREMENTAL_EXTRA_ARGS ?=
 AI_DATASET_INPUT ?= data/processed/common/common_publications_final_text_enriched.csv
 AI_DATASET_CLASSIFIED_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_classified.csv
 AI_DATASET_OUTPUT ?= data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
-AI_DATASET_MODEL ?= data/models/ai_relevance/ai_relevance_linear_svm.joblib
-AI_DATASET_TEXT_COLUMNS ?= title,abstract,keywords,topics,concepts
+AI_DATASET_MODEL ?= data/models/ai_relevance/metadata_ablation_precision_092/A1_title_abstract.joblib
+AI_DATASET_TEXT_COLUMNS ?= title,abstract
 AI_DATASET_DB_LABELS ?= AI,review
 AI_DATASET_CONFIDENCE_REVIEW_THRESHOLD ?= 0.85
 AI_DATASET_EXTRA_ARGS ?=
@@ -337,7 +338,7 @@ model-tfidf: enrich-missing-text
 	$(PYTHON) scripts/extraction/build_publication_tfidf_features.py --input $(MODEL_TEXT_INPUT) --output $(MODEL_TFIDF_OUTPUT) --vocabulary-output $(MODEL_TFIDF_VOCABULARY_OUTPUT) --summary-output $(MODEL_TFIDF_SUMMARY_OUTPUT) --max-features $(MODEL_TFIDF_MAX_FEATURES) --min-df $(MODEL_TFIDF_MIN_DF) --max-df $(MODEL_TFIDF_MAX_DF) --ngram-max $(MODEL_TFIDF_NGRAM_MAX) --top-features-per-record $(MODEL_TFIDF_TOP_FEATURES_PER_RECORD)
 
 model-embeddings: enrich-missing-text
-	$(PYTHON) scripts/modeling/generate_publication_text_embeddings.py --input $(EMBED_INPUT) --output $(EMBED_OUTPUT) --model-output $(EMBED_MODEL_OUTPUT) --manifest-output $(EMBED_MANIFEST_OUTPUT) --summary-output $(EMBED_SUMMARY_OUTPUT) --text-columns $(EMBED_TEXT_COLUMNS) --metadata-columns $(EMBED_METADATA_COLUMNS) --embedding-dim $(EMBED_DIM) --max-features $(EMBED_MAX_FEATURES) --min-df $(EMBED_MIN_DF) --max-df $(EMBED_MAX_DF) --ngram-max $(EMBED_NGRAM_MAX) $(EMBED_EXTRA_ARGS)
+	$(PYTHON) scripts/modeling/generate_publication_text_embeddings.py --input $(EMBED_INPUT) --output $(EMBED_OUTPUT) --model-output $(EMBED_MODEL_OUTPUT) --manifest-output $(EMBED_MANIFEST_OUTPUT) --summary-output $(EMBED_SUMMARY_OUTPUT) --dataset-version $(SEMANTIC_DATASET_VERSION) --text-columns $(EMBED_TEXT_COLUMNS) --metadata-columns $(EMBED_METADATA_COLUMNS) --embedding-dim $(EMBED_DIM) --max-features $(EMBED_MAX_FEATURES) --min-df $(EMBED_MIN_DF) --max-df $(EMBED_MAX_DF) --ngram-max $(EMBED_NGRAM_MAX) $(EMBED_EXTRA_ARGS)
 
 model-splits:
 	$(PYTHON) scripts/modeling/create_dataset_splits.py --input $(MODEL_SPLIT_INPUT) --output-dir $(MODEL_SPLIT_OUTPUT_DIR) --label-column $(MODEL_SPLIT_LABEL_COLUMN) --text-columns $(MODEL_SPLIT_TEXT_COLUMNS) --train-ratio $(MODEL_SPLIT_TRAIN_RATIO) --validation-ratio $(MODEL_SPLIT_VALIDATION_RATIO) --test-ratio $(MODEL_SPLIT_TEST_RATIO) --random-state $(MODEL_SPLIT_RANDOM_STATE) --min-class-count $(MODEL_SPLIT_MIN_CLASS_COUNT) $(MODEL_SPLIT_EXTRA_ARGS)

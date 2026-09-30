@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Predict remaining pending-review rows with the selected A2 AI model."""
+"""Predict remaining pending-review rows with the configured AI relevance model."""
 
 from __future__ import annotations
 
@@ -11,10 +11,17 @@ import joblib
 import pandas as pd
 
 from src.preprocessing.text_cleaning import clean_text_series
+from src.pipeline.refresh_policy import (
+    configured_auto_ai_threshold,
+    configured_auto_non_ai_threshold,
+    configured_model_path,
+    configured_text_columns,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_MODEL = PROJECT_ROOT / "data/models/ai_relevance/metadata_ablation/A2_title_abstract_keywords.joblib"
+DEFAULT_MODEL = configured_model_path()
+DEFAULT_TEXT_COLUMNS = configured_text_columns()
 DEFAULT_PENDING = PROJECT_ROOT / "data/pending-review-split/model_predict_remaining_1207.csv"
 DEFAULT_CORPUS = PROJECT_ROOT / "data/processed/common/common_publications_final_2016_2026_ai_classified.csv"
 DEFAULT_OUTPUT = PROJECT_ROOT / "data/processed/ai/model_predict_remaining_1207_a2_predictions.csv"
@@ -79,9 +86,9 @@ def build_lookup(corpus: pd.DataFrame) -> dict[str, dict[str, str]]:
     return lookup
 
 
-def prefixed_a2_text(frame: pd.DataFrame) -> pd.Series:
+def prefixed_model_text(frame: pd.DataFrame, text_columns: tuple[str, ...]) -> pd.Series:
     parts = []
-    for column in ("title", "abstract", "keywords"):
+    for column in text_columns:
         values = frame[column].fillna("").astype(str) if column in frame.columns else ""
         parts.append(column.upper() + ": " + values)
     text = pd.concat(parts, axis=1).agg(" ".join, axis=1)
@@ -104,9 +111,10 @@ def predict_remaining(
     corpus_path: Path = DEFAULT_CORPUS,
     output_path: Path = DEFAULT_OUTPUT,
     summary_path: Path = DEFAULT_SUMMARY,
-    binary_threshold: float = 0.35,
-    auto_ai_threshold: float = 0.70,
-    auto_non_ai_threshold: float = 0.20,
+    text_columns: tuple[str, ...] = DEFAULT_TEXT_COLUMNS,
+    binary_threshold: float = 0.40,
+    auto_ai_threshold: float | None = None,
+    auto_non_ai_threshold: float | None = None,
 ) -> pd.DataFrame:
     pending = pd.read_csv(pending_path, dtype=str, keep_default_na=False, low_memory=False)
     corpus = pd.read_csv(corpus_path, dtype=str, keep_default_na=False, low_memory=False)
@@ -122,9 +130,11 @@ def predict_remaining(
     metadata = pd.DataFrame(metadata_rows)
     joined = pd.concat([pending.reset_index(drop=True), metadata.reset_index(drop=True)], axis=1)
     model = joblib.load(model_path)
-    text = prefixed_a2_text(joined)
+    text = prefixed_model_text(joined, text_columns)
     probabilities = model.predict_proba(text)
     scores = [float(row[1]) for row in probabilities]
+    selected_auto_ai_threshold = configured_auto_ai_threshold(auto_ai_threshold)
+    selected_auto_non_ai_threshold = configured_auto_non_ai_threshold(auto_non_ai_threshold)
     joined["a2_ai_score"] = [f"{score:.6f}" for score in scores]
     joined["a2_binary_prediction"] = [
         "AI" if score >= binary_threshold else "NON_AI" for score in scores
@@ -133,13 +143,13 @@ def predict_remaining(
     joined["a2_production_decision"] = [
         classify_three_way(
             score,
-            ai_threshold=auto_ai_threshold,
-            non_ai_threshold=auto_non_ai_threshold,
+            ai_threshold=selected_auto_ai_threshold,
+            non_ai_threshold=selected_auto_non_ai_threshold,
         )
         for score in scores
     ]
-    joined["a2_auto_ai_threshold"] = f"{auto_ai_threshold:.2f}"
-    joined["a2_auto_non_ai_threshold"] = f"{auto_non_ai_threshold:.2f}"
+    joined["a2_auto_ai_threshold"] = f"{selected_auto_ai_threshold:.2f}"
+    joined["a2_auto_non_ai_threshold"] = f"{selected_auto_non_ai_threshold:.2f}"
     joined["a2_model_path"] = str(model_path)
     joined["metadata_joined"] = joined["title"].fillna("").astype(str).str.strip().ne("")
 
@@ -193,9 +203,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
-    parser.add_argument("--binary-threshold", type=float, default=0.35)
-    parser.add_argument("--auto-ai-threshold", type=float, default=0.70)
-    parser.add_argument("--auto-non-ai-threshold", type=float, default=0.20)
+    parser.add_argument("--text-columns", default=",".join(DEFAULT_TEXT_COLUMNS))
+    parser.add_argument("--binary-threshold", type=float, default=0.40)
+    parser.add_argument("--auto-ai-threshold", type=float, default=None)
+    parser.add_argument("--auto-non-ai-threshold", type=float, default=None)
     return parser.parse_args()
 
 
@@ -207,6 +218,7 @@ def main() -> None:
         corpus_path=args.corpus,
         output_path=args.output,
         summary_path=args.summary,
+        text_columns=tuple(column.strip() for column in args.text_columns.split(",") if column.strip()),
         binary_threshold=args.binary_threshold,
         auto_ai_threshold=args.auto_ai_threshold,
         auto_non_ai_threshold=args.auto_non_ai_threshold,

@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 from src.api.core.errors import APIError
-from src.api.repositories.nmf_topics import NmfTopicStore
+from src.api.repositories import nmf_topics
+from src.api.repositories.nmf_topics import NmfTopicStore, resolve_nmf_artifact_dir
 from src.api.routes import route_get
 from src.api.service import ResearchLankaAPI
 from src.api.services.nmf_topics import NmfTopicService
@@ -121,6 +122,16 @@ def test_topic_trend_slopes_and_classification(store: NmfTopicStore):
     assert by_name["patients / age / hospital"] == "emerging"
     assert by_name["medicine / internal_medicine / internal"] == "declining"
     assert by_name["environmental / water / environmental_science"] == "emerging"
+
+
+def test_default_nmf_artifact_path_uses_first_available_candidate(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("NMF_ARTIFACT_DIR", raising=False)
+    monkeypatch.setattr(nmf_topics, "DEFAULT_ARTIFACT_DIRS", (FIXTURE_DIR,))
+
+    resolved = resolve_nmf_artifact_dir()
+
+    assert resolved == FIXTURE_DIR
+    assert (resolved / "nmf_topic_keywords.csv").exists()
 
 
 def test_topics_directory_uses_existing_endpoint(api: ResearchLankaAPI):

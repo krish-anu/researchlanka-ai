@@ -33,14 +33,18 @@ from src.database.connection import get_connection
 from src.modeling.embeddings import (
     EMBEDDING_MODEL_PATH_ENV,
     EMBEDDINGS_PATH_ENV,
+    SEMANTIC_MANIFEST_PATH_ENV,
     SEMANTIC_RANK_FIELD,
     SEMANTIC_SCORE_FIELD,
     SIMILARITY_RANK_FIELD,
     SIMILARITY_SCORE_FIELD,
     SemanticSearchIndex,
+    configured_semantic_manifest_path,
     default_semantic_embeddings_path,
     default_semantic_model_path,
     load_semantic_search_index,
+    semantic_manifest_dataset_version,
+    semantic_manifest_record_count,
 )
 
 
@@ -166,6 +170,7 @@ class PostgresPublicationRepository:
         semantic_index: SemanticSearchIndex | None = None,
         semantic_embeddings_path: Path | None = None,
         semantic_model_path: Path | None = None,
+        semantic_manifest_path: Path | None = None,
     ) -> None:
         self.connection_factory = connection_factory
         self._semantic_index = semantic_index
@@ -178,6 +183,11 @@ class PostgresPublicationRepository:
             semantic_model_path,
             env_name=EMBEDDING_MODEL_PATH_ENV,
             default_path=default_semantic_model_path(self.semantic_embeddings_path),
+        )
+        self.semantic_manifest_path = (
+            semantic_manifest_path
+            if semantic_manifest_path is not None
+            else configured_semantic_manifest_path(os.environ.get(SEMANTIC_MANIFEST_PATH_ENV))
         )
 
     def health(self) -> bool:
@@ -1584,8 +1594,54 @@ class PostgresPublicationRepository:
             self._semantic_index = load_semantic_search_index(
                 embeddings_path=self.semantic_embeddings_path,
                 model_path=self.semantic_model_path,
+                manifest_path=self.semantic_manifest_path,
             )
+            self._validate_semantic_index_database_contract(self._semantic_index)
         return self._semantic_index
+
+    def validate_semantic_index_for_startup(self) -> None:
+        """Eagerly validate semantic-search artifacts against the public DB."""
+
+        self._validate_semantic_index_database_contract(self._semantic_search_index())
+
+    def _validate_semantic_index_database_contract(
+        self,
+        semantic_index: SemanticSearchIndex,
+    ) -> None:
+        manifest = semantic_index.manifest
+        expected_version = semantic_manifest_dataset_version(manifest)
+        expected_records = semantic_manifest_record_count(manifest)
+        if expected_version is None and expected_records is None:
+            return
+
+        row = self._fetch_one(
+            f"""
+            SELECT count(*) AS records,
+                   min(dataset_version) AS min_dataset_version,
+                   max(dataset_version) AS max_dataset_version,
+                   count(DISTINCT dataset_version) AS dataset_versions
+            FROM {PUBLICATION_SOURCE_SQL}
+            """,
+            [],
+        ) or {}
+        db_records = int(row.get("records") or 0)
+        min_version = row.get("min_dataset_version")
+        max_version = row.get("max_dataset_version")
+        version_count = int(row.get("dataset_versions") or 0)
+
+        if expected_records is not None and expected_records != db_records:
+            raise ValueError(
+                "Semantic index record count does not match public database: "
+                f"{expected_records} != {db_records}"
+            )
+        if expected_version is None:
+            return
+        if version_count != 1 or min_version != expected_version or max_version != expected_version:
+            raise ValueError(
+                "Semantic index dataset version does not match public database: "
+                f"semantic={expected_version}, db_min={min_version}, "
+                f"db_max={max_version}, db_versions={version_count}"
+            )
 
     def _database_records_for_similarity_hits(
         self,

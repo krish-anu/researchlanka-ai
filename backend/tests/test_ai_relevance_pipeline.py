@@ -20,7 +20,12 @@ from src.ai_relevance.gemini_client import (
 )
 from src.ai_relevance.config import GeminiConfig
 from src.ai_relevance.prompt import build_classification_prompt
-from src.ai_relevance.review import HumanReviewConfig, add_review_flags, build_human_review_sample
+from src.ai_relevance.review import (
+    HumanReviewConfig,
+    add_active_learning_priority,
+    add_review_flags,
+    build_human_review_sample,
+)
 from src.ai_relevance.runner import GeminiRunConfig, run_gemini_classification
 from src.ai_relevance.sampling import CandidateSamplingConfig, build_candidate_sample
 from src.ai_relevance.schema import AIClassification, validate_ai_response
@@ -411,6 +416,53 @@ def test_review_flags_catch_low_confidence_and_fuzzy_false_positive() -> None:
     assert "possible_fuzzy_or_decision_method_false_positive" in flagged.loc[
         flagged["publication_id"] == "fuzzy", "review_reason"
     ].item()
+
+
+def test_active_learning_priority_scores_uncertainty_borderline_and_novelty() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "publication_id": "reviewed",
+                "title": "Deep learning for crop disease detection",
+                "abstract": "A convolutional neural network detects disease.",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.95",
+                "human_label": "AI",
+            },
+            {
+                "publication_id": "uncertain",
+                "title": "Rainfall prediction model",
+                "abstract": "A statistical model predicts rainfall.",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.51",
+                "human_label": "",
+            },
+            {
+                "publication_id": "borderline",
+                "title": "Smart IoT sensor platform for irrigation",
+                "abstract": "Wireless sensor automation monitors water flow.",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.88",
+                "human_label": "",
+            },
+            {
+                "publication_id": "duplicate",
+                "title": "Deep learning for crop disease detection",
+                "abstract": "A convolutional neural network detects disease.",
+                "ai_llm_label": "AI",
+                "ai_llm_confidence": "0.54",
+                "human_label": "",
+            },
+        ]
+    )
+
+    scored = add_active_learning_priority(frame)
+    by_id = scored.set_index("publication_id")
+
+    assert by_id.loc["uncertain", "review_priority_uncertainty"] > 0.95
+    assert by_id.loc["borderline", "review_priority_borderline"] == 1.0
+    assert by_id.loc["duplicate", "review_priority_novelty"] == pytest.approx(0.0)
+    assert by_id.loc["uncertain", "review_priority"] > by_id.loc["duplicate", "review_priority"]
 
 
 def test_human_review_sample_prefers_review_queue(tmp_path: Path) -> None:

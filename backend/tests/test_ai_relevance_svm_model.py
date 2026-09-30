@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -143,11 +144,29 @@ def test_train_and_predict_ai_relevance_svm(tmp_path: Path) -> None:
     labelled = tmp_path / "labelled.csv"
     corpus = tmp_path / "corpus.csv"
     model = tmp_path / "model.joblib"
+    calibrator = tmp_path / "calibrator.joblib"
     manifest = tmp_path / "manifest.json"
+    calibration_report = tmp_path / "calibration_report.json"
+    calibration_curve = tmp_path / "calibration_curve.png"
+    hard_negatives = tmp_path / "hard_negatives.csv"
     predictions = tmp_path / "rest_predictions.csv"
     rest_manifest = tmp_path / "rest_manifest.json"
     write_labelled_csv(labelled)
     write_corpus_csv(corpus)
+    pd.DataFrame(
+        [
+            {
+                "record_key": "publication:hard-negative-1",
+                "label": "NON_AI",
+                "label_source": "human_rejected_false_positive",
+                "hard_negative": True,
+                "hard_negative_category": "iot_or_smart_system_without_clear_ai",
+                "title": "Smart IoT sensor platform for irrigation",
+                "abstract": "Wireless sensor automation monitors water flow.",
+                "keywords": "IoT; sensors",
+            }
+        ]
+    ).to_csv(hard_negatives, index=False)
 
     train_result = train_ai_relevance_svm(
         AIRelevanceSVMTrainingConfig(
@@ -157,6 +176,10 @@ def test_train_and_predict_ai_relevance_svm(tmp_path: Path) -> None:
             label_counts_output=tmp_path / "labels.csv",
             predictions_output=tmp_path / "test_predictions.csv",
             manifest_output=manifest,
+            calibrator_output=calibrator,
+            calibration_report_output=calibration_report,
+            calibration_curve_output=calibration_curve,
+            hard_negative_inputs=(hard_negatives,),
             text_columns=("title", "abstract", "keywords"),
             min_class_count=2,
             min_df=1,
@@ -167,8 +190,26 @@ def test_train_and_predict_ai_relevance_svm(tmp_path: Path) -> None:
         )
     )
 
-    assert train_result.usable_rows == 8
+    assert train_result.usable_rows == 9
     assert model.exists()
+    assert calibrator.exists()
+    assert calibration_report.exists()
+    assert calibration_curve.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    report = json.loads(calibration_report.read_text(encoding="utf-8"))
+    assert report["selected_calibrator"] in {"sigmoid", "isotonic"}
+    assert set(report["methods"]) == {"sigmoid", "isotonic"}
+    assert "brier_score" in report["methods"][report["selected_calibrator"]]
+    assert "expected_calibration_error" in report["methods"][report["selected_calibrator"]]
+    assert report["thresholds"]["labels"] == {
+        "score_gte_auto_ai_threshold": "AUTO_AI",
+        "between_thresholds": "REVIEW",
+        "score_lte_auto_non_ai_threshold": "AUTO_NON_AI",
+    }
+    manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+    assert manifest_payload["model_path"].endswith("model.joblib")
+    assert manifest_payload["calibrator_path"].endswith("calibrator.joblib")
+    assert manifest_payload["calibrator"].startswith(report["selected_calibrator"])
+    assert 0 <= manifest_payload["auto_non_ai_threshold"] < manifest_payload["auto_ai_threshold"] <= 1
 
     predict_result = predict_rest_with_ai_relevance_svm(
         AIRelevanceSVMPredictionConfig(

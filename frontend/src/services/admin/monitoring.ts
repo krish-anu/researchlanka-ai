@@ -5,6 +5,134 @@ export interface DriftMonth {
   total: number;
 }
 
+export interface MLDriftAlert {
+  dimension: string;
+  severity: "warning" | "critical";
+  message: string;
+}
+
+export interface PredictionDrift {
+  previous_total: number;
+  current_total: number;
+  previous_ai_rate: number;
+  current_ai_rate: number;
+  ai_rate_delta_points: number;
+  previous_non_ai_rate: number;
+  current_non_ai_rate: number;
+  previous_review_rate: number;
+  current_review_rate: number;
+  psi_score: number;
+  alert: boolean;
+  alert_reasons: string[];
+}
+
+export interface ConfidenceDrift {
+  previous_mean_p_ai: number;
+  current_mean_p_ai: number;
+  mean_p_ai_delta: number;
+  previous_median_p_ai: number;
+  current_median_p_ai: number;
+  previous_std_p_ai: number;
+  current_std_p_ai: number;
+  bins: {
+    low: { previous_pct: number; current_pct: number };
+    medium: { previous_pct: number; current_pct: number };
+    high: { previous_pct: number; current_pct: number; delta_points?: number };
+  };
+  alert: boolean;
+  alert_reasons: string[];
+}
+
+export interface FeatureDrift {
+  previous_avg_title_words: number;
+  current_avg_title_words: number;
+  title_words_shift_pct: number;
+  previous_avg_abstract_words: number;
+  current_avg_abstract_words: number;
+  abstract_words_shift_pct: number;
+  previous_abstract_presence_pct: number;
+  current_abstract_presence_pct: number;
+  abstract_presence_delta_points: number;
+  alert: boolean;
+  alert_reasons: string[];
+}
+
+export interface HumanDisagreementDrift {
+  previous_human_decisions: number;
+  current_human_decisions: number;
+  previous_disagreement_rate: number;
+  current_disagreement_rate: number;
+  disagreement_delta_points: number;
+  current_fp_overturns: number;
+  current_fn_overturns: number;
+  alert: boolean;
+  alert_reasons: string[];
+}
+
+export interface SourceDriftItem {
+  source: string;
+  name: string;
+  previous_pct: number;
+  current_pct: number;
+  delta_points: number;
+  alert: boolean;
+}
+
+export interface SourceDrift {
+  sources: SourceDriftItem[];
+  max_source_shift_points: number;
+  alert: boolean;
+  alert_reasons: string[];
+}
+
+export interface InstitutionDriftItem {
+  institution: string;
+  current_count: number;
+  current_share_pct: number;
+  previous_share_pct: number;
+  delta_points: number;
+  alert: boolean;
+}
+
+export interface InstitutionDrift {
+  top_institutions: InstitutionDriftItem[];
+  top3_concentration_current_pct: number;
+  top3_concentration_previous_pct: number;
+  alert: boolean;
+  alert_reasons: string[];
+}
+
+export interface MissingDataFieldItem {
+  label: string;
+  previous_pct: number;
+  current_pct: number;
+  delta_points: number;
+  alert: boolean;
+}
+
+export interface MissingDataDrift {
+  fields: Record<string, MissingDataFieldItem>;
+  alert: boolean;
+  alert_reasons: string[];
+}
+
+export interface MLMonitoringReport {
+  status: string;
+  date_basis: string;
+  previous_period: string | null;
+  current_period: string | null;
+  overall_alert: boolean;
+  active_alerts_count: number;
+  active_alerts: MLDriftAlert[];
+  prediction_drift: PredictionDrift;
+  confidence_drift: ConfidenceDrift;
+  feature_drift: FeatureDrift;
+  human_disagreement_drift: HumanDisagreementDrift;
+  source_drift: SourceDrift;
+  institution_drift: InstitutionDrift;
+  missing_data_drift: MissingDataDrift;
+}
+
 export interface MonitoringMetrics {
   public_publications: number;
   pending_reviews: number;
@@ -31,7 +159,9 @@ export interface MonitoringMetrics {
     alert: boolean;
     alert_threshold_points: number;
     monthly: DriftMonth[];
+    ml_monitoring?: MLMonitoringReport;
   };
+  ml_monitoring?: MLMonitoringReport;
   metric_notes: Record<string, string>;
 }
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -33,6 +35,7 @@ from src.pipeline.accepted_snapshot import (
     DEFAULT_ACCEPTED_SNAPSHOT_PATH,
     validate_accepted_snapshot_frame,
 )
+from src.pipeline.versioning import current_dataset_version
 
 DEFAULT_MODEL_FAMILY = "publication_tfidf_svd"
 DEFAULT_EMBEDDING_DIM = 384
@@ -48,6 +51,8 @@ DEFAULT_SUMMARY_OUTPUT_PATH = (
 )
 EMBEDDINGS_PATH_ENV = "RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH"
 EMBEDDING_MODEL_PATH_ENV = "RESEARCHLANKA_SEMANTIC_MODEL_PATH"
+SEMANTIC_MANIFEST_PATH_ENV = "RESEARCHLANKA_SEMANTIC_MANIFEST_PATH"
+SEMANTIC_STARTUP_VALIDATION_ENV = "RESEARCHLANKA_VALIDATE_SEMANTIC_INDEX_ON_STARTUP"
 EMBEDDING_COLUMN_PREFIX = "embedding_"
 SEMANTIC_SCORE_FIELD = "semantic_score"
 SEMANTIC_RANK_FIELD = "semantic_rank"
@@ -112,6 +117,7 @@ class PublicationEmbeddingConfig:
     normalize_embeddings: bool = True
     random_state: int = 42
     require_accepted_snapshot: bool = True
+    dataset_version: str | None = None
 
 
 @dataclass(frozen=True)
@@ -157,6 +163,7 @@ class SemanticSearchIndex:
         self.embeddings = l2_normalized_matrix(embeddings)
         self.embedder = dict(embedder)
         self.embedding_columns = tuple(embedding_columns)
+        self.manifest = dict(embedder.get("semantic_manifest") or {})
 
     @classmethod
     def from_artifacts(
@@ -289,6 +296,7 @@ def resolved_config(config: PublicationEmbeddingConfig) -> PublicationEmbeddingC
         normalize_embeddings=config.normalize_embeddings,
         random_state=config.random_state,
         require_accepted_snapshot=config.require_accepted_snapshot,
+        dataset_version=config.dataset_version or current_dataset_version(),
     )
 
 
@@ -455,6 +463,126 @@ def default_semantic_model_path(embeddings_path: Path | None = None) -> Path:
     return max(candidates, key=lambda path: path.stat().st_size)
 
 
+def configured_semantic_manifest_path(value: str | Path | None = None) -> Path | None:
+    raw_value = value
+    if raw_value is None:
+        raw_value = os.getenv(SEMANTIC_MANIFEST_PATH_ENV)
+    if raw_value in (None, ""):
+        return None
+    if str(raw_value).strip().casefold() in {"none", "disabled", "off"}:
+        return None
+    return Path(raw_value)
+
+
+def load_semantic_manifest(manifest_path: str | Path | None) -> dict[str, Any] | None:
+    if manifest_path is None:
+        return None
+    path = Path(manifest_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Semantic search manifest not found: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Semantic search manifest must be a JSON object: {path}")
+    return payload
+
+
+def manifest_value(manifest: Mapping[str, Any], *keys: str) -> Any:
+    current: Any = manifest
+    for key in keys:
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(key)
+    return current
+
+
+def semantic_manifest_dataset_version(manifest: Mapping[str, Any] | None) -> str | None:
+    if not manifest:
+        return None
+    value = manifest.get("dataset_version") or manifest_value(manifest, "config", "dataset_version")
+    return str(value).strip() if value not in (None, "") else None
+
+
+def semantic_manifest_record_count(manifest: Mapping[str, Any] | None) -> int | None:
+    if not manifest:
+        return None
+    value = (
+        manifest.get("records")
+        or manifest.get("embedded_rows")
+        or manifest_value(manifest, "result", "embedded_rows")
+    )
+    return int(value) if value not in (None, "") else None
+
+
+def semantic_manifest_dimension(manifest: Mapping[str, Any] | None) -> int | None:
+    if not manifest:
+        return None
+    value = (
+        manifest.get("dimension")
+        or manifest.get("embedding_dimensions")
+        or manifest_value(manifest, "result", "embedding_dimensions")
+    )
+    return int(value) if value not in (None, "") else None
+
+
+def semantic_manifest_artifact_path(
+    manifest: Mapping[str, Any] | None,
+    artifact_name: str,
+) -> Path | None:
+    if not manifest:
+        return None
+    value = (
+        manifest.get(f"{artifact_name}_path")
+        or manifest_value(manifest, "artifacts", artifact_name, "path")
+    )
+    return Path(str(value)) if value not in (None, "") else None
+
+
+def validate_semantic_manifest_contract(
+    *,
+    manifest: Mapping[str, Any] | None,
+    embeddings_path: Path,
+    model_path: Path,
+    row_count: int,
+    dimension: int,
+) -> None:
+    if is_sample_semantic_artifact(embeddings_path) or is_sample_semantic_artifact(model_path):
+        raise ValueError(
+            "Semantic search is configured with sample artifacts. "
+            "Build and deploy a full accepted-publication embedding index."
+        )
+    if not manifest:
+        return
+
+    expected_embeddings_path = semantic_manifest_artifact_path(manifest, "embeddings")
+    if expected_embeddings_path is not None and expected_embeddings_path != embeddings_path:
+        raise ValueError(
+            "Semantic embeddings path does not match manifest: "
+            f"{embeddings_path} != {expected_embeddings_path}"
+        )
+    expected_model_path = semantic_manifest_artifact_path(manifest, "model")
+    if expected_model_path is not None and expected_model_path != model_path:
+        raise ValueError(
+            "Semantic embedding model path does not match manifest: "
+            f"{model_path} != {expected_model_path}"
+        )
+    expected_records = semantic_manifest_record_count(manifest)
+    if expected_records is not None and expected_records != row_count:
+        raise ValueError(
+            "Semantic embeddings row count does not match manifest: "
+            f"{row_count} != {expected_records}"
+        )
+    expected_dimension = semantic_manifest_dimension(manifest)
+    if expected_dimension is not None and expected_dimension != dimension:
+        raise ValueError(
+            "Semantic embedding dimension does not match manifest: "
+            f"{dimension} != {expected_dimension}"
+        )
+
+
+def is_sample_semantic_artifact(path: Path) -> bool:
+    return "sample" in path.name.casefold()
+
+
 def embedding_columns_from_frame(frame: pd.DataFrame) -> list[str]:
     columns = [
         column
@@ -489,6 +617,7 @@ def load_semantic_search_index(
     *,
     embeddings_path: Path = DEFAULT_OUTPUT_PATH,
     model_path: Path = DEFAULT_MODEL_OUTPUT_PATH,
+    manifest_path: Path | None = None,
 ) -> SemanticSearchIndex:
     """Load a reusable in-memory semantic-search index from saved artifacts."""
 
@@ -497,6 +626,8 @@ def load_semantic_search_index(
     if not model_path.exists():
         raise FileNotFoundError(f"Embedding model artifact not found: {model_path}")
 
+    selected_manifest_path = configured_semantic_manifest_path(manifest_path)
+    manifest = load_semantic_manifest(selected_manifest_path)
     frame = pd.read_parquet(embeddings_path)
     embedding_columns = embedding_columns_from_frame(frame)
     embeddings = frame[embedding_columns].to_numpy(dtype=np.float32, copy=True)
@@ -506,6 +637,14 @@ def load_semantic_search_index(
     if not isinstance(embedder, Mapping):
         raise ValueError("Embedding model artifact must contain a mapping")
     validate_embedding_model(embedder)
+    validate_semantic_manifest_contract(
+        manifest=manifest,
+        embeddings_path=embeddings_path,
+        model_path=model_path,
+        row_count=len(metadata),
+        dimension=len(embedding_columns),
+    )
+    embedder = {**dict(embedder), "semantic_manifest": manifest or {}}
     return SemanticSearchIndex(
         metadata=metadata,
         embeddings=embeddings,
@@ -732,6 +871,7 @@ def render_summary(
         f"embedding_dimensions: {result.embedding_dimensions}",
         f"tfidf_features: {result.tfidf_features}",
         f"normalize_embeddings: {config.normalize_embeddings}",
+        f"dataset_version: {config.dataset_version}",
     ]
     if result.explained_variance_ratio is not None:
         lines.append(f"explained_variance_ratio: {result.explained_variance_ratio:.6f}")
@@ -818,6 +958,11 @@ def generate_publication_text_embeddings(
     write_json_artifact(
         config.manifest_output,
         {
+            "dataset_version": config.dataset_version,
+            "records": result.embedded_rows,
+            "dimension": result.embedding_dimensions,
+            "embeddings_path": str(result.output_path),
+            "model_path": str(result.model_output),
             "config": json_ready_dataclass(config),
             "result": json_ready_dataclass(result),
             "artifacts": {
@@ -878,6 +1023,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Output text summary path. Default: data/models/publication_text_embeddings_summary.txt",
+    )
+    parser.add_argument(
+        "--dataset-version",
+        default=None,
+        help="Dataset version represented by this semantic index. Defaults to RESEARCHLANKA_DATASET_VERSION or today's researchlanka-YYYY-MM-DD.",
     )
     parser.add_argument(
         "--text-columns",
@@ -978,6 +1128,7 @@ def main() -> None:
             normalize_embeddings=not args.disable_normalize,
             random_state=args.random_state,
             require_accepted_snapshot=not args.allow_non_accepted_input,
+            dataset_version=args.dataset_version,
         )
     )
     print(result_summary(result))

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { readChartTheme } from "@/components/charts/theme";
 import { institutionHref, researcherHref } from "@/services/links";
+import { networkForDisplay } from "@/services/network";
 import type {
   CollaborationNetwork as NetworkData,
   NetworkNode,
@@ -129,12 +130,13 @@ export function CollaborationNetwork({
   const [focusId, setFocusId] = useState("");
   const [metric, setMetric] = useState<SizeMetric>("publication_count");
   const selectId = useId();
+  const displayNetwork = useMemo(() => networkForDisplay(network), [network]);
 
   // Read by the build effect so a change of measure does not rebuild the graph.
   const metricRef = useRef(metric);
   metricRef.current = metric;
 
-  const hasNodes = network.nodes.length > 0;
+  const hasNodes = displayNetwork.nodes.length > 0;
 
   useEffect(() => {
     const element = containerRef.current;
@@ -168,9 +170,9 @@ export function CollaborationNetwork({
         if (cancelled) return;
 
         const theme = readChartTheme();
-        const sizes = diameters(network.nodes, metricRef.current);
+        const sizes = diameters(displayNetwork.nodes, metricRef.current);
         let maxWeight = 1;
-        for (const edge of network.edges) {
+        for (const edge of displayNetwork.edges) {
           if (edge.weight > maxWeight) maxWeight = edge.weight;
         }
         const communityColour = (community: number) =>
@@ -181,7 +183,7 @@ export function CollaborationNetwork({
         const instance = cytoscape({
           container: element,
           elements: [
-            ...network.nodes.map((node) => ({
+            ...displayNetwork.nodes.map((node) => ({
               data: {
                 id: node.id,
                 label: node.label,
@@ -191,7 +193,7 @@ export function CollaborationNetwork({
                 count: node.publication_count,
               },
             })),
-            ...network.edges.map((edge, index) => ({
+            ...displayNetwork.edges.map((edge, index) => ({
               data: {
                 id: `e${index}`,
                 source: edge.source,
@@ -276,7 +278,7 @@ export function CollaborationNetwork({
       instanceRef.current = null;
       setReady(false);
     };
-  }, [network, scope, router, visible, hasNodes]);
+  }, [displayNetwork, scope, router, visible, hasNodes]);
 
   // Keep the graph's labels, edges, and community colours in sync with the
   // selected palette without rerunning its layout or losing the focused node.
@@ -308,14 +310,14 @@ export function CollaborationNetwork({
   useEffect(() => {
     const instance = instanceRef.current;
     if (!instance || !ready) return;
-    const sizes = diameters(network.nodes, metric);
+    const sizes = diameters(displayNetwork.nodes, metric);
     instance.batch(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       instance.nodes().forEach((node: any) => {
         node.data("size", sizes.get(node.id()) ?? MIN_DIAMETER);
       });
     });
-  }, [metric, network, ready]);
+  }, [metric, displayNetwork, ready]);
 
   useEffect(() => {
     const instance = instanceRef.current;
@@ -330,7 +332,13 @@ export function CollaborationNetwork({
     }
   }, [focusId, ready]);
 
-  const focusedNode = network.nodes.find(node => node.id === focusId);
+  useEffect(() => {
+    if (focusId && !displayNetwork.nodes.some((node) => node.id === focusId)) {
+      setFocusId("");
+    }
+  }, [displayNetwork, focusId]);
+
+  const focusedNode = displayNetwork.nodes.find(node => node.id === focusId);
   const focusedHref = focusedNode && scope !== "country" ? (scope === "institution" ? institutionHref(focusedNode.label) : researcherHref(focusedNode.label)) : null;
 
   const selected = useMemo(
@@ -385,7 +393,7 @@ export function CollaborationNetwork({
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-xs text-muted">Explore a node
           <select value={focusId} onChange={event => setFocusId(event.target.value)} className="max-w-[230px] rounded-md border border-rule bg-surface p-2 text-ink">
-            <option value="">All connections</option>{network.nodes.map(node => <option key={node.id} value={node.id}>{node.label}</option>)}
+            <option value="">All connections</option>{displayNetwork.nodes.map(node => <option key={node.id} value={node.id}>{node.label}</option>)}
           </select>
         </label>
         <button type="button" className="button" disabled={!ready} onClick={() => { setFocusId(""); instanceRef.current?.fit(undefined, 24); }}>Reset view</button>

@@ -50,7 +50,10 @@ PUBLICATIONS = [
         "reviewed_at": "2026-09-22T10:00:00Z",
         "dataset_version": "researchlanka-2026-09-26",
         "pipeline_version": "pipeline-v1.4.2",
-        "abstract": "A study abstract.",
+        "abstract": (
+            "A convolutional neural network with transfer learning performs "
+            "image classification."
+        ),
         "citation_count_divergence_flag": False,
         "reference_count_divergence_flag": True,
         "raw_record": {"id": "W1"},
@@ -203,6 +206,7 @@ class FakeSemanticIndex:
     def __init__(self):
         self.search_calls = []
         self.related_calls = []
+        self.manifest = {}
 
     def search(self, query, *, filters, limit, min_score):
         self.search_calls.append(
@@ -274,6 +278,12 @@ def test_publication_detail_exposes_nested_contract_and_provenance():
 
     assert payload["data"]["venue"]["journal"] == "Ceylon Medical Journal"
     assert payload["data"]["classification"]["topics"] == ["Epidemiology", "Malaria"]
+    explanation = payload["data"]["classification"]["ai_explanation"]
+    assert explanation["classification"] == "AI"
+    assert explanation["confidence"] == "High"
+    assert explanation["verification"] == "Human verified"
+    assert "convolutional neural network" in explanation["evidence_detected"]
+    assert explanation["reason"].startswith("Explicit AI/ML methodology")
     assert payload["data"]["trace"] == {
         "source": ["openalex", "crossref"],
         "source_record_id": "W1",
@@ -521,6 +531,32 @@ def test_postgres_related_publications_hydrates_database_records(monkeypatch):
             "similarity_rank": 1,
         }
     ]
+
+
+def test_postgres_semantic_index_rejects_database_version_mismatch(monkeypatch):
+    semantic_index = FakeSemanticIndex()
+    semantic_index.manifest = {
+        "dataset_version": "researchlanka-2026-09-27",
+        "records": 2,
+    }
+    repository = PostgresPublicationRepository(
+        connection_factory=lambda _database_url: None,
+        semantic_index=semantic_index,
+    )
+
+    monkeypatch.setattr(
+        repository,
+        "_fetch_one",
+        lambda _sql, _params: {
+            "records": 2,
+            "min_dataset_version": "researchlanka-2026-09-26",
+            "max_dataset_version": "researchlanka-2026-09-26",
+            "dataset_versions": 1,
+        },
+    )
+
+    with pytest.raises(ValueError, match="dataset version does not match"):
+        repository.validate_semantic_index_for_startup()
 
 
 def test_postgres_metadata_counts_public_dataset_coverage(monkeypatch):

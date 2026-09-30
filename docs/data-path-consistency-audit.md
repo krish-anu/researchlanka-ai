@@ -114,9 +114,9 @@ A successful generation run can leave the API reporting missing artifacts or ser
 
 ### 11. P2 — Classification model, text inputs, and thresholds vary by entry point
 
-Historical, incremental, Kaggle-triggered, and admin-triggered refreshes now share `refresh_policy.py`: `ai_relevance_linear_svm.joblib`, five text fields, `AI,review` ingestion labels, and a default confidence-review cutoff of `0.85`. Dagster/model-selection artifacts can still drift if they bypass that shared policy.
+Historical, incremental, Kaggle-triggered, and admin-triggered refreshes now share `refresh_policy.py` and the versioned `configurations/ai_relevance_model_manifest.json`: `ai-relevance-xgb-a1-precision-v1`, `title` + `abstract` text fields, `AI,review` ingestion labels, and a default auto-AI cutoff of `0.85`. Dagster/model-selection artifacts can still drift if they bypass that shared policy.
 
-**Current status:** the shared production classifier uses P(AI) tiers: `>=0.85` becomes `AI`, `0.4..0.85` becomes `review`, and `<0.4` becomes `non-AI`. Database backfill applies the same AI acceptance boundaries after the independent Sri Lanka ownership gate.
+**Current status:** the shared production classifier uses P(AI) tiers: `>=0.85` becomes `AI`, `0.4..0.85` becomes `review`, and `<0.4` becomes `non-AI`. Borderline false-positive patterns can also route high-scoring records to `review`. Database backfill applies the same AI acceptance boundaries after the independent Sri Lanka ownership gate.
 
 **Correction:** use one versioned inference configuration for model, feature columns, probability meaning, and thresholds. Keep model prediction and human acceptance as separate fields. Broad supervised training data is not itself an inconsistency.
 

@@ -216,7 +216,7 @@ function buildStages(run: IncrementalRunSnapshot): Stage[] {
     },
     {
       label: "Classify AI relevance",
-      detail: "Score title, abstract, keywords, topics and concepts with the configured AI relevance model.",
+      detail: "Score the configured publication text fields with the configured AI relevance model.",
       metric: metric(selected, "records selected"),
       state: stageState({
         failed,

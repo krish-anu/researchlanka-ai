@@ -522,13 +522,54 @@ backend/data/processed/ai/model_predict_remaining_1207_a2_predictions.csv
 backend/data/processed/ai/model_predict_remaining_1207_a2_prediction_summary.csv
 ```
 
-## 13. Final Recommendation
+## 13. Production Update: Precision-Routed A1 Model
+
+The production manifest was updated on 2026-09-28 to use the precision-oriented
+routed model:
+
+```text
+Model ID: ai-relevance-xgb-a1-precision-v1
+Model: XGBoost
+Features: title + abstract
+Auto-AI threshold: 0.85
+Auto-NON_AI threshold: 0.40
+Binary evaluation threshold: 0.40
+Artifact: backend/data/models/ai_relevance/metadata_ablation_precision_092/A1_title_abstract.joblib
+```
+
+Binary frozen-test scores:
+
+```text
+Accuracy: 0.7120
+Macro F1: 0.6571
+AI precision: 0.9055
+AI recall: 0.7074
+NON_AI recall: 0.7290
+Binary false positives: 29
+```
+
+Three-way routed frozen-test scores:
+
+```text
+Auto-AI rows: 152
+Review rows: 155
+Auto-NON_AI rows: 193
+Auto-AI false positives: 1
+Auto-AI precision: 0.9934
+Review rate: 0.3100
+```
+
+The routed score is the production-facing metric because uncertain records are
+not forced into binary acceptance or rejection.
+
+## 14. Final Recommendation
 
 For the current project stage, use:
 
 ```text
-XGBoost with title + abstract + keywords
-Threshold: 0.35
+XGBoost with title + abstract
+Auto-AI threshold: 0.85
+Auto-NON_AI threshold: 0.40
 Three-way production decision:
 AUTO_AI / REVIEW / AUTO_NON_AI
 ```

@@ -103,6 +103,8 @@ backend/data/models/
 backend/data/reports/
 backend/data/results/
 backend/data/results (1)/
+backend/data/old_datasets_*/
+backend/data/old_artifacts_*/
 backend/data/Finished/
 backend/data/*.csv
 backend/data/*.xlsx

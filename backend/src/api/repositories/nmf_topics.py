@@ -15,6 +15,7 @@ from src.modeling.nmf_trends import classify_trend, topic_trend_slopes, trend_ti
 
 BACKEND_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ARTIFACT_DIRS = (
+    BACKEND_ROOT / "data/processed/common/nmf",
     BACKEND_ROOT / "data/processed/common/nmf/k25",
     BACKEND_ROOT / "notebooks/outputs/NMF_K25/NMF_K25",
 )
