@@ -78,7 +78,7 @@ export function UserRow({
           <select
             name="role"
             defaultValue={user.role}
-            className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+            className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
           >
             <option value="user">Signed-in user</option>
             <option value="reviewer">Reviewer</option>
@@ -90,7 +90,7 @@ export function UserRow({
           />
         </form>
 
-        <form action={accessAction}>
+        <form action={accessAction} className="sm:ml-auto">
           <input type="hidden" name="user_id" value={user.id} />
           <input
             type="hidden"

@@ -55,6 +55,20 @@ export function formatDate(value: string | null | undefined): string {
   });
 }
 
+/** Date and time for live operational status, so a figure can say when it was checked. */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function formatYearRange(
   min: number | null | undefined,
   max: number | null | undefined,

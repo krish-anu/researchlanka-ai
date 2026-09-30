@@ -111,50 +111,45 @@ export function IncrementalUpdateDiagram({
         </div>
       ) : null}
 
-      <ol className="grid gap-0 md:grid-cols-2 xl:grid-cols-4">
+      <ol>
         {stages.map((stage, index) => (
           <li
             key={stage.label}
-            className={`relative min-h-48 border-b border-rule p-5 md:border-r md:last:border-r-0 xl:[&:nth-child(4n)]:border-r-0 ${
-              index >= 4 ? "xl:border-t" : ""
-            } ${stageClassName(stage.state)}`}
+            className={`flex gap-3 border-b border-rule px-4 py-3 last:border-b-0 ${stageClassName(stage.state)}`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <span className="label-caps text-muted">Step {index + 1}</span>
-              <span className={stateBadgeClassName(stage.state)}>
-                {FLOW_LABELS[stage.state]}
-              </span>
+            <span className={nodeClassName(stage.state)} aria-hidden>
+              {stage.state === "completed" ? "✓" : stage.state === "failed" ? "!" : index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h4 className="font-display text-body-md font-semibold text-ink">
+                  {stage.label}
+                </h4>
+                <span className={stateBadgeClassName(stage.state)}>
+                  {FLOW_LABELS[stage.state]}
+                </span>
+              </div>
+              <p className="mt-1 text-body-sm text-ink-secondary">{stage.detail}</p>
+              {stage.metric ? (
+                <p className="mt-1 text-body-sm tabular text-ink">{stage.metric}</p>
+              ) : null}
+              {stage.output ? (
+                <p className="mt-1 truncate text-label text-muted" title={stage.output}>
+                  {stage.output}
+                </p>
+              ) : null}
             </div>
-            <div className="mt-5 flex items-center gap-3">
-              <span className={nodeClassName(stage.state)} aria-hidden>
-                {stage.state === "completed" ? "✓" : stage.state === "failed" ? "!" : index + 1}
-              </span>
-              <h4 className="font-display text-body-md font-semibold text-ink">
-                {stage.label}
-              </h4>
-            </div>
-            <p className="mt-3 min-h-12 text-body-sm text-ink-secondary">
-              {stage.detail}
-            </p>
-            {stage.output ? (
-              <p className="mt-3 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-muted">
-                {stage.output}
-              </p>
-            ) : null}
-            {stage.metric ? (
-              <p className="mt-4 data-mono text-primary">{stage.metric}</p>
-            ) : null}
           </li>
         ))}
       </ol>
 
-      <div className="grid gap-0 border-t border-rule sm:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-px border-t border-rule bg-rule sm:grid-cols-5">
         <Metric label="Collected" value={run.collected} />
         <Metric label="Selected as AI" value={run.selected} />
         <Metric label="New records" value={run.newRecords ?? run.result?.records_new_for_db} />
         <Metric label="Updated records" value={run.updatedRecords ?? run.result?.records_updated_for_db} />
         <Metric label="Loaded / updated" value={run.loaded} />
-      </div>
+      </dl>
     </div>
   );
 }
@@ -320,10 +315,10 @@ function Metric({
   value: number | null | undefined;
 }) {
   return (
-    <div className="border-b border-rule px-5 py-4 sm:border-b-0 sm:border-r sm:last:border-r-0">
+    <div className="bg-surface px-4 py-3">
       <dt className="label-caps text-muted">{label}</dt>
-      <dd className="mt-2 font-display text-h3 text-primary">
-        {typeof value === "number" ? formatNumber(value) : "-"}
+      <dd className="mt-1 font-display text-h2 tabular text-ink">
+        {typeof value === "number" ? formatNumber(value) : "—"}
       </dd>
     </div>
   );
@@ -346,7 +341,7 @@ function stateBadgeClassName(state: StageState): string {
 
 function nodeClassName(state: StageState): string {
   const base =
-    "flex size-10 shrink-0 items-center justify-center rounded border font-display text-body-sm font-bold";
+    "flex size-8 shrink-0 items-center justify-center rounded border font-display text-label font-bold";
   if (state === "completed") return `${base} border-good bg-good text-surface`;
   if (state === "current") return `${base} border-machine bg-machine text-surface`;
   if (state === "failed") return `${base} border-serious bg-serious text-surface`;

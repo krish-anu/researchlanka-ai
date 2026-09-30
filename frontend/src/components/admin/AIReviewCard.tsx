@@ -24,10 +24,11 @@ export function AIReviewCard({ candidate }: { candidate: AIReviewCandidate }) {
   const publication = candidate.publication;
 
   return (
-    <article className={`panel p-4 ${pending ? "border-l-[3px] border-l-primary" : "opacity-80"}`}>
+    <article className={`panel border-l-[3px] border-l-machine p-4 ${pending ? "" : "opacity-80"}`}>
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="label-caps text-primary">AI review</span>
+          <span className="label-caps text-machine">Model output</span>
+          {pending ? <span className="label-caps text-primary">Needs decision</span> : null}
           <span className="data-mono text-ink-secondary">
             {statusLabel(candidate.review_status)} · v{candidate.record_version}
           </span>
@@ -92,7 +93,7 @@ export function AIReviewCard({ candidate }: { candidate: AIReviewCandidate }) {
         </p>
 
         <section className="rounded-md border border-rule bg-wash p-3">
-          <h3 className="label-caps text-primary">Gemini classification</h3>
+          <h3 className="label-caps text-machine">Gemini classification</h3>
           <dl className="grid gap-3 md:grid-cols-3">
             <Info label="Prediction" value={candidate.gemini.label} />
             <Info
@@ -137,6 +138,8 @@ export function AIReviewCard({ candidate }: { candidate: AIReviewCandidate }) {
               name="decision"
               value="human_rejected"
               label="Reject as Non-AI"
+              tone="danger"
+              className="sm:ml-auto"
             />
           </div>
         </form>

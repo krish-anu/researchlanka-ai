@@ -11,17 +11,22 @@ import {
   CloseIcon,
   DashboardIcon,
   DataQualityIcon,
+  FlagIcon,
   NetworkIcon,
   InstitutionsIcon,
   MenuIcon,
+  PipelineIcon,
   PublicationsIcon,
+  QueueIcon,
   ResearchersIcon,
   SearchIcon,
   TopicsIcon,
+  UsersIcon,
 } from "@/components/layout/NavIcons";
 import { SearchBox } from "@/components/search/SearchBox";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import type { Viewer } from "@/types/auth";
+import type { AdminNavBadges } from "@/services/admin/navBadges";
+import type { Role, Viewer } from "@/types/auth";
 
 /** Directory list pages own a contextual SearchBox — hide the global duplicate. */
 function hasContextualPageSearch(pathname: string): boolean {
@@ -45,6 +50,11 @@ interface NavLink {
   Icon: ComponentType<{ className?: string }>;
   /** Present only for administrators; the public sections have no requirement. */
   adminOnly?: boolean;
+  /** Section roots must not stay lit on every nested route. */
+  exact?: boolean;
+  /** Pending count. Omitted from the rail when zero. */
+  badge?: number;
+  roles?: Role[];
 }
 
 interface NavSection {
@@ -87,33 +97,94 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
-const ADMIN_SECTION: NavSection = {
-  id: "admin",
-  label: "Admin",
-  links: [{ href: "/admin", label: "Administration", Icon: AdminIcon, adminOnly: true }],
+const ADMIN_LINKS: NavLink[] = [
+  { href: "/admin", label: "Overview", Icon: AdminIcon, exact: true, roles: ["admin"] },
+  { href: "/admin/pipeline", label: "Pipeline", Icon: PipelineIcon, roles: ["admin"] },
+  { href: "/admin/ai-review", label: "AI review", Icon: QueueIcon, roles: ["admin", "reviewer"] },
+  { href: "/admin/review", label: "Resolution queue", Icon: QueueIcon, roles: ["admin"] },
+  { href: "/admin/flags", label: "Flag triage", Icon: FlagIcon, roles: ["admin"] },
+  { href: "/admin/users", label: "Accounts", Icon: UsersIcon, roles: ["admin"] },
+];
+
+const PUBLIC_SITE_LINK: NavLink = {
+  href: "/",
+  label: "Public site",
+  Icon: DashboardIcon,
+  exact: true,
 };
 
-function sectionsForViewer(viewer: Viewer): NavSection[] {
+function adminSection(role: Role, badges?: AdminNavBadges): NavSection | null {
+  const counts: Record<string, number> = {
+    "/admin/ai-review": badges?.aiReview ?? 0,
+    "/admin/review": badges?.review ?? 0,
+    "/admin/flags": badges?.flags ?? 0,
+  };
+  const links = ADMIN_LINKS.filter((link) => link.roles?.includes(role)).map((link) => ({
+    ...link,
+    badge: counts[link.href] ?? 0,
+  }));
+  if (links.length === 0) return null;
+  return { id: "admin", label: "Admin", links: [...links, PUBLIC_SITE_LINK] };
+}
+
+/** One door into the console. The six destinations live only inside /admin. */
+function adminEntry(role: Role, badges?: AdminNavBadges): NavSection | null {
+  if (role === "admin") {
+    const waiting = (badges?.flags ?? 0) + (badges?.review ?? 0) + (badges?.aiReview ?? 0);
+    return {
+      id: "admin",
+      label: "Admin",
+      links: [{ href: "/admin", label: "Administration", Icon: AdminIcon, exact: true, badge: waiting }],
+    };
+  }
+  if (role === "reviewer") {
+    return {
+      id: "admin",
+      label: "Admin",
+      links: [{
+        href: "/admin/ai-review",
+        label: "AI review",
+        Icon: QueueIcon,
+        badge: badges?.aiReview ?? 0,
+      }],
+    };
+  }
+  return null;
+}
+
+function sectionsForViewer(
+  viewer: Viewer,
+  badges: AdminNavBadges | undefined,
+  pathname: string,
+): NavSection[] {
+  if (pathname.startsWith("/admin")) {
+    const admin = adminSection(viewer.role, badges);
+    return admin ? [admin] : [];
+  }
+
   const sections = NAV_SECTIONS.map((section) => ({
     ...section,
     links: section.links.filter((link) => !link.adminOnly || viewer.role === "admin"),
   })).filter((section) => section.links.length > 0);
 
-  if (viewer.role === "admin") {
-    return [...sections, ADMIN_SECTION];
-  }
-  return sections;
+  const entry = adminEntry(viewer.role, badges);
+  return entry ? [...sections, entry] : sections;
 }
 
-/** "/" only matches itself; every other entry also owns its detail routes. */
-function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+/** "/" and exact section roots match themselves; other entries own detail routes. */
+function isActive(pathname: string, link: Pick<NavLink, "href" | "exact">): boolean {
+  if (link.href === "/" || link.exact) return pathname === link.href;
+  return pathname.startsWith(link.href);
 }
 
-function sectionForPath(pathname: string, viewer: Viewer): { section: string; label: string } {
-  for (const section of sectionsForViewer(viewer)) {
+function sectionForPath(
+  pathname: string,
+  viewer: Viewer,
+  badges?: AdminNavBadges,
+): { section: string; label: string } {
+  for (const section of sectionsForViewer(viewer, badges, pathname)) {
     for (const link of section.links) {
-      if (isActive(pathname, link.href)) {
+      if (isActive(pathname, link)) {
         return { section: section.label, label: link.label };
       }
     }
@@ -133,7 +204,7 @@ function NavItem({
   active: boolean;
   onNavigate?: () => void;
 }) {
-  const { href, label, Icon } = link;
+  const { href, label, Icon, badge = 0 } = link;
   return (
     <Link
       href={href}
@@ -143,6 +214,11 @@ function NavItem({
     >
       <Icon />
       <span>{label}</span>
+      {badge > 0 ? (
+        <span className="label-caps ml-auto rounded border border-rule bg-sunk px-1.5 py-0.5 text-ink-secondary">
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -159,13 +235,15 @@ function Wordmark({ compact = false }: { compact?: boolean }) {
 
 function NavList({
   viewer,
+  badges,
   onNavigate,
 }: {
   viewer: Viewer;
+  badges?: AdminNavBadges;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname() ?? "/";
-  const sections = sectionsForViewer(viewer);
+  const sections = sectionsForViewer(viewer, badges, pathname);
 
   return (
     <div className="nav-sections">
@@ -181,7 +259,7 @@ function NavList({
                 <li key={link.href}>
                   <NavItem
                     link={link}
-                    active={isActive(pathname, link.href)}
+                    active={isActive(pathname, link)}
                     onNavigate={onNavigate}
                   />
                 </li>
@@ -202,7 +280,13 @@ function NavList({
  * stay reachable on a phone, so the hamburger opens a focusable panel that
  * closes on route change, on Escape, and on backdrop click.
  */
-export function SiteNav({ viewer }: { viewer: Viewer }) {
+export function SiteNav({
+  viewer,
+  adminBadges,
+}: {
+  viewer: Viewer;
+  adminBadges?: AdminNavBadges;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -252,7 +336,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
           <Wordmark />
         </div>
         <div className="flex-1 overflow-y-auto px-0 pb-4">
-          <NavList viewer={viewer} />
+          <NavList viewer={viewer} badges={adminBadges} />
         </div>
         <div className="mt-auto flex flex-col gap-2 border-t border-rule px-5 pt-5">
           <RoleBadge role={viewer.role} className="self-start" />
@@ -324,7 +408,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
             </div>
             )}
             <div className="flex-1 overflow-y-auto">
-              <NavList viewer={viewer} onNavigate={() => setOpen(false)} />
+              <NavList viewer={viewer} badges={adminBadges} onNavigate={() => setOpen(false)} />
             </div>
             <div className="mt-4 border-t border-rule px-4 pt-4">
               <AccountMenu viewer={viewer} />
@@ -340,9 +424,15 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
  * Desktop search bar. Sits above the content column rather than in the rail,
  * keeping search and account actions available across public and protected routes.
  */
-export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
+export function SiteSearchBar({
+  viewer,
+  adminBadges,
+}: {
+  viewer: Viewer;
+  adminBadges?: AdminNavBadges;
+}) {
   const pathname = usePathname() ?? "/";
-  const { section, label } = sectionForPath(pathname, viewer);
+  const { section, label } = sectionForPath(pathname, viewer, adminBadges);
   const showGlobalSearch = !hasContextualPageSearch(pathname);
 
   return (

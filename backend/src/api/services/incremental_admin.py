@@ -1,4 +1,3 @@
-```python
 """Internal admin helpers for triggering incremental publication updates."""
 
 from __future__ import annotations
@@ -267,4 +266,4 @@ def is_process_running(pid: Any) -> bool:
     except OSError:
         return False
     return True
-```
+
