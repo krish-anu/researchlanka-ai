@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/components/ui/Button";
+
 import { decideAIReviewAction, retryAIReviewSyncAction } from "@/app/actions/admin";
 import { ActionResult, SubmitButton } from "@/components/admin/ActionResult";
+import { Button } from "@/components/ui/Button";
 import { SourceBadge } from "@/components/ui/Provenance";
 import { IDLE } from "@/services/forms/state";
 import type { AIReviewCandidate } from "@/services/workspace/types";
@@ -23,10 +24,10 @@ export function AIReviewCard({ candidate }: { candidate: AIReviewCandidate }) {
   const publication = candidate.publication;
 
   return (
-    <article className={`panel p-5 ${pending ? "border-l-[3px] border-l-machine" : "opacity-80"}`}>
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-3">
+    <article className={`panel p-4 ${pending ? "border-l-[3px] border-l-primary" : "opacity-80"}`}>
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="label-caps text-machine">AI review</span>
+          <span className="label-caps text-primary">AI review</span>
           <span className="data-mono text-ink-secondary">
             {statusLabel(candidate.review_status)} · v{candidate.record_version}
           </span>
@@ -55,7 +56,20 @@ export function AIReviewCard({ candidate }: { candidate: AIReviewCandidate }) {
             {publication.title || "Untitled publication"}
           </h2>
           <p className="mt-1 data-mono break-all text-body-sm text-muted">
-            DOI {text(publication.doi)} · OpenAlex {text(publication.openalex_id)}
+            {publication.doi ? (
+              <a
+                href={publication.doi.startsWith("http") ? publication.doi : `https://doi.org/${publication.doi.replace(/^doi:/i, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                {publication.doi}
+              </a>
+            ) : (
+              "No DOI"
+            )}
+            {" · "}
+            OpenAlex {text(publication.openalex_id)}
           </p>
           {publication.url ? (
             <a className="text-body-sm text-primary underline" href={publication.url}>
@@ -77,14 +91,25 @@ export function AIReviewCard({ candidate }: { candidate: AIReviewCandidate }) {
           {publication.abstract || "No abstract available."}
         </p>
 
-        <section className="grid gap-3 rounded border border-rule bg-wash p-3 text-body-sm md:grid-cols-3">
-          <Info label="Gemini prediction" value={candidate.gemini.label} />
-          <Info label="Gemini confidence" value={candidate.gemini.confidence || candidate.gemini.normalized_confidence} />
-          <Info label="Gemini model" value={candidate.gemini.model} />
-          <div className="md:col-span-3">
-            <p className="label-caps text-muted">Gemini reasoning</p>
-            <p className="mt-1 text-ink-secondary">{candidate.gemini.reason || "n/a"}</p>
-          </div>
+        <section className="rounded-md border border-rule bg-wash p-3">
+          <h3 className="label-caps text-primary">Gemini classification</h3>
+          <dl className="grid gap-3 md:grid-cols-3">
+            <Info label="Prediction" value={candidate.gemini.label} />
+            <Info
+              label="Confidence"
+              value={
+                candidate.gemini.confidence ||
+                candidate.gemini.normalized_confidence
+              }
+            />
+            <Info label="Model" value={candidate.gemini.model} />
+            <div className="md:col-span-3">
+              <p className="label-caps text-muted">Reasoning</p>
+              <p className="mt-1 text-ink-secondary">
+                {candidate.gemini.reason || "n/a"}
+              </p>
+            </div>
+          </dl>
         </section>
       </div>
 
@@ -97,7 +122,7 @@ export function AIReviewCard({ candidate }: { candidate: AIReviewCandidate }) {
             <textarea
               name="note"
               rows={3}
-              className="rounded border border-rule bg-surface px-3 py-2 text-ink outline-none focus:border-primary"
+              className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-ink focus-visible:border-primary"
               placeholder="Required when rejecting"
             />
           </label>

@@ -37,7 +37,7 @@ export default async function AdminLayout({
           </div>
           <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
             <RoleBadge role={user?.role ?? "admin"} />
-            <span className="data-mono text-xs text-muted">
+            <span className="data-mono text-label text-muted">
               {user?.email ?? "Administrator session"}
             </span>
           </div>

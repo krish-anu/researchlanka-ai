@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import Link from "next/link";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 
@@ -12,6 +13,8 @@ import { IDLE, type ActionState } from "@/services/forms/state";
 import { publicationHref } from "@/services/links";
 import { FEEDBACK_REASON_LABEL } from "@/services/workspace/types";
 import type { PublicationTrace } from "@/types/api";
+
+const GUEST_PROMPT_DISMISSED_KEY = "rl-guest-save-flag-prompt";
 
 function Pending({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
@@ -181,6 +184,70 @@ function FeedbackControl({
  * Visitors get the prompt rather than nothing at all: the difference between
  * the two roles is worth stating on the page where it bites, and hiding the
  * controls entirely would make the account look pointless.
+ * Soft guest CTA for save/flag — shown once per session, then a quiet link.
+ * Login page copy stays the full explanation; this only surfaces the offer
+ * where the controls would appear.
+ */
+function GuestSaveFlagPrompt({ next }: { next: string }) {
+  const [ready, setReady] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const loginHref = `/login?next=${encodeURIComponent(next)}`;
+
+  useEffect(() => {
+    try {
+      setDismissed(sessionStorage.getItem(GUEST_PROMPT_DISMISSED_KEY) === "1");
+    } catch {
+      setDismissed(false);
+    }
+    setReady(true);
+  }, []);
+
+  // Avoid SSR/client mismatch until sessionStorage is read.
+  if (!ready) return null;
+
+  const dismiss = () => {
+    try {
+      sessionStorage.setItem(GUEST_PROMPT_DISMISSED_KEY, "1");
+    } catch {
+      /* private mode / blocked storage — still collapse for this view */
+    }
+    setDismissed(true);
+  };
+
+  if (dismissed) {
+    return (
+      <p className="text-body-sm text-muted">
+        <Link href={loginHref} className="text-primary hover:underline">
+          Sign in to save &amp; flag
+        </Link>
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-rule bg-wash px-3 py-2.5"
+      role="note"
+    >
+      <p className="min-w-0 flex-1 text-body-sm text-ink-secondary">
+        <strong className="font-medium text-ink">Sign in to save &amp; flag.</strong>{" "}
+        Keep a library and report metadata that looks wrong.
+      </p>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Button href={loginHref} variant="primary" size="sm">
+          Sign in
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={dismiss}>
+          Not now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Save and flag for signed-in readers, or a soft guest prompt near where
+ * those controls live.
  */
 export function RecordActions({
   publicationKey,
@@ -225,6 +292,7 @@ export function RecordActions({
         </div>
       </div>
     );
+    return <GuestSaveFlagPrompt next={publicationHref(publicationKey)} />;
   }
 
   return (

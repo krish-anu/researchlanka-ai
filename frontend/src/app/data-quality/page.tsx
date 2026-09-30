@@ -1,10 +1,9 @@
-import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
-import { extractFilters, type SearchParams } from "@/services/filters";
-import { PageIntro } from "@/components/layout/PageIntro";
 import Link from "next/link";
 
+import { AnalyticsFilters, toFilterChoices, withoutQueryKey } from "@/components/analytics/AnalyticsFilters";
+import { PageIntro } from "@/components/layout/PageIntro";
 import { RankingBarChart } from "@/components/charts/RankingBarChart";
-import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
+import { ChartPanel, DownloadLink, MachineLegend } from "@/components/ui/ChartPanel";
 import { DataTable } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
@@ -15,6 +14,10 @@ import {
   getAnalyticsFields,
   getLimitations,
 } from "@/services/api";
+import { formatSnapshotDate } from "@/components/ui/Provenance";
+import { PrintMeta } from "@/components/ui/PrintMeta";
+import { CAPTION } from "@/services/copy";
+import { extractFilters, type SearchParams } from "@/services/filters";
 import { formatNumber, formatPercent } from "@/services/format";
 
 export const metadata = {
@@ -48,14 +51,25 @@ const DISCLOSURE_TEXT: Record<string, string> = {
   known_exclusions: "What the dataset is known not to cover.",
 };
 
-export default async function DataQualityPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+const BEFORE_CITING = [
+  "Counts describe observed records in the consolidated dataset — not official national totals.",
+  "Coverage and field completeness vary by source and year; missing DOIs and affiliations are common in repository harvests.",
+  "Snapshot figures can lag live upstream indexes; always note the snapshot date shown with a chart.",
+  "Violet panels mark model-generated content (classifications, match scores). Neutral surfaces hold harvested bibliographic metadata.",
+] as const;
+
+export default async function DataQualityPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const params = await searchParams;
   const filters = extractFilters(params);
   const [quality, limitations, meta, fields] = await Promise.all([
     getDataQuality({ ...filters, group_by: "source_dataset" }),
     getLimitations(),
     getDatasetMeta(),
-    getAnalyticsFields({ limit: 100 }),
+    getAnalyticsFields({ ...withoutQueryKey(filters, "field"), limit: 100 }),
   ]);
 
   const groups = quality.ok ? (quality.value.data.groups ?? {}) : {};
@@ -63,17 +77,53 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
     .map(([source, counts]) => ({ source, ...counts }))
     .sort((a, b) => b.record_count - a.record_count);
 
+  const snapshotLabel = quality.ok
+    ? formatSnapshotDate(quality.value.meta.snapshot_date)
+    : null;
+
   return (
     <div className="flex flex-col gap-5">
-      <PageIntro title="Confidence starts with context." description="Understand source coverage, metadata completeness, and the limitations behind every AI research insight." />
+      <PrintMeta
+        title="Data quality"
+        snapshotDate={quality.ok ? quality.value.meta.snapshot_date : null}
+        searchParams={params}
+      />
+      <PageIntro
+        title="Confidence starts with context."
+        description="Understand source coverage, metadata completeness, and the limitations behind every AI research insight."
+      />
 
-      <AnalyticsFilters params={params} basePath="/data-quality" fields={fields.ok ? fields.value.data.map(f => f.label) : []} />
+      <section
+        className="panel detail-measure border-warning/30 bg-wash p-4"
+        aria-labelledby="before-citing-heading"
+      >
+        <h2
+          id="before-citing-heading"
+          className="font-display text-h3 text-ink"
+        >
+          Read this before citing
+        </h2>
+        <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5 text-body-sm text-ink-secondary">
+          {BEFORE_CITING.map((line) => (
+            <li key={line} className="pl-1">
+              {line}
+            </li>
+          ))}
+        </ol>
+        <MachineLegend className="mt-4 border-t border-rule pt-3" />
+      </section>
+
+      <AnalyticsFilters
+        params={params}
+        basePath="/data-quality"
+        fields={toFilterChoices(fields.ok ? fields.value.data : [])}
+      />
       {meta.ok ? (
         <StatTileGrid>
           <StatTile
             label="Collection records"
             value={formatNumber(meta.value.data.publication_count ?? null)}
-            caption="accepted AI records across the collection"
+            caption={CAPTION.recordsInCollection}
           />
           <StatTile
             label="Collection year coverage"
@@ -98,6 +148,32 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
         </StatTileGrid>
       ) : null}
 
+      <section className="panel p-4" aria-labelledby="cite-figure-heading">
+        <h2 id="cite-figure-heading" className="font-display text-h3 text-ink">
+          How to cite a figure
+        </h2>
+        <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5 text-body-sm text-ink-secondary">
+          <li>
+            Name the chart or KPI and the filters in force (years, field,
+            institution, and so on).
+          </li>
+          <li>
+            State the snapshot date
+            {snapshotLabel ? ` (currently ${snapshotLabel})` : ""} and dataset
+            stage
+            {meta.ok ? ` (${meta.value.data.dataset_stage})` : ""}.
+          </li>
+          <li>
+            Give the denominator in plain language — usually “of selected AI
+            publications” or “of the accepted AI collection”.
+          </li>
+          <li>
+            Point readers to this page for known limitations and required
+            disclosures.
+          </li>
+        </ol>
+      </section>
+
       <section>
         <SectionHeading
           title="Known limitations"
@@ -106,22 +182,37 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
         {!limitations.ok ? (
           <ApiErrorPanel error={limitations.error} what="the limitations list" />
         ) : (
-          <ul className="flex flex-col gap-2">
-            {limitations.value.data.limitations.map((code) => (
-              <li key={code} className="panel p-4">
-                <h3 className="flex items-center gap-2 text-body-sm font-medium text-ink">
-                  <span aria-hidden className="text-warning">
-                    ▲
-                  </span>
-                  {code.replace(/_/g, " ")}
-                </h3>
-                <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-                  {LIMITATION_TEXT[code] ??
-                    "See the metadata quality documentation for details."}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <details className="panel group p-0">
+            <summary className="cursor-pointer list-none px-4 py-3 text-body-sm font-medium text-ink marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center justify-between gap-3">
+                <span>
+                  Full limitations ({limitations.value.data.limitations.length})
+                </span>
+                <span className="text-muted group-open:hidden" aria-hidden>
+                  Show ↓
+                </span>
+                <span className="hidden text-muted group-open:inline" aria-hidden>
+                  Hide ↑
+                </span>
+              </span>
+            </summary>
+            <ul className="flex flex-col gap-2 border-t border-rule px-4 py-3">
+              {limitations.value.data.limitations.map((code) => (
+                <li key={code} className="rounded-md border border-rule bg-surface p-3">
+                  <h3 className="flex items-center gap-2 text-body-sm font-medium text-ink">
+                    <span aria-hidden className="text-warning">
+                      ▲
+                    </span>
+                    {code.replace(/_/g, " ")}
+                  </h3>
+                  <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
+                    {LIMITATION_TEXT[code] ??
+                      "See the metadata quality documentation for details."}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </section>
 
@@ -130,7 +221,9 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
           <SectionHeading
             title="Field completeness"
             description="Missingness across the whole dataset."
-            action={<DownloadLink href={analyticsExportUrl("data-quality", filters)} />}
+            action={
+              <DownloadLink href={analyticsExportUrl("data-quality", filters)} />
+            }
           />
           <StatTileGrid>
             <StatTile
@@ -190,7 +283,7 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
             {groupRows.length > 0 ? (
               <ChartPanel
                 title="Records by source"
-                description="How many records each source contributes."
+                description="Record counts contributed by each source dataset."
                 table={
                   <details className="mt-3 border-t border-rule pt-3">
                     <summary className="cursor-pointer text-body-sm text-ink-secondary hover:text-ink">
@@ -199,7 +292,11 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
                     <div className="mt-2">
                       <DataTable
                         columns={[
-                          { key: "source", header: "Source", render: (row) => row.source },
+                          {
+                            key: "source",
+                            header: "Source",
+                            render: (row) => row.source,
+                          },
                           {
                             key: "records",
                             header: "Records",
@@ -216,7 +313,8 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
                             key: "abstract",
                             header: "Missing abstract",
                             numeric: true,
-                            render: (row) => formatNumber(row.missing_abstract_count),
+                            render: (row) =>
+                              formatNumber(row.missing_abstract_count),
                           },
                         ]}
                         rows={groupRows}
@@ -255,7 +353,8 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
                   {code.replace(/_/g, " ")}
                 </dt>
                 <dd className="text-body-sm text-ink-secondary">
-                  {DISCLOSURE_TEXT[code] ?? "See the metadata quality documentation."}
+                  {DISCLOSURE_TEXT[code] ??
+                    "See the metadata quality documentation."}
                 </dd>
               </div>
             ))}

@@ -71,7 +71,7 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="interactive flex items-center gap-2 rounded border border-rule px-2 py-1.5 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
+        className="toolbar-control interactive flex items-center gap-2 rounded border border-rule px-3 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
       >
         <span
           aria-hidden

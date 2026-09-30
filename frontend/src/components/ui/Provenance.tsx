@@ -125,9 +125,22 @@ export function ProvenanceStripe({
  * Every record shows which source(s) it came from — a standing requirement, so
  * an empty provenance list is reported explicitly rather than rendering nothing.
  */
-export function ProvenanceList({ sources }: { sources: string[] }) {
+export function ProvenanceList({
+  sources,
+  compact = false,
+}: {
+  sources: string[];
+  compact?: boolean;
+}) {
   if (sources.length === 0) {
     return <span className="text-body-sm text-muted">Source not recorded</span>;
+  }
+  if (compact) {
+    return (
+      <p className="text-body-sm text-muted" aria-label="Source datasets">
+        Sources: {sources.map((source) => sourceLabel(source)).join(" · ")}
+      </p>
+    );
   }
   return (
     <ul className="flex flex-wrap gap-1" aria-label="Source datasets">
@@ -144,26 +157,42 @@ export function ProvenanceList({ sources }: { sources: string[] }) {
  * Dataset vintage disclosure. Analytics figures are counts of *observed*
  * records, never national totals, and the snapshot date must travel with them.
  */
+export function formatSnapshotDate(
+  snapshotDate: string | null | undefined,
+): string | null {
+  if (!snapshotDate) return null;
+  const parsed = new Date(snapshotDate);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function SnapshotNote({
   snapshotDate,
   datasetStage,
   className = "",
+  /** When false, date is omitted (e.g. already shown as StatTileGrid `asOf`). */
+  includeDate = true,
 }: {
   snapshotDate: string | null;
   datasetStage?: string;
   className?: string;
+  includeDate?: boolean;
 }) {
+  const formatted = formatSnapshotDate(snapshotDate);
+
   return (
     <p className={`text-body-sm text-muted ${className}`}>
       Figures count observed records in the consolidated dataset, not national
-      totals.{" "}
-      {snapshotDate
-        ? `Snapshot: ${new Date(snapshotDate).toLocaleDateString("en-GB", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })}.`
-        : "Snapshot date unavailable."}
+      totals.
+      {includeDate
+        ? formatted
+          ? ` Snapshot: ${formatted}.`
+          : " Snapshot date unavailable."
+        : null}
       {datasetStage ? ` Stage: ${datasetStage}.` : null}
     </p>
   );

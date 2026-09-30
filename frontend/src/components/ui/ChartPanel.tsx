@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { DownloadIcon } from "@/components/layout/NavIcons";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Feedback";
@@ -14,6 +14,13 @@ export const CHART_SKELETON_HEIGHT = {
 } as const;
 
 export type ChartSkeletonSize = keyof typeof CHART_SKELETON_HEIGHT;
+
+const ChartTitleLevel = createContext<"h2" | "h3">("h2");
+
+/** Charts nested under a section heading render as h3. */
+export function NestedChartTitles({ children }: { children: ReactNode }) {
+  return <ChartTitleLevel.Provider value="h3">{children}</ChartTitleLevel.Provider>;
+}
 
 /**
  * Chart-panel shaped placeholder: same chrome as {@link ChartPanel} so streamed
@@ -39,24 +46,34 @@ export function ChartSkeleton({
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <Skeleton className="h-4 w-48 max-w-full" />
           <Skeleton className="h-3 w-72 max-w-full" />
+          <Skeleton className="h-3 w-56 max-w-full" />
         </div>
-        <Skeleton className="h-8 w-28 shrink-0" />
+        <Skeleton className="h-8 w-36 shrink-0" />
       </div>
       <Skeleton className={`w-full ${CHART_SKELETON_HEIGHT[size]}`} />
     </section>
   );
 }
 
+/**
+ * Unified chart chrome: title → plain subtitle → optional insight → toolbar
+ * (Chart/Table + download) → body.
+ * Plotly’s modebar stays recessive inside the plot host; panel chrome owns hierarchy.
+ */
 export function ChartPanel({
   title,
   description,
+  insight,
   action,
   children,
   table,
   loading = false,
 }: {
   title: string;
+  /** Plain-language subtitle (what the chart measures). */
   description?: string;
+  /** One-sentence takeaway under the subtitle. */
+  insight?: string;
   action?: ReactNode;
   children: ReactNode;
   table?: ReactNode;
@@ -65,6 +82,7 @@ export function ChartPanel({
 }) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const id = useId();
+  const Title = useContext(ChartTitleLevel);
   const tableRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (view === "table") {
@@ -73,24 +91,25 @@ export function ChartPanel({
       });
     }
   }, [view]);
+
   return (
     <section
-      className="panel chart-panel"
+      className="panel chart-panel motion-fade-in"
       aria-labelledby={id}
       aria-busy={loading || undefined}
     >
       <div className="chart-panel-head">
-        <div>
-          <h2 id={id} className="text-ink">
+        <div className="chart-panel-copy min-w-0 flex-1">
+          <Title id={id} className="text-ink">
             {title}
-          </h2>
-          {description ? (
-            <p className="mt-1 text-body-sm text-ink-secondary">{description}</p>
+          </Title>
+          {description || insight ? (
+            <p className="chart-panel-subtitle">{description || insight}</p>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="chart-panel-toolbar flex flex-wrap items-center gap-2">
           {!loading && table ? (
-            <div className="chart-segments" aria-label={`${title} view`}>
+            <div className="chart-segments chart-segments-compact" aria-label={`${title} view`}>
               <button
                 type="button"
                 aria-pressed={view === "chart"}
@@ -110,6 +129,7 @@ export function ChartPanel({
           {!loading ? action : <Skeleton className="h-8 w-28" />}
         </div>
       </div>
+
       {loading ? (
         <>
           <span className="sr-only">Loading {title}…</span>
@@ -151,14 +171,41 @@ export function DownloadLink({
 export function MachinePanel({
   title = "AI summary",
   children,
+  className = "",
 }: {
   title?: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="machine-panel p-4">
-      <h3 className="label-caps text-machine">{title}</h3>
+    <section
+      className={`machine-panel p-4 ${className}`.trim()}
+      aria-label={title}
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="label-caps text-machine">{title}</h3>
+        <span className="label-caps text-machine">Model-generated</span>
+      </div>
       <div className="mt-2 text-body-sm text-ink-secondary">{children}</div>
     </section>
+  );
+}
+
+/** Compact legend: violet chrome means model output, not harvested metadata. */
+export function MachineLegend({ className = "" }: { className?: string }) {
+  return (
+    <p
+      className={`machine-legend flex items-start gap-2 text-body-sm text-ink-secondary ${className}`.trim()}
+      role="note"
+    >
+      <span
+        className="mt-0.5 inline-block h-3 w-3 shrink-0 rounded-sm bg-machine-container ring-1 ring-machine"
+        aria-hidden
+      />
+      <span>
+        <strong className="font-medium text-ink">Violet = model-generated.</strong>{" "}
+        Bibliographic fields on the neutral surface are harvested metadata.
+      </span>
+    </p>
   );
 }

@@ -48,7 +48,11 @@ export default async function CompareInstitutionsPage({
         <h1 className="font-display text-h1 text-ink">Compare institutions</h1>
         <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
           Benchmark two or three institutions against each other on recorded
-          output and active years.
+          output and active years. Prefer picking them from the{" "}
+          <Link href="/institutions" className="text-primary hover:underline">
+            institutions directory
+          </Link>
+          , or enter names below.
         </p>
       </div>
 

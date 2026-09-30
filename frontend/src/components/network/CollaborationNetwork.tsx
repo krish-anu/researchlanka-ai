@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/Feedback";
 import { readChartTheme } from "@/components/charts/theme";
+import { formatDecimal, formatNumber } from "@/services/format";
 import { institutionHref, researcherHref } from "@/services/links";
 import { networkForDisplay } from "@/services/network";
 import type {
   CollaborationNetwork as NetworkData,
+  NetworkEdge,
   NetworkNode,
 } from "@/types/api";
 
@@ -15,6 +26,8 @@ interface CollaborationNetworkProps {
   network: NetworkData;
   scope: "institution" | "country" | "researcher";
   height?: number;
+  /** Overview teaser: shorter canvas, no brokers chrome (parent handles). */
+  compact?: boolean;
 }
 
 /** What node area encodes. All four ship in the payload, so switching is free. */
@@ -28,48 +41,40 @@ const SIZE_METRICS: { value: SizeMetric; label: string; hint: string }[] = [
   {
     value: "publication_count",
     label: "Publications",
-    hint: "How much each node published. The volume view.",
+    hint: "Node size follows publication count.",
   },
   {
     value: "degree_centrality",
     label: "Partners",
-    hint: "Share of other nodes each one collaborates with directly.",
+    hint: "Node size follows direct partners.",
   },
   {
     value: "betweenness_centrality",
     label: "Brokerage",
-    hint: "Share of shortest paths through each node. Large = bridges otherwise separate groups.",
+    hint: "Node size follows bridging position.",
   },
   {
     value: "closeness_centrality",
     label: "Reach",
-    hint: "How near each node sits to everything it can reach.",
+    hint: "Node size follows closeness.",
   },
 ];
 
 /**
  * The design system contrast-checks exactly three categorical slots, so only
  * the three largest communities are coloured and the rest stay neutral.
- * Cycling the three would make unrelated communities share a colour, which
- * reads as a claim they are the same group.
  */
 const COLOURED_COMMUNITIES = 3;
 
 const MIN_DIAMETER = 14;
 const DIAMETER_RANGE = 34;
+const MOBILE_MQ = "(max-width: 767px)";
 
 function metricValue(node: NetworkNode, metric: SizeMetric): number {
   const value = node[metric];
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-/**
- * Node diameters for one measure.
- *
- * Scaled against the largest value actually present, so the spread fills the
- * size range whichever measure is selected. Betweenness is often zero for most
- * nodes, which would otherwise collapse every circle.
- */
 function diameters(nodes: NetworkNode[], metric: SizeMetric): Map<string, number> {
   let maxValue = 0;
   for (const node of nodes) {
@@ -85,10 +90,45 @@ function diameters(nodes: NetworkNode[], metric: SizeMetric): Map<string, number
   );
 }
 
-/* `cytoscape` is an `export =` module, so the namespace type *is* the factory. */
+function profileHref(
+  scope: CollaborationNetworkProps["scope"],
+  label: string,
+): string | null {
+  if (scope === "institution") return institutionHref(label);
+  if (scope === "researcher") return researcherHref(label);
+  return null;
+}
+
+function partnersForNode(
+  nodeId: string,
+  edges: NetworkEdge[],
+  nodesById: Map<string, NetworkNode>,
+  limit = 8,
+): { label: string; weight: number; href: string | null; id: string }[] {
+  const out: { label: string; weight: number; id: string }[] = [];
+  for (const edge of edges) {
+    if (edge.source === nodeId) {
+      out.push({
+        id: edge.target,
+        label: edge.target_label ?? nodesById.get(edge.target)?.label ?? edge.target,
+        weight: edge.weight,
+      });
+    } else if (edge.target === nodeId) {
+      out.push({
+        id: edge.source,
+        label: edge.source_label ?? nodesById.get(edge.source)?.label ?? edge.source,
+        weight: edge.weight,
+      });
+    }
+  }
+  return out
+    .sort((a, b) => b.weight - a.weight || a.label.localeCompare(b.label))
+    .slice(0, limit)
+    .map((p) => ({ ...p, href: null }));
+}
+
 type CytoscapeModule = typeof import("cytoscape");
 
-/** ~6MB of module; requested once for the whole app, and only when on screen. */
 let cytoscapePromise: Promise<CytoscapeModule> | null = null;
 
 function loadCytoscape(): Promise<CytoscapeModule> {
@@ -97,57 +137,97 @@ function loadCytoscape(): Promise<CytoscapeModule> {
 }
 
 /**
- * Cytoscape.js collaboration graph.
- *
- * Loaded lazily on the client, and not until the graph is nearly on screen —
- * layout is the expensive part, it cannot be server-rendered, and on a profile
- * page the graph usually sits well below the fold.
- *
- * Node area encodes a selectable structural measure, edge width encodes
- * collaboration weight, and colour marks the three largest detected
- * communities. Size and width carry the magnitudes so nothing essential rests
- * on colour alone; colour only groups.
- *
- * Changing the measure resizes the existing nodes in place. Rebuilding the
- * graph would re-run the force layout and scatter every node to a new position,
- * which reads as "the structure changed" when only the sizing did — and costs a
- * full physics pass to say it.
- *
- * Clicking a node navigates to that entity's profile.
+ * Cytoscape collaboration graph with select-to-inspect.
+ * Mobile defaults to adjacency table; graph is optional behind “Show map”.
  */
 export function CollaborationNetwork({
   network,
   scope,
   height = 380,
+  compact = false,
 }: CollaborationNetworkProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const instanceRef = useRef<any>(null);
-  const router = useRouter();
+  const inspectorRef = useRef<HTMLElement | null>(null);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [focusId, setFocusId] = useState("");
   const [metric, setMetric] = useState<SizeMetric>("publication_count");
-  const selectId = useId();
-  const displayNetwork = useMemo(() => networkForDisplay(network), [network]);
-  const controlsDisabled = !ready;
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const sizeSelectId = useId();
+  const exploreSelectId = useId();
+  const canvasId = useId();
 
-  // Read by the build effect so a change of measure does not rebuild the graph.
+  const displayNetwork = useMemo(() => networkForDisplay(network), [network]);
+
   const metricRef = useRef(metric);
   metricRef.current = metric;
+  const focusIdRef = useRef(focusId);
+  focusIdRef.current = focusId;
 
   const hasNodes = displayNetwork.nodes.length > 0;
-  // Keep control `disabled` identical on server and the first client paint.
+  const graphVisible = !isMobile || showMap;
+  const canvasHeight = compact ? Math.min(height, 240) : height;
+  const controlsDisabled = graphVisible && !ready;
+
+  const nodesById = useMemo(() => {
+    const map = new Map<string, NetworkNode>();
+    for (const node of displayNetwork.nodes) map.set(node.id, node);
+    return map;
+  }, [displayNetwork.nodes]);
+
+  const focusedNode = focusId ? nodesById.get(focusId) : undefined;
+  const focusedHref = focusedNode
+    ? profileHref(scope, focusedNode.label)
+    : null;
+
+  const topPartners = useMemo(() => {
+    if (!focusedNode) return [];
+    return partnersForNode(focusedNode.id, displayNetwork.edges, nodesById).map((p) => ({
+      ...p,
+      href: profileHref(scope, p.label),
+    }));
+  }, [focusedNode, displayNetwork.edges, nodesById, scope]);
+
+  const adjacencyRows = useMemo(
+    () =>
+      [...displayNetwork.edges]
+        .sort((a, b) => b.weight - a.weight)
+        .slice(0, compact ? 12 : 40)
+        .map((edge) => ({
+          key: `${edge.source}-${edge.target}`,
+          source: edge.source_label ?? edge.source,
+          target: edge.target_label ?? edge.target,
+          weight: edge.weight,
+        })),
+    [displayNetwork.edges, compact],
+  );
+
+  const selected = useMemo(
+    () => SIZE_METRICS.find((entry) => entry.value === metric),
+    [metric],
+  );
 
   useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(MOBILE_MQ);
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    if (!graphVisible || !hasNodes) return;
     const element = containerRef.current;
     if (!element) return;
     if (typeof IntersectionObserver === "undefined") {
       setVisible(true);
       return;
     }
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
@@ -159,10 +239,10 @@ export function CollaborationNetwork({
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [hasNodes]);
+  }, [hasNodes, graphVisible]);
 
   useEffect(() => {
-    if (!visible || !hasNodes) return;
+    if (!visible || !hasNodes || !graphVisible) return;
     let cancelled = false;
     const element = containerRef.current;
     if (!element) return;
@@ -212,35 +292,39 @@ export function CollaborationNetwork({
               style: {
                 "background-color": "data(colour)",
                 "border-color": theme.surface,
-                "border-width": 2,
+                "border-width": 1.5,
                 width: "data(size)",
                 height: "data(size)",
                 label: "data(label)",
-                "font-size": 10,
-                color: theme.inkSecondary,
+                "font-size": 12,
+                color: theme.ink,
+                "text-outline-width": 2,
+                "text-outline-color": theme.surface,
                 "text-valign": "bottom",
-                "text-margin-y": 4,
-                "text-max-width": "110px",
+                "text-margin-y": 6,
+                "text-max-width": "140px",
                 "text-wrap": "ellipsis",
-                "min-zoomed-font-size": 8,
+                "min-zoomed-font-size": 10,
               },
             },
             {
               selector: "edge",
               style: {
-                "line-color": theme.baseline,
+                "line-color": theme.muted,
                 width: "data(width)",
-                "curve-style": "haystack",
-                opacity: 0.65,
+                "curve-style": "bezier",
+                "control-point-step-size": 40,
+                opacity: 0.35,
               },
             },
             {
-              // Fill now carries community, so selection is marked with the
-              // border instead — overriding the fill would misreport the group.
               selector: "node:selected",
               style: {
                 "border-color": theme.ink,
                 "border-width": 4,
+                "overlay-opacity": 0.08,
+                "overlay-color": theme.ink,
+                "overlay-padding": 6,
               },
             },
           ],
@@ -250,25 +334,36 @@ export function CollaborationNetwork({
             nodeDimensionsIncludeLabels: true,
             padding: 24,
           },
-          minZoom: 0.2,
-          maxZoom: 3,
-          wheelSensitivity: 0.2,
+          minZoom: 0.65,
+          maxZoom: 2.4,
+          wheelSensitivity: 1,
         });
 
-        // Node click -> profile page, per the "click a node to open a profile"
-        // requirement. Country scope has no profile route, so it stays inert.
+        // Select-to-inspect — profile opens from the inspector CTA.
         instance.on(
           "tap",
           "node",
-          (event: { target: { data: (key: string) => string } }) => {
-            const label = event.target.data("label");
-            if (scope === "institution") router.push(institutionHref(label));
-            else if (scope === "researcher") router.push(researcherHref(label));
+          (event: { target: { id: () => string } }) => {
+            setFocusId(event.target.id());
           },
         );
+        instance.on("tap", (event: { target: unknown }) => {
+          if (event.target === instance) setFocusId("");
+        });
 
         instanceRef.current = instance;
         setReady(true);
+
+        // Restore focus styling if a node was already selected (e.g. from select).
+        const currentFocus = focusIdRef.current;
+        if (currentFocus) {
+          const node = instance.getElementById(currentFocus);
+          if (node.nonempty()) {
+            const neighborhood = node.closedNeighborhood();
+            instance.elements().difference(neighborhood).addClass("dimmed");
+            node.select();
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -280,10 +375,8 @@ export function CollaborationNetwork({
       instanceRef.current = null;
       setReady(false);
     };
-  }, [displayNetwork, scope, router, visible, hasNodes]);
+  }, [displayNetwork, visible, hasNodes, graphVisible]);
 
-  // Keep the graph's labels, edges, and community colours in sync with the
-  // selected palette without rerunning its layout or losing the focused node.
   useEffect(() => {
     if (!ready) return;
     const recolour = () => {
@@ -294,21 +387,28 @@ export function CollaborationNetwork({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         instance.nodes().forEach((node: any) => {
           const community = node.data("community");
-          node.data("colour", community >= 0 && community < COLOURED_COMMUNITIES ? theme.series[community] : theme.muted);
+          node.data(
+            "colour",
+            community >= 0 && community < COLOURED_COMMUNITIES
+              ? theme.series[community]
+              : theme.muted,
+          );
         });
       });
-      instance.style()
-        .selector("node").style({ "border-color": theme.surface, color: theme.inkSecondary })
-        .selector("edge").style({ "line-color": theme.baseline })
-        .selector("node:selected").style({ "border-color": theme.ink })
+      instance
+        .style()
+        .selector("node")
+        .style({ "border-color": theme.surface, color: theme.inkSecondary })
+        .selector("edge")
+        .style({ "line-color": theme.baseline })
+        .selector("node:selected")
+        .style({ "border-color": theme.ink })
         .update();
     };
     window.addEventListener("researchlanka-theme-change", recolour);
     return () => window.removeEventListener("researchlanka-theme-change", recolour);
   }, [ready]);
 
-  // Resize in place: no relayout, so positions — and the reader's mental map of
-  // the structure — survive the change.
   useEffect(() => {
     const instance = instanceRef.current;
     if (!instance || !ready) return;
@@ -328,32 +428,87 @@ export function CollaborationNetwork({
     instance.nodes().unselect();
     if (focusId) {
       const node = instance.getElementById(focusId);
-      const neighborhood = node.closedNeighborhood();
-      instance.elements().difference(neighborhood).addClass("dimmed");
-      node.select();
+      if (node.nonempty()) {
+        const neighborhood = node.closedNeighborhood();
+        instance.elements().difference(neighborhood).addClass("dimmed");
+        node.select();
+      }
     }
   }, [focusId, ready]);
 
   useEffect(() => {
-    if (focusId && !displayNetwork.nodes.some((node) => node.id === focusId)) {
+    if (!focusId) return;
+    // Move keyboard users to the inspector after select / Explore change.
+    inspectorRef.current?.focus({ preventScroll: true });
+  }, [focusId]);
+
+  const resetView = () => {
+    setFocusId("");
+    instanceRef.current?.fit(undefined, 24);
+  };
+
+  const savePng = () => {
+    const instance = instanceRef.current;
+    if (!instance) return;
+    const link = document.createElement("a");
+    link.download = "researchlanka-ai-collaborations.png";
+    link.href = instance.png({
+      bg: readChartTheme().surface,
+      full: true,
+      scale: 2,
+    });
+    link.click();
+  };
+
+  const onCanvasKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const instance = instanceRef.current;
+    if (!instance || !ready) return;
+    const panStep = 40;
+    if (event.key === "Escape") {
+      event.preventDefault();
       setFocusId("");
+      return;
     }
-  }, [displayNetwork, focusId]);
-
-  const focusedNode = displayNetwork.nodes.find(node => node.id === focusId);
-  const focusedHref = focusedNode && scope !== "country" ? (scope === "institution" ? institutionHref(focusedNode.label) : researcherHref(focusedNode.label)) : null;
-
-  const selected = useMemo(
-    () => SIZE_METRICS.find((entry) => entry.value === metric),
-    [metric],
-  );
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      instance.panBy({ x: panStep, y: 0 });
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      instance.panBy({ x: -panStep, y: 0 });
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      instance.panBy({ x: 0, y: panStep });
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      instance.panBy({ x: 0, y: -panStep });
+    } else if (event.key === "+" || event.key === "=") {
+      event.preventDefault();
+      instance.zoom({
+        level: instance.zoom() * 1.15,
+        renderedPosition: {
+          x: instance.width() / 2,
+          y: instance.height() / 2,
+        },
+      });
+    } else if (event.key === "-" || event.key === "_") {
+      event.preventDefault();
+      instance.zoom({
+        level: instance.zoom() / 1.15,
+        renderedPosition: {
+          x: instance.width() / 2,
+          y: instance.height() / 2,
+        },
+      });
+    }
+  };
 
   if (!hasNodes) {
     return (
-      <p className="p-4 text-body-sm text-muted">
-        No collaboration edges met the current filters and minimum weight. Try
-        widening the year range or lowering the minimum weight.
-      </p>
+      <EmptyState
+        bare
+        title="No collaboration edges in this selection"
+        description="Try widening the year range or lowering the minimum weight."
+      />
     );
   }
 
@@ -366,56 +521,222 @@ export function CollaborationNetwork({
     );
   }
 
-  const communityCount = network.summary?.community_count ?? 0;
+  const communityCount = displayNetwork.summary?.community_count ?? 0;
   const uncoloured = Math.max(0, communityCount - COLOURED_COMMUNITIES);
+
+  const inspector = focusedNode ? (
+    <aside
+      className="network-inspector rounded-lg border border-rule bg-wash p-4 text-body-sm"
+      aria-label={`Selected: ${focusedNode.label}`}
+      data-selected="true"
+      tabIndex={-1}
+      ref={inspectorRef}
+    >
+      <h3 className="font-medium text-ink">{focusedNode.label}</h3>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-body-sm">
+        <div>
+          <dt className="text-muted">Publications</dt>
+          <dd className="tabular text-ink">
+            {formatNumber(focusedNode.publication_count)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">Co-publications</dt>
+          <dd className="tabular text-ink">{formatNumber(focusedNode.strength)}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Partners</dt>
+          <dd className="tabular text-ink">
+            {formatDecimal(focusedNode.degree_centrality, 3)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">Brokerage</dt>
+          <dd className="tabular text-ink">
+            {formatDecimal(focusedNode.betweenness_centrality, 3)}
+          </dd>
+        </div>
+      </dl>
+      {topPartners.length > 0 ? (
+        <div className="mt-3 border-t border-rule pt-3">
+          <p className="label-caps text-muted">Top partners</p>
+          <ul className="mt-2 space-y-1.5">
+            {topPartners.map((partner) => (
+              <li
+                key={partner.id}
+                className="flex items-baseline justify-between gap-2 text-body-sm"
+              >
+                {partner.href ? (
+                  <Link
+                    href={partner.href}
+                    className="min-w-0 truncate text-primary hover:underline"
+                  >
+                    {partner.label}
+                  </Link>
+                ) : (
+                  <span className="min-w-0 truncate text-ink">{partner.label}</span>
+                )}
+                <span className="shrink-0 tabular text-muted">
+                  {formatNumber(partner.weight)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {focusedHref ? (
+        <Link
+          href={focusedHref}
+          className="mt-3 inline-block text-body-sm text-primary hover:underline"
+        >
+          Open full profile →
+        </Link>
+      ) : null}
+    </aside>
+  ) : (
+    <aside className="network-inspector hidden rounded-lg border border-dashed border-rule bg-wash/50 p-4 text-body-sm text-muted md:block">
+      Select a node on the map or from Explore to see metrics and top partners.
+    </aside>
+  );
+
+  const adjacencyTable = (
+    <div className="overflow-x-auto rounded-lg border border-rule">
+      <table className="w-full text-left text-body-sm">
+        <caption className="sr-only">Collaboration pairs by shared publications</caption>
+        <thead className="border-b border-rule bg-wash text-body-sm text-muted">
+          <tr>
+            <th className="px-3 py-2 font-medium">Entity</th>
+            <th className="px-3 py-2 font-medium">Collaborator</th>
+            <th className="px-3 py-2 text-right font-medium">Shared</th>
+          </tr>
+        </thead>
+        <tbody>
+          {adjacencyRows.map((row) => (
+            <tr key={row.key} className="border-b border-rule last:border-0">
+              <td className="px-3 py-2 text-ink">{row.source}</td>
+              <td className="px-3 py-2 text-ink">{row.target}</td>
+              <td className="px-3 py-2 text-right tabular text-ink">
+                {formatNumber(row.weight)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <label htmlFor={selectId} className="label-caps text-muted">
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <label htmlFor={sizeSelectId} className="flex flex-col gap-1 text-body-sm text-muted">
           Size nodes by
-        </label>
-        <select
-          id={selectId}
-          value={metric}
-          onChange={(event) => setMetric(event.target.value as SizeMetric)}
-          className="rounded border border-rule bg-surface px-2 py-1 text-body-sm text-ink"
-        >
-          {SIZE_METRICS.map((entry) => (
-            <option key={entry.value} value={entry.value}>
-              {entry.label}
-            </option>
-          ))}
-        </select>
-        {selected ? (
-          <span className="text-body-sm text-ink-secondary">{selected.hint}</span>
-        ) : null}
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-xs text-muted">Explore a node
-          <select value={focusId} onChange={event => setFocusId(event.target.value)} className="max-w-[230px] rounded-md border border-rule bg-surface p-2 text-ink">
-            <option value="">All connections</option>{displayNetwork.nodes.map(node => <option key={node.id} value={node.id}>{node.label}</option>)}
+          <select
+            id={sizeSelectId}
+            value={metric}
+            onChange={(event) => setMetric(event.target.value as SizeMetric)}
+            className="rounded border border-rule bg-surface px-2 py-1.5 text-body-sm text-ink"
+          >
+            {SIZE_METRICS.map((entry) => (
+              <option key={entry.value} value={entry.value}>
+                {entry.label}
+              </option>
+            ))}
           </select>
         </label>
-        <Button type="button" variant="secondary" disabled={controlsDisabled} onClick={() => { setFocusId(""); instanceRef.current?.fit(undefined, 24); }}>Reset view</Button>
-        <Button type="button" variant="secondary" disabled={controlsDisabled} onClick={() => { const instance = instanceRef.current; if (!instance) return; const link = document.createElement("a"); link.download = "researchlanka-ai-collaborations.png"; link.href = instance.png({ bg: readChartTheme().surface, full: true, scale: 2 }); link.click(); }}>Save graph</Button>
-      </div>
-      {focusedNode ? <div className="mb-4 rounded-lg border border-rule bg-wash p-4 text-body-sm"><strong>{focusedNode.label}</strong><p className="mt-1 text-xs text-muted">{focusedNode.publication_count.toLocaleString()} AI publications · {focusedNode.strength.toLocaleString()} co-publications across displayed connections</p>{focusedHref ? <a href={focusedHref} className="mt-2 inline-block text-xs text-primary hover:underline">Open full profile →</a> : null}</div> : null}
-      <div className="relative">
-        <div
-          ref={containerRef}
-          style={{ height }}
-          className="network-canvas w-full rounded-xl border border-rule bg-surface"
-        />
-        {!ready ? (
-          <p className="absolute inset-0 flex items-center justify-center text-body-sm text-muted">
-            Laying out network…
-          </p>
+        <label
+          htmlFor={exploreSelectId}
+          className="flex flex-col gap-1 text-body-sm text-muted"
+        >
+          Explore a node
+          <select
+            id={exploreSelectId}
+            value={focusId}
+            onChange={(event) => setFocusId(event.target.value)}
+            className="max-w-56 rounded border border-rule bg-surface px-2 py-1.5 text-body-sm text-ink"
+          >
+            <option value="">All connections</option>
+            {displayNetwork.nodes.map((node) => (
+              <option key={node.id} value={node.id}>
+                {node.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {isMobile ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowMap((v) => !v)}
+          >
+            {showMap ? "Hide map" : "Show map"}
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={controlsDisabled}
+          onClick={resetView}
+        >
+          Reset view
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={controlsDisabled}
+          onClick={savePng}
+        >
+          Save PNG
+        </Button>
+        {selected && !compact ? (
+          <span className="max-w-xs text-body-sm text-ink-secondary">
+            {selected.hint}
+          </span>
         ) : null}
       </div>
 
-      {communityCount > 0 ? (
+      {isMobile && !showMap ? (
+        <div className="space-y-4">
+          {focusedNode ? inspector : null}
+          {adjacencyTable}
+        </div>
+      ) : (
+        <div
+          className={
+            compact
+              ? "space-y-3"
+              : "grid gap-4 md:grid-cols-[minmax(0,1fr)_15rem] md:items-start"
+          }
+        >
+          <div>
+            <div className="relative">
+              <div
+                id={canvasId}
+                ref={containerRef}
+                role="application"
+                aria-label="Collaboration network map. Arrow keys pan, plus and minus zoom, Escape clears selection."
+                tabIndex={0}
+                onKeyDown={onCanvasKeyDown}
+                style={{ height: canvasHeight }}
+                className="network-canvas w-full rounded-xl border border-rule bg-surface outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              />
+              {!ready ? (
+                <p className="absolute inset-0 flex items-center justify-center text-body-sm text-muted">
+                  Laying out network…
+                </p>
+              ) : null}
+            </div>
+            <p className="mt-2 text-body-sm text-muted">
+              Click a node to inspect it.
+            </p>
+          </div>
+          {!compact ? inspector : focusedNode ? inspector : null}
+        </div>
+      )}
+
+      {communityCount > 0 && graphVisible ? (
         <ul className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           {Array.from(
             { length: Math.min(communityCount, COLOURED_COMMUNITIES) },
@@ -447,13 +768,6 @@ export function CollaborationNetwork({
         </ul>
       ) : null}
 
-      <p className="mt-2 text-body-sm text-muted">
-        Node size is {selected?.label.toLowerCase() ?? "publication count"}; edge
-        thickness is the number of shared publications; colour marks the
-        {communityCount > COLOURED_COMMUNITIES ? " three largest" : ""} detected
-        communities. Scroll to zoom, drag to pan
-        {scope === "country" ? "." : ", and click a node to open its profile."}
-      </p>
     </div>
   );
 }

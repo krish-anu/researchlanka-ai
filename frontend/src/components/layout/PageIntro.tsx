@@ -7,7 +7,7 @@ export function PageIntro({
   action,
 }: {
   title: string;
-  description: string;
+  description?: string;
   action?: ReactNode;
 }) {
   return (
@@ -15,7 +15,9 @@ export function PageIntro({
       <div>
         <p className="page-eyebrow mb-2">Sri Lanka · AI research intelligence</p>
         <h1 className="font-display text-h1 text-ink">{title}</h1>
-        <p className="mt-2 max-w-prose text-body-sm text-muted">{description}</p>
+        {description ? (
+          <p className="mt-2 max-w-prose text-body-sm text-muted">{description}</p>
+        ) : null}
       </div>
       {action}
     </header>
@@ -51,7 +53,7 @@ export function OverviewHero({ action }: { action?: ReactNode }) {
         fill="none"
         aria-hidden="true"
       >
-        <g stroke="#86aa67" strokeWidth=".7" opacity=".6">
+        <g stroke="var(--hero-accent)" strokeWidth=".7" opacity=".6">
           <ellipse
             cx="180"
             cy="137"
@@ -76,7 +78,7 @@ export function OverviewHero({ action }: { action?: ReactNode }) {
           />
           <path d="M58 183L117 63 230 54 303 132 259 216 145 217 58 183 230 54 259 216 117 63 145 217 303 132 117 63M58 183l245-51M145 217L230 54" />
         </g>
-        <g fill="#d5ed9b">
+        <g fill="var(--hero-accent)">
           {(
             [
               [117, 63, 5],

@@ -173,9 +173,9 @@ function NavList({
         const headingId = `nav-section-${section.id}`;
         return (
           <section key={section.id} className="nav-section" aria-labelledby={headingId}>
-            <h2 id={headingId} className="nav-section-label">
+            <p id={headingId} className="nav-section-label">
               {section.label}
-            </h2>
+            </p>
             <ul className="nav-section-list">
               {section.links.map((link) => (
                 <li key={link.href}>
@@ -256,11 +256,6 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
         </div>
         <div className="mt-auto flex flex-col gap-2 border-t border-rule px-5 pt-5">
           <RoleBadge role={viewer.role} className="self-start" />
-          <p className="text-body-sm text-muted">
-            {viewer.user
-              ? "Signed in. Public figures are unchanged by your account — it adds a library and flagging."
-              : "Explore accepted AI-related publications from Sri Lanka."}
-          </p>
         </div>
       </nav>
 
@@ -272,7 +267,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
           onClick={() => setOpen(true)}
           aria-expanded={open}
           aria-controls="mobile-nav"
-          className="interactive rounded p-2 text-primary hover:bg-wash"
+          className="icon-control"
         >
           <MenuIcon />
           <span className="sr-only">Open navigation</span>
@@ -284,7 +279,7 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
           {!hasContextualPageSearch(pathname ?? "/") ? (
             <Link
               href="/publications"
-              className="interactive rounded p-2 text-primary hover:bg-wash"
+              className="icon-control"
             >
               <SearchIcon />
               <span className="sr-only">Search publications</span>
@@ -313,25 +308,21 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
                 ref={closeRef}
                 type="button"
                 onClick={() => setOpen(false)}
-                className="interactive rounded p-1 text-ink-secondary hover:bg-wash hover:text-ink"
+                className="icon-control text-ink-secondary hover:text-ink"
               >
                 <CloseIcon />
                 <span className="sr-only">Close navigation</span>
               </button>
             </div>
+            {hasContextualPageSearch(pathname ?? "/") ? null : (
             <div className="mb-6 px-4">
-              {hasContextualPageSearch(pathname ?? "/") ? (
-                <p className="rounded border border-rule bg-wash px-3 py-2 text-body-sm text-muted">
-                  Use the search on this page to filter the current directory.
-                </p>
-              ) : (
                 <SearchBox
                   label="Search publications, researchers, and institutions"
                   placeholder="Search publications, researchers, institutions…"
                   suggestionTypes={[...GLOBAL_SEARCH_TYPES]}
                 />
-              )}
             </div>
+            )}
             <div className="flex-1 overflow-y-auto">
               <NavList viewer={viewer} onNavigate={() => setOpen(false)} />
             </div>
@@ -356,13 +347,13 @@ export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
 
   return (
     <div className="app-topbar sticky top-0 z-30 hidden items-center justify-between gap-5 border-b border-rule bg-surface md:flex">
-      <div className="flex items-center gap-3 whitespace-nowrap text-xs text-muted">
+      <div className="flex items-center gap-3 whitespace-nowrap text-label text-muted">
         <span className="hidden xl:inline">{section} /</span>
         <span className="font-medium text-ink">{label}</span>
       </div>
       <div className="flex min-w-0 items-center justify-end gap-4">
         {showGlobalSearch ? (
-          <div className="w-full max-w-sm">
+          <div className="w-full max-w-lg">
             <SearchBox
               label="Search publications, researchers, and institutions"
               placeholder="Search publications, researchers, institutions…"
@@ -379,45 +370,18 @@ export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
   );
 }
 
-const AI_SCOPE_DISMISSED_KEY = "rl-ai-scope-dismissed";
 const AI_SCOPE_HIDDEN = ["/admin", "/account", "/login", "/register", "/forbidden"];
 
 /**
  * Scope disclosure for the AI collection.
- * Overview always shows the full note. Elsewhere: full note until the visitor
- * dismisses for the session, then a compact chip so the caveat stays findable.
+ * Overview keeps the full note. Other pages show a compact chip.
  */
 export function AIScopeNote() {
   const pathname = usePathname() ?? "/";
-  const [ready, setReady] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    try {
-      setDismissed(sessionStorage.getItem(AI_SCOPE_DISMISSED_KEY) === "1");
-    } catch {
-      setDismissed(false);
-    }
-    setReady(true);
-  }, []);
-
   if (AI_SCOPE_HIDDEN.some((path) => pathname.startsWith(path))) return null;
 
   const isOverview = pathname === "/";
 
-  // Avoid SSR/client mismatch: wait until sessionStorage is read.
-  if (!isOverview && !ready) return null;
-
-  const dismiss = () => {
-    try {
-      sessionStorage.setItem(AI_SCOPE_DISMISSED_KEY, "1");
-    } catch {
-      /* private mode / blocked storage — still collapse for this view */
-    }
-    setDismissed(true);
-  };
-
-  // Overview always carries the full scope statement (first-visit framing).
   if (isOverview) {
     return (
       <div className="ai-scope" role="note">
@@ -436,42 +400,16 @@ export function AIScopeNote() {
     );
   }
 
-  // After dismiss: compact chip so the scope stays findable without repeating
-  // the full strip on every page.
-  if (dismissed) {
-    return (
-      <div className="ai-scope ai-scope-chip" role="note">
-        <span className="ai-scope-dot" aria-hidden />
-        <span className="ai-scope-chip-label">AI collection only</span>
-        <Link
-          href="/data-quality"
-          className="shrink-0 text-primary hover:underline"
-        >
-          About the data
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="ai-scope" role="note">
+    <div className="ai-scope ai-scope-chip" role="note">
       <span className="ai-scope-dot" aria-hidden />
-      <span>
-        <strong>AI-related publications only.</strong> Charts, rankings,
-        profiles, and exports describe the accepted AI collection.
-      </span>
-      <div className="ml-auto flex shrink-0 items-center gap-3">
-        <Link href="/data-quality" className="text-primary hover:underline">
-          About the data ↗
-        </Link>
-        <button
-          type="button"
-          onClick={dismiss}
-          className="interactive rounded px-1.5 py-0.5 text-[10px] font-medium text-muted hover:bg-surface hover:text-ink"
-        >
-          Got it
-        </button>
-      </div>
+      <span className="ai-scope-chip-label">AI collection only</span>
+      <Link
+        href="/data-quality"
+        className="shrink-0 text-primary hover:underline"
+      >
+        About the data
+      </Link>
     </div>
   );
 }

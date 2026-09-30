@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 
-import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
+import { AnalyticsFilters, toFilterChoices, withoutQueryKey } from "@/components/analytics/AnalyticsFilters";
 import { NetworkPanel } from "@/components/analytics/ResearchPanels";
 import { PageIntro } from "@/components/layout/PageIntro";
 import { ActiveFilters } from "@/components/publications/FilterControls";
 import { ChartSkeleton } from "@/components/ui/ChartPanel";
+import { PrintMeta } from "@/components/ui/PrintMeta";
 import { getAnalyticsFields } from "@/services/api";
 import { extractFilters, type SearchParams } from "@/services/filters";
 
@@ -35,18 +36,19 @@ export default async function CollaborationPage({
       : fallback;
   const limit = positive(params.limit, 120, 500);
   const minWeight = positive(params.min_weight, 1, 10000);
-  const fields = await getAnalyticsFields({ limit: 100 });
+  const fields = await getAnalyticsFields({ ...withoutQueryKey(filters, "field"), limit: 100 });
 
   return (
     <div className="flex flex-col gap-6">
-      <PageIntro
-        title="Connected by discovery."
-        description="Explore the partnerships bringing AI researchers, institutions, and countries together."
+      <PrintMeta
+        title="AI research collaborations"
+        searchParams={params}
       />
+      <PageIntro title="Connected by discovery." />
       <AnalyticsFilters
         params={params}
         basePath="/collaboration"
-        fields={fields.ok ? fields.value.data.map((f) => f.label) : []}
+        fields={toFilterChoices(fields.ok ? fields.value.data : [])}
         title="Network controls"
         summaryLabel="Showing"
         applyLabel="Update network"

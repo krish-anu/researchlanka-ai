@@ -21,6 +21,10 @@ export interface ResponseMeta {
   api_version: string;
   dataset_stage: string;
   snapshot_date: string | null;
+  landscape?: {
+    by_output: { label: string; researcher_count: number }[];
+    by_institution: { label: string; researcher_count: number }[];
+  };
   search?: {
     mode: "semantic" | "similarity" | string;
     algorithm?: string;
@@ -271,6 +275,12 @@ export interface RankingEntry {
   label: string;
   publication_count: number;
   citation_total: number;
+  /** Most common institution named on this author's publications. */
+  affiliation?: string;
+  /** Leading subfield, or field when no subfield is recorded. */
+  areas?: string[];
+  year_min?: number | null;
+  year_max?: number | null;
 }
 
 /** `aggregate_profile()` output — shared by researcher and institution profiles. */

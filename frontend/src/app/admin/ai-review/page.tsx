@@ -46,7 +46,7 @@ export default async function AdminAIReviewPage({
   const counts = result.stats.by_status;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
       <SectionHeading
         title="AI Review"
         description="PostgreSQL-backed review of Gemini AI relevance classifications, with durable reviewer assignment and Google Sheets sync."
@@ -82,7 +82,7 @@ export default async function AdminAIReviewPage({
               name="q"
               defaultValue={stringParam(params, "q") ?? ""}
               placeholder="Search title, abstract, or DOI"
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink outline-none focus:border-primary"
+              className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink focus-visible:border-primary"
             />
             <select
               name="view"

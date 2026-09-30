@@ -52,6 +52,42 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <div
+        role="status"
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${
+          apiUp
+            ? "border-rule bg-wash"
+            : "border-critical/40 bg-critical/5"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className={`inline-block h-2.5 w-2.5 rounded-full ${
+              apiUp ? "bg-success-text" : "bg-critical"
+            }`}
+          />
+          <div>
+            <p className="text-body-sm font-medium text-ink">
+              Analytics API {apiUp ? "reachable" : "unreachable"}
+            </p>
+            <p className="text-body-sm text-ink-secondary">
+              {health.ok
+                ? `Contract ${health.value.data.api_version} · corpus figures below depend on this service`
+                : "Queue and account tools still work; corpus tiles may be empty until the API returns."}
+            </p>
+          </div>
+        </div>
+        {!apiUp ? (
+          <Link
+            href="/admin/pipeline"
+            className="text-body-sm font-medium text-primary underline"
+          >
+            Open pipeline
+          </Link>
+        ) : null}
+      </div>
+
       <section>
         <SectionHeading
           title="Corpus"
@@ -61,15 +97,6 @@ export default async function AdminOverviewPage() {
           <ApiErrorPanel error={meta.error} what="the dataset summary" />
         ) : (
           <StatTileGrid>
-            <StatTile
-              label="API"
-              value={apiUp ? "Healthy" : "Unavailable"}
-              caption={
-                health.ok
-                  ? `contract ${health.value.data.api_version}`
-                  : "no response from the service"
-              }
-            />
             <StatTile
               label="Records"
               value={formatNumber(meta.value.data.publication_count ?? null)}
@@ -249,13 +276,16 @@ function QueueCard({
   return (
     <Link
       href={href}
-      className="panel interactive-card flex flex-col gap-1 p-4"
+      className="panel interactive-card flex flex-col gap-2 p-4"
     >
       <span className="label-caps text-muted">{label}</span>
       <span className="font-display text-h1 tabular text-primary">
         {formatNumber(count)}
       </span>
       <span className="text-body-sm text-ink-secondary">{caption}</span>
+      <span className="mt-auto pt-2 text-body-sm font-medium text-primary">
+        Open queue →
+      </span>
     </Link>
   );
 }
@@ -299,7 +329,7 @@ async function loadAdminOverviewData() {
     safeAdminData("open flags", countOpenFlags, 0),
     safeAdminData("resolution candidates", countPendingCandidates, 0),
     safeAdminData("AI review candidates", countPendingAIReviewCandidates, 0),
-    safeAdminData("audit log", () => listAudit(8), [] as AuditEntry[]),
+    safeAdminData("audit log", () => listAudit(5), [] as AuditEntry[]),
     safeAdminData(
       "incremental update status",
       readIncrementalJobStatus,

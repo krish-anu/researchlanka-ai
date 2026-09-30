@@ -1,3 +1,4 @@
+```python
 """Internal admin helpers for triggering incremental publication updates."""
 
 from __future__ import annotations
@@ -23,6 +24,17 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_STATUS_PATH = PROJECT_ROOT / "outputs" / "incremental" / "ui_status.json"
 DEFAULT_LOG_DIR = PROJECT_ROOT / "outputs" / "incremental" / "ui_logs"
 ADMIN_TOKEN_ENV = "RESEARCHLANKA_ADMIN_API_TOKEN"
+
+
+def _payload_text(payload: Mapping[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = payload.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
 
 
 def utc_now() -> str:
@@ -90,18 +102,24 @@ def start_incremental_update(
     if model_path:
         args.extend(["--model", model_path])
 
-    threshold_supplied = False
-    for field, argument in (
-        ("from_date", "--from-date"),
-        ("to_date", "--to-date"),
-        ("confidence_review_threshold", "--confidence-review-threshold"),
+    from_date = _payload_text(payload, "from_date", "fromDate")
+    to_date = _payload_text(payload, "to_date", "toDate")
+    threshold = _payload_text(
+        payload,
+        "confidence_review_threshold",
+        "reviewThreshold",
+        "confidenceReviewThreshold",
+    )
+
+    for argument, value in (
+        ("--from-date", from_date),
+        ("--to-date", to_date),
+        ("--confidence-review-threshold", threshold),
     ):
-        value = str(payload.get(field) or "").strip()
         if value:
             args.extend([argument, value])
-            if field == "confidence_review_threshold":
-                threshold_supplied = True
-    if not threshold_supplied:
+
+    if not threshold:
         args.extend(
             [
                 "--confidence-review-threshold",
@@ -128,6 +146,9 @@ def start_incremental_update(
         "message": "Incremental AI publication update started.",
         "model": model_path,
         "db_labels": list(DEFAULT_DB_LABELS),
+        "from_date": from_date or None,
+        "to_date": to_date or None,
+        "confidence_review_threshold": threshold or None,
         "log_path": str(log_path),
     }
     write_status(status_path, status_payload)
@@ -180,23 +201,61 @@ def normalize_status(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "status": status,
         "pid": payload.get("pid") if isinstance(payload.get("pid"), int) else None,
-        "started_at": payload.get("started_at") if isinstance(payload.get("started_at"), str) else None,
-        "finished_at": payload.get("finished_at") if isinstance(payload.get("finished_at"), str) else None,
-        "message": str(payload.get("message") or "No status message is available."),
-        "model": payload.get("model") if isinstance(payload.get("model"), str) else None,
+        "started_at": (
+            payload.get("started_at")
+            if isinstance(payload.get("started_at"), str)
+            else None
+        ),
+        "finished_at": (
+            payload.get("finished_at")
+            if isinstance(payload.get("finished_at"), str)
+            else None
+        ),
+        "message": str(
+            payload.get("message") or "No status message is available."
+        ),
+        "model": (
+            payload.get("model")
+            if isinstance(payload.get("model"), str)
+            else None
+        ),
         "db_labels": (
             payload.get("db_labels")
             if isinstance(payload.get("db_labels"), list)
             else list(DEFAULT_DB_LABELS)
         ),
-        "log_path": payload.get("log_path") if isinstance(payload.get("log_path"), str) else None,
-        "result": payload.get("result") if isinstance(payload.get("result"), dict) else None,
+        "from_date": (
+            payload.get("from_date")
+            if isinstance(payload.get("from_date"), str)
+            else None
+        ),
+        "to_date": (
+            payload.get("to_date")
+            if isinstance(payload.get("to_date"), str)
+            else None
+        ),
+        "confidence_review_threshold": payload.get(
+            "confidence_review_threshold"
+        ),
+        "log_path": (
+            payload.get("log_path")
+            if isinstance(payload.get("log_path"), str)
+            else None
+        ),
+        "result": (
+            payload.get("result")
+            if isinstance(payload.get("result"), dict)
+            else None
+        ),
     }
 
 
 def write_status(path: Path, payload: dict[str, Any]) -> None:
     temp_path = path.with_suffix(f"{path.suffix}.tmp")
-    temp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temp_path.write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
     temp_path.replace(path)
 
 
@@ -208,3 +267,4 @@ def is_process_running(pid: Any) -> bool:
     except OSError:
         return False
     return True
+```

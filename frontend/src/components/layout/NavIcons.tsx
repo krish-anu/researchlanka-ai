@@ -185,6 +185,26 @@ export function DownloadIcon(props: IconProps) {
   return <Frame {...props}><path d="M12 3v12M7 10l5 5 5-5M4 16v5h16v-5" /></Frame>;
 }
 
+export function EyeIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </Frame>
+  );
+}
+
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <path d="M3 3l18 18" />
+      <path d="M9.5 9.7A3.5 3.5 0 0 0 12 15.5c.7 0 1.3-.2 1.9-.6" />
+      <path d="M6.1 6.4C4 7.8 2.5 12 2.5 12S6 17.5 12 17.5c1.4 0 2.6-.3 3.7-.8" />
+      <path d="M14.2 6.8C18.2 7.5 21.5 12 21.5 12a18 18 0 0 1-2.2 2.8" />
+    </Frame>
+  );
+}
+
 export function OpenAccessIcon(props: IconProps) {
   return <Frame {...props}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M9 11V7a4 4 0 0 1 8 0" /><circle cx="12" cy="16" r="1" /></Frame>;
 }

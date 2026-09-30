@@ -86,7 +86,7 @@ from the API; the HTML prototype's sample records are not used in the app.
 The backend's accepted-AI review boundary remains authoritative.
 
 - Overview: year/field filters, annual area/line/bar views with an open-access
-  comparison, field donut/mosaic/bar views, institution rankings, field/year
+  comparison, field mosaic/bar views, institution rankings, field/year
   heatmap, collaboration metrics, and recent publications.
 - Publications: switch between the compact table and full metadata cards;
   existing search, facets, sorting, pagination, CSV/JSONL exports, and record

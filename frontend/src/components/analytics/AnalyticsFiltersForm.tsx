@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { YearRangeInputs } from "@/components/ui/YearRangeInputs";
@@ -25,6 +25,61 @@ function firstValue(params: SearchParams, key: string): string {
   return value ?? "";
 }
 
+export type FilterChoice = { label: string; count: number };
+
+function choicesFrom(
+  values: Array<string | FilterChoice> | undefined,
+): FilterChoice[] {
+  const seen = new Set<string>();
+  const choices: FilterChoice[] = [];
+  for (const value of values ?? []) {
+    const choice = typeof value === "string" ? { label: value, count: 1 } : value;
+    if (!choice.label || choice.count <= 0 || seen.has(choice.label)) continue;
+    seen.add(choice.label);
+    choices.push(choice);
+  }
+  return choices;
+}
+
+/** Prefix, then word start, then contains. Empty query keeps count order. */
+function rankChoices(options: FilterChoice[], query: string, limit = 8): FilterChoice[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return options.slice(0, limit);
+  const scored = options.flatMap((option) => {
+    const label = option.label.toLowerCase();
+    const words = label.split(/[^a-z0-9]+/);
+    const rank = label.startsWith(q)
+      ? 0
+      : words.some((word) => word.startsWith(q))
+        ? 1
+        : label.includes(q)
+          ? 2
+          : -1;
+    return rank < 0 ? [] : [{ option, rank }];
+  });
+  scored.sort(
+    (a, b) =>
+      a.rank - b.rank ||
+      b.option.count - a.option.count ||
+      a.option.label.localeCompare(b.option.label),
+  );
+  return scored.slice(0, limit).map((item) => item.option);
+}
+
+/** Keep the current value visible when filters drop it from the ranked list. */
+function withCurrentChoice(
+  matches: FilterChoice[],
+  selected: string,
+  query: string,
+): FilterChoice[] {
+  const current = selected.trim();
+  if (!current) return matches;
+  const q = query.trim().toLowerCase();
+  if (q && !current.toLowerCase().includes(q)) return matches;
+  if (matches.some((item) => item.label === current)) return matches;
+  return [{ label: current, count: 0 }, ...matches].slice(0, 8);
+}
+
 function parseYear(value: string | number | undefined): number | undefined {
   if (value === undefined || value === "") return undefined;
   const parsed =
@@ -32,13 +87,121 @@ function parseYear(value: string | number | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function ResetFiltersButton({ href }: { href: string }) {
+function ResetFiltersButton({
+  href,
+  label = "Reset",
+}: {
+  href: string;
+  label?: string;
+}) {
   const { navigate } = useFilterNavigation();
   return (
     <Button type="button" variant="ghost" size="sm" onClick={() => navigate(href)}>
-      Reset
+      {label}
     </Button>
   );
+}
+
+function CountBoundControl({
+  minCount,
+  requireApply,
+}: {
+  minCount: string;
+  maxCount: string;
+  requireApply: boolean;
+}) {
+  const [draft, setDraft] = useState(minCount);
+  const [error, setError] = useState("");
+
+  function commit(form: HTMLFormElement | null) {
+    const trimmed = draft.trim();
+    if (trimmed !== "" && !/^[1-9]\d*$/.test(trimmed)) {
+      setError("Enter a whole number of 1 or more, or leave this blank.");
+      return;
+    }
+    setError("");
+    if (!form || requireApply) return;
+    form
+      .querySelectorAll('input[type="hidden"][name="min_count"], input[type="hidden"][name="max_count"]')
+      .forEach((node) => node.remove());
+    form.requestSubmit();
+  }
+
+  return (
+    <label className="analytics-field-label">
+      At least
+      <input
+        name={/^[1-9]\d*$/.test(draft.trim()) ? "min_count" : undefined}
+        value={draft}
+        inputMode="numeric"
+        placeholder="All publication counts"
+        aria-label="Minimum publications"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? "min-count-error" : undefined}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          setError("");
+        }}
+        onBlur={(event) => commit(event.currentTarget.form)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          commit(event.currentTarget.form);
+        }}
+      />
+      {error ? (
+        <span id="min-count-error" className="text-label text-serious" role="alert">
+          {error}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function RefineGroup({
+  title,
+  enabled,
+  children,
+}: {
+  title: string;
+  enabled: boolean;
+  children: ReactNode;
+}) {
+  if (!enabled) return <>{children}</>;
+  return (
+    <details
+      className="refine-disclosure border-b border-rule"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || !event.currentTarget.open) return;
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (target.closest(".filter-suggest")) return;
+        event.preventDefault();
+        event.currentTarget.open = false;
+        event.currentTarget.querySelector("summary")?.focus();
+      }}
+    >
+      <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 py-2 text-body-sm font-medium text-ink">
+        {title}
+      </summary>
+      <div className="flex flex-col gap-2 pb-3">{children}</div>
+    </details>
+  );
+}
+
+function closeEnclosingFilter(event: {
+  key: string;
+  preventDefault: () => void;
+  currentTarget: HTMLElement;
+}) {
+  if (event.key !== "Escape") return false;
+  event.preventDefault();
+  const details = event.currentTarget.closest("details");
+  if (details?.open) {
+    details.open = false;
+    details.querySelector("summary")?.focus();
+  }
+  return true;
 }
 
 function filtersHref(
@@ -85,12 +248,16 @@ function filterSummary({
   field,
   yearStart,
   yearEnd,
+  yearPhrase,
+  institution,
 }: {
   yearMin?: number;
   yearMax?: number;
   field: string;
   yearStart?: number;
   yearEnd?: number;
+  yearPhrase?: string;
+  institution?: string;
 }): string {
   const coversAll =
     yearStart != null &&
@@ -107,8 +274,14 @@ function filterSummary({
           : yearMin != null
             ? `From ${yearMin}`
             : `Through ${yearMax}`;
-  const fieldLabel = field || "All fields";
-  return `${years} · ${fieldLabel}`;
+  const yearText = yearPhrase
+    ? years.startsWith("All years")
+      ? years.replace("All years", `${yearPhrase}, all years`)
+      : `${yearPhrase} ${years}`
+    : years;
+  const parts = [yearText, field || "All fields"];
+  if (institution) parts.push(`Institution on the publication: ${institution}`);
+  return parts.join(" · ");
 }
 
 /**
@@ -128,9 +301,16 @@ export function AnalyticsFiltersForm({
   extraControls,
   omitParamKeys = [],
   applyLabel,
+  institutions,
+  yearPhrase,
+  fromLabel = "Year from",
+  toLabel = "Year to",
+  showMinCount = false,
+  layout = "card",
+  deferUntilField = false,
 }: {
   params: SearchParams;
-  fields: string[];
+  fields: Array<string | FilterChoice>;
   basePath: string;
   defaultFrom?: number;
   defaultTo?: number;
@@ -144,14 +324,25 @@ export function AnalyticsFiltersForm({
   omitParamKeys?: string[];
   /** When set, year/field changes wait for this Apply button instead of auto-submitting. */
   applyLabel?: string;
+  /** Institution names for the publication-affiliation control. Omit to hide it. */
+  institutions?: Array<string | FilterChoice>;
+  /** Prefixes the year portion of the summary, e.g. "Publication years". */
+  yearPhrase?: string;
+  fromLabel?: string;
+  toLabel?: string;
+  /** Ranked directories: keep rows with at least this many publications. */
+  showMinCount?: boolean;
+  layout?: "card" | "refine";
+  /** Overview: year changes wait until a research field, or All fields, is chosen. */
+  deferUntilField?: boolean;
 }) {
   const { navigate } = useFilterNavigation();
   const fieldListId = useId();
+  const institutionListId = useId();
   const selected = firstValue(params, "field");
-  const options = useMemo(
-    () => [...new Set([...fields, ...(selected ? [selected] : [])])].sort(),
-    [fields, selected],
-  );
+  const [fieldGate, setFieldGate] = useState(Boolean(selected));
+  const selectedInstitution = firstValue(params, "institution");
+  const options = useMemo(() => choicesFrom(fields), [fields]);
   const prefilledYears = defaultFrom != null || defaultTo != null;
   const yearMin =
     parseYear(firstValue(params, "year_min")) ??
@@ -160,7 +351,20 @@ export function AnalyticsFiltersForm({
     parseYear(firstValue(params, "year_max")) ??
     (prefilledYears ? defaultTo : undefined);
   const [fieldQuery, setFieldQuery] = useState(selected);
+  const [fieldOpen, setFieldOpen] = useState(false);
+  const [fieldDirty, setFieldDirty] = useState(false);
+  const [institutionQuery, setInstitutionQuery] = useState(selectedInstitution);
+  const [institutionOpen, setInstitutionOpen] = useState(false);
+  const [institutionDirty, setInstitutionDirty] = useState(false);
   const requireApply = Boolean(applyLabel);
+
+  useEffect(() => {
+    setFieldQuery(selected);
+    setInstitutionQuery(selectedInstitution);
+    setFieldDirty(false);
+    setInstitutionDirty(false);
+  }, [selected, selectedInstitution]);
+  const selectedMinCount = firstValue(params, "min_count");
 
   const summary = filterSummary({
     yearMin,
@@ -168,6 +372,8 @@ export function AnalyticsFiltersForm({
     field: selected,
     yearStart,
     yearEnd,
+    yearPhrase,
+    institution: institutions ? selectedInstitution : undefined,
   });
 
   const lastFiveFrom =
@@ -176,17 +382,32 @@ export function AnalyticsFiltersForm({
       : undefined;
 
   const hiddenOmit = new Set<string>([...BASE_OMIT_KEYS, ...omitParamKeys]);
+  if (institutions) hiddenOmit.add("institution");
+  if (showMinCount) hiddenOmit.add("min_count");
+  hiddenOmit.add("max_count");
+  const institutionOptions = useMemo(
+    () => choicesFrom(institutions),
+    [institutions],
+  );
+  const fieldQueryText = fieldDirty ? fieldQuery : "";
+  const institutionQueryText = institutionDirty ? institutionQuery : "";
+  const fieldMatches = useMemo(
+    () => withCurrentChoice(rankChoices(options, fieldQueryText), selected, fieldQueryText),
+    [options, fieldQueryText, selected],
+  );
+  const institutionMatches = useMemo(
+    () =>
+      withCurrentChoice(
+        rankChoices(institutionOptions, institutionQueryText),
+        selectedInstitution,
+        institutionQueryText,
+      ),
+    [institutionOptions, institutionQueryText, selectedInstitution],
+  );
 
-  return (
-    <section className="analytics-filter-card panel" aria-label={title}>
-      <div className="analytics-filter-card-head">
-        <h2 className="analytics-filter-card-title">{title}</h2>
-        <p className="analytics-filter-summary">
-          <span className="text-muted">{summaryLabel}:</span> {summary}
-        </p>
-      </div>
-
-      {yearStart != null && yearEnd != null ? (
+  const refine = layout === "refine";
+  const yearPresets =
+    yearStart != null && yearEnd != null ? (
         <div className="analytics-year-presets" role="group" aria-label="Year presets">
           <button
             type="button"
@@ -242,9 +463,25 @@ export function AnalyticsFiltersForm({
             {yearEnd} only
           </button>
         </div>
-      ) : null}
+      ) : null;
 
-      <SoftNavForm action={basePath} className="analytics-filters">
+  return (
+    <section
+      className={refine ? undefined : "analytics-filter-card panel"}
+      aria-label={refine ? undefined : title}
+    >
+      {refine ? null : (
+        <div className="analytics-filter-card-head">
+          <p className="analytics-filter-card-title">{title}</p>
+          <p className="analytics-filter-summary">
+            <span className="text-muted">{summaryLabel}:</span> {summary}
+          </p>
+        </div>
+      )}
+
+      {refine ? null : yearPresets}
+
+      <SoftNavForm action={basePath} className={refine ? "refine-filters" : "analytics-filters"}>
         {Object.entries(params)
           .filter(([key]) => !hiddenOmit.has(key))
           .flatMap(([key, value]) =>
@@ -260,53 +497,288 @@ export function AnalyticsFiltersForm({
             ),
           )}
 
-        <YearRangeInputs
-          startYear={yearStart}
-          endYear={yearEnd}
-          defaultFrom={firstValue(params, "year_min") || defaultFrom}
-          defaultTo={firstValue(params, "year_max") || defaultTo}
-          allowEmpty={!prefilledYears}
-          autoSubmit={!requireApply}
-        />
+        <RefineGroup title={yearPhrase ?? "Publication years"} enabled={refine}>
+          {refine ? yearPresets : null}
+          <YearRangeInputs
+            key={`${firstValue(params, "year_min") || defaultFrom || "any"}-${firstValue(params, "year_max") || defaultTo || "any"}`}
+            startYear={yearStart}
+            endYear={yearEnd}
+            defaultFrom={firstValue(params, "year_min") || defaultFrom}
+            defaultTo={firstValue(params, "year_max") || defaultTo}
+            fromLabel={fromLabel}
+            toLabel={toLabel}
+            labelClassName={refine ? "analytics-field-label" : undefined}
+            allowEmpty={!prefilledYears}
+            autoSubmit={!requireApply && (!deferUntilField || fieldGate)}
+          />
+        </RefineGroup>
 
-        <label className="analytics-field-label">
-          Research field
+        <RefineGroup title="Research field" enabled={refine}>
+        <label className="analytics-field-label relative">
+          <span className={refine ? "sr-only" : undefined}>Research field</span>
           <input
             name="field"
-            list={fieldListId}
+            role="combobox"
+            aria-expanded={fieldOpen}
+            aria-controls={fieldListId}
+            aria-autocomplete="list"
             value={fieldQuery}
             autoComplete="off"
-            placeholder="All fields — type to search"
-            onChange={(event) => setFieldQuery(event.target.value)}
-            onBlur={(event) => {
-              if (requireApply) return;
-              const next = event.target.value.trim();
-              if (next === selected) return;
-              event.currentTarget.form?.requestSubmit();
+            placeholder="Type field name"
+            onChange={(event) => {
+              setFieldDirty(true);
+              setFieldQuery(event.target.value);
+              setFieldOpen(true);
             }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
+            onFocus={() => setFieldOpen(true)}
+            onBlur={(event) => {
+              const typed = event.target.value.trim();
+              const exact = options.find(
+                (field) => field.label.toLowerCase() === typed.toLowerCase(),
+              );
+              window.setTimeout(() => setFieldOpen(false), 120);
+              if (requireApply) return;
+              if (!typed) {
+                if (selected) event.currentTarget.form?.requestSubmit();
+                return;
+              }
+              if (!exact) {
+                setFieldQuery(selected);
+                setFieldDirty(false);
+                return;
+              }
+              if (exact.label !== selected) {
+                setFieldGate(true);
+                setFieldQuery(exact.label);
+                event.currentTarget.value = exact.label;
                 event.currentTarget.form?.requestSubmit();
               }
             }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                if (fieldOpen) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setFieldOpen(false);
+                  return;
+                }
+                closeEnclosingFilter(event);
+                return;
+              }
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              const typed = event.currentTarget.value.trim();
+              const exact = options.find(
+                (field) => field.label.toLowerCase() === typed.toLowerCase(),
+              );
+              const chosen =
+                exact?.label ??
+                (fieldMatches.length === 1 ? fieldMatches[0].label : undefined);
+              if (!typed) {
+                setFieldGate(true);
+                setFieldQuery("");
+                event.currentTarget.value = "";
+                event.currentTarget.form?.requestSubmit();
+                return;
+              }
+              if (!chosen) return;
+              setFieldGate(true);
+              setFieldQuery(chosen);
+              event.currentTarget.value = chosen;
+              event.currentTarget.form?.requestSubmit();
+            }}
           />
-          <datalist id={fieldListId}>
-            {options.map((field) => (
-              <option key={field} value={field} />
-            ))}
-          </datalist>
+          {fieldOpen ? (
+            <ul id={fieldListId} role="listbox" className="filter-suggest">
+              <li>
+                <button
+                  type="button"
+                  role="option"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    setFieldGate(true);
+                    setFieldQuery("");
+                    setFieldDirty(false);
+                    const input = event.currentTarget
+                      .closest("label")
+                      ?.querySelector("input");
+                    if (input) input.value = "";
+                    setFieldOpen(false);
+                    if (!requireApply) input?.form?.requestSubmit();
+                  }}
+                >
+                  All fields
+                </button>
+              </li>
+              {fieldMatches.length ? (
+                fieldMatches.map((field) => (
+                  <li key={field.label}>
+                    <button
+                      type="button"
+                      role="option"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        setFieldGate(true);
+                        setFieldQuery(field.label);
+                        const input = event.currentTarget
+                          .closest("label")
+                          ?.querySelector("input");
+                        if (input) input.value = field.label;
+                        setFieldOpen(false);
+                        if (!requireApply) {
+                          input?.form?.requestSubmit();
+                        }
+                      }}
+                    >
+                      {field.label}
+                    </button>
+                  </li>
+                ))
+              ) : (
+                <li className="filter-suggest-empty">No matching fields</li>
+              )}
+            </ul>
+          ) : null}
         </label>
+        </RefineGroup>
 
         {Array.isArray(params.field)
           ? params.field.slice(1).map((field, index) => (
-              <input
-                type="hidden"
-                key={`field-${index}`}
-                name="field"
-                value={field}
-              />
-            ))
+            <input
+              type="hidden"
+              key={`field-${index}`}
+              name="field"
+              value={field}
+            />
+          ))
+          : null}
+
+        {institutions ? (
+          <RefineGroup title="Institution" enabled={refine}>
+          <label className="analytics-field-label relative">
+            <span className={refine ? "sr-only" : undefined}>
+              Institution on the publication
+            </span>
+            <input
+              name="institution"
+              role="combobox"
+              aria-expanded={institutionOpen}
+              aria-controls={institutionListId}
+              aria-autocomplete="list"
+              value={institutionQuery}
+              autoComplete="off"
+              placeholder="Type institution name"
+              onChange={(event) => {
+                setInstitutionDirty(true);
+                setInstitutionQuery(event.target.value);
+                setInstitutionOpen(true);
+              }}
+              onFocus={() => setInstitutionOpen(true)}
+              onBlur={(event) => {
+                const typed = event.target.value.trim();
+                const exact = institutionOptions.find(
+                  (name) => name.label.toLowerCase() === typed.toLowerCase(),
+                );
+                window.setTimeout(() => setInstitutionOpen(false), 120);
+                if (requireApply) return;
+                if (!typed) {
+                  if (selectedInstitution) event.currentTarget.form?.requestSubmit();
+                  return;
+                }
+                if (!exact) {
+                  setInstitutionQuery(selectedInstitution);
+                  setInstitutionDirty(false);
+                  return;
+                }
+                if (exact.label !== selectedInstitution) {
+                  setInstitutionQuery(exact.label);
+                  event.currentTarget.value = exact.label;
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  if (institutionOpen) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setInstitutionOpen(false);
+                    return;
+                  }
+                  closeEnclosingFilter(event);
+                  return;
+                }
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                const typed = event.currentTarget.value.trim();
+                const exact = institutionOptions.find(
+                  (name) => name.label.toLowerCase() === typed.toLowerCase(),
+                );
+                const chosen =
+                  exact?.label ??
+                  (institutionMatches.length === 1 ? institutionMatches[0].label : undefined);
+                if (!typed) {
+                  setInstitutionQuery("");
+                  event.currentTarget.value = "";
+                  event.currentTarget.form?.requestSubmit();
+                  return;
+                }
+                if (!chosen) return;
+                setInstitutionQuery(chosen);
+                event.currentTarget.value = chosen;
+                event.currentTarget.form?.requestSubmit();
+              }}
+            />
+            {institutionOpen ? (
+              <ul id={institutionListId} role="listbox" className="filter-suggest">
+                {institutionMatches.length ? (
+                  institutionMatches.map((name) => (
+                    <li key={name.label}>
+                      <button
+                        type="button"
+                        role="option"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setInstitutionQuery(name.label);
+                          const input = event.currentTarget
+                            .closest("label")
+                            ?.querySelector("input");
+                          if (input) input.value = name.label;
+                          setInstitutionOpen(false);
+                          if (!requireApply) input?.form?.requestSubmit();
+                        }}
+                      >
+                        {name.label}
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  <li className="filter-suggest-empty">No matching institutions</li>
+                )}
+              </ul>
+            ) : null}
+          </label>
+          </RefineGroup>
+        ) : null}
+
+        {showMinCount ? (
+          <RefineGroup title="Publications" enabled={refine}>
+          <CountBoundControl
+            minCount={selectedMinCount}
+            maxCount={firstValue(params, "max_count")}
+            requireApply={requireApply}
+          />
+          </RefineGroup>
+        ) : null}
+
+        {Array.isArray(params.institution)
+          ? params.institution.slice(1).map((name, index) => (
+            <input
+              type="hidden"
+              key={`institution-${index}`}
+              name="institution"
+              value={name}
+            />
+          ))
           : null}
 
         {extraControls}
@@ -317,7 +789,7 @@ export function AnalyticsFiltersForm({
               {applyLabel}
             </Button>
           ) : null}
-          <ResetFiltersButton href={basePath} />
+          <ResetFiltersButton href={basePath} label={refine ? "Clear all" : "Reset"} />
         </div>
       </SoftNavForm>
     </section>

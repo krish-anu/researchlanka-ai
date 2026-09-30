@@ -137,7 +137,7 @@ export function IncrementalUpdateDiagram({
               {stage.detail}
             </p>
             {stage.output ? (
-              <p className="mt-3 rounded border border-rule bg-surface px-3 py-2 text-xs text-muted">
+              <p className="mt-3 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-muted">
                 {stage.output}
               </p>
             ) : null}
@@ -337,7 +337,7 @@ function stageClassName(state: StageState): string {
 }
 
 function stateBadgeClassName(state: StageState): string {
-  const base = "rounded border px-2 py-1 text-[11px] font-bold uppercase";
+  const base = "rounded border px-2 py-1 text-label font-bold uppercase";
   if (state === "completed") return `${base} border-good text-good`;
   if (state === "current") return `${base} border-machine text-machine`;
   if (state === "failed") return `${base} border-serious text-serious`;

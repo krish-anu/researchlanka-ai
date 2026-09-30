@@ -43,7 +43,7 @@ export default async function AdminPipelinePage() {
   const total = rows.reduce((sum, row) => sum + row.record_count, 0);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
       <section>
         <SectionHeading
           title="Update progress"
