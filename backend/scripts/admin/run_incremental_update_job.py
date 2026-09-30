@@ -114,7 +114,8 @@ def main() -> None:
         "pid": os.getpid(), 
         "started_at": utc_now(),
         "finished_at": None,
-        "message": "Incremental AI publication update is running.",
+        "step": "window",
+        "message": "Resolving the date window.",
         "model": str(args.model),
         "db_labels": list(args.db_labels),
         "log_path": str(args.log_path) if args.log_path else None,
@@ -141,12 +142,21 @@ def main() -> None:
             db_labels=tuple(args.db_labels),
             batch_size=args.batch_size,
             skip_db=False,
+            status_path=args.status,
         )
     except Exception as exc:
+        failed = {}
+        try:
+            loaded = json.loads(args.status.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                failed = loaded
+        except (OSError, json.JSONDecodeError):
+            failed = {}
         write_status(
             args.status,
             {
                 **base_status,
+                **{key: value for key, value in failed.items() if key in {"step", "result"}},
                 "status": "failed",
                 "finished_at": utc_now(),
                 "message": str(exc),
@@ -160,6 +170,7 @@ def main() -> None:
         {
             **base_status,
             "status": "succeeded",
+            "step": "checkpoint",
             "finished_at": utc_now(),
             "message": "Incremental AI publication update completed.",
             "result": {

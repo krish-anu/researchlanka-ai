@@ -75,6 +75,8 @@ AI_COLUMNS = (
 
 logger = logging.getLogger(__name__)
 
+UPDATE_STEPS = ("window", "fetch", "classify", "prepare", "load", "checkpoint")
+
 
 @dataclass(frozen=True)
 class IncrementalRunResult:
@@ -434,6 +436,45 @@ def count_database_upsert_types(rows: list[dict[str, Any]]) -> tuple[int, int]:
         connection.close()
 
 
+def publish_update_step(
+    status_path: Path | None,
+    step: str,
+    *,
+    message: str,
+    **counts: Any,
+) -> None:
+    """Record the phase that is running so the admin page can highlight it."""
+
+    if status_path is None:
+        return
+    if step not in UPDATE_STEPS:
+        raise ValueError(f"Unknown update step: {step}")
+
+    payload: dict[str, Any] = {}
+    try:
+        existing = json.loads(status_path.read_text(encoding="utf-8"))
+        if isinstance(existing, dict):
+            payload = existing
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+
+    if payload.get("status") not in {"succeeded", "failed"}:
+        payload["status"] = "running"
+    payload["step"] = step
+    payload["message"] = message
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    for key, value in counts.items():
+        if value is None:
+            continue
+        result[key] = value.isoformat() if isinstance(value, date) else value
+    payload["result"] = result
+
+    status_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = status_path.with_suffix(f"{status_path.suffix}.tmp")
+    temporary.write_text(json.dumps(payload, indent=2, default=str) + "\n", encoding="utf-8")
+    temporary.replace(status_path)
+
+
 def run_incremental_update(
     *,
     state_path: Path,
@@ -454,7 +495,13 @@ def run_incremental_update(
     db_labels: tuple[str, ...],
     batch_size: int,
     skip_db: bool,
+    status_path: Path | None = None,
 ) -> IncrementalRunResult:
+    publish_update_step(
+        status_path,
+        "window",
+        message="Resolving the date window.",
+    )
     from_date = checkpoint_from_date(
         state_path,
         explicit_from_date=explicit_from_date,
@@ -473,6 +520,13 @@ def run_incremental_update(
     csv_output = run_dir / "openalex_incremental_classified.csv"
     db_load_output = run_dir / "openalex_incremental_db_load.csv"
 
+    publish_update_step(
+        status_path,
+        "fetch",
+        message="Fetching publication records.",
+        from_date=from_date.isoformat(),
+        to_date=to_date.isoformat(),
+    )
     rows = collect_openalex_rows(
         from_date=from_date,
         to_date=to_date,
@@ -483,17 +537,36 @@ def run_incremental_update(
         api_key=api_key,
         strict_lk_only=strict_lk_only,
     )
+    publish_update_step(
+        status_path,
+        "classify",
+        message="Classifying AI relevance.",
+        records_collected=len(rows),
+    )
     rows = apply_ai_classification(
         rows,
         model_path=model_path,
         text_columns=text_columns,
         confidence_review_threshold=confidence_review_threshold,
     )
+    publish_update_step(
+        status_path,
+        "prepare",
+        message="Writing the database load file.",
+        records_collected=len(rows),
+    )
     write_rows_csv(csv_output, rows)
     db_rows = filter_rows_for_database(rows, labels=db_labels)
     write_rows_csv(db_load_output, db_rows)
     write_doi_conflict_report(raw_output, run_dir / "openalex_incremental_doi_conflicts.csv")
 
+    publish_update_step(
+        status_path,
+        "load",
+        message="Loading rows into the database." if not skip_db else "Database load skipped.",
+        records_collected=len(rows),
+        records_selected_for_db=len(db_rows),
+    )
     records_loaded = 0
     records_new_for_db = None
     records_updated_for_db = None
@@ -538,6 +611,16 @@ def run_incremental_update(
         checkpoint_output=state_path,
         model_path=model_path,
         db_labels=db_labels,
+    )
+    publish_update_step(
+        status_path,
+        "checkpoint",
+        message="Saving the checkpoint.",
+        records_collected=result.records_collected,
+        records_selected_for_db=result.records_selected_for_db,
+        records_new_for_db=result.records_new_for_db,
+        records_updated_for_db=result.records_updated_for_db,
+        records_loaded=result.records_loaded,
     )
     should_checkpoint = not skip_db and max_records is None
     if not should_checkpoint:
@@ -592,6 +675,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--db-labels", type=parse_label_set, default=DEFAULT_DB_LABELS)
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--skip-db", action="store_true")
+    parser.add_argument("--status", type=Path, default=None)
     parser.add_argument("--log-level", choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"), default="INFO")
     return parser.parse_args()
 
@@ -622,6 +706,7 @@ def main() -> None:
         db_labels=tuple(args.db_labels),
         batch_size=args.batch_size,
         skip_db=args.skip_db,
+        status_path=args.status,
     )
     print(json.dumps(asdict(result), indent=2, default=str))
 
