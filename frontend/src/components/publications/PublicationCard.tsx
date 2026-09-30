@@ -4,12 +4,15 @@ import { ViewSwitcher } from "@/components/ui/ViewSwitcher";
 import { DataTable } from "@/components/ui/DataTable";
 
 
+
 import { AIRelevanceStatus } from "@/components/publications/AIRelevanceStatus";
 
 
 import { describeFlag, QualityFlagList } from "@/components/ui/QualityFlags";
 import { ProvenanceList, ProvenanceStripe, SourceDot, sourceLabel } from "@/components/ui/Provenance";
 import { formatDate, formatNumber } from "@/services/format";
+
+
 
 import { publicationHref, researcherHref } from "@/services/links";
 import type { PublicationSummary } from "@/types/api";
@@ -116,14 +119,14 @@ export function PublicationCard({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span className="text-ink-secondary">{field ?? "Unclassified"}</span>
             <AIRelevanceStatus trace={publication.trace} compact />
-          </div>
 
-          {isOa ? (
-            <span className="inline-flex items-center gap-1.5 text-ink-secondary">
-              <span aria-hidden className="text-muted">●</span>
-              Open access
-            </span>
-          ) : null}
+            {isOa ? (
+              <span className="inline-flex items-center gap-1.5 text-ink-secondary">
+                <span aria-hidden className="text-muted">●</span>
+                Open access
+              </span>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
@@ -326,7 +329,7 @@ export function PublicationCardList({
         </div>
       ),
     },
-    { key: "title", header: "Publication", render: p => <div><Link href={publicationHref(p.publication_key)} className="font-medium text-ink hover:text-primary">{p.title ?? "Untitled record"}</Link><p className="mt-2 text-body-sm text-muted"><AuthorLine authors={p.authors} /></p><div className="mt-2"><QualityFlagList flags={p.quality_flags} max={3} /></div></div> },
+
     { key: "field", header: "Field", render: p => p.primary_field ?? "Unclassified" },
     { key: "year", header: "Year", numeric: true, render: p => p.publication_year ?? yearFromDate(p.publication_date) ?? "—" },
     { key: "access", header: "Access", render: p => p.is_oa ? "Open access" : "Not marked open" },

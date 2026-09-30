@@ -111,7 +111,11 @@ export function PipelineRunPanel({
               <input
                 name="confidence_review_threshold"
                 inputMode="decimal"
+<<<<<<< HEAD
                 className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+=======
+                className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+>>>>>>> origin/main
                 placeholder="0.85"
               />
             </label>

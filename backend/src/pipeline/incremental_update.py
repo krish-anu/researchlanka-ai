@@ -436,6 +436,7 @@ def count_database_upsert_types(rows: list[dict[str, Any]]) -> tuple[int, int]:
         connection.close()
 
 
+<<<<<<< HEAD
 def publish_update_step(
     status_path: Path | None,
     step: str,
@@ -475,6 +476,8 @@ def publish_update_step(
     temporary.replace(status_path)
 
 
+=======
+>>>>>>> origin/main
 def run_incremental_update(
     *,
     state_path: Path,
@@ -612,6 +615,7 @@ def run_incremental_update(
         model_path=model_path,
         db_labels=db_labels,
     )
+<<<<<<< HEAD
     publish_update_step(
         status_path,
         "checkpoint",
@@ -622,6 +626,8 @@ def run_incremental_update(
         records_updated_for_db=result.records_updated_for_db,
         records_loaded=result.records_loaded,
     )
+=======
+>>>>>>> origin/main
     should_checkpoint = not skip_db and max_records is None
     if not should_checkpoint:
         logger.info(

@@ -5,16 +5,20 @@ import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 
+
 import { submitPublicFeedback, toggleSave } from "@/app/actions/workspace";
 
 import { Button } from "@/components/ui/Button";
+
 
 import { IDLE, type ActionState } from "@/services/forms/state";
 import { publicationHref } from "@/services/links";
 import { FEEDBACK_REASON_LABEL } from "@/services/workspace/types";
 import type { PublicationTrace } from "@/types/api";
 
+
 const GUEST_PROMPT_DISMISSED_KEY = "rl-guest-save-flag-prompt";
+
 
 function Pending({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
@@ -286,6 +290,9 @@ export function RecordActions({
           >
             Create an account
           </Button>
+        </div>
+        <div className="border-t border-rule pt-3">
+          <FeedbackControl publicationKey={publicationKey} title={title} trace={trace} />
         </div>
         <div className="border-t border-rule pt-3">
           <FeedbackControl publicationKey={publicationKey} title={title} trace={trace} />

@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 
+
 import { AIRelevanceStatus } from "@/components/publications/AIRelevanceStatus";
 
 import { BackLink } from "@/components/navigation/BackLink";
-
 
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { DataTable } from "@/components/ui/DataTable";
@@ -121,7 +121,6 @@ function LinkedList({
     </ul>
   );
 }
-
 
 function formatMonthYear(value: string | null | undefined): string {
   if (!value) return "Not recorded";
