@@ -7,6 +7,7 @@
  * a truncated trend that looks authoritative is worse than a labelled one.
  */
 
+import { formatNumber, formatRatioAsPercent } from "@/services/format";
 import type { PublicationSummary, RankingEntry, TrendPoint } from "@/types/api";
 
 export interface YearBucket {
