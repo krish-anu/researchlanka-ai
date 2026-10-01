@@ -30,17 +30,17 @@ The current release candidate contains 203 duplicate candidates requiring manual
 
 ## AI Relevance Classification
 
-AI relevance was assigned using the ResearchLanka AI relevance Linear SVM classifier trained on LLM-labelled publication metadata. The model was trained using title, abstract, keywords, topics, concepts, primary topic, primary subfield, primary field, and primary domain text.
+The current production AI relevance decision is based on the ResearchLanka A1
+XGBoost model using title and abstract text, with sigmoid calibration enabled.
+Production acceptance uses a three-way decision:
 
-Training summary from the current model artifact:
+```text
+AUTO_AI / REVIEW / AUTO_NON_AI
+```
 
-- Training labels: `AI`, `NON_AI`
-- Usable labelled rows: 4,437
-- Test rows: 888
-- Accuracy: 0.9595
-- Macro F1: 0.9552
-- AI precision: 0.94
-- AI recall: 0.94
+Deprecated LLM-label self-evaluation runs are no longer reported as project
+benchmarks because they measured reproduction of generated labels rather than
+agreement with independent human judgement.
 
 The release contains rows where `ai_classification_label = AI`.
 

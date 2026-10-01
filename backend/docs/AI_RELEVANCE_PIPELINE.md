@@ -78,14 +78,14 @@ Build the reproducible candidate sample:
 cd backend
 python scripts/ai_relevance/build_ai_candidate_sample.py \
   --input data/processed/common/common_publications_final.csv \
-  --output data/processed/ai/ai_llm_5000_candidates.csv \
+  --output data/processed/ai/ai_relevance_candidate_sample.csv \
   --target-size 5000 \
   --random-seed 42
 ```
 
 Output:
 
-`backend/data/processed/ai/ai_llm_5000_candidates.csv`
+`backend/data/processed/ai/ai_relevance_candidate_sample.csv`
 
 Sampling is informative rather than purely random. Buckets target AI-looking OpenAlex topics/concepts, strong AI text candidates, cross-domain AI candidates, Computer Science hard negatives, borderline ambiguous records, and field-stratified random records. Keyword matching is used only to construct candidates; it is not a permanent AI label. Every selected publication has one `sampling_bucket`, and duplicates are removed by `publication_id`.
 
@@ -130,7 +130,7 @@ The first test command is:
 ```bash
 cd backend
 python scripts/ai_relevance/run_gemini_ai_relevance.py \
-  --input data/processed/ai/ai_llm_5000_candidates.csv \
+  --input data/processed/ai/ai_relevance_candidate_sample.csv \
   --limit 10 \
   --first-test \
   --output data/processed/ai/ai_llm_test_10_predictions.csv \
@@ -162,7 +162,7 @@ If a run stops, rerun the same command with `--resume`. Existing successful `pub
 ```bash
 cd backend
 python scripts/ai_relevance/run_gemini_ai_relevance.py \
-  --input data/processed/ai/ai_llm_5000_candidates.csv \
+  --input data/processed/ai/ai_relevance_candidate_sample.csv \
   --limit 10 \
   --first-test \
   --resume \
@@ -182,7 +182,7 @@ Later, export a review sample from Gemini predictions:
 ```bash
 cd backend
 python scripts/ai_relevance/export_human_review_sample.py \
-  --input data/processed/ai/ai_llm_5000_predictions.csv \
+  --input data/processed/ai/ai_relevance_llm_predictions.csv \
   --output data/processed/ai/ai_human_review_sample.csv \
   --sample-size 500 \
   --random-seed 42

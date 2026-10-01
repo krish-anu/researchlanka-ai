@@ -180,150 +180,12 @@ Created at: `2026-09-25T09:47:59.723226+00:00`
 | multinomial_nb | 3.0000 | 0.8500 | 0.6528 | 0.5668 | 0.8217 | 0.7067 | 0.4651 |
 | multinomial_nb | 5.0000 | 0.8200 | 0.6684 | 0.5624 | 0.8116 | 0.7467 | 0.3953 |
 
-## Clean Human-Holdout Old vs New Run
+## Deprecated LLM-Label Runs Removed
 
-Created at: `2026-09-25T08:27:19.824154+00:00`
+Earlier LLM-label self-evaluation and related model-selection score blocks were
+removed from this report because those metrics measured reproduction of
+generated labels rather than independent human benchmark performance.
 
-| Human Pool Metric | Value |
-| --- | --- |
-| early_human_rows | 508 |
-| late_human_rows | 770 |
-| deduplicated_human_pool_rows | 1147 |
-| hidden_test_rows | 500 |
-| human_training_remainder_rows | 641 |
-| hidden_test_label_counts | {'AI': 388, 'NON_AI': 112} |
-
-| Model | Training Rows | Label Counts | Source Counts | Best C | CV Macro F1 | Human Test Accuracy | Human Test Macro F1 | Human Test Weighted F1 | Confusion Matrix AI/NON_AI |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Old Original-LLM Model | 4361 | {'NON_AI': 2903, 'AI': 1458} | {'original_llm_5k': 4361} | 10.0000 | 0.9338 | 0.7300 | 0.5917 | 0.7229 | [[328, 60], [75, 37]] |
-| New Human-Reviewed Model | 5327 | {'NON_AI': 3070, 'AI': 2257} | {'original_llm_5k': 3886, 'gemini_finished_1000': 856, 'late_human_800': 375, 'early_human_500': 210} | 1.0000 | 0.9156 | 0.7500 | 0.6346 | 0.7479 | [[328, 60], [65, 47]] |
-
-| Model | Class | Precision | Recall | F1 | Support |
-| --- | --- | --- | --- | --- | --- |
-| Old Original-LLM Model | AI | 0.8139 | 0.8454 | 0.8293 | 388.0000 |
-| Old Original-LLM Model | NON_AI | 0.3814 | 0.3304 | 0.3541 | 112.0000 |
-| Old Original-LLM Model | macro avg | 0.5977 | 0.5879 | 0.5917 | 500.0000 |
-| Old Original-LLM Model | weighted avg | 0.7170 | 0.7300 | 0.7229 | 500.0000 |
-| New Human-Reviewed Model | AI | 0.8346 | 0.8454 | 0.8399 | 388.0000 |
-| New Human-Reviewed Model | NON_AI | 0.4393 | 0.4196 | 0.4292 | 112.0000 |
-| New Human-Reviewed Model | macro avg | 0.6369 | 0.6325 | 0.6346 | 500.0000 |
-| New Human-Reviewed Model | weighted avg | 0.7460 | 0.7500 | 0.7479 | 500.0000 |
-
-## Updated Linear SVM With Finished Reviews
-
-Created at: `2026-09-25T03:38:14.690303+00:00`
-
-| Input Count | Value |
-| --- | --- |
-| original_binary_rows | 4437 |
-| gemini_binary_rows | 889 |
-| manual_binary_rows | 770 |
-| updated_training_rows_after_dedup | 5671 |
-| train_rows | 4536 |
-| test_rows | 1135 |
-| remaining_predicted_rows | 1207 |
-
-| Model | Best C | Best CV Macro F1 | Same-Split Accuracy | Same-Split Macro F1 | Same-Split Weighted F1 | Confusion Matrix AI/NON_AI |
-| --- | --- | --- | --- | --- | --- | --- |
-| Old Linear SVM |  |  | 0.9630 | 0.9626 | 0.9630 | [[485, 16], [26, 608]] |
-| Updated Linear SVM | 1.0000 | 0.9047 | 0.9181 | 0.9171 | 0.9181 | [[460, 41], [52, 582]] |
-
-| Model | Class | Precision | Recall | F1 | Support |
-| --- | --- | --- | --- | --- | --- |
-| Old Linear SVM | AI | 0.9491 | 0.9681 | 0.9585 | 501.0000 |
-| Old Linear SVM | NON_AI | 0.9744 | 0.9590 | 0.9666 | 634.0000 |
-| Old Linear SVM | macro avg | 0.9617 | 0.9635 | 0.9626 | 1135.0000 |
-| Old Linear SVM | weighted avg | 0.9632 | 0.9630 | 0.9630 | 1135.0000 |
-| Updated Linear SVM | AI | 0.8984 | 0.9182 | 0.9082 | 501.0000 |
-| Updated Linear SVM | NON_AI | 0.9342 | 0.9180 | 0.9260 | 634.0000 |
-| Updated Linear SVM | macro avg | 0.9163 | 0.9181 | 0.9171 | 1135.0000 |
-| Updated Linear SVM | weighted avg | 0.9184 | 0.9181 | 0.9181 | 1135.0000 |
-
-### Same-Split Metrics By Label Source
-
-| Label Source | Model | Rows | Accuracy | Macro F1 | Weighted F1 | Confusion Matrix AI/NON_AI |
-| --- | --- | --- | --- | --- | --- | --- |
-| gemini_finished_1000 | old_model | 185 | 0.9622 | 0.4904 | 0.9436 | [[178, 0], [7, 0]] |
-| gemini_finished_1000 | new_model | 185 | 0.9081 | 0.4759 | 0.9158 | [[168, 10], [7, 0]] |
-| human_finished_800 | old_model | 119 | 0.7059 | 0.6142 | 0.7011 | [[71, 16], [19, 13]] |
-| human_finished_800 | new_model | 119 | 0.6807 | 0.5669 | 0.6695 | [[71, 16], [22, 10]] |
-| original_llm_5k | old_model | 831 | 1.0000 | 1.0000 | 1.0000 | [[236, 0], [0, 595]] |
-| original_llm_5k | new_model | 831 | 0.9543 | 0.9443 | 0.9545 | [[221, 15], [23, 572]] |
-| finished_reviews_only | old_model | 304 | 0.8618 | 0.6523 | 0.8530 | [[249, 16], [26, 13]] |
-| finished_reviews_only | new_model | 304 | 0.8191 | 0.5817 | 0.8160 | [[239, 26], [29, 10]] |
-
-## Initial Linear SVM From 5K Gemini Labels
-
-| Metric | Value |
-| --- | --- |
-| input_csv | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/processed/ai/ai_llm_5000_predictions_openrouter_gemini_3_8_flash.csv |
-| label_column | ai_llm_label |
-| status_column | ai_llm_status |
-| labels_used | AI, NON_AI |
-| text_columns | title, abstract, keywords, topics, concepts, primary_topic, primary_subfield, primary_field, primary_domain |
-| input_rows | 5000 |
-| usable_rows | 4437 |
-| train_rows | 3549 |
-| test_rows | 888 |
-| class_count | 2 |
-| best_C | 10.0 |
-| cv_macro_f1 | 0.9291 |
-| accuracy | 0.9595 |
-| macro_f1 | 0.9552 |
-| weighted_f1 | 0.9595 |
-
-```text
-precision    recall  f1-score   support
-
-          AI       0.94      0.94      0.94       307
-      NON_AI       0.97      0.97      0.97       581
-
-    accuracy                           0.96       888
-   macro avg       0.96      0.96      0.96       888
-weighted avg       0.96      0.96      0.96       888
-```
-
-## Earlier Model Selection Run
-
-| Field | Value |
-| --- | --- |
-| best_model_name | logreg_word12_C10.0 |
-| best_vectorizer | word_1_2 |
-| selection_metric | validation_macro_f1 |
-| train_rows | 3105 |
-| validation_rows | 666 |
-| test_rows | 666 |
-| final_train_plus_validation_rows | 3771 |
-| review_confidence_threshold_for_rest_predictions | 0.6000 |
-
-### Best Model Test Metrics
-
-| Metric | Value |
-| --- | --- |
-| accuracy | 0.9580 |
-| macro_f1 | 0.9534 |
-| weighted_f1 | 0.9579 |
-| ai_precision | 0.9430 |
-| ai_recall | 0.9348 |
-| ai_f1 | 0.9389 |
-| non_ai_precision | 0.9658 |
-| non_ai_recall | 0.9702 |
-| non_ai_f1 | 0.9680 |
-
-### Validation Leaderboard Top Models
-
-| model_name | vectorizer | accuracy | macro_f1 | weighted_f1 | ai_precision | ai_recall | ai_f1 | non_ai_precision | non_ai_recall | non_ai_f1 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| logreg_word12_C10.0 | word_1_2 | 0.9580 | 0.9539 | 0.9581 | 0.9283 | 0.9524 | 0.9402 | 0.9744 | 0.9609 | 0.9676 |
-| sgd_logloss_word13_alpha1e-05 | word_1_3 | 0.9520 | 0.9473 | 0.9521 | 0.9198 | 0.9437 | 0.9316 | 0.9697 | 0.9563 | 0.9630 |
-| logreg_word12_C1.0 | word_1_2 | 0.9520 | 0.9472 | 0.9520 | 0.9234 | 0.9394 | 0.9313 | 0.9675 | 0.9586 | 0.9630 |
-| linearsvc_word13_C10.0 | word_1_3 | 0.9505 | 0.9457 | 0.9506 | 0.9160 | 0.9437 | 0.9296 | 0.9696 | 0.9540 | 0.9618 |
-| logreg_word12_C3.0 | word_1_2 | 0.9505 | 0.9456 | 0.9506 | 0.9195 | 0.9394 | 0.9293 | 0.9674 | 0.9563 | 0.9618 |
-| linearsvc_charwb35_C1.0 | char_wb_3_5 | 0.9505 | 0.9454 | 0.9505 | 0.9267 | 0.9307 | 0.9287 | 0.9631 | 0.9609 | 0.9620 |
-| linearsvc_word13_C3.0 | word_1_3 | 0.9489 | 0.9441 | 0.9491 | 0.9121 | 0.9437 | 0.9277 | 0.9696 | 0.9517 | 0.9606 |
-| sgd_logloss_word13_alpha0.0001 | word_1_3 | 0.9489 | 0.9441 | 0.9491 | 0.9121 | 0.9437 | 0.9277 | 0.9696 | 0.9517 | 0.9606 |
-| linearsvc_charwb35_C3.0 | char_wb_3_5 | 0.9489 | 0.9435 | 0.9489 | 0.9301 | 0.9221 | 0.9261 | 0.9588 | 0.9632 | 0.9610 |
-| linearsvc_word13_C1.0 | word_1_3 | 0.9474 | 0.9424 | 0.9476 | 0.9118 | 0.9394 | 0.9254 | 0.9673 | 0.9517 | 0.9594 |
 
 ## Older XGBoost Metadata Ablation: macro-F1 objective
 
@@ -352,7 +214,6 @@ Created at: `2026-09-28T09:03:07.022064+00:00`
 | model_family | best_cv_macro_f1 | human_test_accuracy | human_test_macro_f1 | human_test_weighted_f1 | ai_precision | ai_recall | ai_f1 | non_ai_precision | non_ai_recall | non_ai_f1 | best_params | model_path | predictions_path |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | xgboost | 0.9130 | 0.7220 | 0.6414 | 0.7353 | 0.8567 | 0.7706 | 0.8114 | 0.4106 | 0.5536 | 0.4715 | {"clf__learning_rate": 0.1, "clf__max_depth": 3, "clf__n_estimators": 200} | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/xgboost.joblib | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/xgboost_human_test_predictions.csv |
-| linear_svm | 0.9156 | 0.7500 | 0.6346 | 0.7479 | 0.8346 | 0.8454 | 0.8399 | 0.4393 | 0.4196 | 0.4292 | {"clf__C": 1.0} | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/linear_svm.joblib | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/linear_svm_human_test_predictions.csv |
 | logistic_regression | 0.9127 | 0.7440 | 0.6221 | 0.7406 | 0.8283 | 0.8454 | 0.8367 | 0.4231 | 0.3929 | 0.4074 | {"clf__C": 10.0} | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/logistic_regression.joblib | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/logistic_regression_human_test_predictions.csv |
 | ridge_classifier | 0.9118 | 0.7380 | 0.6119 | 0.7340 | 0.8237 | 0.8428 | 0.8331 | 0.4078 | 0.3750 | 0.3907 | {"clf__alpha": 1.0} | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/ridge_classifier.joblib | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/ridge_classifier_human_test_predictions.csv |
 | sgd_classifier | 0.9138 | 0.7420 | 0.6071 | 0.7342 | 0.8198 | 0.8557 | 0.8373 | 0.4105 | 0.3482 | 0.3768 | {"clf__alpha": 0.0001} | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/sgd_classifier.joblib | /home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/data/models/ai_relevance/clean_human_holdout/model_comparison/sgd_classifier_human_test_predictions.csv |
@@ -363,7 +224,6 @@ Created at: `2026-09-28T09:03:07.022064+00:00`
 | model_family | best_cv_macro_f1 | human_test_accuracy | human_test_macro_f1 | human_test_weighted_f1 | ai_precision | ai_recall | ai_f1 | non_ai_precision | non_ai_recall | non_ai_f1 | best_params | model_path | predictions_path | best_threshold | threshold_tuned_macro_f1 | threshold_tuned_accuracy | threshold_tuned_ai_precision | threshold_tuned_non_ai_recall |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | xgboost | 0.9130 | 0.7220 | 0.6414 | 0.7353 | 0.8567 | 0.7706 | 0.8114 | 0.4106 | 0.5536 | 0.4715 | {"clf__learning_rate": 0.1, "clf__max_depth": 3, "clf__n_estimators": 200} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/xgboost.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/xgboost_human_test_predictions.csv | 0.4100 | 0.6576 | 0.7560 | 0.8500 | 0.4911 |
-| linear_svm | 0.9156 | 0.7500 | 0.6346 | 0.7479 | 0.8346 | 0.8454 | 0.8399 | 0.4393 | 0.4196 | 0.4292 | {"clf__C": 1.0} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/linear_svm.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/linear_svm_human_test_predictions.csv | 0.5000 | 0.6346 | 0.7500 | 0.8346 | 0.4196 |
 | logistic_regression | 0.9127 | 0.7440 | 0.6221 | 0.7406 | 0.8283 | 0.8454 | 0.8367 | 0.4231 | 0.3929 | 0.4074 | {"clf__C": 10.0} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/logistic_regression.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/logistic_regression_human_test_predictions.csv | 0.6100 | 0.6364 | 0.7140 | 0.8571 | 0.5625 |
 | ridge_classifier | 0.9118 | 0.7380 | 0.6119 | 0.7340 | 0.8237 | 0.8428 | 0.8331 | 0.4078 | 0.3750 | 0.3907 | {"clf__alpha": 1.0} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/ridge_classifier.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/ridge_classifier_human_test_predictions.csv | 0.4900 | 0.6233 | 0.7580 | 0.8248 | 0.3571 |
 | sgd_classifier | 0.9138 | 0.7420 | 0.6071 | 0.7342 | 0.8198 | 0.8557 | 0.8373 | 0.4105 | 0.3482 | 0.3768 | {"clf__alpha": 0.0001} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/sgd_classifier.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_standard/sgd_classifier_human_test_predictions.csv | 0.5200 | 0.6324 | 0.7420 | 0.8364 | 0.4375 |
@@ -373,7 +233,6 @@ Created at: `2026-09-28T09:03:07.022064+00:00`
 
 | model_family | best_cv_macro_f1 | human_test_accuracy | human_test_macro_f1 | human_test_weighted_f1 | ai_precision | ai_recall | ai_f1 | non_ai_precision | non_ai_recall | non_ai_f1 | best_params | model_path | predictions_path | best_threshold | threshold_tuned_macro_f1 | threshold_tuned_accuracy | threshold_tuned_ai_precision | threshold_tuned_non_ai_recall |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| linear_svm | 0.9173 | 0.7700 | 0.6570 | 0.7657 | 0.8421 | 0.8660 | 0.8539 | 0.4851 | 0.4375 | 0.4601 | {"clf__C": 3.0, "tfidf__max_df": 0.9, "tfidf__min_df": 1, "tfidf__ngram_range": [1, 2], "tfidf__sublinear_tf": true} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_wide_sklearn/linear_svm.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_wide_sklearn/linear_svm_human_test_predictions.csv | 0.5000 | 0.6570 | 0.7700 | 0.8421 | 0.4375 |
 | logistic_regression | 0.9142 | 0.7640 | 0.6444 | 0.7582 | 0.8358 | 0.8660 | 0.8506 | 0.4694 | 0.4107 | 0.4381 | {"clf__C": 10.0, "tfidf__max_df": 0.95, "tfidf__min_df": 2, "tfidf__ngram_range": [1, 2], "tfidf__sublinear_tf": true} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_wide_sklearn/logistic_regression.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_wide_sklearn/logistic_regression_human_test_predictions.csv | 0.5300 | 0.6548 | 0.7600 | 0.8454 | 0.4643 |
 | sgd_classifier | 0.9169 | 0.7620 | 0.6349 | 0.7538 | 0.8305 | 0.8711 | 0.8503 | 0.4624 | 0.3839 | 0.4195 | {"clf__alpha": 0.0003, "tfidf__max_df": 0.95, "tfidf__min_df": 2, "tfidf__ngram_range": [1, 3], "tfidf__sublinear_tf": true} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_wide_sklearn/sgd_classifier.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_wide_sklearn/sgd_classifier_human_test_predictions.csv | 0.5200 | 0.6486 | 0.7580 | 0.8414 | 0.4464 |
 | ridge_classifier | 0.9127 | 0.7440 | 0.6246 | 0.7415 | 0.8299 | 0.8428 | 0.8363 | 0.4245 | 0.4018 | 0.4128 | {"clf__alpha": 0.3, "tfidf__max_df": 0.9, "tfidf__min_df": 1, "tfidf__ngram_range": [1, 3], "tfidf__sublinear_tf": true} | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_wide_sklearn/ridge_classifier.joblib | backend/data/models/ai_relevance/clean_human_holdout/model_comparison_tuned_wide_sklearn/ridge_classifier_human_test_predictions.csv | 0.5000 | 0.6246 | 0.7440 | 0.8299 | 0.4018 |
@@ -389,8 +248,5 @@ Created at: `2026-09-28T09:03:07.022064+00:00`
 - `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/validated_human_selection/validated_selection_summary.json`
 - `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/validated_human_selection/validation_selection_leaderboard.csv`
 - `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/clean_human_holdout/clean_human_holdout_summary.json`
-- `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/updated_with_reviews/updated_model_comparison_summary.json`
-- `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/ai_relevance_linear_svm_metrics.txt`
-- `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/model_selection/best_model_summary.json`
 - `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/metadata_ablation/metadata_ablation_summary.json`
 - `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/metadata_ablation_precision/metadata_ablation_summary.json`

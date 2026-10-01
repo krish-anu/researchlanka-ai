@@ -1,73 +1,24 @@
 # AI Relevance Model Development Report
 
-This document summarizes the AI relevance model work from the original model through the final validated model and remaining-pending predictions.
+This document summarizes the current AI relevance model work, human-reviewed
+evaluation, production A1 XGBoost selection, calibration, and remaining-pending
+predictions.
 
-## 1. Starting Point: Original AI Relevance Linear SVM
+## 1. Current Production Direction
 
-**Goal:** classify publications as AI-related or NON_AI.
+Deprecated LLM-label self-evaluation runs have been removed from the benchmark
+narrative. Those earlier results measured reproduction of generated labels
+rather than independent human-label agreement and should not be used as project
+performance evidence.
 
-**Training data used:**
-
-- `backend/data/processed/ai/ai_llm_5000_predictions_openrouter_gemini_3_8_flash.csv`
-- 5,000 Gemini/OpenRouter-labelled candidate records.
-- Only successful binary labels were used.
-- `REVIEW`, failed, and blank-text rows were excluded.
-
-**Usable rows:**
+The current production direction is:
 
 ```text
-Input rows: 5,000
-Usable binary rows: 4,437
-AI: 1,534
-NON_AI: 2,903
-Train rows: 3,549
-Test rows: 888
-```
-
-**Features used:**
-
-```text
-title
-abstract
-keywords
-topics
-concepts
-primary_topic
-primary_subfield
-primary_field
-primary_domain
-```
-
-**Model:**
-
-```text
-TF-IDF + Linear SVM
-Best C: 10.0
-CV macro F1: 0.9291
-```
-
-**Original LLM-label test scores:**
-
-```text
-Accuracy: 0.9595
-Macro F1: 0.9552
-Weighted F1: 0.9595
-AI precision: 0.94
-AI recall: 0.94
-NON_AI precision: 0.97
-NON_AI recall: 0.97
-```
-
-**Important limitation:** these test labels came from the same LLM-generated labelling process as the training labels. Therefore, this mainly measured:
-
-```text
-How well can the model reproduce Gemini/OpenRouter labels?
-```
-
-It did not directly measure:
-
-```text
-How well does the model agree with human judgement?
+Model: A1 XGBoost
+Features: title + abstract
+Calibration: sigmoid-v1
+Production decision: AUTO_AI / REVIEW / AUTO_NON_AI
+Primary priority: maximum AI precision
 ```
 
 ## 2. Human Audit Discovery
@@ -163,59 +114,17 @@ Hidden test labels: AI 388, NON_AI 112
 - Hidden-test rows were removed from new model training data.
 - Matching used publication identifiers such as DOI, OpenAlex ID, source record ID, and normalized title/year keys.
 
-### Clean Old SVM vs Clean New SVM
+### Deprecated SVM Baselines Removed
 
-**Old clean model:**
-
-```text
-Training rows: 4,361
-AI: 1,458
-NON_AI: 2,903
-Best C: 10.0
-CV macro F1: 0.9338
-Human-test accuracy: 0.7300
-Human-test macro F1: 0.5917
-Confusion matrix [AI, NON_AI]: [[328, 60], [75, 37]]
-```
-
-**New clean model:**
-
-Training data:
-
-```text
-Original LLM 5k labels
-+ finished Gemini 1000 labels
-+ remaining human-labelled training rows
-```
-
-Scores:
-
-```text
-Training rows: 5,327
-AI: 2,257
-NON_AI: 3,070
-Best C: 1.0
-CV macro F1: 0.9156
-Human-test accuracy: 0.7500
-Human-test macro F1: 0.6346
-Confusion matrix [AI, NON_AI]: [[328, 60], [65, 47]]
-```
-
-**Improvement from old clean SVM to new clean SVM:**
-
-```text
-Accuracy: +0.0200
-Macro F1: +0.0429
-NON_AI correct rows: 37 -> 47
-False-positive AI cases: 75 -> 65
-```
+Deprecated baseline details have been removed from this report to avoid
+confusing them with the current production model. The current report focuses on
+the validated XGBoost/A1 production path and human-test evidence.
 
 ## 4. Multi-Model Comparison
 
 We compared:
 
 ```text
-Linear SVM
 Logistic Regression
 Ridge Classifier
 Multinomial Naive Bayes
@@ -232,11 +141,10 @@ Best by human-test macro F1:
 | Rank | Model | Accuracy | Macro F1 | AI Precision | NON_AI Recall |
 |---:|---|---:|---:|---:|---:|
 | 1 | XGBoost | 0.7220 | 0.6414 | 0.8567 | 0.5536 |
-| 2 | Linear SVM | 0.7500 | 0.6346 | 0.8346 | 0.4196 |
-| 3 | Logistic Regression | 0.7440 | 0.6221 | 0.8283 | 0.3929 |
-| 4 | Ridge Classifier | 0.7380 | 0.6119 | 0.8237 | 0.3750 |
-| 5 | SGD Classifier | 0.7420 | 0.6071 | 0.8198 | 0.3482 |
-| 6 | Multinomial NB | 0.7040 | 0.5659 | 0.8046 | 0.3125 |
+| 2 | Logistic Regression | 0.7440 | 0.6221 | 0.8283 | 0.3929 |
+| 3 | Ridge Classifier | 0.7380 | 0.6119 | 0.8237 | 0.3750 |
+| 4 | SGD Classifier | 0.7420 | 0.6071 | 0.8198 | 0.3482 |
+| 5 | Multinomial NB | 0.7040 | 0.5659 | 0.8046 | 0.3125 |
 
 ### Threshold-Tuned Exploratory Comparison
 
@@ -255,24 +163,8 @@ NON_AI recall: 0.4911
 
 ### Wide Sklearn Hyperparameter Search
 
-We also widened the sklearn model/vectorizer search.
-
-Best wide sklearn model:
-
-```text
-Linear SVM
-C: 3.0
-TF-IDF max_df: 0.90
-TF-IDF min_df: 1
-N-grams: 1-2
-Sublinear TF: true
-Accuracy: 0.7700
-Macro F1: 0.6570
-AI precision: 0.8421
-NON_AI recall: 0.4375
-```
-
-This was strong, but it was still part of exploratory comparison.
+The widened sklearn search is retained only as diagnostic context. It is not the
+production selection and is not used as the headline model result.
 
 ## 5. Validation-First Model Selection
 
@@ -478,15 +370,6 @@ The A2 model is stricter and cleaner than the broad-metadata variants.
 It accepts fewer borderline AI records automatically, but improves AI precision and NON_AI recall.
 ```
 
-Compared with the original LLM-label SVM test:
-
-```text
-Original LLM-label macro F1: 0.9552
-Final human-test macro F1: 0.6601
-```
-
-These are not directly comparable because the original score measured LLM-label reproduction, while the final score measures human-label agreement.
-
 Compared with clean old SVM on human test:
 
 ```text
@@ -547,9 +430,7 @@ AUTO_NON_AI -> reject as non-AI
 ## 11. Scripts Added
 
 ```text
-backend/scripts/ai_relevance/update_model_with_finished_reviews.py
 backend/scripts/ai_relevance/build_balanced_human_audit_sample.py
-backend/scripts/ai_relevance/run_clean_human_holdout_experiment.py
 backend/scripts/ai_relevance/compare_clean_human_holdout_models.py
 backend/scripts/ai_relevance/run_validated_human_model_selection.py
 backend/scripts/ai_relevance/analyze_false_positive_ai_errors.py
