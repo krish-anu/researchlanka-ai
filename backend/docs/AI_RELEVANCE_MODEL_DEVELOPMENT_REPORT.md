@@ -286,16 +286,35 @@ Auto category summary:
 | Error Category | Count |
 |---|---:|
 | IoT or smart system without clear AI | 18 |
-| Needs manual pattern review | 13 |
+| Manual-pattern cases | 13 |
 | Statistical prediction or forecasting | 7 |
 | Generic intelligent or algorithmic wording | 6 |
 | Signal/image processing without clear AI | 5 |
 | Education or assessment automation | 3 |
 
+These rows are now maintained as a hard-negative `NON_AI` training set:
+
+```text
+backend/data/processed/ai/hard_negative_false_positive_non_ai.csv
+```
+
+The prediction pipeline also applies these categories as a conservative
+post-score constraint layer. If a record is predicted as `AI`, matches a known
+false-positive category, and lacks strong AI evidence in title, abstract, or
+keywords, the output is changed to `review`. The original label and constraint
+details are stored in:
+
+```text
+ai_classification_pre_constraint_label
+ai_hard_negative_constraint_applied
+ai_hard_negative_constraint_category
+ai_hard_negative_constraint_evidence
+```
+
 Detailed file:
 
 ```text
-backend/data/models/ai_relevance/validated_human_selection_xgboost_fast/false_positive_analysis/false_positive_ai_cases.csv
+backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/validated_human_selection_xgboost_fast/false_positive_analysis/false_positive_ai_cases.csv
 ```
 
 ## 8. Metadata Ablation

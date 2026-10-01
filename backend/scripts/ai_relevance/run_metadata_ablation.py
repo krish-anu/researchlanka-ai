@@ -23,7 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.ai_relevance.borderline import borderline_false_positive_assessment  # noqa: E402
+from src.ai_relevance.borderline import hard_negative_constraint_result  # noqa: E402
 from src.preprocessing.text_cleaning import CUSTOM_STOP_WORDS, clean_text_series  # noqa: E402
 
 
@@ -162,13 +162,15 @@ def routed_predictions(
             label = "NON_AI"
             reason = f"score_lt_auto_non_ai_threshold:{auto_non_ai_threshold:.2f}"
 
-        assessment = borderline_false_positive_assessment(record)
-        if label == "AI" and assessment.requires_review:
-            label = "review"
-            reason = (
-                "borderline_false_positive_risk:"
-                f"{assessment.risk_category}:weak_ai_evidence"
-            )
+        constraint = hard_negative_constraint_result(
+            label=label,
+            row=record,
+            review_label="review",
+            reason=reason,
+        )
+        if constraint.applied:
+            label = constraint.label
+            reason = constraint.reason or reason
         routed.append(label)
         reasons.append(reason)
     return routed, reasons

@@ -66,6 +66,7 @@ def is_model_ai_human_non_ai(record: Mapping[str, Any]) -> bool:
         record.get("human_label")
         or record.get("human_review")
         or record.get("final_human_label")
+        or record.get("label")
     )
     return model_label == "AI" and (
         human_status == "human_rejected" or human_label == "NON_AI"
@@ -90,21 +91,39 @@ def hard_negative_record_key(record: Mapping[str, Any], fallback: int | str) -> 
     return f"hard_negative_row:{fallback}"
 
 
+def normalize_hard_negative_category(value: Any) -> str:
+    category = clean(value)
+    if category == "needs_manual_pattern_review":
+        return "manual_pattern_cases"
+    if category == "optimization_or_operations_research":
+        return "optimization_without_ai_methodology"
+    if category == "control_fuzzy_pid_or_mechatronics":
+        return "control_fuzzy_pid_or_mechatronics_without_clear_ai"
+    return category
+
+
 def hard_negative_row(record: Mapping[str, Any], fallback: int | str) -> dict[str, Any]:
     assessment = borderline_false_positive_assessment(record)
+    category = normalize_hard_negative_category(
+        clean(record.get("hard_negative_category"))
+        or clean(record.get("manual_error_category"))
+        or clean(record.get("error_category"))
+        or clean(record.get("error_category_auto"))
+        or assessment.risk_category
+        or "human_rejected_model_ai"
+    )
     return {
         "record_key": hard_negative_record_key(record, fallback),
         "label": "NON_AI",
         "label_source": clean(record.get("label_source"))
         or "human_rejected_false_positive",
         "hard_negative": True,
-        "hard_negative_category": clean(record.get("hard_negative_category"))
-        or clean(record.get("manual_error_category"))
-        or clean(record.get("error_category"))
-        or assessment.risk_category
-        or "human_rejected_model_ai",
+        "hard_negative_category": category,
         "hard_negative_evidence": clean(record.get("hard_negative_evidence"))
+        or clean(record.get("category_evidence_auto"))
+        or clean(record.get("evidence_span"))
         or clean(record.get("reviewer_notes"))
+        or clean(record.get("reason"))
         or clean(record.get("resolution_note"))
         or clean(record.get("feedback_detail"))
         or "; ".join(assessment.risk_patterns),

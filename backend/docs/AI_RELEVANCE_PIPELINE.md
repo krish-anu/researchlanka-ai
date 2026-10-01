@@ -218,6 +218,53 @@ Outputs include metrics JSON, a confusion matrix CSV, false positives, and false
 
 Metrics include accuracy, AI precision, AI recall, AI F1-score, macro F1, and a confusion matrix. Precision matters because the final corpus should contain only AI-related publications.
 
+## Hard-Negative False-Positive Layer
+
+After human review identifies model false positives, those rows are converted
+into a maintained `NON_AI` hard-negative set:
+
+```bash
+cd backend
+python scripts/ai_relevance/build_hard_negative_dataset.py \
+  --output data/processed/ai/hard_negative_false_positive_non_ai.csv
+```
+
+Current maintained hard-negative categories:
+
+| Category | Rows |
+| --- | ---: |
+| IoT/smart system without clear AI | 18 |
+| Manual-pattern cases | 13 |
+| Statistical prediction/forecasting | 7 |
+| Generic intelligent/algorithmic wording | 6 |
+| Signal/image processing without clear AI | 5 |
+| Education/assessment automation | 3 |
+
+These rows should be added as `NON_AI` examples during the next model
+retraining cycle. The validated model-selection script includes them by
+default when the CSV exists:
+
+```bash
+cd backend
+python scripts/ai_relevance/run_validated_human_model_selection.py \
+  --include-xgboost \
+  --fast-xgboost \
+  --hard-negatives data/processed/ai/hard_negative_false_positive_non_ai.csv
+```
+
+The prediction pipeline also applies a conservative hard-negative constraint
+layer after probability scoring. If the model predicts `AI`, but the metadata
+matches a known false-positive category and there is no strong AI evidence in
+the title, abstract, or keywords, the prediction is changed to `review` rather
+than accepted as automatic AI.
+
+The classified output records:
+
+- `ai_classification_pre_constraint_label`
+- `ai_hard_negative_constraint_applied`
+- `ai_hard_negative_constraint_category`
+- `ai_hard_negative_constraint_evidence`
+
 ## Topic Modelling
 
 Topic modelling comes after AI filtering:

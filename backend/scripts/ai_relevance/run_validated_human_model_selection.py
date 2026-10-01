@@ -6,7 +6,7 @@ This script is the stricter successor to the exploratory clean-holdout runs.
 It uses:
 - frozen test: clean_human_holdout/locked_human_test_set.csv
 - human pool remainder: clean_human_holdout/human_training_remainder.csv
-- machine labels: original 5k + finished Gemini 1000
+- machine-labelled rows, human-labelled rows, and maintained hard negatives
 
 The frozen human test is never used for model selection, threshold tuning, or
 sample-weight tuning. Validation is split from the remaining human-labelled
@@ -41,6 +41,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.ai_relevance.hard_negatives import load_hard_negative_csv  # noqa: E402
 from src.modeling.artifacts import file_sha256  # noqa: E402
 from src.modeling.linear_svm_training import combined_text  # noqa: E402
 from src.preprocessing.text_cleaning import CUSTOM_STOP_WORDS  # noqa: E402
@@ -64,6 +65,9 @@ DEFAULT_ORIGINAL_LABELS = (
     PROJECT_ROOT / "data/processed/ai/ai_llm_5000_predictions_openrouter_gemini_3_8_flash.csv"
 )
 DEFAULT_GEMINI_1000 = PROJECT_ROOT / "data/Finished/gemini_review_1000_openrouter_predictions.csv"
+DEFAULT_HARD_NEGATIVES = (
+    PROJECT_ROOT / "data/processed/ai/hard_negative_false_positive_non_ai.csv"
+)
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,7 @@ class Config:
     clean_dir: Path = DEFAULT_CLEAN_DIR
     original_labels: Path = DEFAULT_ORIGINAL_LABELS
     gemini_1000: Path = DEFAULT_GEMINI_1000
+    hard_negatives: Path | None = DEFAULT_HARD_NEGATIVES
     output_dir: Path = DEFAULT_OUTPUT_DIR
     validation_size: float = 0.30
     random_state: int = 42
@@ -159,6 +164,14 @@ def load_llm_labels(path: Path, source: str) -> pd.DataFrame:
         & frame["label"].isin(LABELS)
     ].copy()
     frame["label_source"] = source
+    return prepare_text(frame)
+
+
+def load_hard_negative_labels(path: Path | None) -> pd.DataFrame:
+    if path is None or not path.exists():
+        return pd.DataFrame(columns=["record_key", "label", "label_source", "text"])
+    frame = load_hard_negative_csv(path)
+    frame["label_source"] = "human_rejected_false_positive_hard_negative"
     return prepare_text(frame)
 
 
@@ -369,7 +382,12 @@ def run(config: Config) -> dict[str, Any]:
     forbidden = keyset(pd.concat([human_test, human_validation], ignore_index=True, sort=False))
     original = remove_overlaps(load_llm_labels(config.original_labels, "original_llm_5k"), forbidden)
     gemini = remove_overlaps(load_llm_labels(config.gemini_1000, "gemini_finished_1000"), forbidden)
-    train = pd.concat([original, gemini, human_train], ignore_index=True, sort=False)
+    hard_negatives = remove_overlaps(load_hard_negative_labels(config.hard_negatives), forbidden)
+    train = pd.concat(
+        [original, gemini, hard_negatives, human_train],
+        ignore_index=True,
+        sort=False,
+    )
     train = train.drop_duplicates("record_key", keep="first") if "record_key" in train.columns else train
     train = prepare_text(train)
 
@@ -455,11 +473,15 @@ def run(config: Config) -> dict[str, Any]:
         "rows": {
             "training": int(len(train)),
             "human_train": int(len(human_train)),
+            "hard_negatives": int(len(hard_negatives)),
             "human_validation": int(len(human_validation)),
             "frozen_human_test": int(len(human_test)),
         },
         "label_counts": {
             "training": {k: int(v) for k, v in train["label"].value_counts().items()},
+            "hard_negatives": {
+                k: int(v) for k, v in hard_negatives["label"].value_counts().items()
+            },
             "human_validation": {k: int(v) for k, v in human_validation["label"].value_counts().items()},
             "frozen_human_test": {k: int(v) for k, v in human_test["label"].value_counts().items()},
         },
@@ -498,6 +520,7 @@ def render_text(summary: dict[str, Any]) -> str:
             "",
             f"training_rows: {summary['rows']['training']}",
             f"human_train_rows: {summary['rows']['human_train']}",
+            f"hard_negative_rows: {summary['rows']['hard_negatives']}",
             f"human_validation_rows: {summary['rows']['human_validation']}",
             f"frozen_human_test_rows: {summary['rows']['frozen_human_test']}",
             "",
@@ -529,6 +552,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--clean-dir", type=Path, default=DEFAULT_CLEAN_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--hard-negatives", type=Path, default=DEFAULT_HARD_NEGATIVES)
     parser.add_argument("--validation-size", type=float, default=0.30)
     parser.add_argument("--human-weights", type=parse_weights, default=(1.0, 2.0, 3.0, 5.0))
     parser.add_argument(
@@ -553,6 +577,7 @@ def main() -> None:
         Config(
             clean_dir=args.clean_dir,
             output_dir=args.output_dir,
+            hard_negatives=args.hard_negatives,
             validation_size=args.validation_size,
             human_weights=args.human_weights,
             model_families=args.model_families,

@@ -16,7 +16,7 @@ from typing import Any
 import joblib
 import pandas as pd
 
-from src.ai_relevance.borderline import borderline_false_positive_assessment
+from src.ai_relevance.borderline import hard_negative_constraint_result
 from src.ai_relevance.calibration import (
     calibrate_scores,
     configured_calibrator_path,
@@ -76,6 +76,10 @@ AI_COLUMNS = (
     "ai_classification_calibrator",
     "ai_classification_model",
     "ai_classification_reason",
+    "ai_classification_pre_constraint_label",
+    "ai_hard_negative_constraint_applied",
+    "ai_hard_negative_constraint_category",
+    "ai_hard_negative_constraint_evidence",
     "ai_classification_primary_confidence",
     "ai_classification_secondary_model",
     "ai_classification_secondary_label",
@@ -368,6 +372,10 @@ def apply_ai_classification(
         strict=True,
     )):
         label, reason = label_and_reason
+        pre_constraint_label = label
+        constraint_applied = False
+        constraint_category = None
+        constraint_evidence = None
         if (
             confidence_review_threshold is not None
             and confidence is not None
@@ -385,13 +393,19 @@ def apply_ai_classification(
         if disagreement.requires_review:
             label = "review"
             reason = disagreement.reason or "model_disagreement"
-        assessment = borderline_false_positive_assessment(row)
-        if label == "AI" and assessment.requires_review:
-            label = "review"
-            reason = (
-                "borderline_false_positive_risk:"
-                f"{assessment.risk_category}:weak_ai_evidence"
+        else:
+            constraint = hard_negative_constraint_result(
+                label=label,
+                row=row,
+                review_label="review",
+                reason=reason,
             )
+            if constraint.applied:
+                label = constraint.label
+                reason = constraint.reason or reason
+                constraint_applied = True
+                constraint_category = constraint.category
+                constraint_evidence = constraint.evidence
         secondary_vote = secondary_votes[index]
         classified_rows.append(
             {
@@ -413,6 +427,10 @@ def apply_ai_classification(
                 ),
                 "ai_classification_model": str(model_path),
                 "ai_classification_reason": reason or None,
+                "ai_classification_pre_constraint_label": pre_constraint_label,
+                "ai_hard_negative_constraint_applied": constraint_applied,
+                "ai_hard_negative_constraint_category": constraint_category,
+                "ai_hard_negative_constraint_evidence": constraint_evidence,
                 "ai_classification_secondary_model": (
                     str(selected_secondary_model_path)
                     if selected_secondary_model_path is not None
