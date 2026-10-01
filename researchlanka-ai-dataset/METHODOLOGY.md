@@ -60,3 +60,39 @@ Before final publication, reviewers should fill:
 
 The final publication report should include AI relevance precision and Sri Lanka relevance precision estimated from this sample.
 
+## Human Annotation Protocol
+
+Human labels are treated differently depending on how they were produced:
+
+| Label set type | Use |
+| --- | --- |
+| Human-verified operational labels | Dataset curation, uncertain-case resolution, calibration, and model improvement |
+| Blinded benchmark labels | Stable model-performance reporting |
+
+For a human-labelled batch to support benchmark claims, the report should record
+the number of independent annotators, whether annotators were blinded to model
+predictions and confidence scores, inter-annotator agreement, adjudication
+procedure, guideline version, post-error label changes, and the treatment of
+ambiguous `REVIEW` cases.
+
+The current release-candidate documentation does not consistently record all of
+these fields for every historical review batch. Therefore, those labels should
+be described as human-verified operational labels unless the batch explicitly
+documents independent blinded annotation and adjudication.
+
+Recommended benchmark reporting:
+
+```text
+Guideline version: ai-relevance-annotation-v1.0
+Annotators: record count and overlap count
+Blinding: whether model predictions/confidence/reasoning were hidden
+Agreement: percent agreement and Cohen's kappa on overlapping labels
+Adjudication: process for disagreements and REVIEW cases
+Final benchmark label: adjudicated AI/NON_AI label
+```
+
+Detailed protocol:
+
+```text
+backend/docs/AI_RELEVANCE_ANNOTATION_PROTOCOL.md
+```

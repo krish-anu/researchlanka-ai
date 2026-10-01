@@ -90,6 +90,53 @@ Valid evaluated rows: 500
 
 Since these records came from the model-accepted AI corpus, this file is strongest as an **AI precision audit**, not a complete unbiased full-corpus classifier test.
 
+## 2A. Human Annotation Protocol and Benchmark Stability
+
+The project now distinguishes between:
+
+| Label set type | Purpose | Benchmark interpretation |
+| --- | --- | --- |
+| Human-verified operational labels | Resolve uncertain cases, improve training data, calibrate scores, and audit false positives | Useful for curation and model improvement |
+| Blinded adjudicated benchmark labels | Estimate stable model performance | Suitable for benchmark reporting |
+
+The historical review batches used in this report do not consistently record
+all benchmark-stability metadata:
+
+- number of independent annotators;
+- whether annotators were blinded to model predictions, confidence scores, and
+  LLM reasoning;
+- inter-annotator agreement;
+- adjudication procedure;
+- guideline version;
+- label changes after observing model errors;
+- treatment of ambiguous `REVIEW` cases.
+
+Therefore, current human labels should be described as **human-verified
+operational labels** unless a specific batch documents independent blinded
+annotation, agreement, and adjudication. This does not invalidate the labels for
+training, calibration, and false-positive analysis, but it limits claims about
+the stability of the human benchmark.
+
+For future benchmark reporting, use the protocol in:
+
+```text
+backend/docs/AI_RELEVANCE_ANNOTATION_PROTOCOL.md
+```
+
+Minimum required reporting for benchmark labels:
+
+```text
+Guideline version
+Number of annotators
+Blinding status
+Overlap size
+Percent agreement
+Cohen's kappa
+Adjudication rule
+Final adjudicated label column
+REVIEW handling rule
+```
+
 ## 3. Clean Human-Holdout Experiment
 
 To make a fairer comparison, we combined available human-labelled records:

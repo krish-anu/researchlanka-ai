@@ -89,6 +89,38 @@ Output:
 
 Sampling is informative rather than purely random. Buckets target AI-looking OpenAlex topics/concepts, strong AI text candidates, cross-domain AI candidates, Computer Science hard negatives, borderline ambiguous records, and field-stratified random records. Keyword matching is used only to construct candidates; it is not a permanent AI label. Every selected publication has one `sampling_bucket`, and duplicates are removed by `publication_id`.
 
+Because this sample is intentionally informative, model scores measured on this
+candidate set should not be interpreted as full-corpus prevalence or full-corpus
+production performance. The sample is appropriate for finding AI examples,
+hard negatives, borderline records, and useful training data. A separate
+corpus-representative audit sample is required to estimate real-world AI
+prevalence, total review workload, and corpus-level recall.
+
+## Human Annotation and Adjudication
+
+Human review uses three AI relevance labels:
+
+- `AI`: AI is central or substantial.
+- `NON_AI`: available metadata does not support AI relevance.
+- `REVIEW`: evidence is insufficient or ambiguous.
+
+For benchmark-quality evaluation, each reviewed batch should record:
+
+- number of independent annotators;
+- whether annotators were blinded to model predictions, confidence scores, and
+  LLM reasoning;
+- guideline version;
+- inter-annotator agreement, including Cohen's kappa when overlapping labels
+  exist;
+- adjudication procedure for disagreements;
+- whether labels changed after model-error review;
+- how ambiguous `REVIEW` rows were handled in binary evaluation.
+
+Historical human labels without these fields should be treated as
+human-verified operational labels rather than fully blinded benchmark labels.
+The full protocol is documented in
+`backend/docs/AI_RELEVANCE_ANNOTATION_PROTOCOL.md`.
+
 ## First Gemini Test
 
 Do not run this until you are ready to make the paid Gemini API call.
