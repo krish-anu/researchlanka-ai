@@ -53,14 +53,19 @@ The project now distinguishes between:
 The historical review batches used in this report do not consistently record
 all benchmark-stability metadata:
 
+- guideline version, currently `ai-relevance-annotation-v1.1`;
 - number of independent annotators;
 - whether annotators were blinded to model predictions, confidence scores, and
   LLM reasoning;
 - inter-annotator agreement;
 - adjudication procedure;
-- guideline version;
 - label changes after observing model errors;
 - treatment of ambiguous `REVIEW` cases.
+
+Future reviewed rows should also record `label`, `confidence`,
+`evidence_span`, `reason`, and `ambiguous_flag`. First-pass labels should be
+created independently before annotators see model predictions or confidence
+scores.
 
 Therefore, current human labels should be described as **human-verified
 operational labels** unless a specific batch documents independent blinded

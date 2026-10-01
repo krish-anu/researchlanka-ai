@@ -106,15 +106,19 @@ Human review uses three AI relevance labels:
 
 For benchmark-quality evaluation, each reviewed batch should record:
 
+- guideline version, currently `ai-relevance-annotation-v1.1`;
 - number of independent annotators;
 - whether annotators were blinded to model predictions, confidence scores, and
   LLM reasoning;
-- guideline version;
 - inter-annotator agreement, including Cohen's kappa when overlapping labels
   exist;
 - adjudication procedure for disagreements;
 - whether labels changed after model-error review;
 - how ambiguous `REVIEW` rows were handled in binary evaluation.
+
+Each reviewed row should record `label`, `confidence`, `evidence_span`,
+`reason`, and `ambiguous_flag`. Annotators should label independently before
+seeing model predictions to avoid model-assisted confirmation bias.
 
 Historical human labels without these fields should be treated as
 human-verified operational labels rather than fully blinded benchmark labels.
@@ -188,7 +192,15 @@ python scripts/ai_relevance/export_human_review_sample.py \
   --random-seed 42
 ```
 
-The export includes empty `human_label` and `human_notes` fields. Allowed human labels are `AI`, `NON_AI`, and `REVIEW`.
+By default, the export is a blinded first-pass review sheet: model labels,
+confidence scores, model reasons, and LLM evidence are hidden from annotators.
+Use `--include-model-context` only after first-pass labels are complete or when
+you intentionally need a model-assisted review sheet.
+
+The export includes `annotation_guideline_version`,
+`label`, `confidence`, `evidence_span`, `reason`, `ambiguous_flag`,
+`human_label`, and `human_notes`. Allowed AI relevance labels are `AI`,
+`NON_AI`, and `REVIEW`.
 
 ## Evaluation
 

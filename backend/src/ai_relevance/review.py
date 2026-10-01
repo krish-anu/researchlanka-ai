@@ -24,6 +24,40 @@ class HumanReviewConfig:
     random_seed: int = 42
     confidence_threshold: float = 0.75
     active_learning: bool = True
+    blinded_first_pass: bool = True
+
+
+ANNOTATION_GUIDELINE_VERSION = "ai-relevance-annotation-v1.1"
+ANNOTATION_COLUMNS = (
+    "label",
+    "confidence",
+    "evidence_span",
+    "reason",
+    "ambiguous_flag",
+)
+LEGACY_REVIEW_COLUMNS = ("human_label", "human_notes")
+MODEL_CONTEXT_COLUMNS = (
+    "ai_classification_label",
+    "ai_classification_confidence",
+    "ai_classification_model",
+    "ai_classification_reason",
+    "classifier_decision",
+    "classifier_probability",
+    "ai_llm_label",
+    "ai_llm_confidence",
+    "ai_llm_category",
+    "ai_llm_reason",
+    "ai_llm_evidence",
+    "ai_llm_status",
+    "needs_human_review",
+    "review_reason",
+    "review_priority",
+    "review_priority_uncertainty",
+    "review_priority_disagreement",
+    "review_priority_novelty",
+    "review_priority_borderline",
+    "review_priority_borderline_category",
+)
 
 
 HARD_NEGATIVE_TERMS = (
@@ -365,7 +399,10 @@ def add_review_flags(frame: pd.DataFrame, *, confidence_threshold: float = 0.75)
     label = output.get("ai_llm_label", pd.Series("", index=output.index)).fillna("").astype(str)
     status = output.get("ai_llm_status", pd.Series("", index=output.index)).fillna("").astype(str)
     bucket = output.get("sampling_bucket", pd.Series("", index=output.index)).fillna("").astype(str)
-    confidence = pd.to_numeric(output.get("ai_llm_confidence", ""), errors="coerce")
+    confidence = pd.to_numeric(
+        output.get("ai_llm_confidence", pd.Series(pd.NA, index=output.index)),
+        errors="coerce",
+    )
 
     explicit_review = label.eq("REVIEW")
     unsuccessful = status.ne("success")
@@ -396,7 +433,7 @@ def add_review_flags(frame: pd.DataFrame, *, confidence_threshold: float = 0.75)
 
 
 def build_human_review_sample(config: HumanReviewConfig) -> pd.DataFrame:
-    """Create a reproducible review CSV with empty human label/note columns."""
+    """Create a reproducible review CSV with v1.1 annotation columns."""
 
     full_frame = add_review_flags(
         load_dataset(config.input_path),
@@ -426,37 +463,45 @@ def build_human_review_sample(config: HumanReviewConfig) -> pd.DataFrame:
             kind="mergesort",
         )
 
+    if "publication_id" not in sample.columns:
+        fallback_id = pd.Series(sample.index.astype(str), index=sample.index)
+        for column in ("openalex_id", "doi", "source_record_id", "record_number"):
+            if column in sample.columns:
+                values = sample[column].fillna("").astype(str).str.strip()
+                fallback_id = values.where(values.ne(""), fallback_id)
+                break
+        sample.insert(0, "publication_id", fallback_id)
+
+    for column in ANNOTATION_COLUMNS:
+        if column not in sample.columns:
+            sample[column] = ""
+    if "annotation_guideline_version" not in sample.columns:
+        sample["annotation_guideline_version"] = ANNOTATION_GUIDELINE_VERSION
+    for column in LEGACY_REVIEW_COLUMNS:
+        if column not in sample.columns:
+            sample[column] = ""
+
+    model_context_columns = () if config.blinded_first_pass else MODEL_CONTEXT_COLUMNS
     columns = [
         column
         for column in (
             "publication_id",
-            "ai_llm_label",
-            "human_label",
-            "human_notes",
+            "annotation_guideline_version",
+            *ANNOTATION_COLUMNS,
+            *LEGACY_REVIEW_COLUMNS,
             *PRESERVED_METADATA_COLUMNS,
             "sampling_bucket",
-            "ai_llm_confidence",
-            "ai_llm_category",
-            "ai_llm_reason",
-            "ai_llm_evidence",
-            "ai_llm_status",
-            "needs_human_review",
-            "review_reason",
-            "review_priority",
-            "review_priority_uncertainty",
-            "review_priority_disagreement",
-            "review_priority_novelty",
-            "review_priority_borderline",
-            "review_priority_borderline_category",
+            *model_context_columns,
         )
         if column in sample.columns
     ]
     sample = sample[columns].copy()
-    if "human_label" not in sample.columns:
-        sample["human_label"] = ""
-    if "human_notes" not in sample.columns:
-        sample["human_notes"] = ""
-    review_columns = ["publication_id", "ai_llm_label", "human_label", "human_notes"]
+    review_columns = [
+        "publication_id",
+        "annotation_guideline_version",
+        *ANNOTATION_COLUMNS,
+        *LEGACY_REVIEW_COLUMNS,
+    ]
     sample = sample[review_columns + [column for column in sample.columns if column not in review_columns]]
     save_dataset(sample, config.output_path)
     return sample

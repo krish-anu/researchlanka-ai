@@ -15,6 +15,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.ai_relevance.review import (  # noqa: E402
+    ANNOTATION_COLUMNS,
+    ANNOTATION_GUIDELINE_VERSION,
+)
+
 
 DEFAULT_INPUT = (
     PROJECT_ROOT
@@ -162,14 +167,21 @@ def build_sample(
         sort=False,
     )
 
-    sampled.insert(1, "human_ai_label", "")
-    sampled.insert(2, "human_lk_relevance_label", "")
-    sampled.insert(3, "human_notes", "")
+    sampled.insert(1, "annotation_guideline_version", ANNOTATION_GUIDELINE_VERSION)
+    insert_at = 2
+    for column in ANNOTATION_COLUMNS:
+        sampled.insert(insert_at, column, "")
+        insert_at += 1
+    sampled.insert(insert_at, "human_ai_label", "")
+    sampled.insert(insert_at + 1, "human_lk_relevance_label", "")
+    sampled.insert(insert_at + 2, "human_notes", "")
     if "doi_url" not in sampled.columns:
-        sampled.insert(4, "doi_url", [doi_url(row) for _, row in sampled.iterrows()])
+        sampled.insert(insert_at + 3, "doi_url", [doi_url(row) for _, row in sampled.iterrows()])
 
     preferred_columns = [
         "audit_group",
+        "annotation_guideline_version",
+        *ANNOTATION_COLUMNS,
         "human_ai_label",
         "human_lk_relevance_label",
         "human_notes",

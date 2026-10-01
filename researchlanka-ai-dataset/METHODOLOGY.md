@@ -83,13 +83,17 @@ documents independent blinded annotation and adjudication.
 Recommended benchmark reporting:
 
 ```text
-Guideline version: ai-relevance-annotation-v1.0
+Guideline version: ai-relevance-annotation-v1.1
 Annotators: record count and overlap count
 Blinding: whether model predictions/confidence/reasoning were hidden
 Agreement: percent agreement and Cohen's kappa on overlapping labels
 Adjudication: process for disagreements and REVIEW cases
 Final benchmark label: adjudicated AI/NON_AI label
 ```
+
+Each reviewed row should record `label`, `confidence`, `evidence_span`,
+`reason`, and `ambiguous_flag`. Annotators should complete first-pass labels
+independently before seeing model predictions or confidence scores.
 
 Detailed protocol:
 
