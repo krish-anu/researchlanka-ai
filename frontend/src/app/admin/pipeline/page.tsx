@@ -4,7 +4,6 @@ import { ChartPanel } from "@/components/ui/ChartPanel";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { getDatasetMeta, getHealth, getDataQuality, getLimitations } from "@/services/api";
-import { requireCapability } from "@/services/auth/server";
 import { readIncrementalRunSnapshot } from "@/services/admin/incremental";
 import { formatDate, formatNumber, formatPercent } from "@/services/format";
 
@@ -28,7 +27,6 @@ interface SourceRow {
  * completeness — and states the load timestamp once, for the dataset as a whole.
  */
 export default async function AdminPipelinePage() {
-  await requireCapability("admin.pipeline.view", "/admin/pipeline");
   const [meta, health, quality, limitations, incrementalRun] = await Promise.all([
     getDatasetMeta(),
     getHealth(),

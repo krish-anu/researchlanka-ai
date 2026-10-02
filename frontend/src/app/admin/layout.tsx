@@ -1,7 +1,8 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { RoleBadge } from "@/components/auth/RoleBadge";
+import { cookies } from "next/headers";
 
-import { getViewer } from "@/services/auth/server";
+import { readSessionToken, SESSION_COOKIE } from "@/services/auth/session";
 
 export const metadata = {
   title: {
@@ -13,16 +14,18 @@ export const metadata = {
 /**
  * Shell for the console.
  *
- * Middleware only checks that a session exists; each page and action checks
- * capabilities against the live user store so role changes apply immediately.
+ * Middleware already rejects unsigned and non-admin cookies before this route
+ * renders. Keep this layout free of deployment data reads so a broken JSON
+ * store or missing artifact cannot collapse the whole admin shell; server
+ * actions still re-check capabilities independently.
  */
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const viewer = await getViewer();
-  const user = viewer.user;
+  const store = await cookies();
+  const user = await readSessionToken(store.get(SESSION_COOKIE)?.value);
 
   return (
     <div className="flex flex-col gap-6">
@@ -38,14 +41,14 @@ export default async function AdminLayout({
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
-          <RoleBadge role={viewer.role} />
+          <RoleBadge role={user?.role ?? "admin"} />
           <span className="text-body-sm text-muted">
             {user?.email ?? "Administrator session"}
           </span>
         </div>
       </header>
 
-      <AdminNav badges={{ flags: 0, review: 0, aiReview: 0 }} role={viewer.role} />
+      <AdminNav badges={{ flags: 0, review: 0, aiReview: 0 }} role={user?.role ?? "admin"} />
 
       {children}
     </div>

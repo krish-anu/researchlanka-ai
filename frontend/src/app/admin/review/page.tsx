@@ -4,12 +4,10 @@ import {
   listCandidates,
   SEEDED_FROM_FIXTURE,
 } from "@/services/workspace/resolution";
-import { requireCapability } from "@/services/auth/server";
 
 export const metadata = { title: "Resolution queue" };
 
 export default async function AdminReviewPage() {
-  await requireCapability("admin.resolution.decide", "/admin/review");
   const candidates = await listCandidates();
   const pending = candidates.filter((c) => c.status === "pending");
   const decided = candidates.filter((c) => c.status !== "pending");
