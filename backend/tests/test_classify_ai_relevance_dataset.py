@@ -165,7 +165,7 @@ def test_borderline_smart_system_without_clear_ai_goes_to_review(tmp_path: Path)
     classified = pd.read_csv(classified_csv)
     assert classified["ai_classification_label"].tolist() == ["review", "AI"]
     assert classified.loc[0, "ai_classification_reason"].startswith(
-        "borderline_false_positive_risk:"
+        "hard_negative_constraint:"
     )
     assert "smart-system terminology" in classified.loc[
         0,
@@ -235,7 +235,7 @@ def test_broad_metadata_ai_tag_does_not_override_borderline_review(tmp_path: Pat
     classified = pd.read_csv(classified_csv)
     assert classified["ai_classification_label"].tolist() == ["review"]
     assert classified.loc[0, "ai_classification_reason"].startswith(
-        "borderline_false_positive_risk:"
+        "hard_negative_constraint:"
     )
     assert "no explicit AI/ML methodology" in classified.loc[
         0,
@@ -270,7 +270,7 @@ def test_fuzzy_topsis_hard_negative_pattern_goes_to_review(tmp_path: Path) -> No
     classified = pd.read_csv(classified_csv)
     assert classified["ai_classification_label"].tolist() == ["review"]
     assert classified.loc[0, "ai_classification_reason"].startswith(
-        "borderline_false_positive_risk:decision_optimization_without_clear_ai"
+        "hard_negative_constraint:decision_optimization_without_clear_ai"
     )
 
 
