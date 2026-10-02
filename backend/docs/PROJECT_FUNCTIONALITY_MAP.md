@@ -332,17 +332,18 @@ Functionality:
 
 ## 6. AI Relevance Classification
 
-### SVM Training and Prediction
+### A1 XGBoost Classification and Calibration
 
 Files:
-- `backend/scripts/ai_relevance/train_ai_relevance_svm.py`
-- `backend/scripts/ai_relevance/predict_ai_relevance_svm.py`
-- `backend/src/ai_relevance/svm_model.py`
+- `backend/scripts/ai_relevance/run_metadata_ablation.py`
+- `backend/scripts/ai_relevance/calibrate_ai_relevance_scores.py`
+- `backend/src/pipeline/classify_ai_relevance_dataset.py`
+- `backend/src/ai_relevance/calibration.py`
 
 Functionality:
-- Trains a Linear SVM AI relevance classifier.
-- Predicts AI / non-AI / review labels.
-- Uses text fields such as title, abstract, keywords, topics, and concepts.
+- Trains and compares metadata-ablation candidates.
+- Uses A1 XGBoost with title + abstract as the production AI relevance model.
+- Applies configured probability calibration before threshold decisions.
 
 ### Gemini / OpenRouter AI Relevance Labelling
 
@@ -802,12 +803,12 @@ Files:
 - `backend/docs/DATA_COLLECTION.md`
 - `backend/docs/normalization_and_merge.md`
 - `backend/docs/AI_RELEVANCE_PIPELINE.md`
-- `backend/docs/AI_RELEVANCE_MODEL_SELECTION.md`
+- `backend/docs/AI_RELEVANCE_MODEL_DEVELOPMENT_REPORT.md`
 
 Functionality:
 - Documents pipeline structure.
 - Documents API design and backend architecture.
-- Documents AI relevance classification pipeline and model-selection process.
+- Documents AI relevance classification pipeline, current model choice, and calibration.
 - Verifies pipeline outputs for reports.
 
 ## 19. Deployment and Runtime

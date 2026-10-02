@@ -33,11 +33,48 @@ class FixedSecondaryModel:
         return ["AI" if score >= 0.85 else "NON_AI" for score in self.scores[: len(text)]]
 
 
+class NumericProbabilityModel:
+    classes_ = [0, 1]
+
+    def predict(self, text):
+        return [0, 1][: len(text)]
+
+    def predict_proba(self, text):
+        scores = [0.10, 0.91]
+        return [[1.0 - score, score] for score in scores[: len(text)]]
+
+
 def test_label_from_ai_score_uses_requested_boundaries() -> None:
-    assert label_from_ai_score(0.85) == "AI"
-    assert label_from_ai_score(0.849999) == "review"
-    assert label_from_ai_score(0.40) == "review"
-    assert label_from_ai_score(0.399999) == "non-AI"
+    assert label_from_ai_score(0.85, ai_threshold=0.85) == "AI"
+    assert label_from_ai_score(0.849999, ai_threshold=0.85) == "review"
+    assert label_from_ai_score(0.40, ai_threshold=0.85) == "review"
+    assert label_from_ai_score(0.399999, ai_threshold=0.85) == "non-AI"
+
+
+def test_numeric_binary_model_treats_class_one_as_ai(tmp_path: Path) -> None:
+    input_csv = tmp_path / "analysis_ready.csv"
+    classified_csv = tmp_path / "classified.csv"
+    model_path = tmp_path / "model.joblib"
+    pd.DataFrame(
+        {
+            "source_record_id": ["one", "two"],
+            "title": ["Bridge maintenance", "Deep learning for crop detection"],
+        }
+    ).to_csv(input_csv, index=False)
+    joblib.dump(NumericProbabilityModel(), model_path)
+
+    classify_ai_relevance_dataset(
+        input_csv,
+        classified_csv,
+        model_path=model_path,
+        text_columns=("title",),
+        ai_threshold=0.85,
+        calibrator_path="disabled",
+    )
+
+    classified = pd.read_csv(classified_csv)
+    assert classified["ai_classification_label"].tolist() == ["non-AI", "AI"]
+    assert classified["ai_classification_confidence"].tolist() == [0.1, 0.91]
 
 
 def test_classification_writes_all_predictions_and_filters_ai_review(tmp_path: Path) -> None:
@@ -59,6 +96,8 @@ def test_classification_writes_all_predictions_and_filters_ai_review(tmp_path: P
         classified_csv,
         model_path=model_path,
         text_columns=("title",),
+        ai_threshold=0.85,
+        calibrator_path="disabled",
     )
     filter_result = filter_ai_review_dataset(classified_csv, filtered_csv)
 
@@ -119,12 +158,14 @@ def test_borderline_smart_system_without_clear_ai_goes_to_review(tmp_path: Path)
         classified_csv,
         model_path=model_path,
         text_columns=("title", "abstract"),
+        ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     classified = pd.read_csv(classified_csv)
     assert classified["ai_classification_label"].tolist() == ["review", "AI"]
     assert classified.loc[0, "ai_classification_reason"].startswith(
-        "borderline_false_positive_risk:"
+        "hard_negative_constraint:"
     )
     assert "smart-system terminology" in classified.loc[
         0,
@@ -155,6 +196,8 @@ def test_borderline_smart_iot_with_clear_ai_evidence_stays_ai(tmp_path: Path) ->
         classified_csv,
         model_path=model_path,
         text_columns=("title", "abstract"),
+        ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     classified = pd.read_csv(classified_csv)
@@ -185,12 +228,14 @@ def test_broad_metadata_ai_tag_does_not_override_borderline_review(tmp_path: Pat
         classified_csv,
         model_path=model_path,
         text_columns=("title", "abstract", "keywords"),
+        ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     classified = pd.read_csv(classified_csv)
     assert classified["ai_classification_label"].tolist() == ["review"]
     assert classified.loc[0, "ai_classification_reason"].startswith(
-        "borderline_false_positive_risk:"
+        "hard_negative_constraint:"
     )
     assert "no explicit AI/ML methodology" in classified.loc[
         0,
@@ -218,12 +263,14 @@ def test_fuzzy_topsis_hard_negative_pattern_goes_to_review(tmp_path: Path) -> No
         classified_csv,
         model_path=model_path,
         text_columns=("title", "abstract", "keywords"),
+        ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     classified = pd.read_csv(classified_csv)
     assert classified["ai_classification_label"].tolist() == ["review"]
     assert classified.loc[0, "ai_classification_reason"].startswith(
-        "borderline_false_positive_risk:decision_optimization_without_clear_ai"
+        "hard_negative_constraint:decision_optimization_without_clear_ai"
     )
 
 
@@ -248,6 +295,8 @@ def test_secondary_model_disagreement_forces_review(tmp_path: Path) -> None:
         model_path=model_path,
         secondary_model_path=secondary_path,
         text_columns=("title",),
+        ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     classified = pd.read_csv(classified_csv)
@@ -275,6 +324,8 @@ def test_secondary_model_agreement_keeps_auto_ai(tmp_path: Path) -> None:
         model_path=model_path,
         secondary_model_path=secondary_path,
         text_columns=("title",),
+        ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     classified = pd.read_csv(classified_csv)

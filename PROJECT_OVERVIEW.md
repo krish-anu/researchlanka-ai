@@ -325,7 +325,11 @@ AI research. It includes:
 - Candidate sampling and LLM review support.
 - Gemini/OpenRouter/Ollama-oriented review experiments and prediction files.
 - Human verification and review splits.
-- Linear SVM and metadata-ablation models.
+- A1 XGBoost production model, metadata-ablation analysis, and calibration.
+- New model comparison experiments covering LightGBM, CatBoost, sentence
+  transformers, and SciBERT; current conclusion is to keep production A1
+  XGBoost while treating sentence-transformer logistic regression as the best
+  new research candidate.
 - Hard-negative construction and feedback loops.
 - Final review-gated dataset generation.
 
@@ -335,7 +339,8 @@ Important locations:
 - `backend/scripts/ai_relevance/`
 - `backend/docs/AI_RELEVANCE_PIPELINE.md`
 - `backend/docs/AI_RELEVANCE_MODEL_DEVELOPMENT_REPORT.md`
-- `backend/docs/AI_RELEVANCE_MODEL_SELECTION.md`
+- `backend/docs/AI_RELEVANCE_NEW_MODEL_EXPERIMENTS.md`
+- `backend/data/models/ai_relevance/all_model_scores.csv`
 - `backend/data/models/ai_relevance/`
 - `backend/data/processed/ai/`
 

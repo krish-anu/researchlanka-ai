@@ -9,6 +9,7 @@ COPY requirements.txt pyproject.toml README.md ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY category_hierarchy.json ./category_hierarchy.json
+COPY configurations ./configurations
 COPY database ./database
 COPY scripts ./scripts
 COPY src ./src

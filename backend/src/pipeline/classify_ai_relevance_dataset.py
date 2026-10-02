@@ -10,7 +10,7 @@ from typing import Any, Iterable
 import joblib
 import pandas as pd
 
-from src.ai_relevance.borderline import borderline_false_positive_assessment
+from src.ai_relevance.borderline import hard_negative_constraint_result
 from src.ai_relevance.calibration import calibrate_scores, configured_calibrator_path
 from src.ai_relevance.disagreement import disagreement_result, model_votes
 from src.ai_relevance.explainability import add_explanation_columns
@@ -42,6 +42,10 @@ AI_CLASSIFICATION_COLUMNS = (
     "ai_classification_confidence",
     "ai_classification_model",
     "ai_classification_reason",
+    "ai_classification_pre_constraint_label",
+    "ai_hard_negative_constraint_applied",
+    "ai_hard_negative_constraint_category",
+    "ai_hard_negative_constraint_evidence",
     "ai_classification_primary_confidence",
     "ai_classification_secondary_model",
     "ai_classification_secondary_label",
@@ -91,6 +95,9 @@ def _ai_class_index(model: Any) -> int:
     for index, label in enumerate(classes):
         if _normalized_class(label) in {"ai", "artificial-intelligence"}:
             return index
+    normalized_classes = {_normalized_class(label) for label in classes}
+    if len(classes) == 2 and normalized_classes == {"0", "1"}:
+        return [_normalized_class(label) for label in classes].index("1")
     raise ValueError("AI relevance model does not expose an AI class in classes_.")
 
 
@@ -168,7 +175,7 @@ def classify_ai_relevance_dataframe(
     text = combined_text(cleaned.fillna(""), selected_text_columns)
     raw_scores = ai_probability_scores(model, text)
     selected_calibrator_path = configured_calibrator_path(calibrator_path)
-    scores = calibrate_scores(raw_scores, calibrator_path=selected_calibrator_path)
+    scores = calibrate_scores(raw_scores, calibrator_path=calibrator_path)
     secondary_votes = (
         model_votes(
             secondary_model,
@@ -197,6 +204,10 @@ def classify_ai_relevance_dataframe(
         }[label]
         for label in labels
     ]
+    pre_constraint_labels = labels.copy()
+    hard_negative_constraint_applied = [False for _label in labels]
+    hard_negative_constraint_categories = ["" for _label in labels]
+    hard_negative_constraint_evidence = ["" for _label in labels]
     for index, record in enumerate(cleaned.to_dict("records")):
         disagreement = disagreement_result(
             primary_label=labels[index],
@@ -208,15 +219,26 @@ def classify_ai_relevance_dataframe(
             labels[index] = "review"
             reasons[index] = disagreement.reason or "model_disagreement"
             continue
-        assessment = borderline_false_positive_assessment(record)
-        if labels[index] == "AI" and assessment.requires_review:
-            labels[index] = "review"
-            reasons[index] = (
-                "borderline_false_positive_risk:"
-                f"{assessment.risk_category}:weak_ai_evidence"
-            )
+        constraint = hard_negative_constraint_result(
+            label=labels[index],
+            row=record,
+            review_label="review",
+            reason=reasons[index],
+        )
+        if constraint.applied:
+            labels[index] = constraint.label
+            reasons[index] = constraint.reason or reasons[index]
+            hard_negative_constraint_applied[index] = True
+            hard_negative_constraint_categories[index] = constraint.category or ""
+            hard_negative_constraint_evidence[index] = constraint.evidence
     cleaned["ai_classification_label"] = labels
     cleaned["ai_classification_confidence"] = [f"{score:.6f}" for score in scores]
+    cleaned["ai_classification_pre_constraint_label"] = pre_constraint_labels
+    cleaned["ai_hard_negative_constraint_applied"] = [
+        "true" if applied else "false" for applied in hard_negative_constraint_applied
+    ]
+    cleaned["ai_hard_negative_constraint_category"] = hard_negative_constraint_categories
+    cleaned["ai_hard_negative_constraint_evidence"] = hard_negative_constraint_evidence
     cleaned["ai_classification_primary_confidence"] = [
         f"{score:.6f}" for score in scores
     ]

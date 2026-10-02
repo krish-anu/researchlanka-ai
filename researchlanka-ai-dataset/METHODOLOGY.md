@@ -30,17 +30,17 @@ The current release candidate contains 203 duplicate candidates requiring manual
 
 ## AI Relevance Classification
 
-AI relevance was assigned using the ResearchLanka AI relevance Linear SVM classifier trained on LLM-labelled publication metadata. The model was trained using title, abstract, keywords, topics, concepts, primary topic, primary subfield, primary field, and primary domain text.
+The current production AI relevance decision is based on the ResearchLanka A1
+XGBoost model using title and abstract text, with sigmoid calibration enabled.
+Production acceptance uses a three-way decision:
 
-Training summary from the current model artifact:
+```text
+AUTO_AI / REVIEW / AUTO_NON_AI
+```
 
-- Training labels: `AI`, `NON_AI`
-- Usable labelled rows: 4,437
-- Test rows: 888
-- Accuracy: 0.9595
-- Macro F1: 0.9552
-- AI precision: 0.94
-- AI recall: 0.94
+Deprecated LLM-label self-evaluation runs are no longer reported as project
+benchmarks because they measured reproduction of generated labels rather than
+agreement with independent human judgement.
 
 The release contains rows where `ai_classification_label = AI`.
 
@@ -60,3 +60,43 @@ Before final publication, reviewers should fill:
 
 The final publication report should include AI relevance precision and Sri Lanka relevance precision estimated from this sample.
 
+## Human Annotation Protocol
+
+Human labels are treated differently depending on how they were produced:
+
+| Label set type | Use |
+| --- | --- |
+| Human-verified operational labels | Dataset curation, uncertain-case resolution, calibration, and model improvement |
+| Blinded benchmark labels | Stable model-performance reporting |
+
+For a human-labelled batch to support benchmark claims, the report should record
+the number of independent annotators, whether annotators were blinded to model
+predictions and confidence scores, inter-annotator agreement, adjudication
+procedure, guideline version, post-error label changes, and the treatment of
+ambiguous `REVIEW` cases.
+
+The current release-candidate documentation does not consistently record all of
+these fields for every historical review batch. Therefore, those labels should
+be described as human-verified operational labels unless the batch explicitly
+documents independent blinded annotation and adjudication.
+
+Recommended benchmark reporting:
+
+```text
+Guideline version: ai-relevance-annotation-v1.1
+Annotators: record count and overlap count
+Blinding: whether model predictions/confidence/reasoning were hidden
+Agreement: percent agreement and Cohen's kappa on overlapping labels
+Adjudication: process for disagreements and REVIEW cases
+Final benchmark label: adjudicated AI/NON_AI label
+```
+
+Each reviewed row should record `label`, `confidence`, `evidence_span`,
+`reason`, and `ambiguous_flag`. Annotators should complete first-pass labels
+independently before seeing model predictions or confidence scores.
+
+Detailed protocol:
+
+```text
+backend/docs/AI_RELEVANCE_ANNOTATION_PROTOCOL.md
+```

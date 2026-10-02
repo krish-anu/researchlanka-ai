@@ -81,6 +81,8 @@ def test_incremental_classification_uses_ai_probability_tiers(monkeypatch) -> No
         model_path=Path("model.joblib"),
         text_columns=("title",),
         confidence_review_threshold=0.85,
+        auto_ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     assert [row["ai_classification_label"] for row in classified] == [
@@ -101,11 +103,13 @@ def test_incremental_borderline_detector_sends_smart_system_to_review(monkeypatc
         model_path=Path("model.joblib"),
         text_columns=("title",),
         confidence_review_threshold=0.85,
+        auto_ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     assert classified[0]["ai_classification_label"] == "review"
     assert classified[0]["ai_classification_reason"].startswith(
-        "borderline_false_positive_risk:"
+        "hard_negative_constraint:"
     )
 
 
@@ -118,6 +122,8 @@ def test_incremental_clear_ai_evidence_overrides_borderline_terms(monkeypatch) -
         model_path=Path("model.joblib"),
         text_columns=("title",),
         confidence_review_threshold=0.85,
+        auto_ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     assert classified[0]["ai_classification_label"] == "AI"
@@ -151,6 +157,39 @@ def test_incremental_classification_thresholds_calibrated_probability(monkeypatc
     assert classified[0]["ai_classification_calibrator"] == "calibrator.joblib"
 
 
+def test_incremental_numeric_binary_model_treats_class_one_as_ai(monkeypatch) -> None:
+    class NumericProbabilityModel:
+        classes_ = [0, 1]
+
+        def predict(self, text):
+            return [0, 1][: len(text)]
+
+        def predict_proba(self, text):
+            scores = [0.10, 0.91]
+            return [[1.0 - score, score] for score in scores[: len(text)]]
+
+    monkeypatch.setattr(incremental_update.joblib, "load", lambda _path: NumericProbabilityModel())
+    monkeypatch.setattr(incremental_update, "validate_model_path", lambda _path: None)
+
+    classified = apply_ai_classification(
+        [
+            {"title": "Bridge maintenance"},
+            {"title": "Deep learning for crop detection"},
+        ],
+        model_path=Path("model.joblib"),
+        text_columns=("title",),
+        confidence_review_threshold=0.85,
+        auto_ai_threshold=0.85,
+        calibrator_path="disabled",
+    )
+
+    assert [row["ai_classification_label"] for row in classified] == ["non-AI", "AI"]
+    assert [row["ai_classification_confidence"] for row in classified] == [
+        "0.100000",
+        "0.910000",
+    ]
+
+
 def test_incremental_secondary_model_disagreement_forces_review(monkeypatch) -> None:
     def fake_load(path):
         if Path(path).name == "secondary.joblib":
@@ -166,6 +205,8 @@ def test_incremental_secondary_model_disagreement_forces_review(monkeypatch) -> 
         secondary_model_path=Path("secondary.joblib"),
         text_columns=("title",),
         confidence_review_threshold=0.85,
+        auto_ai_threshold=0.85,
+        calibrator_path="disabled",
     )
 
     assert classified[0]["ai_classification_label"] == "review"

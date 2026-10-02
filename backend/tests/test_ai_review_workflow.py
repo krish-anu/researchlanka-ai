@@ -21,7 +21,6 @@ from src.api.services.ai_review import (
 def test_high_explicit_ai_auto_accepts() -> None:
     assert initial_review_status("AI", "HIGH") == ("auto_accepted", "auto")
     assert initial_review_status("ai-related", "high") == ("auto_accepted", "auto")
-    assert initial_review_status("AI", "0.85") == ("auto_accepted", "auto")
     assert initial_review_status("AI", "0.93") == ("auto_accepted", "auto")
 
 
@@ -53,6 +52,7 @@ def test_ai_acceptance_requires_verified_sri_lanka_ownership() -> None:
         ("AI", "LOW"),
         ("AI", ""),
         ("AI", "0.5"),
+        ("AI", "0.85"),
         ("AI", "0.849999"),
         ("review", "HIGH"),
         ("unexpected", "HIGH"),

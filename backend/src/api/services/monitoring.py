@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from psycopg.rows import dict_row
 
 from src.database.connection import get_connection
 from src.api.services.ml_monitoring import compute_ml_monitoring
+from src.pipeline.refresh_policy import load_ai_relevance_model_manifest
 
 
 DRIFT_ALERT_THRESHOLD_POINTS = 20.0
@@ -112,6 +115,7 @@ def monitoring_dashboard(connection: Any) -> dict[str, Any]:
     total_reviews = int(review_row.get("review_records") or 0)
     human_decisions = int(review_row.get("human_decisions") or 0)
     duplicate_reports = int(duplicate_row.get("duplicate_reports") or 0)
+    model_contract = current_model_contract()
     ml_monitoring = compute_ml_monitoring(connection)
     drift = drift_summary(drift_rows, ml_monitoring=ml_monitoring)
 
@@ -134,7 +138,8 @@ def monitoring_dashboard(connection: Any) -> dict[str, Any]:
         "missing_abstract_percentage": percent(public_row.get("missing_abstract"), total_public),
         "missing_doi_percentage": percent(public_row.get("missing_doi"), total_public),
         "ownership_review_count": int(ownership_row.get("ownership_review_count") or 0),
-        "model_version": public_row.get("model_version"),
+        "model_version": model_contract.get("model_id") or public_row.get("model_version"),
+        "model_contract": model_contract,
         "dataset_version": public_row.get("dataset_version"),
         "pipeline_version": public_row.get("pipeline_version"),
         "last_successful_pipeline_run": pipeline_row.get("last_successful_pipeline_run"),
@@ -144,11 +149,100 @@ def monitoring_dashboard(connection: Any) -> dict[str, Any]:
         "drift": drift,
         "ml_monitoring": ml_monitoring,
         "metric_notes": {
-            "false_positive_rate": "Proxy: AI-labelled records later human-rejected.",
+            "false_positive_rate": "Workflow proxy only; use model holdout FP for trained-model quality.",
             "duplicate_rate": "Proxy: active/resolved duplicate reports over public publications.",
             "auto_non_ai_rate": "System rejected NON_AI rows in the review workflow.",
+            "human_disagreement_rate": "Workflow proxy only; not a frozen-test model metric.",
         },
     }
+
+
+def current_model_contract() -> dict[str, Any]:
+    """Return the deployed AI relevance model contract plus known holdout metrics."""
+
+    manifest = load_ai_relevance_model_manifest()
+    payload: dict[str, Any] = {
+        "model_id": manifest.model_id,
+        "model_type": manifest.model_type,
+        "model_path": relative_path(manifest.model_path),
+        "features": list(manifest.features),
+        "training_dataset": manifest.training_dataset,
+        "created_at": manifest.created_at,
+        "sha256": manifest.sha256,
+        "auto_ai_threshold": manifest.auto_ai_threshold,
+        "auto_non_ai_threshold": manifest.auto_non_ai_threshold,
+        "selected_binary_threshold": manifest.selected_binary_threshold,
+    }
+    summary_metrics = model_summary_metrics(manifest.model_path)
+    if summary_metrics:
+        payload["evaluation"] = summary_metrics
+    return payload
+
+
+def model_summary_metrics(model_path: Path | None) -> dict[str, Any] | None:
+    if model_path is None:
+        return None
+    summary_path = model_path.with_name("metadata_ablation_summary.json")
+    if not summary_path.is_file():
+        return None
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    rows = summary.get("rows")
+    if not isinstance(rows, list):
+        return None
+    model_stem = model_path.stem
+    selected = next(
+        (
+            row
+            for row in rows
+            if isinstance(row, dict)
+            and (
+                row.get("ablation") == model_stem
+                or Path(str(row.get("model_path") or "")).name == model_path.name
+            )
+        ),
+        None,
+    )
+    if not isinstance(selected, dict):
+        return None
+    confusion = selected.get("test_confusion_matrix")
+    false_positives = None
+    false_negatives = None
+    if (
+        isinstance(confusion, list)
+        and len(confusion) >= 2
+        and isinstance(confusion[0], list)
+        and isinstance(confusion[1], list)
+        and len(confusion[0]) >= 2
+        and len(confusion[1]) >= 2
+    ):
+        # Matrix order is labels AI, NON_AI: [[TP, FN], [FP, TN]].
+        false_negatives = int(confusion[0][1])
+        false_positives = int(confusion[1][0])
+    return {
+        "source": "frozen_human_holdout",
+        "ablation": selected.get("ablation"),
+        "test_accuracy": selected.get("test_accuracy"),
+        "test_macro_f1": selected.get("test_macro_f1"),
+        "test_ai_precision": selected.get("test_ai_precision"),
+        "test_ai_recall": selected.get("test_ai_recall"),
+        "test_non_ai_recall": selected.get("test_non_ai_recall"),
+        "test_false_positives": false_positives,
+        "test_false_negatives": false_negatives,
+        "test_confusion_matrix": confusion,
+        "comparison_csv": summary.get("comparison_csv"),
+    }
+
+
+def relative_path(path: Path | None) -> str | None:
+    if path is None:
+        return None
+    try:
+        return str(path.relative_to(Path(__file__).resolve().parents[3]))
+    except ValueError:
+        return str(path)
 
 
 def drift_summary(

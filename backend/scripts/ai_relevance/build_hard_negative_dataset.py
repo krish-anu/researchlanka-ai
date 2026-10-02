@@ -23,12 +23,28 @@ DEFAULT_INPUT = (
     / "data/models/ai_relevance/validated_human_selection_xgboost_fast"
     / "false_positive_analysis/false_positive_ai_cases.csv"
 )
+DEFAULT_ARCHIVED_INPUT = (
+    PROJECT_ROOT
+    / "data/old_datasets_2026-09-30/backend/data/models/ai_relevance"
+    / "old_artifacts_2026-09-30/validated_human_selection_xgboost_fast"
+    / "false_positive_analysis/false_positive_ai_cases.csv"
+)
 DEFAULT_OUTPUT = (
     PROJECT_ROOT
     / "data/processed/ai/hard_negative_false_positive_non_ai.csv"
 )
 
+
+def resolve_input_path(input_csv: Path) -> Path:
+    if input_csv.exists():
+        return input_csv
+    if input_csv == DEFAULT_INPUT and DEFAULT_ARCHIVED_INPUT.exists():
+        return DEFAULT_ARCHIVED_INPUT
+    raise FileNotFoundError(f"False-positive input CSV was not found: {input_csv}")
+
+
 def build_hard_negative_dataset(input_csv: Path, output_csv: Path) -> int:
+    input_csv = resolve_input_path(input_csv)
     frame = pd.read_csv(input_csv, dtype=str, keep_default_na=False, low_memory=False)
     frame["hard_negative"] = "true"
     if "label_source" not in frame.columns:

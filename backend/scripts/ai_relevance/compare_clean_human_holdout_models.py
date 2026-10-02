@@ -42,6 +42,7 @@ SKLEARN_MODEL_FAMILIES = (
     "multinomial_nb",
     "sgd_classifier",
 )
+NUMERIC_BINARY_MODEL_FAMILIES = {"xgboost", "lightgbm", "catboost"}
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,8 @@ class Config:
     output_dir: Path = DEFAULT_OUTPUT_DIR
     model_families: tuple[str, ...] = SKLEARN_MODEL_FAMILIES
     include_xgboost: bool = False
+    include_lightgbm: bool = False
+    include_catboost: bool = False
     tuning_mode: str = "standard"
     tune_thresholds: bool = False
     max_features: int = 50_000
@@ -132,7 +135,8 @@ def candidate_specs(config: Config) -> dict[str, tuple[Any, dict[str, list[Any]]
             {"clf__alpha": sgd_alpha, **shared_vectorizer_grid},
         ),
     }
-    if config.include_xgboost:
+    requested = set(config.model_families)
+    if config.include_xgboost or "xgboost" in requested:
         try:
             from xgboost import XGBClassifier
         except Exception as exc:
@@ -165,6 +169,72 @@ def candidate_specs(config: Config) -> dict[str, tuple[Any, dict[str, list[Any]]
             ),
             xgb_grid,
         )
+    if config.include_lightgbm or "lightgbm" in requested:
+        try:
+            from lightgbm import LGBMClassifier
+        except Exception as exc:
+            raise RuntimeError(
+                "LightGBM requested but lightgbm is not installed. "
+                "Install it first, then rerun with --include-lightgbm."
+            ) from exc
+        lightgbm_grid = (
+            {
+                "clf__num_leaves": [15, 31, 63],
+                "clf__learning_rate": [0.03, 0.05, 0.1],
+                "clf__n_estimators": [100, 200, 400],
+                "clf__subsample": [0.8, 1.0],
+                "clf__colsample_bytree": [0.8, 1.0],
+                **shared_vectorizer_grid,
+            }
+            if config.tuning_mode == "wide"
+            else {
+                "clf__num_leaves": [31, 63],
+                "clf__learning_rate": [0.05, 0.1],
+                "clf__n_estimators": [100, 200],
+            }
+        )
+        specs["lightgbm"] = (
+            LGBMClassifier(
+                objective="binary",
+                class_weight="balanced",
+                random_state=config.random_state,
+                n_jobs=-1,
+                verbose=-1,
+            ),
+            lightgbm_grid,
+        )
+    if config.include_catboost or "catboost" in requested:
+        try:
+            from catboost import CatBoostClassifier
+        except Exception as exc:
+            raise RuntimeError(
+                "CatBoost requested but catboost is not installed. "
+                "Install it first, then rerun with --include-catboost."
+            ) from exc
+        catboost_grid = (
+            {
+                "clf__depth": [4, 6, 8],
+                "clf__learning_rate": [0.03, 0.05, 0.1],
+                "clf__iterations": [200, 400],
+                **shared_vectorizer_grid,
+            }
+            if config.tuning_mode == "wide"
+            else {
+                "clf__depth": [4, 6],
+                "clf__learning_rate": [0.05, 0.1],
+                "clf__iterations": [200],
+            }
+        )
+        specs["catboost"] = (
+            CatBoostClassifier(
+                loss_function="Logloss",
+                auto_class_weights="Balanced",
+                random_seed=config.random_state,
+                verbose=False,
+                allow_writing_files=False,
+            ),
+            catboost_grid,
+        )
     return specs
 
 
@@ -187,8 +257,8 @@ def score_ai(model: Any, text: pd.Series) -> list[float]:
     return [float("nan") for _ in range(len(text))]
 
 
-def score_xgboost_ai(model: Any, text: pd.Series) -> list[float]:
-    """Return P(AI) for XGBoost trained with NON_AI=0 and AI=1."""
+def score_numeric_binary_ai(model: Any, text: pd.Series) -> list[float]:
+    """Return P(AI) for models trained with NON_AI=0 and AI=1."""
     if hasattr(model, "predict_proba"):
         probabilities = model.predict_proba(text)
         return [float(row[1]) for row in probabilities]
@@ -254,12 +324,12 @@ def train_one(
         n_jobs=-1,
     )
     fit_y = train["label"]
-    if name == "xgboost":
+    if name in NUMERIC_BINARY_MODEL_FAMILIES:
         fit_y = fit_y.map({"NON_AI": 0, "AI": 1})
     grid.fit(train["text"], fit_y)
     model = grid.best_estimator_
     raw_pred = model.predict(test["text"])
-    if name == "xgboost":
+    if name in NUMERIC_BINARY_MODEL_FAMILIES:
         pred = pd.Series(raw_pred).map({0: "NON_AI", 1: "AI"}).tolist()
     else:
         pred = list(raw_pred)
@@ -269,8 +339,8 @@ def train_one(
     predictions = test[["record_key", "label", "label_source", "title", "doi", "text"]].copy()
     predictions["prediction"] = pred
     scores = (
-        score_xgboost_ai(model, test["text"])
-        if name == "xgboost"
+        score_numeric_binary_ai(model, test["text"])
+        if name in NUMERIC_BINARY_MODEL_FAMILIES
         else score_ai(model, test["text"])
     )
     predictions["ai_score"] = [f"{score:.6f}" for score in scores]
@@ -448,6 +518,8 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated model families.",
     )
     parser.add_argument("--include-xgboost", action="store_true")
+    parser.add_argument("--include-lightgbm", action="store_true")
+    parser.add_argument("--include-catboost", action="store_true")
     parser.add_argument(
         "--tuning-mode",
         choices=("standard", "wide"),
@@ -467,12 +539,18 @@ def main() -> None:
     families = args.model_families
     if args.include_xgboost and "xgboost" not in families:
         families = (*families, "xgboost")
+    if args.include_lightgbm and "lightgbm" not in families:
+        families = (*families, "lightgbm")
+    if args.include_catboost and "catboost" not in families:
+        families = (*families, "catboost")
     summary = run(
         Config(
             clean_dir=args.clean_dir,
             output_dir=args.output_dir,
             model_families=families,
             include_xgboost=args.include_xgboost,
+            include_lightgbm=args.include_lightgbm,
+            include_catboost=args.include_catboost,
             tuning_mode=args.tuning_mode,
             tune_thresholds=args.tune_thresholds,
         )
