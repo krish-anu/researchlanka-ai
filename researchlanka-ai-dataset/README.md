@@ -24,8 +24,7 @@ checksums.sha256
 - Publication years: 2016-2026
 - Format: CSV and Parquet
 - AI label included in release: `AI`
-- Classifier: ResearchLanka AI relevance Linear SVM
-- Mean AI confidence score: 0.7504
+- Current production classifier: ResearchLanka AI relevance A1 XGBoost, title + abstract, sigmoid-calibrated
 
 ## Important Release Status
 
@@ -60,4 +59,3 @@ df = pd.read_parquet("data/researchlanka_ai_publications_v1.0.parquet")
 - `METHODOLOGY.md` explains collection, cleaning, Sri Lanka relevance processing, deduplication, and AI classification.
 - `QUALITY_REPORT.md` summarizes current validation gates and remaining publication blockers.
 - `LICENSE` documents the current redistribution status.
-

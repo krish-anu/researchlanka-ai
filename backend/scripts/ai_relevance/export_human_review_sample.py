@@ -26,6 +26,15 @@ def main() -> None:
     parser.add_argument("--sample-size", type=int, default=500)
     parser.add_argument("--random-seed", type=int, default=42)
     parser.add_argument("--confidence-threshold", type=float, default=0.75)
+    parser.add_argument(
+        "--include-model-context",
+        action="store_true",
+        help=(
+            "Include model labels, confidence, reasons, and review-priority "
+            "columns in the exported sheet. By default the first-pass sheet is "
+            "blinded for independent annotation."
+        ),
+    )
     args = parser.parse_args()
     frame = build_human_review_sample(
         HumanReviewConfig(
@@ -34,6 +43,7 @@ def main() -> None:
             sample_size=args.sample_size,
             random_seed=args.random_seed,
             confidence_threshold=args.confidence_threshold,
+            blinded_first_pass=not args.include_model_context,
         )
     )
     print(f"Wrote {len(frame)} human-review rows to {args.output}")

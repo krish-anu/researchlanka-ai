@@ -42,7 +42,10 @@ def parse_args() -> argparse.Namespace:
         "--classifiers",
         type=parse_classifiers,
         default=("logistic_regression",),
-        help="Comma-separated classifiers: logistic_regression,xgboost",
+        help=(
+            "Comma-separated classifiers: logistic_regression,linear_svm,"
+            "ridge_logistic,random_forest,xgboost,lightgbm,catboost"
+        ),
     )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--random-state", type=int, default=42)

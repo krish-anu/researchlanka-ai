@@ -30,7 +30,16 @@ CATEGORY_PATTERNS: dict[str, tuple[str, ...]] = {
         r"automation",
         r"automated",
     ),
-    "optimization_or_operations_research": (
+    "manual_pattern_cases": (
+        r"manual",
+        r"hand[- ]crafted",
+        r"hand crafted",
+        r"rule[- ]based",
+        r"pattern",
+        r"template",
+        r"heuristic",
+    ),
+    "optimization_without_ai_methodology": (
         r"optimis",
         r"optimiz",
         r"optimal",
@@ -59,7 +68,7 @@ CATEGORY_PATTERNS: dict[str, tuple[str, ...]] = {
         r"wavelet",
         r"fourier",
     ),
-    "control_fuzzy_pid_or_mechatronics": (
+    "control_fuzzy_pid_or_mechatronics_without_clear_ai": (
         r"\bpid\b",
         r"fuzzy",
         r"controller",

@@ -95,6 +95,15 @@ BORDERLINE_PATTERNS: dict[str, tuple[str, ...]] = {
         r"expert system",
         r"knowledge based",
     ),
+    "manual_pattern_cases": (
+        r"manual",
+        r"hand[- ]crafted",
+        r"hand crafted",
+        r"rule[- ]based",
+        r"pattern",
+        r"template",
+        r"heuristic",
+    ),
     "decision_optimization_without_clear_ai": (
         r"fuzzy topsis",
         r"intuitionistic fuzzy",
@@ -120,6 +129,17 @@ class BorderlineAssessment:
     @property
     def requires_review(self) -> bool:
         return self.risk_category is not None and not self.has_strong_ai_evidence
+
+
+@dataclass(frozen=True)
+class HardNegativeConstraintResult:
+    """Result of applying false-positive hard-negative constraints."""
+
+    label: str
+    reason: str | None
+    applied: bool
+    category: str | None = None
+    evidence: str = ""
 
 
 def clean(value: Any) -> str:
@@ -173,3 +193,44 @@ def borderline_false_positive_assessment(row: Mapping[str, Any]) -> BorderlineAs
 def borderline_false_positive_category(row: Mapping[str, Any]) -> str | None:
     assessment = borderline_false_positive_assessment(row)
     return assessment.risk_category if assessment.requires_review else None
+
+
+def normalize_ai_label(value: Any) -> str:
+    label = clean(value).casefold().replace("_", "-").replace(" ", "-")
+    if label in {"ai", "artificial-intelligence", "artificial intelligence"}:
+        return "AI"
+    if label in {"non-ai", "nonai", "not-ai", "not ai"}:
+        return "NON_AI"
+    if label in {"review", "manual-review", "manual review", "uncertain"}:
+        return "REVIEW"
+    return clean(value)
+
+
+def hard_negative_constraint_result(
+    *,
+    label: Any,
+    row: Mapping[str, Any],
+    review_label: str = "review",
+    reason: str | None = None,
+) -> HardNegativeConstraintResult:
+    """Route known weak-evidence false-positive patterns away from AUTO_AI."""
+
+    normalized = normalize_ai_label(label)
+    assessment = borderline_false_positive_assessment(row)
+    if normalized == "AI" and assessment.requires_review:
+        category = assessment.risk_category or "known_false_positive_pattern"
+        evidence = "; ".join(assessment.risk_patterns)
+        return HardNegativeConstraintResult(
+            label=review_label,
+            reason=f"hard_negative_constraint:{category}:weak_ai_evidence",
+            applied=True,
+            category=category,
+            evidence=evidence,
+        )
+    return HardNegativeConstraintResult(
+        label=str(label),
+        reason=reason,
+        applied=False,
+        category=assessment.risk_category if assessment.requires_review else None,
+        evidence="; ".join(assessment.risk_patterns),
+    )

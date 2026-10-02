@@ -6,7 +6,7 @@ This script is the stricter successor to the exploratory clean-holdout runs.
 It uses:
 - frozen test: clean_human_holdout/locked_human_test_set.csv
 - human pool remainder: clean_human_holdout/human_training_remainder.csv
-- machine labels: original 5k + finished Gemini 1000
+- machine-labelled rows, human-labelled rows, and maintained hard negatives
 
 The frozen human test is never used for model selection, threshold tuning, or
 sample-weight tuning. Validation is split from the remaining human-labelled
@@ -41,12 +41,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.ai_relevance.hard_negatives import load_hard_negative_csv  # noqa: E402
 from src.modeling.artifacts import file_sha256  # noqa: E402
 from src.modeling.linear_svm_training import combined_text  # noqa: E402
 from src.preprocessing.text_cleaning import CUSTOM_STOP_WORDS  # noqa: E402
 
 
 LABELS = ("AI", "NON_AI")
+NUMERIC_BINARY_MODEL_FAMILIES = {"xgboost", "lightgbm", "catboost"}
 TEXT_COLUMNS = (
     "title",
     "abstract",
@@ -59,11 +61,19 @@ TEXT_COLUMNS = (
     "primary_domain",
 )
 DEFAULT_CLEAN_DIR = PROJECT_ROOT / "data/models/ai_relevance/clean_human_holdout"
+ARCHIVED_CLEAN_DIR = (
+    PROJECT_ROOT
+    / "data/old_datasets_2026-09-30/backend/data/models/ai_relevance/"
+    "old_artifacts_2026-09-30/clean_human_holdout"
+)
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data/models/ai_relevance/validated_human_selection"
 DEFAULT_ORIGINAL_LABELS = (
     PROJECT_ROOT / "data/processed/ai/ai_llm_5000_predictions_openrouter_gemini_3_8_flash.csv"
 )
 DEFAULT_GEMINI_1000 = PROJECT_ROOT / "data/Finished/gemini_review_1000_openrouter_predictions.csv"
+DEFAULT_HARD_NEGATIVES = (
+    PROJECT_ROOT / "data/processed/ai/hard_negative_false_positive_non_ai.csv"
+)
 
 
 @dataclass(frozen=True)
@@ -71,6 +81,7 @@ class Config:
     clean_dir: Path = DEFAULT_CLEAN_DIR
     original_labels: Path = DEFAULT_ORIGINAL_LABELS
     gemini_1000: Path = DEFAULT_GEMINI_1000
+    hard_negatives: Path | None = DEFAULT_HARD_NEGATIVES
     output_dir: Path = DEFAULT_OUTPUT_DIR
     validation_size: float = 0.30
     random_state: int = 42
@@ -85,6 +96,8 @@ class Config:
     cv_folds: int = 3
     scoring: str = "f1_macro"
     include_xgboost: bool = False
+    include_lightgbm: bool = False
+    include_catboost: bool = False
     fast_xgboost: bool = False
 
 
@@ -152,6 +165,9 @@ def remove_overlaps(frame: pd.DataFrame, forbidden: set[str]) -> pd.DataFrame:
 
 
 def load_llm_labels(path: Path, source: str) -> pd.DataFrame:
+    if not path.exists():
+        print(f"Skipping missing optional label source: {path}", file=sys.stderr)
+        return pd.DataFrame(columns=["record_key", "label", "label_source", "text"])
     frame = pd.read_csv(path, dtype=str, keep_default_na=False, low_memory=False)
     frame["label"] = frame["ai_llm_label"].map(normalize_label)
     frame = frame[
@@ -159,6 +175,36 @@ def load_llm_labels(path: Path, source: str) -> pd.DataFrame:
         & frame["label"].isin(LABELS)
     ].copy()
     frame["label_source"] = source
+    return prepare_text(frame)
+
+
+def resolve_clean_dir(path: Path) -> Path:
+    required = ("locked_human_test_set.csv", "human_training_remainder.csv")
+    if all((path / filename).exists() for filename in required):
+        return path
+    if path == DEFAULT_CLEAN_DIR and all(
+        (ARCHIVED_CLEAN_DIR / filename).exists() for filename in required
+    ):
+        print(
+            "Default clean human-holdout directory is missing; using archived "
+            f"split at {ARCHIVED_CLEAN_DIR}",
+            file=sys.stderr,
+        )
+        return ARCHIVED_CLEAN_DIR
+    missing = [str(path / filename) for filename in required if not (path / filename).exists()]
+    raise FileNotFoundError(
+        "Missing clean human-holdout split files:\n"
+        + "\n".join(missing)
+        + "\nPass --clean-dir to a folder containing locked_human_test_set.csv "
+        "and human_training_remainder.csv, or restore the clean_human_holdout artifacts."
+    )
+
+
+def load_hard_negative_labels(path: Path | None) -> pd.DataFrame:
+    if path is None or not path.exists():
+        return pd.DataFrame(columns=["record_key", "label", "label_source", "text"])
+    frame = load_hard_negative_csv(path)
+    frame["label_source"] = "human_rejected_false_positive_hard_negative"
     return prepare_text(frame)
 
 
@@ -210,7 +256,8 @@ def candidate_specs(config: Config) -> dict[str, tuple[Any, dict[str, list[Any]]
             {"clf__alpha": [0.05, 0.1, 0.3, 0.5, 1.0]},
         ),
     }
-    if config.include_xgboost:
+    requested = set(config.model_families)
+    if config.include_xgboost or "xgboost" in requested:
         try:
             from xgboost import XGBClassifier
         except Exception as exc:
@@ -242,6 +289,64 @@ def candidate_specs(config: Config) -> dict[str, tuple[Any, dict[str, list[Any]]
             ),
             xgb_grid,
         )
+    if config.include_lightgbm or "lightgbm" in requested:
+        try:
+            from lightgbm import LGBMClassifier
+        except Exception as exc:
+            raise RuntimeError("LightGBM requested but lightgbm is not installed.") from exc
+        lightgbm_grid = (
+            {
+                "clf__num_leaves": [31],
+                "clf__learning_rate": [0.1],
+                "clf__n_estimators": [200],
+                "clf__subsample": [1.0],
+                "clf__colsample_bytree": [1.0],
+            }
+            if config.fast_xgboost
+            else {
+                "clf__num_leaves": [15, 31, 63],
+                "clf__learning_rate": [0.05, 0.1],
+                "clf__n_estimators": [100, 200],
+                "clf__subsample": [0.8, 1.0],
+                "clf__colsample_bytree": [0.8, 1.0],
+            }
+        )
+        specs["lightgbm"] = (
+            LGBMClassifier(
+                objective="binary",
+                random_state=config.random_state,
+                n_jobs=-1,
+                verbose=-1,
+            ),
+            lightgbm_grid,
+        )
+    if config.include_catboost or "catboost" in requested:
+        try:
+            from catboost import CatBoostClassifier
+        except Exception as exc:
+            raise RuntimeError("CatBoost requested but catboost is not installed.") from exc
+        catboost_grid = (
+            {
+                "clf__depth": [6],
+                "clf__learning_rate": [0.1],
+                "clf__iterations": [200],
+            }
+            if config.fast_xgboost
+            else {
+                "clf__depth": [4, 6],
+                "clf__learning_rate": [0.05, 0.1],
+                "clf__iterations": [200],
+            }
+        )
+        specs["catboost"] = (
+            CatBoostClassifier(
+                loss_function="Logloss",
+                random_seed=config.random_state,
+                verbose=False,
+                allow_writing_files=False,
+            ),
+            catboost_grid,
+        )
     return {name: specs[name] for name in config.model_families if name in specs}
 
 
@@ -262,7 +367,7 @@ def fit_model(
 ) -> Pipeline:
     model = Pipeline([("tfidf", vectorizer()), ("clf", clone(classifier))])
     y = train["label"]
-    if name == "xgboost":
+    if name in NUMERIC_BINARY_MODEL_FAMILIES:
         y = y.map({"NON_AI": 0, "AI": 1})
     cv_folds = min(config.cv_folds, int(train["label"].value_counts().min()))
     grid = GridSearchCV(
@@ -279,13 +384,13 @@ def fit_model(
 
 def raw_predict(name: str, model: Pipeline, text: pd.Series) -> list[str]:
     raw = model.predict(text)
-    if name == "xgboost":
+    if name in NUMERIC_BINARY_MODEL_FAMILIES:
         return pd.Series(raw).map({0: "NON_AI", 1: "AI"}).tolist()
     return list(raw)
 
 
 def ai_scores(name: str, model: Pipeline, text: pd.Series) -> list[float]:
-    if name == "xgboost":
+    if name in NUMERIC_BINARY_MODEL_FAMILIES:
         probabilities = model.predict_proba(text)
         return [float(row[1]) for row in probabilities]
     classes = list(getattr(model, "classes_", ()))
@@ -333,14 +438,15 @@ def best_threshold(y_true: pd.Series, scores: Iterable[float]) -> dict[str, Any]
 
 
 def split_human_remainder(config: Config) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    clean_dir = resolve_clean_dir(config.clean_dir)
     test = pd.read_csv(
-        config.clean_dir / "locked_human_test_set.csv",
+        clean_dir / "locked_human_test_set.csv",
         dtype=str,
         keep_default_na=False,
         low_memory=False,
     )
     remainder = pd.read_csv(
-        config.clean_dir / "human_training_remainder.csv",
+        clean_dir / "human_training_remainder.csv",
         dtype=str,
         keep_default_na=False,
         low_memory=False,
@@ -369,7 +475,12 @@ def run(config: Config) -> dict[str, Any]:
     forbidden = keyset(pd.concat([human_test, human_validation], ignore_index=True, sort=False))
     original = remove_overlaps(load_llm_labels(config.original_labels, "original_llm_5k"), forbidden)
     gemini = remove_overlaps(load_llm_labels(config.gemini_1000, "gemini_finished_1000"), forbidden)
-    train = pd.concat([original, gemini, human_train], ignore_index=True, sort=False)
+    hard_negatives = remove_overlaps(load_hard_negative_labels(config.hard_negatives), forbidden)
+    train = pd.concat(
+        [original, gemini, hard_negatives, human_train],
+        ignore_index=True,
+        sort=False,
+    )
     train = train.drop_duplicates("record_key", keep="first") if "record_key" in train.columns else train
     train = prepare_text(train)
 
@@ -455,11 +566,15 @@ def run(config: Config) -> dict[str, Any]:
         "rows": {
             "training": int(len(train)),
             "human_train": int(len(human_train)),
+            "hard_negatives": int(len(hard_negatives)),
             "human_validation": int(len(human_validation)),
             "frozen_human_test": int(len(human_test)),
         },
         "label_counts": {
             "training": {k: int(v) for k, v in train["label"].value_counts().items()},
+            "hard_negatives": {
+                k: int(v) for k, v in hard_negatives["label"].value_counts().items()
+            },
             "human_validation": {k: int(v) for k, v in human_validation["label"].value_counts().items()},
             "frozen_human_test": {k: int(v) for k, v in human_test["label"].value_counts().items()},
         },
@@ -498,6 +613,7 @@ def render_text(summary: dict[str, Any]) -> str:
             "",
             f"training_rows: {summary['rows']['training']}",
             f"human_train_rows: {summary['rows']['human_train']}",
+            f"hard_negative_rows: {summary['rows']['hard_negatives']}",
             f"human_validation_rows: {summary['rows']['human_validation']}",
             f"frozen_human_test_rows: {summary['rows']['frozen_human_test']}",
             "",
@@ -529,6 +645,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--clean-dir", type=Path, default=DEFAULT_CLEAN_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--hard-negatives", type=Path, default=DEFAULT_HARD_NEGATIVES)
     parser.add_argument("--validation-size", type=float, default=0.30)
     parser.add_argument("--human-weights", type=parse_weights, default=(1.0, 2.0, 3.0, 5.0))
     parser.add_argument(
@@ -543,6 +660,8 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--include-xgboost", action="store_true")
+    parser.add_argument("--include-lightgbm", action="store_true")
+    parser.add_argument("--include-catboost", action="store_true")
     parser.add_argument("--fast-xgboost", action="store_true")
     return parser.parse_args()
 
@@ -553,10 +672,22 @@ def main() -> None:
         Config(
             clean_dir=args.clean_dir,
             output_dir=args.output_dir,
+            hard_negatives=args.hard_negatives,
             validation_size=args.validation_size,
             human_weights=args.human_weights,
-            model_families=args.model_families,
+            model_families=tuple(
+                dict.fromkeys(
+                    (
+                        *args.model_families,
+                        *(("xgboost",) if args.include_xgboost else ()),
+                        *(("lightgbm",) if args.include_lightgbm else ()),
+                        *(("catboost",) if args.include_catboost else ()),
+                    )
+                )
+            ),
             include_xgboost=args.include_xgboost,
+            include_lightgbm=args.include_lightgbm,
+            include_catboost=args.include_catboost,
             fast_xgboost=args.fast_xgboost,
         )
     )

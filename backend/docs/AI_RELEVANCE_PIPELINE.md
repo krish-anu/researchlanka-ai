@@ -78,16 +78,52 @@ Build the reproducible candidate sample:
 cd backend
 python scripts/ai_relevance/build_ai_candidate_sample.py \
   --input data/processed/common/common_publications_final.csv \
-  --output data/processed/ai/ai_llm_5000_candidates.csv \
+  --output data/processed/ai/ai_relevance_candidate_sample.csv \
   --target-size 5000 \
   --random-seed 42
 ```
 
 Output:
 
-`backend/data/processed/ai/ai_llm_5000_candidates.csv`
+`backend/data/processed/ai/ai_relevance_candidate_sample.csv`
 
 Sampling is informative rather than purely random. Buckets target AI-looking OpenAlex topics/concepts, strong AI text candidates, cross-domain AI candidates, Computer Science hard negatives, borderline ambiguous records, and field-stratified random records. Keyword matching is used only to construct candidates; it is not a permanent AI label. Every selected publication has one `sampling_bucket`, and duplicates are removed by `publication_id`.
+
+Because this sample is intentionally informative, model scores measured on this
+candidate set should not be interpreted as full-corpus prevalence or full-corpus
+production performance. The sample is appropriate for finding AI examples,
+hard negatives, borderline records, and useful training data. A separate
+corpus-representative audit sample is required to estimate real-world AI
+prevalence, total review workload, and corpus-level recall.
+
+## Human Annotation and Adjudication
+
+Human review uses three AI relevance labels:
+
+- `AI`: AI is central or substantial.
+- `NON_AI`: available metadata does not support AI relevance.
+- `REVIEW`: evidence is insufficient or ambiguous.
+
+For benchmark-quality evaluation, each reviewed batch should record:
+
+- guideline version, currently `ai-relevance-annotation-v1.1`;
+- number of independent annotators;
+- whether annotators were blinded to model predictions, confidence scores, and
+  LLM reasoning;
+- inter-annotator agreement, including Cohen's kappa when overlapping labels
+  exist;
+- adjudication procedure for disagreements;
+- whether labels changed after model-error review;
+- how ambiguous `REVIEW` rows were handled in binary evaluation.
+
+Each reviewed row should record `label`, `confidence`, `evidence_span`,
+`reason`, and `ambiguous_flag`. Annotators should label independently before
+seeing model predictions to avoid model-assisted confirmation bias.
+
+Historical human labels without these fields should be treated as
+human-verified operational labels rather than fully blinded benchmark labels.
+The full protocol is documented in
+`backend/docs/AI_RELEVANCE_ANNOTATION_PROTOCOL.md`.
 
 ## First Gemini Test
 
@@ -98,7 +134,7 @@ The first test command is:
 ```bash
 cd backend
 python scripts/ai_relevance/run_gemini_ai_relevance.py \
-  --input data/processed/ai/ai_llm_5000_candidates.csv \
+  --input data/processed/ai/ai_relevance_candidate_sample.csv \
   --limit 10 \
   --first-test \
   --output data/processed/ai/ai_llm_test_10_predictions.csv \
@@ -130,7 +166,7 @@ If a run stops, rerun the same command with `--resume`. Existing successful `pub
 ```bash
 cd backend
 python scripts/ai_relevance/run_gemini_ai_relevance.py \
-  --input data/processed/ai/ai_llm_5000_candidates.csv \
+  --input data/processed/ai/ai_relevance_candidate_sample.csv \
   --limit 10 \
   --first-test \
   --resume \
@@ -150,13 +186,21 @@ Later, export a review sample from Gemini predictions:
 ```bash
 cd backend
 python scripts/ai_relevance/export_human_review_sample.py \
-  --input data/processed/ai/ai_llm_5000_predictions.csv \
+  --input data/processed/ai/ai_relevance_llm_predictions.csv \
   --output data/processed/ai/ai_human_review_sample.csv \
   --sample-size 500 \
   --random-seed 42
 ```
 
-The export includes empty `human_label` and `human_notes` fields. Allowed human labels are `AI`, `NON_AI`, and `REVIEW`.
+By default, the export is a blinded first-pass review sheet: model labels,
+confidence scores, model reasons, and LLM evidence are hidden from annotators.
+Use `--include-model-context` only after first-pass labels are complete or when
+you intentionally need a model-assisted review sheet.
+
+The export includes `annotation_guideline_version`,
+`label`, `confidence`, `evidence_span`, `reason`, `ambiguous_flag`,
+`human_label`, and `human_notes`. Allowed AI relevance labels are `AI`,
+`NON_AI`, and `REVIEW`.
 
 ## Evaluation
 
@@ -173,6 +217,53 @@ python scripts/ai_relevance/evaluate_gemini_human_labels.py \
 Outputs include metrics JSON, a confusion matrix CSV, false positives, and false negatives. By default, human `REVIEW` rows are excluded from binary AI vs NON_AI metrics. Pass `--include-human-review` to evaluate REVIEW as a third class.
 
 Metrics include accuracy, AI precision, AI recall, AI F1-score, macro F1, and a confusion matrix. Precision matters because the final corpus should contain only AI-related publications.
+
+## Hard-Negative False-Positive Layer
+
+After human review identifies model false positives, those rows are converted
+into a maintained `NON_AI` hard-negative set:
+
+```bash
+cd backend
+python scripts/ai_relevance/build_hard_negative_dataset.py \
+  --output data/processed/ai/hard_negative_false_positive_non_ai.csv
+```
+
+Current maintained hard-negative categories:
+
+| Category | Rows |
+| --- | ---: |
+| IoT/smart system without clear AI | 18 |
+| Manual-pattern cases | 13 |
+| Statistical prediction/forecasting | 7 |
+| Generic intelligent/algorithmic wording | 6 |
+| Signal/image processing without clear AI | 5 |
+| Education/assessment automation | 3 |
+
+These rows should be added as `NON_AI` examples during the next model
+retraining cycle. The validated model-selection script includes them by
+default when the CSV exists:
+
+```bash
+cd backend
+python scripts/ai_relevance/run_validated_human_model_selection.py \
+  --include-xgboost \
+  --fast-xgboost \
+  --hard-negatives data/processed/ai/hard_negative_false_positive_non_ai.csv
+```
+
+The prediction pipeline also applies a conservative hard-negative constraint
+layer after probability scoring. If the model predicts `AI`, but the metadata
+matches a known false-positive category and there is no strong AI evidence in
+the title, abstract, or keywords, the prediction is changed to `review` rather
+than accepted as automatic AI.
+
+The classified output records:
+
+- `ai_classification_pre_constraint_label`
+- `ai_hard_negative_constraint_applied`
+- `ai_hard_negative_constraint_category`
+- `ai_hard_negative_constraint_evidence`
 
 ## Topic Modelling
 

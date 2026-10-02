@@ -383,6 +383,8 @@ function MonitoringPanel({ metrics }: { metrics: MonitoringMetrics }) {
   const drift = metrics.drift;
   const ml = metrics.ml_monitoring ?? drift.ml_monitoring;
   const activeAlerts = ml?.active_alerts ?? [];
+  const model = metrics.model_contract;
+  const evaluation = model?.evaluation;
 
   return (
     <div className="flex flex-col gap-4">
@@ -426,29 +428,46 @@ function MonitoringPanel({ metrics }: { metrics: MonitoringMetrics }) {
           caption="AI review records awaiting humans"
         />
         <StatTile
-          label="AI acceptance rate"
+          label="Loaded AI share"
           value={formatPercent(metrics.ai_acceptance_rate)}
-          caption="accepted over review workflow records"
+          caption="AI rows in the loaded binary dataset"
         />
         <StatTile
-          label="Auto AI rate"
+          label="Loaded AI rate"
           value={formatPercent(metrics.auto_ai_rate)}
-          caption="auto-accepted by classifier gate"
+          caption="accepted AI rows from loaded data"
         />
         <StatTile
-          label="Auto NON_AI rate"
+          label="Loaded NON_AI rate"
           value={formatPercent(metrics.auto_non_ai_rate)}
-          caption="system rejected as non-AI"
+          caption="non-AI rows from loaded data"
         />
         <StatTile
-          label="False positive rate"
-          value={formatPercent(metrics.false_positive_rate)}
-          caption={metrics.metric_notes.false_positive_rate}
+          label="Holdout FP"
+          value={
+            evaluation?.test_false_positives == null
+              ? "—"
+              : formatNumber(evaluation.test_false_positives)
+          }
+          caption="frozen human holdout false positives"
         />
         <StatTile
-          label="Human disagreement"
-          value={formatPercent(metrics.human_disagreement_rate)}
-          caption="human rejections over human decisions"
+          label="Holdout macro F1"
+          value={
+            evaluation?.test_macro_f1 == null
+              ? "—"
+              : evaluation.test_macro_f1.toFixed(3)
+          }
+          caption="trained model evaluation, not workflow"
+        />
+        <StatTile
+          label="Holdout precision"
+          value={
+            evaluation?.test_ai_precision == null
+              ? "—"
+              : formatPercent(evaluation.test_ai_precision * 100)
+          }
+          caption="AI precision on frozen holdout"
         />
         <StatTile
           label="Collected/day"
@@ -482,8 +501,12 @@ function MonitoringPanel({ metrics }: { metrics: MonitoringMetrics }) {
         />
         <StatTile
           label="Model version"
-          value={metrics.model_version ?? "—"}
-          caption="latest public classifier version"
+          value={model?.model_id ?? metrics.model_version ?? "—"}
+          caption={
+            model
+              ? `${model.model_type} · ${model.features.join(", ")}`
+              : "latest public classifier version"
+          }
         />
         <StatTile
           label="Dataset version"
