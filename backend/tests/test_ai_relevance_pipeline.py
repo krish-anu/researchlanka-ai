@@ -364,9 +364,9 @@ def test_human_review_sample_and_metrics(tmp_path: Path) -> None:
     )
     assert sample.columns[:4].tolist() == [
         "publication_id",
-        "ai_llm_label",
-        "human_label",
-        "human_notes",
+        "annotation_guideline_version",
+        "label",
+        "confidence",
     ]
     assert "human_label" in sample.columns
     assert "human_notes" in sample.columns
@@ -492,8 +492,8 @@ def test_human_review_sample_prefers_review_queue(tmp_path: Path) -> None:
     )
 
     assert sample["publication_id"].tolist() == ["review-me"]
-    assert sample["needs_human_review"].tolist() == [True]
-    assert "review_reason" in sample.columns
+    assert "needs_human_review" not in sample.columns
+    assert "review_reason" not in sample.columns
 
 
 def test_human_review_sample_balances_llm_labels(tmp_path: Path) -> None:
@@ -550,4 +550,7 @@ def test_human_review_sample_balances_llm_labels(tmp_path: Path) -> None:
         HumanReviewConfig(input_path=predictions, output_path=review, sample_size=9)
     )
 
-    assert sample["ai_llm_label"].value_counts().to_dict() == {"AI": 4, "NON_AI": 4, "REVIEW": 1}
+    assert sample["label"].value_counts().to_dict() == {"": 9}
+    assert len(sample) == 9
+    assert "model-review" in sample["publication_id"].tolist()
+    assert sample["publication_id"].str.startswith("ai-review-").sum() == 3

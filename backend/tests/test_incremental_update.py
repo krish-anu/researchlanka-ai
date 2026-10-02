@@ -109,7 +109,7 @@ def test_incremental_borderline_detector_sends_smart_system_to_review(monkeypatc
 
     assert classified[0]["ai_classification_label"] == "review"
     assert classified[0]["ai_classification_reason"].startswith(
-        "borderline_false_positive_risk:"
+        "hard_negative_constraint:"
     )
 
 
