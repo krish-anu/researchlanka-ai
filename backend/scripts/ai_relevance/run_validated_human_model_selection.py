@@ -48,6 +48,7 @@ from src.preprocessing.text_cleaning import CUSTOM_STOP_WORDS  # noqa: E402
 
 
 LABELS = ("AI", "NON_AI")
+NUMERIC_BINARY_MODEL_FAMILIES = {"xgboost", "lightgbm", "catboost"}
 TEXT_COLUMNS = (
     "title",
     "abstract",
@@ -60,6 +61,11 @@ TEXT_COLUMNS = (
     "primary_domain",
 )
 DEFAULT_CLEAN_DIR = PROJECT_ROOT / "data/models/ai_relevance/clean_human_holdout"
+ARCHIVED_CLEAN_DIR = (
+    PROJECT_ROOT
+    / "data/old_datasets_2026-09-30/backend/data/models/ai_relevance/"
+    "old_artifacts_2026-09-30/clean_human_holdout"
+)
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data/models/ai_relevance/validated_human_selection"
 DEFAULT_ORIGINAL_LABELS = (
     PROJECT_ROOT / "data/processed/ai/ai_llm_5000_predictions_openrouter_gemini_3_8_flash.csv"
@@ -90,6 +96,8 @@ class Config:
     cv_folds: int = 3
     scoring: str = "f1_macro"
     include_xgboost: bool = False
+    include_lightgbm: bool = False
+    include_catboost: bool = False
     fast_xgboost: bool = False
 
 
@@ -157,6 +165,9 @@ def remove_overlaps(frame: pd.DataFrame, forbidden: set[str]) -> pd.DataFrame:
 
 
 def load_llm_labels(path: Path, source: str) -> pd.DataFrame:
+    if not path.exists():
+        print(f"Skipping missing optional label source: {path}", file=sys.stderr)
+        return pd.DataFrame(columns=["record_key", "label", "label_source", "text"])
     frame = pd.read_csv(path, dtype=str, keep_default_na=False, low_memory=False)
     frame["label"] = frame["ai_llm_label"].map(normalize_label)
     frame = frame[
@@ -165,6 +176,28 @@ def load_llm_labels(path: Path, source: str) -> pd.DataFrame:
     ].copy()
     frame["label_source"] = source
     return prepare_text(frame)
+
+
+def resolve_clean_dir(path: Path) -> Path:
+    required = ("locked_human_test_set.csv", "human_training_remainder.csv")
+    if all((path / filename).exists() for filename in required):
+        return path
+    if path == DEFAULT_CLEAN_DIR and all(
+        (ARCHIVED_CLEAN_DIR / filename).exists() for filename in required
+    ):
+        print(
+            "Default clean human-holdout directory is missing; using archived "
+            f"split at {ARCHIVED_CLEAN_DIR}",
+            file=sys.stderr,
+        )
+        return ARCHIVED_CLEAN_DIR
+    missing = [str(path / filename) for filename in required if not (path / filename).exists()]
+    raise FileNotFoundError(
+        "Missing clean human-holdout split files:\n"
+        + "\n".join(missing)
+        + "\nPass --clean-dir to a folder containing locked_human_test_set.csv "
+        "and human_training_remainder.csv, or restore the clean_human_holdout artifacts."
+    )
 
 
 def load_hard_negative_labels(path: Path | None) -> pd.DataFrame:
@@ -223,7 +256,8 @@ def candidate_specs(config: Config) -> dict[str, tuple[Any, dict[str, list[Any]]
             {"clf__alpha": [0.05, 0.1, 0.3, 0.5, 1.0]},
         ),
     }
-    if config.include_xgboost:
+    requested = set(config.model_families)
+    if config.include_xgboost or "xgboost" in requested:
         try:
             from xgboost import XGBClassifier
         except Exception as exc:
@@ -255,6 +289,64 @@ def candidate_specs(config: Config) -> dict[str, tuple[Any, dict[str, list[Any]]
             ),
             xgb_grid,
         )
+    if config.include_lightgbm or "lightgbm" in requested:
+        try:
+            from lightgbm import LGBMClassifier
+        except Exception as exc:
+            raise RuntimeError("LightGBM requested but lightgbm is not installed.") from exc
+        lightgbm_grid = (
+            {
+                "clf__num_leaves": [31],
+                "clf__learning_rate": [0.1],
+                "clf__n_estimators": [200],
+                "clf__subsample": [1.0],
+                "clf__colsample_bytree": [1.0],
+            }
+            if config.fast_xgboost
+            else {
+                "clf__num_leaves": [15, 31, 63],
+                "clf__learning_rate": [0.05, 0.1],
+                "clf__n_estimators": [100, 200],
+                "clf__subsample": [0.8, 1.0],
+                "clf__colsample_bytree": [0.8, 1.0],
+            }
+        )
+        specs["lightgbm"] = (
+            LGBMClassifier(
+                objective="binary",
+                random_state=config.random_state,
+                n_jobs=-1,
+                verbose=-1,
+            ),
+            lightgbm_grid,
+        )
+    if config.include_catboost or "catboost" in requested:
+        try:
+            from catboost import CatBoostClassifier
+        except Exception as exc:
+            raise RuntimeError("CatBoost requested but catboost is not installed.") from exc
+        catboost_grid = (
+            {
+                "clf__depth": [6],
+                "clf__learning_rate": [0.1],
+                "clf__iterations": [200],
+            }
+            if config.fast_xgboost
+            else {
+                "clf__depth": [4, 6],
+                "clf__learning_rate": [0.05, 0.1],
+                "clf__iterations": [200],
+            }
+        )
+        specs["catboost"] = (
+            CatBoostClassifier(
+                loss_function="Logloss",
+                random_seed=config.random_state,
+                verbose=False,
+                allow_writing_files=False,
+            ),
+            catboost_grid,
+        )
     return {name: specs[name] for name in config.model_families if name in specs}
 
 
@@ -275,7 +367,7 @@ def fit_model(
 ) -> Pipeline:
     model = Pipeline([("tfidf", vectorizer()), ("clf", clone(classifier))])
     y = train["label"]
-    if name == "xgboost":
+    if name in NUMERIC_BINARY_MODEL_FAMILIES:
         y = y.map({"NON_AI": 0, "AI": 1})
     cv_folds = min(config.cv_folds, int(train["label"].value_counts().min()))
     grid = GridSearchCV(
@@ -292,13 +384,13 @@ def fit_model(
 
 def raw_predict(name: str, model: Pipeline, text: pd.Series) -> list[str]:
     raw = model.predict(text)
-    if name == "xgboost":
+    if name in NUMERIC_BINARY_MODEL_FAMILIES:
         return pd.Series(raw).map({0: "NON_AI", 1: "AI"}).tolist()
     return list(raw)
 
 
 def ai_scores(name: str, model: Pipeline, text: pd.Series) -> list[float]:
-    if name == "xgboost":
+    if name in NUMERIC_BINARY_MODEL_FAMILIES:
         probabilities = model.predict_proba(text)
         return [float(row[1]) for row in probabilities]
     classes = list(getattr(model, "classes_", ()))
@@ -346,14 +438,15 @@ def best_threshold(y_true: pd.Series, scores: Iterable[float]) -> dict[str, Any]
 
 
 def split_human_remainder(config: Config) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    clean_dir = resolve_clean_dir(config.clean_dir)
     test = pd.read_csv(
-        config.clean_dir / "locked_human_test_set.csv",
+        clean_dir / "locked_human_test_set.csv",
         dtype=str,
         keep_default_na=False,
         low_memory=False,
     )
     remainder = pd.read_csv(
-        config.clean_dir / "human_training_remainder.csv",
+        clean_dir / "human_training_remainder.csv",
         dtype=str,
         keep_default_na=False,
         low_memory=False,
@@ -567,6 +660,8 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--include-xgboost", action="store_true")
+    parser.add_argument("--include-lightgbm", action="store_true")
+    parser.add_argument("--include-catboost", action="store_true")
     parser.add_argument("--fast-xgboost", action="store_true")
     return parser.parse_args()
 
@@ -580,8 +675,19 @@ def main() -> None:
             hard_negatives=args.hard_negatives,
             validation_size=args.validation_size,
             human_weights=args.human_weights,
-            model_families=args.model_families,
+            model_families=tuple(
+                dict.fromkeys(
+                    (
+                        *args.model_families,
+                        *(("xgboost",) if args.include_xgboost else ()),
+                        *(("lightgbm",) if args.include_lightgbm else ()),
+                        *(("catboost",) if args.include_catboost else ()),
+                    )
+                )
+            ),
             include_xgboost=args.include_xgboost,
+            include_lightgbm=args.include_lightgbm,
+            include_catboost=args.include_catboost,
             fast_xgboost=args.fast_xgboost,
         )
     )

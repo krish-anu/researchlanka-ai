@@ -11,6 +11,8 @@ from typing import Any, Protocol
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -21,6 +23,7 @@ from sklearn.metrics import (
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVC
 
 from src.modeling.artifacts import file_sha256
 from src.modeling.linear_svm_training import combined_text
@@ -170,6 +173,49 @@ def classifier_spec(name: str, random_state: int) -> Any:
                 ),
             ]
         )
+    if name == "linear_svm":
+        return Pipeline(
+            [
+                ("scale", StandardScaler()),
+                (
+                    "clf",
+                    CalibratedClassifierCV(
+                        LinearSVC(
+                            class_weight="balanced",
+                            max_iter=5000,
+                            random_state=random_state,
+                            dual="auto",
+                        ),
+                        cv=3,
+                    ),
+                ),
+            ]
+        )
+    if name == "ridge_logistic":
+        return Pipeline(
+            [
+                ("scale", StandardScaler()),
+                (
+                    "clf",
+                    LogisticRegression(
+                        C=0.3,
+                        class_weight="balanced",
+                        max_iter=5000,
+                        solver="lbfgs",
+                        random_state=random_state,
+                    ),
+                ),
+            ]
+        )
+    if name == "random_forest":
+        return RandomForestClassifier(
+            n_estimators=400,
+            max_depth=None,
+            min_samples_leaf=2,
+            class_weight="balanced",
+            random_state=random_state,
+            n_jobs=-1,
+        )
     if name == "xgboost":
         try:
             from xgboost import XGBClassifier
@@ -189,7 +235,45 @@ def classifier_spec(name: str, random_state: int) -> Any:
             subsample=1.0,
             colsample_bytree=1.0,
         )
-    raise ValueError(f"Unsupported embedding classifier: {name}")
+    if name == "lightgbm":
+        try:
+            from lightgbm import LGBMClassifier
+        except Exception as exc:
+            raise RuntimeError(
+                "LightGBM requested but lightgbm is not installed."
+            ) from exc
+        return LGBMClassifier(
+            objective="binary",
+            class_weight="balanced",
+            random_state=random_state,
+            n_jobs=-1,
+            verbose=-1,
+            num_leaves=31,
+            learning_rate=0.1,
+            n_estimators=200,
+        )
+    if name == "catboost":
+        try:
+            from catboost import CatBoostClassifier
+        except Exception as exc:
+            raise RuntimeError(
+                "CatBoost requested but catboost is not installed."
+            ) from exc
+        return CatBoostClassifier(
+            loss_function="Logloss",
+            auto_class_weights="Balanced",
+            random_seed=random_state,
+            verbose=False,
+            allow_writing_files=False,
+            iterations=200,
+            depth=6,
+            learning_rate=0.1,
+        )
+    raise ValueError(
+        "Unsupported embedding classifier: "
+        f"{name}. Choose from logistic_regression, linear_svm, ridge_logistic, "
+        "random_forest, xgboost, lightgbm, catboost."
+    )
 
 
 def evaluate_predictions(
@@ -241,6 +325,8 @@ def fit_classifier(
     weights = sample_weights(train, config.human_weight)
     if isinstance(model, Pipeline):
         model.fit(x_train, y_train, clf__sample_weight=weights)
+    elif name == "random_forest":
+        model.fit(x_train, y_train, sample_weight=weights)
     else:
         model.fit(x_train, y_train, sample_weight=weights)
     return model

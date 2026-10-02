@@ -250,3 +250,51 @@ Created at: `2026-09-28T09:03:07.022064+00:00`
 - `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/clean_human_holdout/clean_human_holdout_summary.json`
 - `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/metadata_ablation/metadata_ablation_summary.json`
 - `backend/data/old_datasets_2026-09-30/backend/data/models/ai_relevance/old_artifacts_2026-09-30/metadata_ablation_precision/metadata_ablation_summary.json`
+
+## New Model Experiments: 2026-10-01
+
+The new experiment runs were collected into one comparison table:
+
+```text
+backend/data/models/ai_relevance/all_model_scores.csv
+```
+
+The collector command is:
+
+```bash
+cd backend
+python scripts/ai_relevance/collect_model_comparison_scores.py \
+  --output data/models/ai_relevance/all_model_scores.csv
+```
+
+### New Experiment Headline Scores
+
+| Model / experiment | Split | Accuracy | Macro F1 | AI precision | AI recall | NON_AI recall | False positives |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Production A1 XGBoost, title + abstract | frozen test | 0.7120 | 0.6571 | 0.9055 | 0.7074 | 0.7290 | 29 |
+| sentence_transformer_logistic_regression | frozen test | 0.7360 | 0.6382 | 0.8556 | 0.7990 | 0.5047 | 53 |
+| sgd_classifier, validation-selected | frozen test | 0.6760 | 0.6082 | 0.8667 | 0.6947 | 0.6075 | 42 |
+| sentence_transformer_xgboost | frozen test | 0.7940 | 0.5355 | 0.8021 | 0.9796 | 0.1121 | 95 |
+| sentence_transformer_random_forest | frozen test | 0.7980 | 0.5112 | 0.7980 | 0.9949 | 0.0748 | 99 |
+| sentence_transformer_linear_svm | frozen test | 0.7860 | 0.5109 | 0.7967 | 0.9771 | 0.0841 | 98 |
+| SciBERT CPU, 1 epoch | frozen test | 0.7860 | 0.4401 | 0.7860 | 1.0000 | 0.0000 | 107 |
+
+### New Experiment Conclusion
+
+The best new candidate is:
+
+```text
+sentence_transformer_logistic_regression
+```
+
+It improves AI recall compared with production A1 XGBoost, but it has lower AI
+precision and lower NON_AI recall. Because the project prioritizes reliable AI
+acceptance and false-positive control, the production recommendation remains:
+
+```text
+ai-relevance-xgb-a1-precision-v1
+```
+
+The SciBERT CPU run is not production-ready. It predicted every frozen-test row
+as AI, producing 0.0000 NON_AI recall. It should only be reconsidered after a
+stronger transformer training run.

@@ -573,6 +573,53 @@ precision while improving macro F1, accuracy, AI recall, and review workload.
 
 ## 14. Final Recommendation
 
+## 14A. New Model Experiment Update
+
+Additional model families were tested after the production A1 XGBoost decision:
+
+```text
+Classical TF-IDF models:
+Linear SVM, Logistic Regression, Ridge Classifier, SGD Classifier,
+Multinomial Naive Bayes, XGBoost, LightGBM, CatBoost
+
+Embedding models:
+Sentence-transformer embeddings with Logistic Regression, Linear SVM,
+Random Forest, and XGBoost classifiers
+
+Transformer fine-tuning:
+SciBERT, CPU run, 1 epoch
+```
+
+Combined score file:
+
+```text
+backend/data/models/ai_relevance/all_model_scores.csv
+```
+
+Headline results:
+
+| Model / experiment | Split | Accuracy | Macro F1 | AI precision | AI recall | NON_AI recall | Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Production A1 XGBoost, title + abstract | frozen test | 0.7120 | 0.6571 | 0.9055 | 0.7074 | 0.7290 | Current production model remains best overall |
+| sentence_transformer_logistic_regression | frozen test | 0.7360 | 0.6382 | 0.8556 | 0.7990 | 0.5047 | Best new experimental candidate by frozen-test macro F1 |
+| sgd_classifier, validation-selected | frozen test | 0.6760 | 0.6082 | 0.8667 | 0.6947 | 0.6075 | Best validation-selected classical new run |
+| SciBERT CPU, 1 epoch | frozen test | 0.7860 | 0.4401 | 0.7860 | 1.0000 | 0.0000 | Not usable; predicts all rows as AI |
+
+The new experiments did not beat the production A1 XGBoost score balance.
+Sentence-transformer logistic regression is the best new research candidate,
+but its AI precision and NON_AI recall are weaker than the production model.
+The one-epoch CPU SciBERT run collapsed to all-AI predictions and should not be
+used as evidence that transformer fine-tuning is unsuitable; it only shows that
+this quick run was insufficient.
+
+Current new-experiment recommendation:
+
+```text
+Keep production A1 XGBoost.
+Keep sentence_transformer_logistic_regression as a future candidate.
+Retrain SciBERT only with stronger settings before reconsidering it.
+```
+
 For the current project stage, use:
 
 ```text
