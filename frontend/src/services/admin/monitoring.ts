@@ -148,6 +148,31 @@ export interface MonitoringMetrics {
   missing_doi_percentage: number;
   ownership_review_count: number;
   model_version: string | null;
+  model_contract?: {
+    model_id: string;
+    model_type: string;
+    model_path: string | null;
+    features: string[];
+    training_dataset: string | null;
+    created_at: string | null;
+    sha256: string | null;
+    auto_ai_threshold: number;
+    auto_non_ai_threshold: number;
+    selected_binary_threshold: number | null;
+    evaluation?: {
+      source: string;
+      ablation: string | null;
+      test_accuracy: number | null;
+      test_macro_f1: number | null;
+      test_ai_precision: number | null;
+      test_ai_recall: number | null;
+      test_non_ai_recall: number | null;
+      test_false_positives: number | null;
+      test_false_negatives: number | null;
+      test_confusion_matrix: number[][] | null;
+      comparison_csv: string | null;
+    };
+  };
   dataset_version: string | null;
   pipeline_version: string | null;
   last_successful_pipeline_run: string | null;
