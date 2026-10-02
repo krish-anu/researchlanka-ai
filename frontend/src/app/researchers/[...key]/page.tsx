@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
-import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
+import { ProfileHeader, ProfileTabs } from "@/components/layout/ProfileHeader";
+import { ResearcherNetworkPanel } from "@/components/network/ProfileNetworkPanels";
 import { PublicationCardList } from "@/components/publications/PublicationCard";
-import { ChartPanel, DownloadLink } from "@/components/ui/ChartPanel";
+import { ChartPanel, ChartSkeleton, DownloadLink } from "@/components/ui/ChartPanel";
 import { DataTable, TableDisclosure } from "@/components/ui/DataTable";
 import { ApiErrorPanel, EmptyState, SectionHeading } from "@/components/ui/Feedback";
 import { Pagination } from "@/components/ui/Pagination";
+import { PrintMeta } from "@/components/ui/PrintMeta";
 import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import {
   exportUrl,
-  getCollaborationNetwork,
   getResearcher,
   getResearcherCoauthors,
   getResearcherPublications,
@@ -24,6 +26,7 @@ import {
   formatCompact,
   formatNumber,
   formatYearRange,
+  personName,
 } from "@/services/format";
 import {
   decodeKeySegments,
@@ -46,7 +49,6 @@ export async function generateMetadata({ params }: PageProps) {
 }
 
 const PAGE_SIZE = 25;
-/** Max page size the API allows; the trend is derived from this window. */
 const TREND_SAMPLE = 100;
 
 export default async function ResearcherProfilePage({
@@ -65,18 +67,12 @@ export default async function ResearcherProfilePage({
   }
 
   const data = profile.value.data;
-  const [publications, coauthors, trendSample, network] = await Promise.all([
+  const [publications, coauthors, trendSample] = await Promise.all([
     getResearcherPublications(researcherKey, { page, page_size: PAGE_SIZE }),
     getResearcherCoauthors(researcherKey, { limit: 25 }),
     getResearcherPublications(researcherKey, {
       page: 1,
       page_size: TREND_SAMPLE,
-    }),
-    getCollaborationNetwork({
-      scope: "researcher",
-      researcher: [data.label],
-      limit: 40,
-      min_weight: 1,
     }),
   ]);
 
@@ -86,68 +82,62 @@ export default async function ResearcherProfilePage({
   const isTruncated = sampleTotal > TREND_SAMPLE;
   const topFields = topValues(sample, (item) => [item.primary_field]);
 
-  return (
-    <div className="flex flex-col gap-5">
-      <nav className="text-body-sm text-muted">
-        <Link href="/researchers" className="hover:text-ink hover:underline">
-          Researchers
-        </Link>
-        <span aria-hidden> / </span>
-        <span>{data.label}</span>
-      </nav>
+  const breadcrumbs = (
+    <nav className="text-body-sm text-muted">
+      <Link href="/researchers" className="hover:text-ink hover:underline">
+        Researchers
+      </Link>
+      <span aria-hidden> / </span>
+      <span>{personName(data.label)}</span>
+    </nav>
+  );
 
-      <header>
-        <h1 className="font-display text-h1 text-ink">{data.label}</h1>
-        <p className="mt-1 text-body-sm text-ink-secondary">
-          Active {formatYearRange(data.year_min, data.year_max)}
-        </p>
-      </header>
+  const notice = (
+    <div className="panel border-warning/40 p-3 detail-measure">
+      <p className="flex gap-2 text-body-sm text-ink-secondary">
+        <span aria-hidden className="text-warning">
+          ▲
+        </span>
+        <span>
+          This profile is grouped by{" "}
+          <strong className="font-medium text-ink">
+            {data.disambiguation_level === "name"
+              ? "normalised author name"
+              : data.disambiguation_level}
+          </strong>
+          , not a verified identifier. Records from different people sharing this
+          name may be combined here.{" "}
+          <Link href="/data-quality" className="text-primary hover:underline">
+            Data quality
+          </Link>
+        </span>
+      </p>
+    </div>
+  );
 
-      <div className="panel border-warning/40 p-3">
-        <p className="flex gap-2 text-body-sm text-ink-secondary">
-          <span aria-hidden className="text-warning">
-            ▲
-          </span>
-          <span>
-            This profile is grouped by{" "}
-            <strong className="font-medium text-ink">
-              {data.disambiguation_level === "name"
-                ? "normalised author name"
-                : data.disambiguation_level}
-            </strong>
-            , not a verified identifier. Records from different people sharing
-            this name may be combined here.{" "}
-            <Link
-              href="/data-quality"
-              className="text-primary hover:underline"
-            >
-              How to read these figures
-            </Link>
-          </span>
-        </p>
-      </div>
+  const metrics = (
+    <StatTileGrid>
+      <StatTile
+        label="Publications"
+        value={formatCompact(data.publication_count)}
+        caption="records attributed to this name"
+      />
+      <StatTile
+        label="Active years"
+        value={formatYearRange(data.year_min, data.year_max)}
+        caption="first to most recent record"
+      />
+      <StatTile
+        label="Co-authors"
+        value={coauthors.ok ? formatNumber(coauthors.value.data.length) : "—"}
+        caption="distinct collaborators (top 25 shown)"
+      />
+    </StatTileGrid>
+  );
 
-      <StatTileGrid>
-        <StatTile
-          label="Publications"
-          value={formatCompact(data.publication_count)}
-          caption="records attributed to this name"
-        />
-        <StatTile
-          label="Active years"
-          value={formatYearRange(data.year_min, data.year_max)}
-          caption="first to most recent record"
-        />
-        <StatTile
-          label="Co-authors"
-          value={
-            coauthors.ok ? formatNumber(coauthors.value.data.length) : "—"
-          }
-          caption="distinct collaborators (top 25 shown)"
-        />
-      </StatTileGrid>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+  const overviewTab = (
+    <>
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
         <ChartPanel
           title="Publications per year"
           description={
@@ -186,9 +176,7 @@ export default async function ResearcherProfilePage({
               height={240}
             />
           ) : (
-            <p className="p-4 text-body-sm text-muted">
-              No records with a publication year.
-            </p>
+            <EmptyState bare title="No records with a publication year" />
           )}
         </ChartPanel>
 
@@ -200,10 +188,9 @@ export default async function ResearcherProfilePage({
           {!coauthors.ok ? (
             <ApiErrorPanel error={coauthors.error} what="co-authors" />
           ) : coauthors.value.data.length === 0 ? (
-            <p className="p-4 text-body-sm text-muted">
-              No co-authors recorded for this researcher.
-            </p>
+            <EmptyState bare title="No co-authors recorded for this researcher" />
           ) : (
+            <div className="max-h-80 overflow-y-auto">
             <DataTable
               columns={[
                 {
@@ -214,7 +201,7 @@ export default async function ResearcherProfilePage({
                       href={researcherHref(row.name)}
                       className="hover:underline"
                     >
-                      {row.name}
+                      {personName(row.name)}
                     </Link>
                   ),
                 },
@@ -228,75 +215,100 @@ export default async function ResearcherProfilePage({
               rows={coauthors.value.data}
               rowKey={(row) => row.name}
             />
+            </div>
           )}
         </section>
       </div>
+    </>
+  );
 
-      {topFields.length > 0 ? (
-        <section className="panel p-4">
-          <SectionHeading
-            title="Publishes in"
-            description="Fields most represented across the sampled publication list."
+  const publicationsTab = (
+    <section>
+      <SectionHeading
+        title="Publications"
+        description="Every record attributed to this name, newest first."
+        action={
+          <DownloadLink href={exportUrl("publications.csv", { q: data.label })}>
+            Export list (CSV)
+          </DownloadLink>
+        }
+      />
+      {!publications.ok ? (
+        <ApiErrorPanel error={publications.error} what="publications" />
+      ) : publications.value.data.length === 0 ? (
+        <EmptyState title="No publications found for this researcher" />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <PublicationCardList publications={publications.value.data} />
+          <Pagination
+            pagination={publications.value.pagination}
+            basePath={researcherHref(researcherKey)}
+            searchParams={query}
           />
-          <ul className="flex flex-wrap gap-2">
-            {topFields.map((entry) => (
-              <li key={entry.label}>
-                <Link
-                  href={publicationSearchHref({ field: entry.label })}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
-                >
-                  {entry.label}
-                  <span className="data-mono text-muted">
-                    {entry.count}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        </div>
+      )}
+    </section>
+  );
 
-      <ChartPanel
-        title="Author collaboration network"
-        description="Co-author links across publications attributed to this researcher."
-      >
-        {!network.ok ? (
-          <ApiErrorPanel error={network.error} what="the author collaboration network" />
-        ) : (
-          <CollaborationNetwork
-            network={network.value.data}
-            scope="researcher"
-            height={380}
-          />
-        )}
-      </ChartPanel>
+  const networkTab = (
+    <Suspense
+      fallback={<ChartSkeleton label="Loading collaboration network…" size="lg" />}
+    >
+      <ResearcherNetworkPanel label={data.label} />
+    </Suspense>
+  );
 
-      <section>
+  const topicsTab =
+    topFields.length > 0 ? (
+      <section className="panel p-4 detail-measure">
         <SectionHeading
-          title="Publications"
-          description="Every record attributed to this name, newest first."
-          action={
-            <DownloadLink href={exportUrl("publications.csv", { q: data.label })}>
-              Export list (CSV)
-            </DownloadLink>
-          }
+          title="Publishes in"
+          description="Fields most represented across the sampled publication list."
         />
-        {!publications.ok ? (
-          <ApiErrorPanel error={publications.error} what="publications" />
-        ) : publications.value.data.length === 0 ? (
-          <EmptyState title="No publications found for this researcher" />
-        ) : (
-          <div className="flex flex-col gap-4">
-            <PublicationCardList publications={publications.value.data} />
-            <Pagination
-              pagination={publications.value.pagination}
-              basePath={researcherHref(researcherKey)}
-              searchParams={query}
-            />
-          </div>
-        )}
+        <ul className="flex flex-wrap gap-2">
+          {topFields.map((entry) => (
+            <li key={entry.label}>
+              <Link
+                href={publicationSearchHref({ field: entry.label })}
+                className="chip"
+              >
+                {entry.label}
+                <span className="data-mono text-muted">{entry.count}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
+    ) : (
+      <EmptyState bare title="No field assignments in the sample" />
+    );
 
+  return (
+    <div className="flex flex-col gap-4">
+      <PrintMeta
+        title={data.label}
+        snapshotDate={profile.value.meta.snapshot_date}
+        extra={
+          profile.value.meta.dataset_stage
+            ? [`Stage: ${profile.value.meta.dataset_stage}`]
+            : undefined
+        }
+      />
+      <ProfileHeader
+        title={personName(data.label)}
+        subtitle={`Active ${formatYearRange(data.year_min, data.year_max)}`}
+        breadcrumbs={breadcrumbs}
+        notice={notice}
+        metrics={metrics}
+      />
+      <ProfileTabs
+        tabs={[
+          { id: "overview", content: overviewTab },
+          { id: "publications", content: publicationsTab },
+          { id: "network", content: networkTab },
+          { id: "topics", content: topicsTab, hidden: topFields.length === 0 },
+        ]}
+      />
       <SnapshotNote
         snapshotDate={profile.value.meta.snapshot_date}
         datasetStage={profile.value.meta.dataset_stage}

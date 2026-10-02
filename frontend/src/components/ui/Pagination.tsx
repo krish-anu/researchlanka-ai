@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { pageHref, type SearchParams } from "@/services/filters";
+import { pageHref, pageSizeHref, type SearchParams } from "@/services/filters";
 import { formatNumber } from "@/services/format";
 import type { Pagination as PaginationMeta } from "@/types/api";
 
@@ -9,6 +9,8 @@ interface PaginationProps {
   basePath: string;
   searchParams: SearchParams;
   pageParam?: string;
+  /** When set, offers these page lengths. Omit on lists that use a fixed size. */
+  pageSizes?: readonly number[];
 }
 
 /** Window of page numbers around the current page, plus first/last anchors. */
@@ -37,6 +39,7 @@ export function Pagination({
   basePath,
   searchParams,
   pageParam = "page",
+  pageSizes,
 }: PaginationProps) {
   const { page, total, total_pages: totalPages, page_size: pageSize } = pagination;
   if (totalPages <= 1) {
@@ -50,20 +53,41 @@ export function Pagination({
   const first = (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, total);
   const linkClass =
-    "inline-flex min-w-9 items-center justify-center rounded border border-rule px-2 py-1 text-body-sm hover:border-primary hover:text-primary";
+    "toolbar-control interactive inline-flex min-w-9 items-center justify-center rounded border border-rule px-3 text-body-sm hover:border-primary hover:text-primary";
 
   return (
     <nav
       className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       aria-label="Pagination"
     >
-      <p className="text-body-sm text-ink-secondary">
-        Showing {formatNumber(first)}–{formatNumber(last)} of{" "}
-        {formatNumber(total)}
+      <p className="flex flex-wrap items-center gap-3 text-body-sm text-ink-secondary">
+        <span>
+          Showing {formatNumber(first)}–{formatNumber(last)} of{" "}
+          {formatNumber(total)}
+        </span>
+        {pageSizes?.length ? (
+          <span className="inline-flex items-center gap-1">
+            <span>Per page</span>
+            {pageSizes.map((size) => (
+              <Link
+                key={size}
+                href={pageSizeHref(basePath, searchParams, size)}
+                aria-current={size === pageSize ? "true" : undefined}
+                className={
+                  size === pageSize
+                    ? "font-medium text-primary"
+                    : "hover:text-primary hover:underline"
+                }
+              >
+                {size}
+              </Link>
+            ))}
+          </span>
+        ) : null}
       </p>
 
       <div className="scroll-x">
-        <ul className="flex items-center gap-1">
+        <ul className="flex items-center gap-2">
           <li>
             {page > 1 ? (
               <Link
@@ -92,7 +116,7 @@ export function Pagination({
                   aria-current={entry === page ? "page" : undefined}
                   className={
                     entry === page
-                      ? "inline-flex min-w-9 items-center justify-center rounded border border-primary bg-primary px-2 py-1 text-body-sm font-semibold text-on-primary"
+                      ? "toolbar-control inline-flex min-w-9 items-center justify-center rounded border border-primary bg-primary px-3 text-body-sm font-semibold text-on-primary"
                       : linkClass
                   }
                 >

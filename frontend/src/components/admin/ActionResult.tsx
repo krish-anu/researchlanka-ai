@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { Button } from "@/components/ui/Button";
 
 import type { ActionState } from "@/services/forms/state";
 
@@ -35,6 +36,7 @@ export function SubmitButton({
   name,
   value,
   disabled = false,
+  className,
 }: {
   label: string;
   pendingLabel?: string;
@@ -42,25 +44,28 @@ export function SubmitButton({
   name?: string;
   value?: string;
   disabled?: boolean;
+  className?: string;
 }) {
   const { pending } = useFormStatus();
 
-  const style =
-    tone === "primary"
-      ? "bg-primary text-on-primary hover:bg-primary-hover border-primary"
-      : tone === "danger"
-        ? "border-rule text-ink-secondary hover:border-critical hover:text-critical"
-        : "border-rule text-ink-secondary hover:border-primary hover:text-primary";
-
+  
   return (
-    <button
+    <Button
       type="submit"
       name={name}
       value={value}
+      variant={
+        tone === "primary"
+          ? "primary"
+          : tone === "danger"
+            ? "danger"
+            : "secondary"
+      }
       disabled={pending || disabled}
-      className={`rounded border px-3 py-1.5 text-body-sm font-medium transition-colors disabled:opacity-60 ${style}`}
+      loading={pending}
+      className={className}
     >
       {pending ? pendingLabel : label}
-    </button>
+    </Button>
   );
 }

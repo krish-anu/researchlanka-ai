@@ -2,18 +2,21 @@ import { TabBar, TabLink } from "@/components/layout/TabNav";
 import { requireCapability } from "@/services/auth/server";
 
 /**
- * Authoritative gate for the account area.
- *
- * `middleware.ts` redirects here too, but this is the check that counts: it
- * runs in the same request as the page render, so it cannot be skipped by a
- * route that middleware's matcher misses.
+ * Personal workspace shell — saved library and flags only.
+ * Middleware also gates these routes; this check runs with the page render.
  */
 const TABS = [
-  // The area root, so it must match exactly or it stays lit on every sub-tab.
   { href: "/account", label: "Profile", exact: true },
   { href: "/account/saved", label: "Saved library" },
   { href: "/account/flags", label: "Your flags" },
-];
+] as const;
+
+export const metadata = {
+  title: {
+    default: "My workspace",
+    template: "%s · My workspace · ResearchLanka",
+  },
+};
 
 export default async function AccountLayout({
   children,
@@ -23,16 +26,25 @@ export default async function AccountLayout({
   await requireCapability("account.manage", "/account");
 
   return (
-    <div className="flex flex-col gap-6">
-      <TabBar label="Account">
+    <div className="workspace-shell flex flex-col gap-5">
+      <header className="workspace-shell-strip">
+        <p className="page-eyebrow">My workspace</p>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
+          Your library and flags. Public charts and rankings stay the same for
+          everyone.
+        </p>
+      </header>
+
+      <TabBar label="My workspace">
         {TABS.map((tab) => (
           <li key={tab.href}>
-            <TabLink href={tab.href} exact={tab.exact}>
+            <TabLink href={tab.href} exact={"exact" in tab ? tab.exact : false}>
               {tab.label}
             </TabLink>
           </li>
         ))}
       </TabBar>
+
       {children}
     </div>
   );

@@ -45,6 +45,8 @@ RANKING_PAGINATION_QUERY_PARAMS = FILTER_QUERY_PARAMS | {
     "metric",
     "page",
     "page_size",
+    "min_count",
+    "landscape",
 }
 
 
@@ -302,8 +304,16 @@ class ResearchLankaAPI:
         )
 
     def researchers(self, query: dict[str, list[str]]) -> dict[str, Any]:
-        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
-        filters = parse_filters(query)
+        validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS | {"max_count"})
+        filters = apply_max_count(query, apply_min_count(query, parse_filters(query)))
+        if first(query, "landscape") == "1":
+            meta = self._meta()
+            landscape_fn = getattr(self.repository, "researcher_landscape", None)
+            if landscape_fn:
+                landscape = landscape_fn(filters)
+                if landscape:
+                    meta = {**meta, "landscape": landscape}
+            return list_response([], page=1, page_size=1, total=0, meta=meta)
         filters["dimension"] = "authors"
         page = parse_positive_int(query, "page", default=1)
         page_size = ranking_page_size(query)
@@ -320,12 +330,26 @@ class ResearchLankaAPI:
             for row in result.get("records", [])
             if not is_institution_like_author(row.get("label"))
         ][:page_size]
+        facts_fn = getattr(self.repository, "researcher_page_facts", None)
+        if facts_fn and rows:
+            facts = facts_fn(filters, [row.get("label") for row in rows])
+            for row in rows:
+                extra = facts.get(row.get("label")) or {}
+                if extra.get("affiliation"):
+                    row["affiliation"] = extra["affiliation"]
+                if extra.get("areas"):
+                    row["areas"] = extra["areas"]
+                if extra.get("year_min") is not None:
+                    row["year_min"] = extra["year_min"]
+                if extra.get("year_max") is not None:
+                    row["year_max"] = extra["year_max"]
+        meta = self._meta()
         return list_response(
             rows,
             page=page,
             page_size=page_size,
             total=int(result.get("total", len(rows))),
-            meta=self._meta(),
+            meta=meta,
         )
 
     def researcher_profile(self, researcher_key: str) -> dict[str, Any]:
@@ -375,7 +399,7 @@ class ResearchLankaAPI:
 
     def institutions(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
-        filters = parse_filters(query)
+        filters = apply_min_count(query, parse_filters(query))
         page = parse_positive_int(query, "page", default=1)
         page_size = ranking_page_size(query)
         result = paginated_rankings(
@@ -445,7 +469,7 @@ class ResearchLankaAPI:
                 details={"field": "source"},
             )
         validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS)
-        filters = parse_filters(query)
+        filters = apply_min_count(query, parse_filters(query))
         page = parse_positive_int(query, "page", default=1)
         page_size = ranking_page_size(query)
         result = paginated_rankings(
@@ -499,7 +523,7 @@ class ResearchLankaAPI:
 
     def fields(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS | {"level"})
-        filters = parse_filters(query)
+        filters = apply_min_count(query, parse_filters(query))
         level = first(query, "level") or "field"
         dimension = {
             "domain": "primary_domain",
@@ -822,6 +846,53 @@ def validate_query_params(query: dict[str, list[str]], allowed: set[str]) -> Non
             "Unsupported query parameter.",
             details={"fields": unsupported, "allowed": sorted(allowed)},
         )
+
+
+def apply_min_count(query: dict[str, list[str]], filters: dict[str, Any]) -> dict[str, Any]:
+    """Keep rankings that have at least this many publications. Not a publication WHERE clause."""
+    raw = first(query, "min_count")
+    if raw is None or str(raw).strip() == "":
+        return filters
+    try:
+        value = int(str(raw).strip())
+    except ValueError as exc:
+        raise APIError(
+            "invalid_query_parameter",
+            "min_count must be a positive integer.",
+            details={"field": "min_count"},
+        ) from exc
+    if value < 1:
+        return filters
+    narrowed = dict(filters)
+    narrowed["min_count"] = value
+    return narrowed
+
+
+def apply_max_count(query: dict[str, list[str]], filters: dict[str, Any]) -> dict[str, Any]:
+    """Keep rankings with at most this many publications. Pairs with min_count for a band."""
+    raw = first(query, "max_count")
+    if raw is None or str(raw).strip() == "":
+        return filters
+    try:
+        value = int(str(raw).strip())
+    except ValueError as exc:
+        raise APIError(
+            "invalid_query_parameter",
+            "max_count must be a positive integer.",
+            details={"field": "max_count"},
+        ) from exc
+    if value < 1:
+        return filters
+    minimum = filters.get("min_count")
+    if isinstance(minimum, int) and value < minimum:
+        raise APIError(
+            "invalid_filter",
+            "max_count must be greater than or equal to min_count.",
+            details={"field": "max_count"},
+        )
+    narrowed = dict(filters)
+    narrowed["max_count"] = value
+    return narrowed
 
 
 def ranking_page_size(query: dict[str, list[str]]) -> int:

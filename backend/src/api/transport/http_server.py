@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import sys
 from http import HTTPStatus
@@ -17,7 +18,20 @@ from src.api.routing.routes import route_get, route_post
 from src.api.core.serializers import normalize_value
 from src.api.services.publications import ResearchLankaAPI
 
-    
+# Browsers abort the previous search request as soon as the next character is typed.
+_CLIENT_DISCONNECT = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
+
+
+def client_disconnected(exc: BaseException) -> bool:
+    if isinstance(exc, _CLIENT_DISCONNECT):
+        return True
+    return isinstance(exc, OSError) and exc.errno in {
+        errno.EPIPE,
+        errno.ECONNRESET,
+        errno.ECONNABORTED,
+    }
+
+
 class APIRequestHandler(BaseHTTPRequestHandler):
     """Route read-only API requests."""
 
@@ -44,6 +58,8 @@ class APIRequestHandler(BaseHTTPRequestHandler):
                 status=HTTPStatus(exc.status),
             )
         except Exception as exc:  # pragma: no cover - network-facing guard
+            if client_disconnected(exc):
+                return
             json_response(
                 self,
                 {
@@ -69,6 +85,8 @@ class APIRequestHandler(BaseHTTPRequestHandler):
                 status=HTTPStatus(exc.status),
             )
         except Exception as exc:  # pragma: no cover - network-facing guard
+            if client_disconnected(exc):
+                return
             json_response(
                 self,
                 {
@@ -113,12 +131,7 @@ def json_response(
     status: HTTPStatus = HTTPStatus.OK,
 ) -> None:
     data = json.dumps(normalize_value(payload), ensure_ascii=False).encode("utf-8")
-    handler.send_response(status)
-    handler.send_header("Content-Type", "application/json; charset=utf-8")
-    handler.send_header("Content-Length", str(len(data)))
-    add_cors_headers(handler)
-    handler.end_headers()
-    handler.wfile.write(data)
+    _send(handler, data, content_type="application/json; charset=utf-8", status=status)
 
 
 def bytes_response(
@@ -128,12 +141,27 @@ def bytes_response(
     content_type: str,
     status: HTTPStatus = HTTPStatus.OK,
 ) -> None:
-    handler.send_response(status)
-    handler.send_header("Content-Type", content_type)
-    handler.send_header("Content-Length", str(len(data)))
-    add_cors_headers(handler)
-    handler.end_headers()
-    handler.wfile.write(data)
+    _send(handler, data, content_type=content_type, status=status)
+
+
+def _send(
+    handler: BaseHTTPRequestHandler,
+    data: bytes,
+    *,
+    content_type: str,
+    status: HTTPStatus,
+) -> None:
+    try:
+        handler.send_response(status)
+        handler.send_header("Content-Type", content_type)
+        handler.send_header("Content-Length", str(len(data)))
+        add_cors_headers(handler)
+        handler.end_headers()
+        handler.wfile.write(data)
+    except Exception as exc:
+        if client_disconnected(exc):
+            return
+        raise
 
 
 def add_cors_headers(handler: BaseHTTPRequestHandler) -> None:

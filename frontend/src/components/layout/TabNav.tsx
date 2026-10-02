@@ -47,7 +47,7 @@ export function TabLink({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-body-sm transition-colors ${
+      className={`interactive -mb-px flex min-h-11 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-body-sm ${
         active
           ? "border-primary font-semibold text-primary"
           : "border-transparent text-ink-secondary hover:text-primary"

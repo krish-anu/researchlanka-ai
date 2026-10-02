@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MachineLegend } from "@/components/ui/ChartPanel";
 import { CORPUS_SOURCES, SourceDot, sourceColor } from "@/components/ui/Provenance";
 
 /**
@@ -28,9 +29,11 @@ export function SiteFooter() {
           <div className="max-w-prose">
             <span className="label-caps block text-muted">Data provenance</span>
             <p className="mt-2 text-body-sm text-ink-secondary">
-              ResearchLanka is a read-only public view of the accepted Sri Lankan AI publication collection. Counts describe records observed in the
+              ResearchLanka is a read-only public view of the accepted Sri Lankan AI
+              publication collection. Counts describe records observed in the
               dataset and are not official national totals.
             </p>
+            <MachineLegend className="mt-3" />
           </div>
 
           <ul className="flex flex-wrap gap-x-4 gap-y-2 text-body-sm text-ink-secondary">

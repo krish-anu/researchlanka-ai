@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+
 import { AIRelevanceStatus } from "@/components/publications/AIRelevanceStatus";
+
+import { BackLink } from "@/components/navigation/BackLink";
+
+
 import { PublicationCardList } from "@/components/publications/PublicationCard";
 import { DataTable } from "@/components/ui/DataTable";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
@@ -15,6 +20,7 @@ import {
   listPublications,
 } from "@/services/api";
 import { formatDate, formatNumber, truncate } from "@/services/format";
+import type { PublicationDetail } from "@/types/api";
 import { getViewer } from "@/services/auth/server";
 import { isSaved } from "@/services/workspace/store";
 import {
@@ -24,8 +30,6 @@ import {
   researcherHref,
   topicHref,
 } from "@/services/links";
-import type { PublicationDetail } from "@/types/api";
-
 interface PageProps {
   params: Promise<{ key: string[] }>;
 }
@@ -57,6 +61,44 @@ function Field({
   );
 }
 
+function AuthorMarks({
+  authors,
+  institutions,
+}: {
+  authors: string[];
+  institutions: string[];
+}) {
+  if (authors.length === 0) {
+    return <span className="text-muted">Authors not recorded</span>;
+  }
+  const paired = institutions.length === authors.length;
+  return (
+    <ul className="author-marks">
+      {authors.map((author, index) => {
+        const institution = paired ? institutions[index] : institutions.join(" · ");
+        const initials = author
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toUpperCase() ?? "")
+          .join("");
+        return (
+          <li key={`${author}-${index}`}>
+            <Link href={researcherHref(author)} className="author-mark">
+              <span aria-hidden>{initials || "?"}</span>
+              <span className="sr-only">{author}</span>
+              <span className="author-mark-tip" role="tooltip">
+                {author}
+                {institution ? ` · ${institution}` : " · Institution not recorded"}
+              </span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function LinkedList({
   items,
   href,
@@ -71,7 +113,7 @@ function LinkedList({
         <li key={`${item}-${index}`}>
           <Link
             href={href(item)}
-            className="rounded border border-rule px-1.5 py-0.5 text-body-sm hover:bg-wash"
+            className="chip rounded-md"
           >
             {item}
           </Link>
@@ -80,6 +122,7 @@ function LinkedList({
     </ul>
   );
 }
+
 
 function formatMonthYear(value: string | null | undefined): string {
   if (!value) return "Not recorded";
@@ -123,6 +166,7 @@ function ReferencePanel({ publication }: { publication: PublicationDetail }) {
   );
 }
 
+
 export default async function PublicationDetailPage({ params }: PageProps) {
   const { key } = await params;
   const publicationKey = decodePublicationKeySegments(key);
@@ -148,9 +192,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
     getPublicationReferences(publicationKey, { page_size: 100 }),
     topic || field
       ? listPublications({
-          ...(topic ? { topic } : { field }),
-          page_size: 6,
-        })
+        ...(topic ? { topic } : { field }),
+        page_size: 6,
+      })
       : Promise.resolve(null),
     viewer.user
       ? isSaved(viewer.user.id, publicationKey)
@@ -160,8 +204,8 @@ export default async function PublicationDetailPage({ params }: PageProps) {
   const relatedPublications =
     related?.ok
       ? related.value.data.filter(
-          (item) => item.publication_key !== publication.publication_key,
-        )
+        (item) => item.publication_key !== publication.publication_key,
+      )
       : [];
   const visibleQualityFlags = publication.quality_flags.filter(
     (flag) => flag !== "citation_count_divergence",
@@ -169,11 +213,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
 
   return (
     <article className="flex flex-col gap-4">
-      <nav className="text-body-sm text-muted">
-        <Link href="/publications" className="hover:text-ink hover:underline">
-          Publications
-        </Link>
-        <span aria-hidden> / </span>
+      <nav className="flex flex-wrap items-center gap-3 text-body-sm text-muted">
+        <BackLink fallback="/publications" label="Publications" />
+        <span aria-hidden>/</span>
         <span>{publication.publication_year ?? "Record"}</span>
       </nav>
 
@@ -185,9 +227,10 @@ export default async function PublicationDetailPage({ params }: PageProps) {
         {/* A div, not a p: LinkedList renders a <ul>, and a list inside a
             paragraph is invalid HTML that browsers re-parent — which desyncs
             the server and client trees and triggers a hydration error. */}
-        <div className="text-body-sm text-ink-secondary">
-          <LinkedList items={publication.authors} href={researcherHref} />
-        </div>
+        <AuthorMarks
+          authors={publication.authors}
+          institutions={publication.institutions}
+        />
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm text-ink-secondary">
           {publication.publication_year ? (
@@ -212,7 +255,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={`https://doi.org/${publication.doi}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
+              className="interactive rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               View at DOI ↗
             </a>
@@ -222,7 +265,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={publication.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
+              className="interactive rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               Source record ↗
             </a>
@@ -232,7 +275,7 @@ export default async function PublicationDetailPage({ params }: PageProps) {
               href={publication.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
+              className="interactive rounded-md border border-rule px-3 py-1.5 text-body-sm hover:bg-wash"
             >
               PDF ↗
             </a>
@@ -262,9 +305,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
       </header>
 
       {publication.abstract ? (
-        <section className="panel p-4">
+        <section className="panel detail-measure p-4">
           <h2 className="font-display text-h3 text-ink">Abstract</h2>
-          <p className="mt-2 max-w-prose whitespace-pre-line text-body-sm leading-relaxed text-ink-secondary">
+          <p className="mt-2 whitespace-pre-line text-body-sm leading-relaxed text-ink-secondary">
             {publication.abstract}
           </p>
         </section>
@@ -285,11 +328,10 @@ export default async function PublicationDetailPage({ params }: PageProps) {
                 publication.venue.volume,
                 publication.venue.issue,
                 publication.venue.pages.first
-                  ? `pp. ${publication.venue.pages.first}${
-                      publication.venue.pages.last
-                        ? `–${publication.venue.pages.last}`
-                        : ""
-                    }`
+                  ? `pp. ${publication.venue.pages.first}${publication.venue.pages.last
+                    ? `–${publication.venue.pages.last}`
+                    : ""
+                  }`
                   : null,
               ]
                 .filter(Boolean)
@@ -321,8 +363,6 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             <Field label="Published">{formatDate(publication.publication_date)}</Field>
           </dl>
         </section>
-
-        <ReferencePanel publication={publication} />
 
         <section className="panel p-4">
           <h2 className="font-display text-h3 text-ink">
@@ -378,9 +418,9 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             <Field label="Last verified">
               {formatMonthYear(
                 publication.trace?.reviewed_at ??
-                  publication.provenance.reviewed_at ??
-                  publication.trace?.normalized_at ??
-                  publication.provenance.normalized_at,
+                publication.provenance.reviewed_at ??
+                publication.trace?.normalized_at ??
+                publication.provenance.normalized_at,
               )}
             </Field>
             <Field label="Sri Lanka affiliation evidence">
@@ -432,12 +472,21 @@ export default async function PublicationDetailPage({ params }: PageProps) {
         </section>
       </div>
 
-      {references.ok && references.value.data.length > 0 ? (
-        <section className="panel p-4">
-          <SectionHeading
-            title="References"
-            description={`${formatNumber(references.value.pagination.total)} reference entries captured for this record.`}
-          />
+      <section className="panel p-4">
+        <SectionHeading
+          title="References"
+          description={
+            references.ok && references.value.data.length > 0
+              ? `${formatNumber(references.value.pagination.total)} listed. Count on the record: ${formatNumber(publication.impact.reference_count)}.`
+              : `Count on the record: ${formatNumber(publication.impact.reference_count)}. No reference list was captured.`
+          }
+        />
+        {publication.impact.reference_count_divergence_flag ? (
+          <p className="mt-2 text-body-sm text-ink-secondary">
+            Sources disagree on the reference count. Treat it as indicative.
+          </p>
+        ) : null}
+        {references.ok && references.value.data.length > 0 ? (
           <DataTable
             columns={[
               {
@@ -486,8 +535,8 @@ export default async function PublicationDetailPage({ params }: PageProps) {
             rows={references.value.data}
             rowKey={(row, index) => `${row.reference_id ?? index}`}
           />
-        </section>
-      ) : null}
+        ) : null}
+      </section>
 
       {relatedPublications.length > 0 ? (
         <section>

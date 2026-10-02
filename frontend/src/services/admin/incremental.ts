@@ -17,6 +17,7 @@ interface RawIncrementalStatus {
   message?: string | null;
   error?: string | null;
   log_path?: string | null;
+  step?: string | null;
   db_labels?: string[] | null;
   review_threshold?: number | string | null;
   requested_from_date?: string | null;
@@ -168,7 +169,8 @@ export async function startIncrementalJob(
     status: "running",
     pid: child.pid,
     started_at: startedAt,
-    message: "Incremental AI publication update is running.",
+    step: "window",
+    message: "Resolving the date window.",
     db_labels: DEFAULT_DB_LABELS,
     review_threshold: threshold,
     requested_from_date: fromDate ?? null,
@@ -187,23 +189,33 @@ export async function startIncrementalJob(
     void appendFile(logPath, text);
   });
   child.on("close", (code) => {
-    void writeIncrementalStatus({
-      status: code === 0 ? "succeeded" : "failed",
-      pid: child.pid,
-      started_at: startedAt,
-      finished_at: nowIso(),
-      message:
-        code === 0
-          ? "Incremental AI publication update completed."
-          : `Incremental AI publication update failed with exit code ${code}.`,
-      db_labels: DEFAULT_DB_LABELS,
-      review_threshold: threshold,
-      requested_from_date: fromDate ?? null,
-      requested_to_date: toDate ?? null,
-      log_path: logPath,
-      result: extractResult(stdout),
-      error: code === 0 ? undefined : stderr.slice(-4000),
-    });
+    void (async () => {
+      let step: string | null = null;
+      try {
+        const previous = JSON.parse(await readFile(STATUS_PATH, "utf-8")) as RawIncrementalStatus;
+        step = typeof previous.step === "string" ? previous.step : null;
+      } catch {
+        step = null;
+      }
+      await writeIncrementalStatus({
+        status: code === 0 ? "succeeded" : "failed",
+        step: code === 0 ? "checkpoint" : step,
+        pid: child.pid,
+        started_at: startedAt,
+        finished_at: nowIso(),
+        message:
+          code === 0
+            ? "Incremental AI publication update completed."
+            : `Incremental AI publication update failed with exit code ${code}.`,
+        db_labels: DEFAULT_DB_LABELS,
+        review_threshold: threshold,
+        requested_from_date: fromDate ?? null,
+        requested_to_date: toDate ?? null,
+        log_path: logPath,
+        result: extractResult(stdout),
+        error: code === 0 ? undefined : stderr.slice(-4000),
+      });
+    })();
   });
 
   return {
@@ -335,6 +347,7 @@ async function normalizeSnapshot(
       numberOrNull(payload.records_updated_for_db),
     loaded: numberOrNull(result.records_loaded),
     message,
+    step: typeof payload.step === "string" ? payload.step : null,
     error: payload.error ?? null,
     logPath,
     log_path: logPath,
@@ -441,6 +454,8 @@ function incrementalArgs({
     "outputs/incremental/runs",
     "--confidence-review-threshold",
     reviewThreshold,
+    "--status",
+    STATUS_PATH,
   ];
   if (fromDate) args.push("--from-date", fromDate);
   if (toDate) args.push("--end-date", toDate);

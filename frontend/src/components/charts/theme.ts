@@ -77,14 +77,14 @@ export function baseLayout(theme: ChartTheme): Record<string, unknown> {
       gridcolor: theme.grid,
       linecolor: theme.baseline,
       zerolinecolor: theme.baseline,
-      tickfont: { color: theme.muted, size: 11 },
+      tickfont: { color: theme.muted, size: 12 },
       automargin: true,
     },
     yaxis: {
       gridcolor: theme.grid,
       linecolor: theme.baseline,
       zerolinecolor: theme.baseline,
-      tickfont: { color: theme.muted, size: 11 },
+      tickfont: { color: theme.muted, size: 12 },
       automargin: true,
     },
     modebar: { bgcolor: theme.surface, color: theme.muted, activecolor: theme.sequential },
@@ -109,3 +109,53 @@ export const CHART_CONFIG: Record<string, unknown> = {
   ],
   toImageButtonOptions: { format: "png", scale: 2 },
 };
+
+/**
+ * Time series may zoom in to read a count. Box-zoom, pan, and scroll-zoom stay
+ * off; zoom-in, zoom-out, and reset remain, and the chart clamps to the data.
+ */
+export const BOUNDED_ZOOM_CONFIG: Record<string, unknown> = {
+  ...CHART_CONFIG,
+  scrollZoom: false,
+  doubleClick: "reset",
+  modeBarButtonsToRemove: [
+    ...(CHART_CONFIG.modeBarButtonsToRemove as string[]),
+    "zoom2d",
+    "pan2d",
+  ],
+};
+
+/** Bar charts stay fitted. Zoom and pan are omitted so the axis cannot be dragged off the data. */
+export const LOCKED_BAR_CONFIG: Record<string, unknown> = {
+  ...CHART_CONFIG,
+  scrollZoom: false,
+  doubleClick: false,
+  modeBarButtonsToRemove: [
+    ...(CHART_CONFIG.modeBarButtonsToRemove as string[]),
+    "zoom2d",
+    "pan2d",
+    "zoomIn2d",
+    "zoomOut2d",
+    "resetScale2d",
+  ],
+};
+
+/**
+ * Panel chrome hierarchy (owned by `ChartPanel`, not Plotly):
+ * title → plain subtitle → insight → Chart/Table + download → plot.
+ * Keep Plotly top margin tight so the modebar does not compete with that stack.
+ */
+export const CHART_PANEL_CHROME = {
+  /** Prefer one short sentence for `insight`. */
+  insightGuidance: "One sentence: what changed, or what to notice first.",
+} as const;
+
+/** Sequential heatmap stops — brand greens, not rainbow (colour-blind safer). */
+export function sequentialHeatColorscale(theme: ChartTheme): [number, string][] {
+  return [
+    [0, theme.surface],
+    [0.4, theme.grid],
+    [0.75, theme.sequential],
+    [1, theme.sequential],
+  ];
+}

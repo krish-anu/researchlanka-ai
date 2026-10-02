@@ -1,5 +1,6 @@
 "use client";
 import { DownloadIcon } from "@/components/layout/NavIcons";
+import { Button } from "@/components/ui/Button";
 
 export function CsvDownload({ filename, headers, rows }: { filename: string; headers: string[]; rows: (string | number)[][] }) {
   function download() {
@@ -12,5 +13,10 @@ export function CsvDownload({ filename, headers, rows }: { filename: string; hea
     const link = document.createElement("a"); link.href = url; link.download = filename; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  return <button type="button" className="button" onClick={download}><DownloadIcon className="h-3.5 w-3.5" />Download CSV</button>;
+  return (
+    <Button type="button" variant="secondary" size="sm" onClick={download}>
+      <DownloadIcon className="h-3.5 w-3.5" />
+      Download CSV
+    </Button>
+  );
 }

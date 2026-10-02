@@ -232,6 +232,27 @@ export const getHealth = () =>
 export const getDatasetMeta = () =>
   request<DetailResponse<DatasetMeta>>("/meta", {}, { revalidate: 0 });
 
+/** Dataset publication-year span from `/meta` — use for year filter bounds. */
+export async function getPublicationYearCoverage(): Promise<{
+  start: number;
+  end: number;
+} | null> {
+  const meta = await getDatasetMeta();
+  if (!meta.ok) return null;
+  const start = meta.value.data.min_publication_year;
+  const end = meta.value.data.max_publication_year;
+  if (
+    typeof start !== "number" ||
+    typeof end !== "number" ||
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    start > end
+  ) {
+    return null;
+  }
+  return { start, end };
+}
+
 export const getLimitations = () =>
   request<DetailResponse<Limitations>>("/limitations", {}, { revalidate: 3600 });
 

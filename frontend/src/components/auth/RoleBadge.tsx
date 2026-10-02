@@ -1,14 +1,13 @@
 import { ROLE_LABEL, type Role } from "@/types/auth";
 
 /**
- * Role chips borrow the tiers already defined by the design system rather than
- * inventing a fourth colour: administrators take the brand petrol, signed-in
- * users the neutral surface. The machine violet stays reserved for AI output.
+ * Role chips use brand / neutral tiers only. Machine violet is reserved for
+ * model-generated content (`MachinePanel`), not role labels.
  */
 const TONE: Record<Role, string> = {
   guest: "border-rule bg-surface text-muted",
   user: "border-rule bg-wash text-ink-secondary",
-  reviewer: "border-machine bg-machine-container text-machine",
+  reviewer: "border-warning/45 bg-wash text-ink-secondary",
   admin: "border-primary bg-primary-container text-on-primary",
 };
 

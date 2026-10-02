@@ -6,6 +6,7 @@ import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { getDatasetMeta, getHealth, getDataQuality, getLimitations } from "@/services/api";
 import { readIncrementalRunSnapshot } from "@/services/admin/incremental";
 import { formatDate, formatNumber, formatPercent } from "@/services/format";
+import { RetryButton } from "@/components/ui/RetryButton";
 
 export const metadata = { title: "Pipeline" };
 
@@ -43,7 +44,12 @@ export default async function AdminPipelinePage() {
   const total = rows.reduce((sum, row) => sum + row.record_count, 0);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
+      <SectionHeading
+        level={1}
+        title="Pipeline"
+        description="Source volumes, load time, and the manual AI update."
+      />
       <section>
         <SectionHeading
           title="Update progress"
@@ -54,13 +60,14 @@ export default async function AdminPipelinePage() {
 
       <section>
         <SectionHeading title="Service" />
-        <div className="panel p-5">
+        <div className="panel p-4">
           <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
             <Row
               label="API status"
               value={
                 health.ok
-                  ? health.value.data.status === "ok"
+                  ? health.value.data.status === "ok" ||
+                    health.value.data.status === "healthy"
                     ? "Healthy"
                     : "Unavailable"
                   : "No response"
@@ -92,6 +99,11 @@ export default async function AdminPipelinePage() {
             not publish a per-source run history, so this console reports load
             timestamps and source volumes rather than job status.
           </p>
+          {!health.ok ? (
+            <div className="mt-3">
+              <RetryButton variant="secondary" />
+            </div>
+          ) : null}
         </div>
       </section>
 

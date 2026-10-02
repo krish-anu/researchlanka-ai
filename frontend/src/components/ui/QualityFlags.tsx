@@ -80,12 +80,24 @@ const ICON_CLASS: Record<Severity, string> = {
 
 const HIDDEN_FLAGS = new Set<QualityFlag | string>(["citation_count_divergence"]);
 
-export function QualityFlagBadge({ flag }: { flag: QualityFlag | string }) {
+export function QualityFlagBadge({
+  flag,
+  compact = false,
+}: {
+  flag: QualityFlag | string;
+  compact?: boolean;
+}) {
   if (HIDDEN_FLAGS.has(flag)) return null;
   const spec = FLAG_SPECS[flag as QualityFlag];
   if (!spec) {
     return (
-      <span className="inline-flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-body-sm text-ink-secondary">
+      <span
+        className={
+          compact
+            ? "inline-flex items-center gap-1 text-body-sm text-ink-secondary"
+            : "inline-flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-body-sm text-ink-secondary"
+        }
+      >
         {flag}
       </span>
     );
@@ -93,7 +105,11 @@ export function QualityFlagBadge({ flag }: { flag: QualityFlag | string }) {
   return (
     <span
       title={spec.description}
-      className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-body-sm ${SEVERITY_CLASS[spec.severity]}`}
+      className={
+        compact
+          ? `inline-flex items-center gap-1 text-body-sm text-ink-secondary`
+          : `inline-flex items-center gap-1 rounded border px-2 py-0.5 text-body-sm ${SEVERITY_CLASS[spec.severity]}`
+      }
     >
       <span aria-hidden className={ICON_CLASS[spec.severity]}>
         {spec.icon}
@@ -106,9 +122,11 @@ export function QualityFlagBadge({ flag }: { flag: QualityFlag | string }) {
 export function QualityFlagList({
   flags,
   max,
+  compact = false,
 }: {
   flags: (QualityFlag | string)[];
   max?: number;
+  compact?: boolean;
 }) {
   const visibleFlags = flags.filter((flag) => !HIDDEN_FLAGS.has(flag));
   if (visibleFlags.length === 0) return null;
@@ -116,14 +134,30 @@ export function QualityFlagList({
   const hidden = visibleFlags.length - shown.length;
 
   return (
-    <ul className="flex flex-wrap gap-1.5" aria-label="Data quality flags">
+    <ul
+      className={compact ? "flex flex-wrap items-center gap-x-2 gap-y-0.5" : "flex flex-wrap gap-1.5"}
+      aria-label="Data quality flags"
+    >
       {shown.map((flag) => (
         <li key={flag}>
-          <QualityFlagBadge flag={flag} />
+          <QualityFlagBadge flag={flag} compact={compact} />
         </li>
       ))}
       {hidden > 0 ? (
-        <li className="self-center text-body-sm text-muted">+{hidden} more</li>
+        <li>
+          <details>
+            <summary className="cursor-pointer text-body-sm text-muted">
+              +{hidden} more
+            </summary>
+            <ul className="mt-1 flex flex-col gap-1">
+              {visibleFlags.slice(shown.length).map((flag) => (
+                <li key={flag}>
+                  <QualityFlagBadge flag={flag} compact={compact} />
+                </li>
+              ))}
+            </ul>
+          </details>
+        </li>
       ) : null}
     </ul>
   );

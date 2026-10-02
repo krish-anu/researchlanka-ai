@@ -55,6 +55,20 @@ export function formatDate(value: string | null | undefined): string {
   });
 }
 
+/** Date and time for live operational status, so a figure can say when it was checked. */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function formatYearRange(
   min: number | null | undefined,
   max: number | null | undefined,
@@ -68,6 +82,18 @@ export function titleCase(value: string): string {
   return value
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/** Person names as Title Case: "JANE DOE" and "jane doe" both read "Jane Doe". */
+export function personName(value: string): string {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (!trimmed) return trimmed;
+  return trimmed
+    .toLowerCase()
+    .replace(
+      /(^|[\s.'’-])(\p{L})/gu,
+      (_match, boundary: string, letter: string) => boundary + letter.toUpperCase(),
+    );
 }
 
 export function truncate(value: string, max: number): string {

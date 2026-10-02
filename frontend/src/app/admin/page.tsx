@@ -1,12 +1,15 @@
 import Link from "next/link";
 
 import { PipelineRunPanel } from "@/components/admin/PipelineRunPanel";
+import { RoleBadge } from "@/components/auth/RoleBadge";
 import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import { getDataQuality, getDatasetMeta, getHealth } from "@/services/api";
+import { getSessionUser } from "@/services/auth/server";
 import { listUsers } from "@/services/auth/store";
-import { formatDate, formatNumber, formatPercent } from "@/services/format";
+import { formatDate, formatDateTime, formatNumber, formatPercent } from "@/services/format";
+import { RetryButton } from "@/components/ui/RetryButton";
 import {
   readIncrementalJobStatus,
   type IncrementalJobStatus,
@@ -46,12 +49,69 @@ export default async function AdminOverviewPage() {
     monitoring,
   } = await loadAdminOverviewData();
 
-  const apiUp = health.ok && health.value.data.status === "ok";
+  const session = await getSessionUser();
+  const checkedAt = new Date().toISOString();
+  const apiUp =
+    health.ok &&
+    (health.value.data.status === "ok" || health.value.data.status === "healthy");
   const admins = users.filter((user) => user.role === "admin").length;
   const suspended = users.filter((user) => user.disabled).length;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
+      <SectionHeading
+        level={1}
+        title="Overview"
+        description="Ingestion health, quality, and the queues that need a person."
+      />
+      <div
+        role="status"
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${
+          apiUp
+            ? "border-rule bg-wash"
+            : "border-critical/40 bg-critical/5"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className={`inline-block h-2.5 w-2.5 rounded-full ${
+              apiUp ? "bg-success-text" : "bg-critical"
+            }`}
+          />
+          <div>
+            <p className="text-body-sm font-medium text-ink">
+              Analytics API {apiUp ? "reachable" : "unreachable"}
+            </p>
+            <p className="text-body-sm text-ink-secondary">
+              {apiUp
+                ? `Contract ${health.value.data.api_version} · Updated at ${formatDateTime(checkedAt)}`
+                : health.ok
+                  ? `Updated at ${formatDateTime(checkedAt)} · service reported ${health.value.data.status}`
+                  : `Unreachable · stale since ${formatDateTime(checkedAt)}. Queue and account tools still work.`}
+            </p>
+            <p className="text-body-sm text-ink-secondary">
+              Last load{" "}
+              {formatDate(meta.ok ? meta.value.data.max_loaded_at ?? null : null)}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {session ? <RoleBadge role={session.role} /> : null}
+          {!apiUp ? (
+          <span className="flex flex-wrap items-center gap-3">
+            <RetryButton variant="secondary" />
+            <Link
+              href="/admin/pipeline"
+              className="text-body-sm font-medium text-primary underline"
+            >
+              Open pipeline
+            </Link>
+          </span>
+          ) : null}
+        </div>
+      </div>
+
       <section>
         <SectionHeading
           title="Corpus"
@@ -61,15 +121,6 @@ export default async function AdminOverviewPage() {
           <ApiErrorPanel error={meta.error} what="the dataset summary" />
         ) : (
           <StatTileGrid>
-            <StatTile
-              label="API"
-              value={apiUp ? "Healthy" : "Unavailable"}
-              caption={
-                health.ok
-                  ? `contract ${health.value.data.api_version}`
-                  : "no response from the service"
-              }
-            />
             <StatTile
               label="Records"
               value={formatNumber(meta.value.data.publication_count ?? null)}
@@ -112,9 +163,12 @@ export default async function AdminOverviewPage() {
         {monitoring ? (
           <MonitoringPanel metrics={monitoring} />
         ) : (
-          <div className="panel p-4 text-body-sm text-ink-secondary">
-            Monitoring metrics are unavailable. Configure the backend admin API
-            token to read production health counters.
+          <div className="panel flex flex-wrap items-center justify-between gap-3 p-4 text-body-sm text-ink-secondary">
+            <p>
+              Monitoring metrics are unavailable. Configure the backend admin API
+              token to read production health counters, then retry.
+            </p>
+            <RetryButton variant="secondary" />
           </div>
         )}
       </section>
@@ -124,7 +178,7 @@ export default async function AdminOverviewPage() {
           title="Needs attention"
           description="Queues owned by this application. Decisions taken here are recorded and applied on the next pipeline run."
         />
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <QueueCard
             href="/admin/ai-review"
             label="AI review"
@@ -249,13 +303,16 @@ function QueueCard({
   return (
     <Link
       href={href}
-      className="panel flex flex-col gap-1 p-4 transition-colors hover:border-primary"
+      className="panel interactive-card flex flex-col gap-2 p-3"
     >
       <span className="label-caps text-muted">{label}</span>
-      <span className="font-display text-h1 tabular text-primary">
+      <span className="font-display text-h2 tabular text-ink">
         {formatNumber(count)}
       </span>
       <span className="text-body-sm text-ink-secondary">{caption}</span>
+      <span className="mt-auto pt-2 text-body-sm font-medium text-primary">
+        Open queue →
+      </span>
     </Link>
   );
 }
@@ -299,7 +356,7 @@ async function loadAdminOverviewData() {
     safeAdminData("open flags", countOpenFlags, 0),
     safeAdminData("resolution candidates", countPendingCandidates, 0),
     safeAdminData("AI review candidates", countPendingAIReviewCandidates, 0),
-    safeAdminData("audit log", () => listAudit(8), [] as AuditEntry[]),
+    safeAdminData("audit log", () => listAudit(5), [] as AuditEntry[]),
     safeAdminData(
       "incremental update status",
       readIncrementalJobStatus,

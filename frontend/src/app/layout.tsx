@@ -3,7 +3,10 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteNav, SiteSearchBar, AIScopeNote } from "@/components/layout/SiteNav";
+import { RouteFocus } from "@/components/layout/RouteFocus";
+import { FilterNavigationProvider } from "@/components/navigation/FilterNavigation";
 import { getViewer } from "@/services/auth/server";
+import { loadAdminNavBadges } from "@/services/admin/navBadges";
 
 import "./globals.css";
 
@@ -27,6 +30,7 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const viewer = await getViewer();
+  const adminBadges = await loadAdminNavBadges(viewer.role);
 
   return (
     <html lang="en">
@@ -36,7 +40,7 @@ export default async function RootLayout({
         nothing. `main` is the only element allowed to grow, which keeps that
         slack inside the content area instead of below the footer.
       */}
-      <body className="flex min-h-screen flex-col bg-page text-ink antialiased">
+      <body className="flex min-h-dvh flex-col bg-page text-ink antialiased">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:border focus:border-rule focus:bg-surface focus:px-3 focus:py-2 focus:text-body-sm"
@@ -44,17 +48,19 @@ export default async function RootLayout({
           Skip to content
         </a>
 
-        <SiteNav viewer={viewer} />
+        <RouteFocus />
+        <SiteNav viewer={viewer} adminBadges={adminBadges} />
 
         {/* Responsive content canvas, offset by the desktop navigation rail. */}
         <div className="app-canvas grow">
-          <SiteSearchBar viewer={viewer} />
+          <SiteSearchBar viewer={viewer} adminBadges={adminBadges} />
           <main
             id="main"
+            tabIndex={-1}
             className="app-main"
           >
             <AIScopeNote />
-            {children}
+            <FilterNavigationProvider>{children}</FilterNavigationProvider>
           </main>
           <SiteFooter />
         </div>
