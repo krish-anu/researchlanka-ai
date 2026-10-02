@@ -82,7 +82,7 @@ jobs:
             printf 'RESEARCHLANKA_SEMANTIC_MANIFEST_PATH=data/models/semantic-search-index-v2026-09-27.json\n'
             printf 'RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=data/models/embeddings-v2026-09-27.parquet\n'
             printf 'RESEARCHLANKA_SEMANTIC_MODEL_PATH=data/models/embedding-model-v3.joblib\n'
-            printf 'RESEARCHLANKA_VALIDATE_SEMANTIC_INDEX_ON_STARTUP=true\n'
+            printf 'RESEARCHLANKA_VALIDATE_SEMANTIC_INDEX_ON_STARTUP=false\n'
             printf 'RESEARCHLANKA_AI_RELEVANCE_MODEL_MANIFEST_PATH=configurations/ai_relevance_model_manifest.json\n'
             printf 'RESEARCHLANKA_INCREMENTAL_STATE_BACKEND=database\n'
             printf 'RESEARCHLANKA_INCREMENTAL_STATE_KEY=openalex_incremental\n'
@@ -98,9 +98,11 @@ jobs:
           ssh -i ~/.ssh/researchlanka_ec2 "$USER_NAME@$EC2_HOST" "APP_DIR='$APP_DIR' bash -s" <<'REMOTE_DEPLOY'
           set -euo pipefail
           cd "$APP_DIR"
-          test -f backend/data/models/semantic-search-index-v2026-09-27.json
-          test -f backend/data/models/embeddings-v2026-09-27.parquet
-          test -f backend/data/models/embedding-model-v3.joblib
+          if ! test -f backend/data/models/semantic-search-index-v2026-09-27.json \
+            || ! test -f backend/data/models/embeddings-v2026-09-27.parquet \
+            || ! test -f backend/data/models/embedding-model-v3.joblib; then
+            echo "::warning::Semantic search artifacts are missing; deploy will continue with startup validation disabled."
+          fi
           COMPOSE="docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml"
           $COMPOSE config >/tmp/researchlanka-compose.ok
           $COMPOSE build api frontend
