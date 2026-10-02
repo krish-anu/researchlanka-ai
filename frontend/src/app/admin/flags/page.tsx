@@ -1,10 +1,12 @@
 import { FlagCard } from "@/components/admin/FlagCard";
 import { EmptyState, SectionHeading } from "@/components/ui/Feedback";
+import { requireCapability } from "@/services/auth/server";
 import { listFlags } from "@/services/workspace/store";
 
 export const metadata = { title: "Flag triage" };
 
 export default async function AdminFlagsPage() {
+  await requireCapability("admin.flags.triage", "/admin/flags");
   const flags = await listFlags();
   const open = flags.filter((flag) => flag.status === "open");
   const closed = flags.filter((flag) => flag.status !== "open");

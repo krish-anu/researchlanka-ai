@@ -5,6 +5,7 @@ import { ApiErrorPanel, SectionHeading } from "@/components/ui/Feedback";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import { getDataQuality, getDatasetMeta, getHealth } from "@/services/api";
+import { requireCapability } from "@/services/auth/server";
 import { listUsers } from "@/services/auth/store";
 import { formatDate, formatNumber, formatPercent } from "@/services/format";
 import {
@@ -33,6 +34,7 @@ export const metadata = { title: "Overview" };
  * the platform can change the corpus from this screen, which it cannot.
  */
 export default async function AdminOverviewPage() {
+  await requireCapability("admin.pipeline.view", "/admin");
   const {
     health,
     meta,

@@ -6,9 +6,9 @@
  * enforces the rule. Doing it here as well means an unsigned visitor lands on
  * the sign-in form without the protected page rendering first.
  *
- * Only the signed/unsigned split and the admin-role check happen here, since
- * both are readable straight from the session cookie. Anything needing the user
- * store stays in the layouts.
+ * Only the signed/unsigned split happens here. The role in the session cookie
+ * can be stale after an administrator promotes an account, so protected pages
+ * enforce role capabilities against the live user store.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -38,16 +38,6 @@ export async function middleware(request: NextRequest) {
     const login = new URL("/login", request.url);
     login.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(login);
-  }
-
-  const reviewerAllowedAdminPath =
-    user.role === "reviewer" &&
-    (pathname === "/admin/ai-review" || pathname.startsWith("/admin/ai-review/"));
-
-  if (needsAdmin && user.role !== "admin" && !reviewerAllowedAdminPath) {
-    const forbidden = new URL("/forbidden", request.url);
-    forbidden.searchParams.set("need", "admin.access");
-    return NextResponse.redirect(forbidden);
   }
 
   return NextResponse.next();
