@@ -199,7 +199,7 @@ INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_END_DATE),--end-date $(INCREMENTAL_
 INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
 INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
 
-.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common-raw final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -237,9 +237,10 @@ help:
 	@echo "  make evaluate-models         Score predictions: confusion matrix, per-class, comparison"
 	@echo "  make validate-dataset        Validate author, institution, citation, collaboration and ownership fields"
 	@echo "  make validate-ownership      Run strict ownership validation only"
-	@echo "  make final-common            Build verified final dataset and ownership sidecars"
-	@echo "  make final-common-enriched   Build final dataset, then fill missing abstracts/keywords"
-	@echo "  make enrich-missing-text     Fill missing abstracts/keywords from fetched metadata before preprocessing"
+	@echo "  make final-common            Build verified final dataset, then fill missing titles/abstracts/keywords"
+	@echo "  make final-common-raw        Build verified final dataset and ownership sidecars only"
+	@echo "  make final-common-enriched   Compatibility alias for final-common"
+	@echo "  make enrich-missing-text     Fill missing titles/abstracts/keywords from fetched metadata before preprocessing"
 	@echo "  make final-common-add-repositories  Append repository review rows to the final dataset with low memory"
 	@echo "  make predict-logreg          Run saved classifier inference on publication text"
 	@echo "  make model-api               Serve FastAPI model endpoints"
@@ -363,10 +364,12 @@ validate-dataset:
 validate-ownership:
 	$(PYTHON) -m src.quality.validate_analysis_dataset --checks ownership --strict --input-csv $(OWNERSHIP_VALIDATE_INPUT) --report-dir $(VALIDATE_REPORT_DIR) $(VALIDATE_EXTRA_ARGS)
 
-final-common:
+final-common-raw:
 	$(PYTHON) scripts/processing/build_final_common_dataset.py --input-csv $(FINAL_COMMON_INPUT) --output-csv $(FINAL_COMMON_OUTPUT) $(FINAL_COMMON_EXTRA_ARGS)
 
-final-common-enriched: final-common enrich-missing-text
+final-common: final-common-raw enrich-missing-text
+
+final-common-enriched: final-common
 
 enrich-missing-text:
 	$(PYTHON) scripts/processing/merge_scraped_results_with_dataset.py \

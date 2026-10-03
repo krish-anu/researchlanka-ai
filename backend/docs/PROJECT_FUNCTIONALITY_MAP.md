@@ -187,20 +187,21 @@ Functionality:
 Files:
 - `backend/scripts/processing/merge_scraped_results_with_dataset.py`
 - `backend/Makefile` target: `make enrich-missing-text`
-- `backend/Makefile` target: `make final-common-enriched`
+- `backend/Makefile` target: `make final-common`
+- `backend/Makefile` target: `make final-common-enriched` (compatibility alias)
 
 Functionality:
 - Merges fetched/scraped `title`, `abstract`, and `keywords` into a current dataset.
 - Matches by DOI, OpenAlex ID, or source record ID.
 - By default, only fills blank values and preserves existing metadata.
 - Can overwrite existing fields if `--overwrite-existing` is used.
-- This step should run after data fetching/collection and before preprocessing/model-ready dataset creation.
-- If `abstract` or `keywords` are missing, the pipeline tries to fill them from the fetched metadata file.
-- Downstream text/model targets now default to `common_publications_final_text_enriched.csv`, so they use enriched abstracts/keywords.
+- This step runs by default after the verified final common dataset is built and before preprocessing/model-ready dataset creation.
+- If `title`, `abstract`, or `keywords` are missing, the pipeline tries to fill them from the fetched metadata file.
+- Downstream text/model targets now default to `common_publications_final_text_enriched.csv`, so they use enriched titles, abstracts, and keywords.
 
 Recent use:
 - Merged `backend/data/processed/common/abstract_fetched.csv`.
-- Filled missing abstracts and keywords in the final AI-classified dataset.
+- Filled missing titles, abstracts, and keywords in the final AI-classified dataset.
 
 ### Text Cleaning
 

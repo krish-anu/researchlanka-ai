@@ -239,9 +239,12 @@ make final-common PYTHON=python
 make validate-ownership PYTHON=python
 ```
 
-The final filename remains `common_publications_final.csv`, but it contains only
-`INCLUDE` rows with `HIGH` or `MEDIUM` confidence and
-`needs_manual_review=False`. Sidecars preserve the non-final evidence:
+The raw final filename remains `common_publications_final.csv`, but it contains
+only `INCLUDE` rows with `HIGH` or `MEDIUM` confidence and
+`needs_manual_review=False`. The same `make final-common` pipeline also fills
+missing `title`, `abstract`, and `keywords` from fetched metadata and writes the
+model-ready enriched dataset to
+`common_publications_final_text_enriched.csv`. Sidecars preserve the non-final evidence:
 `common_publications_ownership_review.csv`,
 `common_publications_ownership_excluded.csv`, and
 `common_publications_verified_sri_lanka_owned.csv`.
