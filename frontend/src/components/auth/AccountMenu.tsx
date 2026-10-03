@@ -7,6 +7,7 @@ import { signOut } from "@/app/actions/auth";
 import { RoleBadge } from "@/components/auth/RoleBadge";
 import { ROLE_CAPABILITY_SUMMARY } from "@/services/auth/permissions";
 import type { Viewer } from "@/types/auth";
+import { Button } from "@/components/ui/Button";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
@@ -46,18 +47,17 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
   if (!viewer.user) {
     return (
       <div className="flex items-center gap-2">
-        <Link
-          href="/login"
-          className="rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
-        >
+        <Button href="/login" variant="secondary" size="sm">
           Sign in
-        </Link>
-        <Link
+        </Button>
+        <Button
           href="/register"
-          className="hidden rounded bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary hover:bg-primary-hover sm:inline-block"
+          variant="primary"
+          size="sm"
+          className="hidden sm:inline-flex"
         >
           Create account
-        </Link>
+        </Button>
       </div>
     );
   }
@@ -71,7 +71,7 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded border border-rule px-2 py-1.5 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
+        className="toolbar-control interactive flex items-center gap-2 rounded border border-rule px-3 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
       >
         <span
           aria-hidden
@@ -115,15 +115,15 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
               href="/account"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="rounded px-2 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
+              className="interactive rounded px-2 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
             >
-              Your account
+              My workspace
             </Link>
             <Link
               href="/account/saved"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="rounded px-2 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
+              className="interactive rounded px-2 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
             >
               Saved library
             </Link>
@@ -132,7 +132,7 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
                 href="/admin"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="rounded px-2 py-1.5 text-body-sm font-semibold text-primary hover:bg-wash"
+                className="interactive rounded px-2 py-1.5 text-body-sm font-semibold text-primary hover:bg-wash"
               >
                 Administration
               </Link>
@@ -141,7 +141,7 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
                 href="/admin/ai-review"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="rounded px-2 py-1.5 text-body-sm font-semibold text-primary hover:bg-wash"
+                className="interactive rounded px-2 py-1.5 text-body-sm font-semibold text-primary hover:bg-wash"
               >
                 AI review
               </Link>
@@ -149,13 +149,14 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
           </div>
 
           <form action={signOut} className="mt-3 border-t border-rule pt-3">
-            <button
+            <Button
               type="submit"
               role="menuitem"
-              className="w-full rounded border border-rule px-2 py-1.5 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
+              variant="secondary"
+              className="w-full"
             >
               Sign out
-            </button>
+            </Button>
           </form>
         </div>
       ) : null}

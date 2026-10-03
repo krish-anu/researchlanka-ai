@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 
 import { PlotlyChart } from "./PlotlyChart";
-import { baseLayout, type ChartTheme } from "./theme";
+import { baseLayout, LOCKED_BAR_CONFIG, type ChartTheme } from "./theme";
 
 interface CompareBarChartProps {
   /** At most 3 entries — the validated all-pairs cap for this palette. */
@@ -56,18 +56,20 @@ export function CompareBarChart({
           legend: {
             orientation: "h",
             y: -0.2,
-            font: { color: theme.inkSecondary, size: 11 },
+            font: { color: theme.inkSecondary, size: 12 },
           },
           margin: { l: 56, r: 16, t: 16, b: 24 },
           xaxis: {
             ...(base.xaxis as Record<string, unknown>),
             showticklabels: false,
             gridcolor: "rgba(0,0,0,0)",
+            fixedrange: true,
           },
           yaxis: {
             ...(base.yaxis as Record<string, unknown>),
-            title: { text: valueLabel, font: { color: theme.muted, size: 11 } },
+            title: { text: valueLabel, font: { color: theme.muted, size: 12 } },
             rangemode: "tozero",
+            fixedrange: true,
           },
         },
       };
@@ -75,5 +77,12 @@ export function CompareBarChart({
     [entries, valueLabel],
   );
 
-  return <PlotlyChart build={build} height={height} ariaLabel={ariaLabel} />;
+  return (
+    <PlotlyChart
+      build={build}
+      height={height}
+      ariaLabel={ariaLabel}
+      config={LOCKED_BAR_CONFIG}
+    />
+  );
 }

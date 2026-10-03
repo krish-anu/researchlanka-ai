@@ -1,25 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
+
 import { submitPublicFeedback, toggleSave } from "@/app/actions/workspace";
+
+import { Button } from "@/components/ui/Button";
+
 import { IDLE, type ActionState } from "@/services/forms/state";
 import { publicationHref } from "@/services/links";
 import { FEEDBACK_REASON_LABEL } from "@/services/workspace/types";
 import type { PublicationTrace } from "@/types/api";
 
+const GUEST_PROMPT_DISMISSED_KEY = "rl-guest-save-flag-prompt";
+
 function Pending({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
+    <Button
       type="submit"
+      variant="secondary"
+      size="sm"
       disabled={pending}
-      className="rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
     >
       {pending ? pendingLabel : label}
-    </button>
+    </Button>
   );
 }
 
@@ -28,9 +35,8 @@ function Result({ state }: { state: ActionState }) {
   return (
     <p
       role="status"
-      className={`text-body-sm ${
-        state.status === "ok" ? "text-success-text" : "text-serious"
-      }`}
+      className={`text-body-sm ${state.status === "ok" ? "text-success-text" : "text-serious"
+        }`}
     >
       {state.message}
     </p>
@@ -84,13 +90,16 @@ function FeedbackControl({
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
+        variant="danger"
+        size="sm"
         onClick={() => setOpen(true)}
-        className="rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:border-serious hover:text-serious"
       >
-        Report a problem
-      </button>
+
+        Flag this record
+      </Button>
+
     );
   }
 
@@ -146,14 +155,17 @@ function FeedbackControl({
       </label>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Pending label="Submit report" pendingLabel="Submitting…" />
-        <button
+
+        <Pending label="Submit flag" pendingLabel="Submitting…" />
+        <Button
+
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setOpen(false)}
-          className="rounded px-3 py-1.5 text-body-sm text-muted hover:text-ink"
         >
           Cancel
-        </button>
+        </Button>
         <Result state={state} />
       </div>
 
@@ -172,6 +184,70 @@ function FeedbackControl({
  * Visitors get the prompt rather than nothing at all: the difference between
  * the two roles is worth stating on the page where it bites, and hiding the
  * controls entirely would make the account look pointless.
+ * Soft guest CTA for save/flag — shown once per session, then a quiet link.
+ * Login page copy stays the full explanation; this only surfaces the offer
+ * where the controls would appear.
+ */
+function GuestSaveFlagPrompt({ next }: { next: string }) {
+  const [ready, setReady] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const loginHref = `/login?next=${encodeURIComponent(next)}`;
+
+  useEffect(() => {
+    try {
+      setDismissed(sessionStorage.getItem(GUEST_PROMPT_DISMISSED_KEY) === "1");
+    } catch {
+      setDismissed(false);
+    }
+    setReady(true);
+  }, []);
+
+  // Avoid SSR/client mismatch until sessionStorage is read.
+  if (!ready) return null;
+
+  const dismiss = () => {
+    try {
+      sessionStorage.setItem(GUEST_PROMPT_DISMISSED_KEY, "1");
+    } catch {
+      /* private mode / blocked storage — still collapse for this view */
+    }
+    setDismissed(true);
+  };
+
+  if (dismissed) {
+    return (
+      <p className="text-body-sm text-muted">
+        <Link href={loginHref} className="text-primary hover:underline">
+          Sign in to save &amp; flag
+        </Link>
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-rule bg-wash px-3 py-2.5"
+      role="note"
+    >
+      <p className="min-w-0 flex-1 text-body-sm text-ink-secondary">
+        <strong className="font-medium text-ink">Sign in to save &amp; flag.</strong>{" "}
+        Keep a library and report metadata that looks wrong.
+      </p>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Button href={loginHref} variant="primary" size="sm">
+          Sign in
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={dismiss}>
+          Not now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Save and flag for signed-in readers, or a soft guest prompt near where
+ * those controls live.
  */
 export function RecordActions({
   publicationKey,
@@ -196,24 +272,27 @@ export function RecordActions({
           public reports are open to everyone.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Link
+          <Button
             href={`/login?next=${encodeURIComponent(next)}`}
-            className="rounded bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary hover:bg-primary-hover"
+            variant="primary"
+            size="sm"
           >
             Sign in
-          </Link>
-          <Link
+          </Button>
+          <Button
             href={`/register?next=${encodeURIComponent(next)}`}
-            className="rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
+            variant="secondary"
+            size="sm"
           >
             Create an account
-          </Link>
+          </Button>
         </div>
         <div className="border-t border-rule pt-3">
           <FeedbackControl publicationKey={publicationKey} title={title} trace={trace} />
         </div>
       </div>
     );
+    return <GuestSaveFlagPrompt next={publicationHref(publicationKey)} />;
   }
 
   return (

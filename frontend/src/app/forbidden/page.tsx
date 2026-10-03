@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { RoleBadge } from "@/components/auth/RoleBadge";
+import { Button } from "@/components/ui/Button";
 import { getViewer } from "@/services/auth/server";
 import { ROLE_DESCRIPTION } from "@/types/auth";
 
@@ -50,18 +49,12 @@ export default async function ForbiddenPage({ searchParams }: PageProps) {
       </p>
 
       <div className="mt-5 flex flex-wrap gap-3">
-        <Link
-          href="/"
-          className="rounded bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:bg-primary-hover"
-        >
+        <Button href="/" variant="primary">
           Back to the dashboard
-        </Link>
-        <Link
-          href="/account"
-          className="rounded border border-rule px-4 py-2 text-body-sm text-ink-secondary hover:border-primary hover:text-primary"
-        >
+        </Button>
+        <Button href="/account" variant="secondary">
           Your account
-        </Link>
+        </Button>
       </div>
     </div>
   );

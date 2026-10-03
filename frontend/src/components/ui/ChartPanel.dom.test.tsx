@@ -8,7 +8,29 @@ import { ViewSwitcher } from "./ViewSwitcher";
 afterEach(cleanup);
 describe("chart and directory views", () => {
   it("opens the accessible table when switching away from the chart and retains export actions", () => {
-    render(<ChartPanel title="AI output" action={<a href="/export">Download CSV</a>} table={<TableDisclosure><table><tbody><tr><td>1030 publications</td></tr></tbody></table></TableDisclosure>}><div>Trend visualization</div></ChartPanel>);
+    render(
+      <ChartPanel
+        title="AI output"
+        description="Annual publication counts"
+        insight="Latest year rose versus the prior year."
+        action={<a href="/export">Download CSV</a>}
+        table={
+          <TableDisclosure>
+            <table>
+              <tbody>
+                <tr>
+                  <td>1030 publications</td>
+                </tr>
+              </tbody>
+            </table>
+          </TableDisclosure>
+        }
+      >
+        <div>Trend visualization</div>
+      </ChartPanel>,
+    );
+    expect(screen.getByText("Annual publication counts")).toBeTruthy();
+    expect(screen.queryByText("Latest year rose versus the prior year.")).toBeNull();
     expect(screen.queryByText("View as table")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Table" }));
     expect(screen.queryByText("Trend visualization")).toBeNull();

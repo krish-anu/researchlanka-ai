@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-
+import { Button } from "@/components/ui/Button";
 import { assignPendingAIReviewsAction } from "@/app/actions/admin";
 import { AIReviewCard } from "@/components/admin/AIReviewCard";
 import { EmptyState, SectionHeading } from "@/components/ui/Feedback";
@@ -46,13 +46,14 @@ export default async function AdminAIReviewPage({
   const counts = result.stats.by_status;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <SectionHeading
-        title="AI Review"
+        level={1}
+        title="AI review"
         description="PostgreSQL-backed review of Gemini AI relevance classifications, with durable reviewer assignment and Google Sheets sync."
       />
 
-      <section className="grid gap-3 md:grid-cols-5">
+      <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         <Metric label="Pending" value={counts.pending_review ?? 0} />
         <Metric label="Auto accepted" value={counts.auto_accepted ?? 0} />
         <Metric label="Human accepted" value={counts.human_accepted ?? 0} />
@@ -82,12 +83,13 @@ export default async function AdminAIReviewPage({
               name="q"
               defaultValue={stringParam(params, "q") ?? ""}
               placeholder="Search title, abstract, or DOI"
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink outline-none focus:border-primary"
+              className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink focus-visible:border-primary"
             />
             <select
               name="view"
               defaultValue={view}
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+              aria-label="Review set"
+              className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
             >
               <option value="mine">My Pending Reviews</option>
               <option value="completed">Completed Reviews</option>
@@ -96,7 +98,8 @@ export default async function AdminAIReviewPage({
             <select
               name="confidence"
               defaultValue={stringParam(params, "confidence") ?? ""}
-              className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+              aria-label="Confidence"
+              className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
             >
               <option value="">Any confidence</option>
               <option value="HIGH">HIGH</option>
@@ -104,16 +107,10 @@ export default async function AdminAIReviewPage({
               <option value="LOW">LOW</option>
               <option value="UNRECOGNIZED">Unrecognized</option>
             </select>
-            <button className="rounded bg-ink px-4 py-2 text-body-sm font-semibold text-surface">
+            <Button type="submit" variant="primary">
               Filter
-            </button>
+            </Button>
           </form>
-
-          <nav className="flex flex-wrap gap-2 text-body-sm">
-            <ViewLink href="/admin/ai-review" active={view === "mine"}>My Pending Reviews</ViewLink>
-            <ViewLink href="/admin/ai-review?view=completed" active={view === "completed"}>Completed Reviews</ViewLink>
-            <ViewLink href="/admin/ai-review?view=all" active={view === "all"}>All Reviews</ViewLink>
-          </nav>
 
           {result.data.length === 0 ? (
             <EmptyState
@@ -164,20 +161,20 @@ function ReviewersTab({
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="panel flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+      <div className="panel flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="label-caps text-muted">Pending assignment</p>
-          <h3 className="mt-1 font-display text-h3 text-ink">
+          <h2 className="mt-1 font-display text-h2 text-ink">
             {formatNumber(unassigned?.pending ?? 0)} unassigned
-          </h3>
+          </h2>
           <p className="mt-1 text-body-sm text-ink-secondary">
             {formatNumber(pending)} pending records total across all reviewers.
           </p>
         </div>
         <form action={assignPendingFormAction}>
-          <button className="rounded bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary">
+          <Button type="submit" variant="primary">
             Assign unassigned pending
-          </button>
+          </Button>
         </form>
       </div>
 
@@ -194,11 +191,11 @@ function ReviewersTab({
 function ReviewerSummary({ reviewer }: { reviewer: ReviewerStat }) {
   const isUnassigned = !reviewer.email;
   return (
-    <div className="panel p-4">
+    <div className="panel p-3">
       <p className="label-caps text-muted">
         {isUnassigned ? "Unassigned" : reviewer.name || reviewer.email}
       </p>
-      <p className="mt-1 font-display text-h3 text-ink">
+      <p className="mt-1 font-display text-h2 tabular text-ink">
         {formatNumber(reviewer.pending)} pending
       </p>
       <p className="text-body-sm text-ink-secondary">
@@ -218,9 +215,9 @@ function ReviewerSummary({ reviewer }: { reviewer: ReviewerStat }) {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="panel p-4">
+    <div className="panel p-3">
       <p className="label-caps text-muted">{label}</p>
-      <p className="mt-1 font-display text-h2 text-ink">{formatNumber(value)}</p>
+      <p className="mt-1 font-display text-h2 tabular text-ink">{formatNumber(value)}</p>
     </div>
   );
 }
@@ -237,7 +234,12 @@ function ViewLink({
   return (
     <Link
       href={href}
-      className={`rounded border px-3 py-2 ${active ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-ink-secondary"}`}
+      scroll={false}
+      className={`interactive inline-flex min-h-11 items-center rounded border px-3 py-2 ${
+        active
+          ? "border-primary bg-primary-muted font-medium text-primary"
+          : "border-rule bg-surface text-ink-secondary hover:border-primary hover:text-primary"
+      }`}
     >
       {children}
     </Link>

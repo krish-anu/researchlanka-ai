@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { IncrementalJobStatus } from "@/services/admin/incremental";
-import { formatDate, formatNumber } from "@/services/format";
+import { formatDate, formatDateTime, formatNumber } from "@/services/format";
+import { Button } from "@/components/ui/Button";
 
 export function PipelineRunPanel({
   status,
@@ -15,6 +16,8 @@ export function PipelineRunPanel({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [checkedAt, setCheckedAt] = useState(() => new Date().toISOString());
+  const [stale, setStale] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -35,9 +38,12 @@ export function PipelineRunPanel({
       cache: "no-store",
     });
     if (!response.ok) {
-      setError("Could not refresh the update status.");
+      setStale(true);
+      setError("Could not refresh the update status. The figures below may be stale.");
       return;
     }
+    setStale(false);
+    setCheckedAt(new Date().toISOString());
     setCurrentStatus(await response.json());
     router.refresh();
   }
@@ -89,7 +95,7 @@ export function PipelineRunPanel({
               <input
                 name="from_date"
                 type="date"
-                className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+                className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
               />
             </label>
             <label className="flex flex-col gap-1 text-body-sm text-ink">
@@ -97,7 +103,7 @@ export function PipelineRunPanel({
               <input
                 name="to_date"
                 type="date"
-                className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+                className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
               />
             </label>
             <label className="flex flex-col gap-1 text-body-sm text-ink">
@@ -105,26 +111,27 @@ export function PipelineRunPanel({
               <input
                 name="confidence_review_threshold"
                 inputMode="decimal"
-                className="rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
+                className="min-h-11 rounded border border-rule bg-surface px-3 py-2 text-body-sm text-ink"
                 placeholder="0.85"
               />
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={running || submitting}
-              className="rounded border border-primary bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
+              loading={submitting}
             >
-              {submitting ? "Starting..." : running ? "Already running" : "Run AI update"}
-            </button>
-            <button
+              {running ? "Already running" : "Run AI update"}
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => void refreshStatus()}
-              className="rounded border border-rule px-3 py-1.5 text-body-sm font-medium text-ink-secondary transition-colors hover:border-primary hover:text-primary"
             >
               Refresh status
-            </button>
+            </Button>
           </div>
           {message ? (
             <p role="status" className="mt-2 border-l-[3px] border-l-good pl-3 text-body-sm text-success-text">
@@ -140,6 +147,10 @@ export function PipelineRunPanel({
 
         <div className="border-t border-rule pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
           <dl className="grid gap-3 text-body-sm">
+            <StatusRow
+              label="Updated"
+              value={`${formatDateTime(checkedAt)}${stale ? " · stale" : ""}`}
+            />
             <StatusRow label="Status" value={currentStatus.status} />
             <StatusRow label="Started" value={formatDate(currentStatus.started_at)} />
             <StatusRow label="Finished" value={formatDate(currentStatus.finished_at)} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Button } from "@/components/ui/Button";
 
 /**
  * Last-resort boundary. Expected API failures are handled as values inside the
@@ -29,13 +30,14 @@ export default function GlobalError({
           Reference: <code className="rounded bg-wash px-1 py-0.5">{error.digest}</code>
         </p>
       ) : null}
-      <button
+      <Button
         type="button"
+        variant="primary"
+        className="mt-4"
         onClick={reset}
-        className="mt-4 rounded-md border border-rule bg-wash px-3 py-1.5 text-body-sm font-medium text-ink hover:bg-page"
       >
         Try again
-      </button>
+      </Button>
     </div>
   );
 }

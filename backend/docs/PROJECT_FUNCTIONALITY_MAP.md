@@ -480,11 +480,17 @@ Files:
 - `backend/src/modeling/nmf_trends.py`
 - `backend/src/api/services/nmf_topics.py`
 - `backend/src/api/repositories/nmf_topics.py`
+- `backend/scripts/modeling/run_bertopic_topic_modeling.py`
+- `backend/src/modeling/bertopic_topic_modeling.py`
 
 Functionality:
 - Runs NMF topic modeling on publication text.
-- Produces topic trends over time.
-- Exposes topic data through API services.
+- Runs semantic (BERTopic) topic modeling: sentence-transformer embeddings
+  clustered by meaning, with c-TF-IDF keywords per topic. Needs the
+  `topic-modeling` extra (`pip install -e ".[topic-modeling]"`).
+- Produces topic trends over time and labels topics emerging / declining / stable.
+- Compares NMF and BERTopic on the same documents (`--compare-nmf`).
+- Exposes topic data through API services (NMF artifacts today).
 
 ### Field/Subfield Prediction
 

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { signUp } from "@/app/actions/auth";
 import { AuthForm } from "@/components/auth/AuthForm";
+import { LibraryBenefitVisual } from "@/components/auth/LibraryBenefitVisual";
 import { RoleBadge } from "@/components/auth/RoleBadge";
 import { ROLE_CAPABILITY_SUMMARY } from "@/services/auth/permissions";
 import { getViewer } from "@/services/auth/server";
@@ -29,7 +30,7 @@ export default async function RegisterPage({ searchParams }: PageProps) {
   if ((await getViewer()).user) redirect(destination);
 
   return (
-    <div className="mx-auto grid w-full max-w-4xl gap-8 md:grid-cols-[minmax(0,1fr)_18rem]">
+    <div className="mx-auto grid w-full max-w-4xl gap-8 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
       <div className="panel p-6 md:p-8">
         <h1 className="font-display text-h1 text-ink">Create an account</h1>
         <p className="mt-2 max-w-prose text-body-sm text-ink-secondary">
@@ -41,22 +42,25 @@ export default async function RegisterPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <aside className="panel h-fit p-5">
-        <RoleBadge role="user" />
-        <p className="mt-3 text-body-sm text-ink-secondary">
-          {ROLE_DESCRIPTION.user}
-        </p>
-        <ul className="mt-3 flex flex-col gap-2 border-t border-rule pt-3 text-body-sm text-ink-secondary">
-          {ROLE_CAPABILITY_SUMMARY.user.map((line) => (
-            <li key={line} className="flex gap-2">
-              <span aria-hidden className="text-muted">
-                ·
-              </span>
-              {line}
-            </li>
-          ))}
-        </ul>
-      </aside>
+      <div className="flex flex-col gap-4">
+        <LibraryBenefitVisual />
+        <aside className="panel h-fit p-5">
+          <RoleBadge role="user" />
+          <p className="mt-3 text-body-sm text-ink-secondary">
+            {ROLE_DESCRIPTION.user}
+          </p>
+          <ul className="mt-3 flex flex-col gap-2 border-t border-rule pt-3 text-body-sm text-ink-secondary">
+            {ROLE_CAPABILITY_SUMMARY.user.map((line) => (
+              <li key={line} className="flex gap-2">
+                <span aria-hidden className="text-muted">
+                  ·
+                </span>
+                {line}
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </div>
     </div>
   );
 }

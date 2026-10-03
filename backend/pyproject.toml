@@ -31,6 +31,15 @@ dependencies = [
 [project.optional-dependencies]
 yaml = ["PyYAML>=6.0"]
 dev = ["pytest==9.1.1"]
+# Semantic topic modelling (scripts/modeling/run_bertopic_topic_modeling.py).
+# Kept out of the core deps because it pulls in torch.
+topic-modeling = [
+    "bertopic==0.17.4",
+    "sentence-transformers==6.1.0",
+    "umap-learn==0.5.12",
+    "hdbscan==0.8.44",
+    "gensim==4.4.0",
+]
 
 [project.scripts]
 research-framework = "research_analytics.cli:main"

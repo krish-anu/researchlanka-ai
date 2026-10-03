@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 
-import { API_BASE_URL, type ApiFailure } from "@/services/api";
+import { Button } from "@/components/ui/Button";
+import { RetryButton } from "@/components/ui/RetryButton";
+import { API_BASE_URL, type ApiFailure, type QueryParams } from "@/services/api";
+import { hasFacetFilters } from "@/services/filters";
 
 /**
  * Explains an API failure without pretending the data is merely empty.
@@ -57,26 +60,106 @@ export function ApiErrorPanel({
           {error.status ? ` (HTTP ${error.status})` : null}
         </p>
       )}
+
+      <div className="mt-4">
+        <RetryButton />
+      </div>
     </div>
   );
+}
+
+/** Primary empty-list recovery: Clear filters vs Browse all. */
+export type EmptyRecovery =
+  | { kind: "clear-filters"; href: string }
+  | { kind: "browse-all"; href: string };
+
+/**
+ * Pick the recovery CTA for a zero-result list.
+ * Facet/range filters → Clear filters; search-only → Browse all.
+ */
+export function emptyListRecovery(
+  basePath: string,
+  filters: QueryParams,
+): EmptyRecovery | undefined {
+  if (hasFacetFilters(filters)) {
+    return { kind: "clear-filters", href: basePath };
+  }
+  if (typeof filters.q === "string" && filters.q) {
+    return { kind: "browse-all", href: basePath };
+  }
+  return undefined;
+}
+
+/** Standard empty-list title, description, and recovery for directory pages. */
+export function emptyListState(
+  entity: string,
+  basePath: string,
+  filters: QueryParams,
+): {
+  title: string;
+  description: string;
+  recovery: EmptyRecovery | undefined;
+} {
+  const query = typeof filters.q === "string" ? filters.q : "";
+  const recovery = emptyListRecovery(basePath, filters);
+
+  if (query && !hasFacetFilters(filters)) {
+    return {
+      title: `No ${entity} match this search`,
+      description: `Try a broader term, or browse the full ${entity} list.`,
+      recovery,
+    };
+  }
+
+  if (hasFacetFilters(filters)) {
+    return {
+      title: `No ${entity} match these filters`,
+      description: "Try removing a year or field filter to widen the results.",
+      recovery,
+    };
+  }
+
+  return {
+    title: `No ${entity} found`,
+    description: `No ${entity} are available in this dataset.`,
+    recovery,
+  };
 }
 
 export function EmptyState({
   title,
   description,
+  recovery,
   action,
+  bare = false,
 }: {
   title: string;
   description?: string;
+  recovery?: EmptyRecovery;
   action?: ReactNode;
+  /** Skip the card chrome when this already sits inside a panel. */
+  bare?: boolean;
 }) {
+  const recoveryLabel =
+    recovery?.kind === "clear-filters"
+      ? "Clear filters"
+      : recovery?.kind === "browse-all"
+        ? "Browse all"
+        : null;
+
   return (
-    <div className="panel flex flex-col items-center gap-2 px-6 py-12 text-center">
-      <p className="font-display text-h3 text-ink">{title}</p>
+    <div className={bare ? "py-2" : "panel px-4 py-3"}>
+      <p className="text-body-md font-medium text-ink">{title}</p>
       {description ? (
-        <p className="max-w-prose text-body-sm text-ink-secondary">{description}</p>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">{description}</p>
       ) : null}
-      {action}
+      {recovery && recoveryLabel ? (
+        <Button href={recovery.href} variant="primary" size="sm" className="mt-2">
+          {recoveryLabel}
+        </Button>
+      ) : (
+        action
+      )}
     </div>
   );
 }
@@ -85,15 +168,21 @@ export function SectionHeading({
   title,
   description,
   action,
+  level = 2,
 }: {
   title: string;
   description?: ReactNode;
   action?: ReactNode;
+  /** Page titles are h1. Sections inside a page stay h2. */
+  level?: 1 | 2;
 }) {
+  const Title = level === 1 ? "h1" : "h2";
   return (
     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h2 className="font-display text-h2 text-ink">{title}</h2>
+        <Title className={`font-display text-ink ${level === 1 ? "text-h1" : "text-h2"}`}>
+          {title}
+        </Title>
         {description ? (
           <p className="mt-1 text-body-sm text-ink-secondary">{description}</p>
         ) : null}
@@ -110,5 +199,25 @@ export function Skeleton({ className = "h-40" }: { className?: string }) {
       aria-hidden
       role="presentation"
     />
+  );
+}
+
+/**
+ * Non-chart panel placeholder (tables, lists). Keeps panel chrome so layout
+ * does not jump when the real section streams in.
+ */
+export function PanelSkeleton({
+  label = "Loading…",
+  bodyClassName = "h-60",
+}: {
+  label?: string;
+  bodyClassName?: string;
+}) {
+  return (
+    <section className="panel p-5" aria-busy="true" aria-live="polite">
+      <span className="sr-only">{label}</span>
+      <Skeleton className="mb-4 h-4 w-48" />
+      <Skeleton className={`w-full ${bodyClassName}`} />
+    </section>
   );
 }

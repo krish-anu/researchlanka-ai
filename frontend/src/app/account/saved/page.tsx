@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { removeSaved } from "@/app/actions/workspace";
+import { Button } from "@/components/ui/Button";
 import { EmptyState, SectionHeading } from "@/components/ui/Feedback";
 import { requireCapability } from "@/services/auth/server";
 import { formatDate } from "@/services/format";
@@ -25,12 +26,9 @@ export default async function SavedPage() {
           title="Nothing saved yet"
           description="Open any publication and use “Save to library” to keep it here."
           action={
-            <Link
-              href="/publications"
-              className="mt-2 rounded bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:bg-primary-hover"
-            >
+            <Button href="/publications" variant="primary" className="mt-2">
               Search publications
-            </Link>
+            </Button>
           }
         />
       ) : (
@@ -56,12 +54,9 @@ export default async function SavedPage() {
               </div>
               <form action={removeSaved} className="shrink-0">
                 <input type="hidden" name="item_id" value={item.id} />
-                <button
-                  type="submit"
-                  className="rounded border border-rule px-3 py-1.5 text-body-sm text-ink-secondary hover:border-critical hover:text-critical"
-                >
+                <Button type="submit" variant="danger" size="sm">
                   Remove
-                </button>
+                </Button>
               </form>
             </li>
           ))}

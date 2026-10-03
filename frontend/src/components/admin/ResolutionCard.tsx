@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { decideResolution } from "@/app/actions/admin";
 import { ActionResult, SubmitButton } from "@/components/admin/ActionResult";
+import { MachinePanel } from "@/components/ui/ChartPanel";
 import { SourceBadge } from "@/components/ui/Provenance";
 import { IDLE } from "@/services/forms/state";
 import type { ResolutionCandidate, ResolutionSide } from "@/services/workspace/types";
@@ -14,7 +15,18 @@ function Side({ side }: { side: ResolutionSide }) {
       <SourceBadge source={side.source} />
       <p className="font-display text-body-lg text-ink">{side.title}</p>
       <p className="data-mono truncate text-muted">
-        {side.doi ? `DOI ${side.doi}` : "No DOI recorded"}
+        {side.doi ? (
+          <a
+            href={side.doi.startsWith("http") ? side.doi : `https://doi.org/${side.doi.replace(/^doi:/i, "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {side.doi}
+          </a>
+        ) : (
+          "No DOI recorded"
+        )}
       </p>
       <p className="text-body-sm text-ink-secondary">
         {side.authors.join(", ")}
@@ -43,14 +55,14 @@ export function ResolutionCard({
 
   return (
     <article
-      className={`panel p-5 ${decided ? "opacity-70" : "border-l-[3px] border-l-machine"}`}
+      className={`panel p-4 ${decided ? "opacity-70" : "border-l-[3px] border-l-primary"}`}
     >
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-rule pb-3">
         <div className="flex items-center gap-2">
-          <span className="label-caps text-machine">AI · match candidate</span>
-          <span className="data-mono text-ink-secondary">
-            confidence {candidate.score.toFixed(2)}
-          </span>
+          <span className="label-caps text-primary">Match candidate</span>
+          {decided ? null : (
+            <span className="label-caps text-primary">Needs decision</span>
+          )}
         </div>
         {decided ? (
           <span className="label-caps text-muted">
@@ -59,6 +71,16 @@ export function ResolutionCard({
           </span>
         ) : null}
       </header>
+
+      <MachinePanel title="Match score" className="mb-4">
+        <p className="data-mono text-ink">
+          Confidence {candidate.score.toFixed(2)}
+        </p>
+        <p className="mt-1 text-body-sm text-ink-secondary">
+          Automated duplicate-detection score for this pair — not a human
+          judgment.
+        </p>
+      </MachinePanel>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <Side side={candidate.left} />
@@ -87,6 +109,8 @@ export function ResolutionCard({
             name="decision"
             value="rejected"
             label="Different works — keep both"
+            tone="danger"
+            className="sm:ml-auto"
           />
           <p className="text-body-sm text-muted">
             Decisions are recorded now and applied on the next pipeline run.

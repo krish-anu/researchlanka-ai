@@ -11,17 +11,38 @@ import {
   CloseIcon,
   DashboardIcon,
   DataQualityIcon,
+  FlagIcon,
   NetworkIcon,
   InstitutionsIcon,
   MenuIcon,
+  PipelineIcon,
   PublicationsIcon,
+  QueueIcon,
   ResearchersIcon,
   SearchIcon,
   TopicsIcon,
+  UsersIcon,
 } from "@/components/layout/NavIcons";
 import { SearchBox } from "@/components/search/SearchBox";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import type { Viewer } from "@/types/auth";
+import type { AdminNavBadges } from "@/services/admin/navBadges";
+import type { Role, Viewer } from "@/types/auth";
+
+/** Directory list pages own a contextual SearchBox — hide the global duplicate. */
+function hasContextualPageSearch(pathname: string): boolean {
+  return (
+    pathname === "/publications" ||
+    pathname === "/researchers" ||
+    pathname === "/institutions"
+  );
+}
+
+const GLOBAL_SEARCH_TYPES = [
+  "publication",
+  "journal",
+  "researcher",
+  "institution",
+] as const;
 
 interface NavLink {
   href: string;
@@ -29,32 +50,149 @@ interface NavLink {
   Icon: ComponentType<{ className?: string }>;
   /** Present only for administrators; the public sections have no requirement. */
   adminOnly?: boolean;
+  /** Section roots must not stay lit on every nested route. */
+  exact?: boolean;
+  /** Pending count. Omitted from the rail when zero. */
+  badge?: number;
+  roles?: Role[];
 }
 
-const NAV_LINKS: NavLink[] = [
-  { href: "/", label: "Overview", Icon: DashboardIcon },
-  { href: "/publications", label: "AI publications", Icon: PublicationsIcon },
-  { href: "/researchers", label: "Researchers", Icon: ResearchersIcon },
-  { href: "/institutions", label: "Institutions", Icon: InstitutionsIcon },
-  { href: "/topics", label: "Topics & fields", Icon: TopicsIcon },
-  { href: "/collaboration", label: "Collaboration", Icon: NetworkIcon },
-  { href: "/data-quality", label: "Data quality", Icon: DataQualityIcon },
-  { href: "/admin", label: "Administration", Icon: AdminIcon, adminOnly: true },
-];
+interface NavSection {
+  id: string;
+  label: string;
+  links: NavLink[];
+}
 
 /**
- * The rail only lists what the viewer can actually open.
- *
- * Hiding the admin entry is presentation, not protection — `middleware.ts` and
- * the admin layout are what stop a visitor typing the URL.
+ * Grouped IA for first-time visitors: scan by job (explore content, find
+ * people/places, see connections, assess trust) rather than 8 peer items.
  */
-function visibleLinks(viewer: Viewer): NavLink[] {
-  return NAV_LINKS.filter((link) => !link.adminOnly || viewer.role === "admin");
+const NAV_SECTIONS: NavSection[] = [
+  {
+    id: "explore",
+    label: "Explore",
+    links: [
+      { href: "/", label: "Overview", Icon: DashboardIcon },
+      { href: "/publications", label: "AI publications", Icon: PublicationsIcon },
+      { href: "/topics", label: "Topics & fields", Icon: TopicsIcon },
+    ],
+  },
+  {
+    id: "people",
+    label: "People & places",
+    links: [
+      { href: "/researchers", label: "Researchers", Icon: ResearchersIcon },
+      { href: "/institutions", label: "Institutions", Icon: InstitutionsIcon },
+    ],
+  },
+  {
+    id: "connections",
+    label: "Connections",
+    links: [{ href: "/collaboration", label: "Collaboration", Icon: NetworkIcon }],
+  },
+  {
+    id: "trust",
+    label: "Trust",
+    links: [{ href: "/data-quality", label: "Data quality", Icon: DataQualityIcon }],
+  },
+];
+
+const ADMIN_LINKS: NavLink[] = [
+  { href: "/admin", label: "Overview", Icon: AdminIcon, exact: true, roles: ["admin"] },
+  { href: "/admin/pipeline", label: "Pipeline", Icon: PipelineIcon, roles: ["admin"] },
+  { href: "/admin/ai-review", label: "AI review", Icon: QueueIcon, roles: ["admin", "reviewer"] },
+  { href: "/admin/review", label: "Resolution queue", Icon: QueueIcon, roles: ["admin"] },
+  { href: "/admin/flags", label: "Flag triage", Icon: FlagIcon, roles: ["admin"] },
+  { href: "/admin/users", label: "Accounts", Icon: UsersIcon, roles: ["admin"] },
+];
+
+const PUBLIC_SITE_LINK: NavLink = {
+  href: "/",
+  label: "Public site",
+  Icon: DashboardIcon,
+  exact: true,
+};
+
+function adminSection(role: Role, badges?: AdminNavBadges): NavSection | null {
+  const counts: Record<string, number> = {
+    "/admin/ai-review": badges?.aiReview ?? 0,
+    "/admin/review": badges?.review ?? 0,
+    "/admin/flags": badges?.flags ?? 0,
+  };
+  const links = ADMIN_LINKS.filter((link) => link.roles?.includes(role)).map((link) => ({
+    ...link,
+    badge: counts[link.href] ?? 0,
+  }));
+  if (links.length === 0) return null;
+  return { id: "admin", label: "Admin", links: [...links, PUBLIC_SITE_LINK] };
 }
 
-/** "/" only matches itself; every other entry also owns its detail routes. */
-function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+/** One door into the console. The six destinations live only inside /admin. */
+function adminEntry(role: Role, badges?: AdminNavBadges): NavSection | null {
+  if (role === "admin") {
+    const waiting = (badges?.flags ?? 0) + (badges?.review ?? 0) + (badges?.aiReview ?? 0);
+    return {
+      id: "admin",
+      label: "Admin",
+      links: [{ href: "/admin", label: "Administration", Icon: AdminIcon, exact: true, badge: waiting }],
+    };
+  }
+  if (role === "reviewer") {
+    return {
+      id: "admin",
+      label: "Admin",
+      links: [{
+        href: "/admin/ai-review",
+        label: "AI review",
+        Icon: QueueIcon,
+        badge: badges?.aiReview ?? 0,
+      }],
+    };
+  }
+  return null;
+}
+
+function sectionsForViewer(
+  viewer: Viewer,
+  badges: AdminNavBadges | undefined,
+  pathname: string,
+): NavSection[] {
+  if (pathname.startsWith("/admin")) {
+    const admin = adminSection(viewer.role, badges);
+    return admin ? [admin] : [];
+  }
+
+  const sections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    links: section.links.filter((link) => !link.adminOnly || viewer.role === "admin"),
+  })).filter((section) => section.links.length > 0);
+
+  const entry = adminEntry(viewer.role, badges);
+  return entry ? [...sections, entry] : sections;
+}
+
+/** "/" and exact section roots match themselves; other entries own detail routes. */
+function isActive(pathname: string, link: Pick<NavLink, "href" | "exact">): boolean {
+  if (link.href === "/" || link.exact) return pathname === link.href;
+  return pathname.startsWith(link.href);
+}
+
+function sectionForPath(
+  pathname: string,
+  viewer: Viewer,
+  badges?: AdminNavBadges,
+): { section: string; label: string } {
+  for (const section of sectionsForViewer(viewer, badges, pathname)) {
+    for (const link of section.links) {
+      if (isActive(pathname, link)) {
+        return { section: section.label, label: link.label };
+      }
+    }
+  }
+  if (pathname.startsWith("/account")) {
+    return { section: "Account", label: "My workspace" };
+  }
+  return { section: "Workspace", label: "Account" };
 }
 
 function NavItem({
@@ -66,7 +204,7 @@ function NavItem({
   active: boolean;
   onNavigate?: () => void;
 }) {
-  const { href, label, Icon } = link;
+  const { href, label, Icon, badge = 0 } = link;
   return (
     <Link
       href={href}
@@ -76,6 +214,11 @@ function NavItem({
     >
       <Icon />
       <span>{label}</span>
+      {badge > 0 ? (
+        <span className="label-caps ml-auto rounded border border-rule bg-sunk px-1.5 py-0.5 text-ink-secondary">
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -92,24 +235,40 @@ function Wordmark({ compact = false }: { compact?: boolean }) {
 
 function NavList({
   viewer,
+  badges,
   onNavigate,
 }: {
   viewer: Viewer;
+  badges?: AdminNavBadges;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname() ?? "/";
+  const sections = sectionsForViewer(viewer, badges, pathname);
+
   return (
-    <ul className="flex flex-col gap-1">
-      {visibleLinks(viewer).map((link) => (
-        <li key={link.href}>
-          <NavItem
-            link={link}
-            active={isActive(pathname, link.href)}
-            onNavigate={onNavigate}
-          />
-        </li>
-      ))}
-    </ul>
+    <div className="nav-sections">
+      {sections.map((section) => {
+        const headingId = `nav-section-${section.id}`;
+        return (
+          <section key={section.id} className="nav-section" aria-labelledby={headingId}>
+            <p id={headingId} className="nav-section-label">
+              {section.label}
+            </p>
+            <ul className="nav-section-list">
+              {section.links.map((link) => (
+                <li key={link.href}>
+                  <NavItem
+                    link={link}
+                    active={isActive(pathname, link)}
+                    onNavigate={onNavigate}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
@@ -121,7 +280,13 @@ function NavList({
  * stay reachable on a phone, so the hamburger opens a focusable panel that
  * closes on route change, on Escape, and on backdrop click.
  */
-export function SiteNav({ viewer }: { viewer: Viewer }) {
+export function SiteNav({
+  viewer,
+  adminBadges,
+}: {
+  viewer: Viewer;
+  adminBadges?: AdminNavBadges;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -170,22 +335,11 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
         <div className="mb-8 px-5">
           <Wordmark />
         </div>
-        <div className="flex-1 overflow-y-auto">
-          <p className="page-eyebrow mb-4 px-7">Workspace</p>
-          <NavList viewer={viewer} />
-        </div>
-        <div className="mx-5 mb-5 rounded-xl border border-rule bg-wash p-4">
-          <p className="text-body-sm font-semibold">Research with perspective.</p>
-          <p className="my-2 text-xs text-muted">Understand the data behind every discovery.</p>
-          <Link href="/data-quality" className="text-xs font-semibold text-primary">Explore data quality →</Link>
+        <div className="flex-1 overflow-y-auto px-0 pb-4">
+          <NavList viewer={viewer} badges={adminBadges} />
         </div>
         <div className="mt-auto flex flex-col gap-2 border-t border-rule px-5 pt-5">
           <RoleBadge role={viewer.role} className="self-start" />
-          <p className="text-body-sm text-muted">
-            {viewer.user
-              ? "Signed in. Public figures are unchanged by your account — it adds a library and flagging."
-              : "Explore accepted AI-related publications from Sri Lanka."}
-          </p>
         </div>
       </nav>
 
@@ -197,20 +351,25 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
           onClick={() => setOpen(true)}
           aria-expanded={open}
           aria-controls="mobile-nav"
-          className="rounded p-2 text-primary hover:bg-wash"
+          className="icon-control"
         >
           <MenuIcon />
           <span className="sr-only">Open navigation</span>
         </button>
         <Wordmark compact />
-        {/* Search stays one tap away on mobile rather than only inside the drawer. */}
-        <Link
-          href="/publications"
-          className="rounded p-2 text-primary hover:bg-wash"
-        >
-          <SearchIcon />
-          <span className="sr-only">Search publications</span>
-        </Link>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          {/* Jump to publications search unless this page already has one. */}
+          {!hasContextualPageSearch(pathname ?? "/") ? (
+            <Link
+              href="/publications"
+              className="icon-control"
+            >
+              <SearchIcon />
+              <span className="sr-only">Search publications</span>
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {/* Mobile slide-over */}
@@ -233,20 +392,25 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
                 ref={closeRef}
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded p-1 text-ink-secondary hover:bg-wash hover:text-ink"
+                className="icon-control text-ink-secondary hover:text-ink"
               >
                 <CloseIcon />
                 <span className="sr-only">Close navigation</span>
               </button>
             </div>
+            {hasContextualPageSearch(pathname ?? "/") ? null : (
             <div className="mb-6 px-4">
-              <SearchBox />
+                <SearchBox
+                  label="Search publications, researchers, and institutions"
+                  placeholder="Search publications, researchers, institutions…"
+                  suggestionTypes={[...GLOBAL_SEARCH_TYPES]}
+                />
             </div>
+            )}
             <div className="flex-1 overflow-y-auto">
-              <NavList viewer={viewer} onNavigate={() => setOpen(false)} />
+              <NavList viewer={viewer} badges={adminBadges} onNavigate={() => setOpen(false)} />
             </div>
             <div className="mt-4 border-t border-rule px-4 pt-4">
-              <div className="mb-3 flex items-center justify-between text-xs text-muted"><span>Theme</span><ThemeToggle /></div>
               <AccountMenu viewer={viewer} />
             </div>
           </nav>
@@ -260,24 +424,82 @@ export function SiteNav({ viewer }: { viewer: Viewer }) {
  * Desktop search bar. Sits above the content column rather than in the rail,
  * keeping search and account actions available across public and protected routes.
  */
-export function SiteSearchBar({ viewer }: { viewer: Viewer }) {
+export function SiteSearchBar({
+  viewer,
+  adminBadges,
+}: {
+  viewer: Viewer;
+  adminBadges?: AdminNavBadges;
+}) {
   const pathname = usePathname() ?? "/";
-  const label = NAV_LINKS.find(link => isActive(pathname, link.href))?.label
-    ?? (pathname.startsWith("/account") ? "My workspace" : "Account");
+  const { section, label } = sectionForPath(pathname, viewer, adminBadges);
+  const showGlobalSearch = !hasContextualPageSearch(pathname);
+
   return (
     <div className="app-topbar sticky top-0 z-30 hidden items-center justify-between gap-5 border-b border-rule bg-surface md:flex">
-      <div className="flex items-center gap-3 whitespace-nowrap text-xs text-muted"><span className="hidden xl:inline">Workspace /</span><span className="font-medium text-ink">{label}</span></div>
+      <div className="flex items-center gap-3 whitespace-nowrap text-label text-muted">
+        <span className="hidden xl:inline">{section} /</span>
+        <span className="font-medium text-ink">{label}</span>
+      </div>
       <div className="flex min-w-0 items-center justify-end gap-4">
-        <div className="w-full max-w-sm"><SearchBox placeholder="Search AI publications…" /></div>
+        {showGlobalSearch ? (
+          <div className="w-full max-w-lg">
+            <SearchBox
+              label="Search publications, researchers, and institutions"
+              placeholder="Search publications, researchers, institutions…"
+              suggestionTypes={[...GLOBAL_SEARCH_TYPES]}
+            />
+          </div>
+        ) : null}
         <ThemeToggle />
-        <div className="shrink-0"><AccountMenu viewer={viewer} /></div>
+        <div className="shrink-0">
+          <AccountMenu viewer={viewer} />
+        </div>
       </div>
     </div>
   );
 }
 
+const AI_SCOPE_HIDDEN = ["/admin", "/account", "/login", "/register", "/forbidden"];
+
+/**
+ * Scope disclosure for the AI collection.
+ * Overview keeps the full note. Other pages show a compact chip.
+ */
 export function AIScopeNote() {
   const pathname = usePathname() ?? "/";
-  if (["/admin", "/account", "/login", "/register", "/forbidden"].some(path => pathname.startsWith(path))) return null;
-  return <div className="ai-scope"><span className="ai-scope-dot" /><span><strong>AI-related publications only.</strong> Charts, rankings, profiles, and exports describe the accepted AI collection.</span><Link href="/data-quality" className="ml-auto shrink-0 text-primary hover:underline">About the data ↗</Link></div>;
+  if (AI_SCOPE_HIDDEN.some((path) => pathname.startsWith(path))) return null;
+
+  const isOverview = pathname === "/";
+
+  if (isOverview) {
+    return (
+      <div className="ai-scope" role="note">
+        <span className="ai-scope-dot" aria-hidden />
+        <span>
+          <strong>AI-related publications only.</strong> Charts, rankings,
+          profiles, and exports describe the accepted AI collection.
+        </span>
+        <Link
+          href="/data-quality"
+          className="ml-auto shrink-0 text-primary hover:underline"
+        >
+          About the data ↗
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ai-scope ai-scope-chip" role="note">
+      <span className="ai-scope-dot" aria-hidden />
+      <span className="ai-scope-chip-label">AI collection only</span>
+      <Link
+        href="/data-quality"
+        className="shrink-0 text-primary hover:underline"
+      >
+        About the data
+      </Link>
+    </div>
+  );
 }
