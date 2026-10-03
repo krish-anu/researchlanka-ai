@@ -77,7 +77,7 @@ export default async function TopicsPage({
       page: fieldsPage,
       page_size: 25,
     }),
-    listTopics({ ...filters, page: topicsPage, page_size: 25 }),
+    listTopics({ ...filters, source: "openalex", page: topicsPage, page_size: 25 }),
     getAnalyticsFields({ ...withoutQueryKey(filters, "field"), limit: 100 }),
   ]);
   const fieldBranches =
