@@ -34,6 +34,7 @@ export default async function TopicPublicationsPage({
   const page = extractPage(query);
 
   const result = await getTopicPublications(topicKey, {
+    source: "openalex",
     page,
     page_size: 25,
   });

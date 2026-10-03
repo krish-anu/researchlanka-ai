@@ -310,6 +310,13 @@ def test_publication_detail_raises_not_found():
     assert exc_info.value.status == 404
 
 
+def test_topics_accepts_explicit_openalex_source():
+    payload = api().topics({"source": ["openalex"], "page_size": ["1"]})
+
+    assert payload["pagination"]["total"] == 1
+    assert payload["data"][0]["label"] == "Medicine"
+
+
 def test_public_feedback_route_accepts_public_report(monkeypatch):
     captured = {}
 

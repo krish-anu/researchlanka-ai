@@ -19,7 +19,7 @@ FRONTEND_NODE_MAX_OLD_SPACE_MB ?= 1536
 DEV_SEMANTIC_EMBEDDINGS ?= data/models/publication_text_embeddings_cli_sample.parquet
 DEV_SEMANTIC_MODEL ?= data/models/publication_text_embedding_model_cli_sample.joblib
 
-.PHONY: help install install-backend install-frontend backend api frontend dev load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update maps-location-confirm maps-location-rescore maps-location-apply test check check-backend check-frontend
+.PHONY: help install install-backend install-frontend backend api frontend dev final-common final-common-raw final-common-enriched load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update maps-location-confirm maps-location-rescore maps-location-apply test check check-backend check-frontend
 
 help:
 	@echo "ResearchLanka development shortcuts"
@@ -29,6 +29,7 @@ help:
 	@echo "  make load-db-2016-now   Compatibility alias for load-db-ai"
 	@echo "  make retire-stale-db-2016-now  Upsert configured data, then soft-retire missing 2016-2026 records"
 	@echo "  make load-db-ai         Build and upsert the AI-reviewed dataset"
+	@echo "  make final-common       Build common dataset and fill missing titles/abstracts/keywords"
 	@echo "  make incremental-update Collect recent OpenAlex records, classify AI relevance, and load review-gated rows"
 	@echo "  make maps-location-confirm  Confirm institution locations with Google Maps evidence"
 	@echo "  make maps-location-apply    Add confirmed Maps aliases to the registry"
@@ -58,6 +59,15 @@ backend: $(BACKEND_DIR)/.venv/bin/python
 	cd $(BACKEND_DIR) && RESEARCHLANKA_SEMANTIC_EMBEDDINGS_PATH=$(DEV_SEMANTIC_EMBEDDINGS) RESEARCHLANKA_SEMANTIC_MODEL_PATH=$(DEV_SEMANTIC_MODEL) $(BACKEND_PYTHON) scripts/api/serve_api.py --host $(BACKEND_HOST) --port $(BACKEND_PORT) $(BACKEND_API_EXTRA_ARGS)
 
 api: backend
+
+final-common:
+	$(MAKE) -C $(BACKEND_DIR) final-common PYTHON=$(BACKEND_PYTHON)
+
+final-common-raw:
+	$(MAKE) -C $(BACKEND_DIR) final-common-raw PYTHON=$(BACKEND_PYTHON)
+
+final-common-enriched:
+	$(MAKE) -C $(BACKEND_DIR) final-common-enriched PYTHON=$(BACKEND_PYTHON)
 
 load-db-2016-now:
 	$(MAKE) -C $(BACKEND_DIR) load-db-2016-now

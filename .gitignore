@@ -88,6 +88,7 @@ data/reports/*.json
 *.zip
 kaggle_ai_relevance_svm_dataset/
 ai_relevance_model_selection_outputs/
+researchlanka_ai_only_dataset_2016_2026/
 outputs/
 frontend/.data/
 
