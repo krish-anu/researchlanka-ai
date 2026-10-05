@@ -597,12 +597,14 @@ class PostgresPublicationRepository:
         ) or {}
         total = metric_count(row.get("publication_count"))
         citation_total = metric_count(row.get("citation_total"))
+        doi_count = metric_count(row.get("doi_count"))
+        doi_eligible_total = doi_count
         return {
             "publication_count": total,
             "citation_total": citation_total,
             "average_citations": round(citation_total / total, 2) if total else 0,
             "open_access_share": ratio(metric_count(row.get("open_access_count")), total),
-            "doi_coverage": ratio(metric_count(row.get("doi_count")), total),
+            "doi_coverage": ratio(doi_count, doi_eligible_total),
             "abstract_coverage": ratio(metric_count(row.get("abstract_count")), total),
             "source_count": self._count_distinct_multivalue(filters, "source_dataset"),
             "limitations": ["observed_records_not_national_totals"],

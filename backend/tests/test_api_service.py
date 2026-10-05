@@ -639,7 +639,9 @@ def test_postgres_analytics_and_facets_do_not_fetch_full_publication_rows(monkey
     monkeypatch.setattr(repository, "list_publications", fail_list_publications)
     monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
 
-    assert repository.analytics_overview({})["publication_count"] == 2
+    overview = repository.analytics_overview({})
+    assert overview["publication_count"] == 2
+    assert overview["doi_coverage"] == 1.0
     assert repository.analytics_trends({}, group_by="year", metric="publications")[0]["key"] == 2024
     assert repository.analytics_rankings({}, dimension="primary_field", metric="publications", limit=10)[0]["label"] == "Medicine"
     assert repository.collaboration_network({}, scope="institution", min_weight=2, limit=10)["edges"][0]["weight"] == 2
