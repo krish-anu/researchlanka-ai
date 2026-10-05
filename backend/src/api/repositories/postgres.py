@@ -909,6 +909,8 @@ class PostgresPublicationRepository:
             if researcher_key:
                 return self._single_researcher_collaboration_network(
                     researcher_key,
+                    year_min=int(filters.get("year_min") or PUBLICATION_COVERAGE_START_YEAR),
+                    year_max=int(filters.get("year_max") or PUBLICATION_COVERAGE_END_YEAR),
                     min_weight=min_weight,
                     limit=limit,
                 )
@@ -1057,8 +1059,8 @@ class PostgresPublicationRepository:
             SELECT
                 source.node_key AS source_key,
                 target.node_key AS target_key,
-                source.label AS source_label,
-                target.label AS target_label,
+                min(source.label) AS source_label,
+                min(target.label) AS target_label,
                 count(*) AS weight,
                 min(source.publication_year) AS first_year,
                 max(source.publication_year) AS last_year
@@ -1066,9 +1068,9 @@ class PostgresPublicationRepository:
             JOIN publication_author_values target
                 ON source.publication_key = target.publication_key
                 AND source.node_key < target.node_key
-            GROUP BY source.node_key, target.node_key, source.label, target.label
+            GROUP BY source.node_key, target.node_key
             HAVING count(*) >= %s
-            ORDER BY weight DESC, source.label ASC, target.label ASC
+            ORDER BY weight DESC, source_label ASC, target_label ASC
             LIMIT %s
             """,
             [*params, INSTITUTION_LIKE_AUTHOR_SQL_PATTERN, min_weight, limit],
@@ -1162,7 +1164,14 @@ class PostgresPublicationRepository:
             return None
         return researcher_key
 
-    def _researcher_coauthor_rows(self, researcher_key: str, *, limit: int) -> list[dict[str, Any]]:
+    def _researcher_coauthor_rows(
+        self,
+        researcher_key: str,
+        *,
+        year_min: int = PUBLICATION_COVERAGE_START_YEAR,
+        year_max: int = PUBLICATION_COVERAGE_END_YEAR,
+        limit: int,
+    ) -> list[dict[str, Any]]:
         return self._fetch_all(
             f"""
             WITH matched_publications AS (
@@ -1208,8 +1217,8 @@ class PostgresPublicationRepository:
             LIMIT %s
             """,
             [
-                PUBLICATION_COVERAGE_START_YEAR,
-                PUBLICATION_COVERAGE_END_YEAR,
+                year_min,
+                year_max,
                 f"%{researcher_key}%",
                 f"%{researcher_key}%",
                 INSTITUTION_LIKE_AUTHOR_SQL_PATTERN,
@@ -1222,10 +1231,17 @@ class PostgresPublicationRepository:
         self,
         researcher_key: str,
         *,
+        year_min: int = PUBLICATION_COVERAGE_START_YEAR,
+        year_max: int = PUBLICATION_COVERAGE_END_YEAR,
         min_weight: int,
         limit: int,
     ) -> dict[str, Any]:
-        rows = self._researcher_coauthor_rows(researcher_key, limit=max(limit * 3, limit + 10))
+        rows = self._researcher_coauthor_rows(
+            researcher_key,
+            year_min=year_min,
+            year_max=year_max,
+            limit=max(limit * 3, limit + 10),
+        )
         target_key = normalized_key(researcher_key)
         center_row = next(
             (row for row in rows if normalized_key(str(row.get("label") or "")) == target_key),
