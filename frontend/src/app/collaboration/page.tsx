@@ -74,7 +74,7 @@ export default async function CollaborationPage({
               />
             </label>
             <label>
-              Maximum nodes
+              Maximum collaboration pairs
               <input
                 name="limit"
                 type="number"

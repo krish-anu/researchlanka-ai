@@ -920,6 +920,8 @@ def test_postgres_researcher_collaboration_network_uses_author_ids(monkeypatch):
     )
 
     assert "author_ids" in calls[0]["sql"]
+    assert "GROUP BY source.node_key, target.node_key" in calls[0]["sql"]
+    assert "GROUP BY source.node_key, target.node_key, source.label" not in calls[0]["sql"]
     assert network["edges"] == [
         {
             "source": "author-perera",
@@ -983,7 +985,7 @@ def test_single_researcher_collaboration_network_uses_coauthor_aggregate(monkeyp
     monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
 
     network = repository.collaboration_network(
-        {"researcher": ["Perera, K."]},
+        {"researcher": ["Perera, K."], "year_min": 2022, "year_max": 2023},
         scope="researcher",
         min_weight=1,
         limit=10,
@@ -992,6 +994,7 @@ def test_single_researcher_collaboration_network_uses_coauthor_aggregate(monkeyp
     assert len(calls) == 1
     assert "regexp_split_to_table" in calls[0]["sql"]
     assert "source.node_key AS source_key" not in calls[0]["sql"]
+    assert calls[0]["params"][0:2] == [2022, 2023]
     assert "%Perera, K.%" in calls[0]["params"]
     assert network["edges"] == [
         {
