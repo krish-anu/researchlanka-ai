@@ -27,3 +27,4 @@ six==1.17.0
 uvicorn[standard]==0.40.0
 urllib3==2.8.0
 rapidfuzz==3.14.6
+xgboost==3.4.1
