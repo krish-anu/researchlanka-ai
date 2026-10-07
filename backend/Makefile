@@ -28,6 +28,9 @@ OPENALEX_LK_AUDIT_EXTRA_ARGS ?=
 CROSSREF_JSONL ?= data/processed/crossref/crossref_sri_lanka_works.jsonl
 CROSSREF_LK_AUDIT_DIR ?= data/reports/crossref_lk_affiliation_audit
 CROSSREF_LK_AUDIT_EXTRA_ARGS ?=
+DEPARTMENT_INPUT ?= data/processed/common/common_publications_final_2016_2026_ai_only_all_review_binary_resolved.csv
+DEPARTMENT_CONFIG ?= configurations/sri_lanka/departments.json
+DEPARTMENT_OUTPUT_DIR ?= data/processed/common/departments
 
 # OpenAlex collection settings.
 # Use OPENALEX_EXTRA_ARGS for optional flags such as --strict-lk-only.
@@ -199,7 +202,7 @@ INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_END_DATE),--end-date $(INCREMENTAL_
 INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
 INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
 
-.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common-raw final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test department-tags publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common-raw final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -223,6 +226,7 @@ help:
 	@echo "  make openalex-doi-conflicts  Rebuild only the DOI conflict CSV from existing JSONL"
 	@echo "  make openalex-report         Print the quality report from existing JSONL"
 	@echo "  make author-disambiguate     Resolve author mentions onto stable author identities"
+	@echo "  make department-tags         Tag publications with configured departments for the API"
 	@echo "  make author-review           Show the ambiguous-author review queue"
 	@echo "  make author-decisions        Promote reviewed verdicts into the decisions file"
 	@echo "  make model-text              Export text and TF-IDF CSVs for model pipelines"
@@ -498,3 +502,14 @@ crossref-lk-audit:
 	$(CROSSREF_LK_AUDIT_EXTRA_ARGS)
 
 lk-affiliation-audits: openalex-lk-audit crossref-lk-audit
+
+# Tag final publications with the departments in DEPARTMENT_CONFIG, from the
+# per-author affiliation strings the LK audits keep. Writes the sidecar the API
+# serves under /departments; re-run after the final dataset or audits change.
+department-tags:
+	$(PYTHON) -m src.pipeline.build_department_tags \
+	--input-csv $(DEPARTMENT_INPUT) \
+	--config $(DEPARTMENT_CONFIG) \
+	--openalex-authorships $(OPENALEX_LK_AUDIT_DIR)/verified_lk_authorships.csv \
+	--crossref-authorships $(CROSSREF_LK_AUDIT_DIR)/verified_lk_authorships.csv \
+	--output-dir $(DEPARTMENT_OUTPUT_DIR)

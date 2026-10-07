@@ -71,6 +71,18 @@ export function InstitutionsIcon(props: IconProps) {
   );
 }
 
+/** An organisation chart: an institution with units below it. */
+export function DepartmentsIcon(props: IconProps) {
+  return (
+    <Frame {...props}>
+      <rect x="9" y="3.5" width="6" height="4.5" rx="1" />
+      <rect x="3" y="16" width="6" height="4.5" rx="1" />
+      <rect x="15" y="16" width="6" height="4.5" rx="1" />
+      <path d="M12 8v4M6 16v-4h12v4" />
+    </Frame>
+  );
+}
+
 export function TopicsIcon(props: IconProps) {
   return (
     <Frame {...props}>

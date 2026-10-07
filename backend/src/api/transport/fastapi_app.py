@@ -203,6 +203,26 @@ def create_publication_router(
     async def topic_publications(topic_key: str, request: Request) -> dict[str, Any]:
         return service.topic_publications(topic_key, query_dict(request))
 
+    @router.get("/departments")
+    async def departments(request: Request) -> dict[str, Any]:
+        return service.departments(query_dict(request))
+
+    @router.get("/departments/{department_key}/publications.csv")
+    async def export_department_publications(department_key: str, request: Request) -> Response:
+        return bytes_payload(service.export_department_publications(department_key, query_dict(request)))
+
+    @router.get("/departments/{department_key}/publications")
+    async def department_publications(department_key: str, request: Request) -> dict[str, Any]:
+        return service.department_publications(department_key, query_dict(request))
+
+    @router.get("/departments/{department_key}/researchers")
+    async def department_researchers(department_key: str, request: Request) -> dict[str, Any]:
+        return service.department_researchers(department_key, query_dict(request))
+
+    @router.get("/departments/{department_key}")
+    async def department_profile(department_key: str, request: Request) -> dict[str, Any]:
+        return service.department_profile(department_key, query_dict(request))
+
     @router.get("/fields")
     async def fields(request: Request) -> dict[str, Any]:
         return service.fields(query_dict(request))

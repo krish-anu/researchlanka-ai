@@ -200,6 +200,24 @@ def route_get(
     if match:
         return service.topic_publications(unquote(match.group(1)), query)
 
+    if path == f"{API_PREFIX}/departments":
+        return service.departments(query)
+
+    match = re.fullmatch(rf"{API_PREFIX}/departments/([^/]+)/publications\.csv", path)
+    if match:
+        return service.export_department_publications(unquote(match.group(1)), query)
+
+    match = re.fullmatch(rf"{API_PREFIX}/departments/([^/]+)/(publications|researchers)", path)
+    if match:
+        department_key = unquote(match.group(1))
+        if match.group(2) == "publications":
+            return service.department_publications(department_key, query)
+        return service.department_researchers(department_key, query)
+
+    match = re.fullmatch(rf"{API_PREFIX}/departments/([^/]+)", path)
+    if match:
+        return service.department_profile(unquote(match.group(1)), query)
+
     raise APIError("not_found", "Endpoint not found.", status=404)
 
 

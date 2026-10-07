@@ -44,6 +44,10 @@ export const institutionHref = (label: string) =>
 
 export const topicHref = (label: string) => `/topics/${encodePath(label)}`;
 
+/** Departments are addressed by their configured id ("uom-cse"), not a label. */
+export const departmentHref = (departmentId: string) =>
+  `/departments/${encodeURIComponent(departmentId)}`;
+
 /** Deep-link into publication search with one filter pre-applied. */
 export function publicationSearchHref(
   filter: Record<string, string | number | undefined>,

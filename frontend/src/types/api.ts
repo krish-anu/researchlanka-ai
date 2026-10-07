@@ -399,3 +399,108 @@ export interface HealthStatus {
   status: "ok" | "healthy" | "unavailable" | "unhealthy";
   api_version: string;
 }
+
+/* -------------------------------------------------------------- departments */
+
+/**
+ * Departments are tagged from per-author affiliation strings by
+ * `backend/src/pipeline/build_department_tags.py`. `explicit` means an author
+ * named the department on that publication; `inferred` means the author named
+ * only the institution there but names the department on their other works.
+ */
+export type DepartmentMatch = "explicit" | "inferred";
+
+export interface DepartmentSummary {
+  department_id: string;
+  name: string;
+  short_name: string;
+  institution_id: string | null;
+  institution_name: string;
+  faculty: string | null;
+  url: string | null;
+  /** Tagged in the sidecar; publications the API no longer serves are included. */
+  tagged_publication_count: number;
+}
+
+export interface DepartmentAuthor {
+  name: string;
+  author_id: string | null;
+  match: DepartmentMatch;
+}
+
+export interface DepartmentPublication extends PublicationSummary {
+  department: {
+    match: DepartmentMatch;
+    /** Affiliation string that matched, or the author-history explanation. */
+    evidence: string | null;
+    authors: DepartmentAuthor[];
+  };
+}
+
+export interface DepartmentResearcher {
+  key: string;
+  label: string;
+  author_ids: string[];
+  publication_count: number;
+  explicit_count: number;
+  inferred_count: number;
+  citation_total: number | null;
+  first_year: number | null;
+  last_year: number | null;
+  top_areas: string[];
+  /** Works in the whole corpus (any field) where they named the department. */
+  department_works: number;
+}
+
+export interface CountEntry {
+  label: string;
+  publication_count: number;
+}
+
+export interface DepartmentYearBucket {
+  year: number;
+  publication_count: number;
+  explicit_count: number;
+  inferred_count: number;
+}
+
+/** Run-level counts over the whole final dataset, independent of year filters. */
+export interface DepartmentCoverage {
+  final_publications?: number;
+  institution_publications?: number;
+  department_publications?: number;
+  explicit_publications?: number;
+  inferred_publications?: number;
+  other_unit_publications?: number;
+  institution_only_publications?: number;
+  department_authors?: number;
+}
+
+export interface DepartmentPortfolio extends DepartmentSummary {
+  publication_count: number;
+  explicit_count: number;
+  inferred_count: number;
+  researcher_count: number;
+  /** `null` when the served rows carry no citation counts. */
+  citation_total: number | null;
+  h_index: number | null;
+  open_access_share: number | null;
+  international_share: number | null;
+  year_min: number | null;
+  year_max: number | null;
+  yearly: DepartmentYearBucket[];
+  /** OpenAlex primary topics. */
+  research_areas: CountEntry[];
+  subfields: CountEntry[];
+  venues: CountEntry[];
+  partner_institutions: CountEntry[];
+  /** ISO 3166-1 alpha-2 codes, Sri Lanka excluded. */
+  partner_countries: CountEntry[];
+  top_researchers: DepartmentResearcher[];
+  top_cited: DepartmentPublication[];
+  method: {
+    generated_at: string | null;
+    rules: { min_history?: number; dominance?: number } & Record<string, unknown>;
+    coverage: DepartmentCoverage;
+  };
+}

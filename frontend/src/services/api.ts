@@ -18,6 +18,10 @@ import type {
   CollaboratorEntry,
   DataQualitySummary,
   DatasetMeta,
+  DepartmentPortfolio,
+  DepartmentPublication,
+  DepartmentResearcher,
+  DepartmentSummary,
   DetailResponse,
   Facets,
   HealthStatus,
@@ -373,6 +377,36 @@ export const compareInstitutions = (institutions: string[]) =>
     institution: institutions,
   });
 
+/* -------------------------------------------------------------- departments */
+
+export const listDepartments = () =>
+  request<ListResponse<DepartmentSummary>>("/departments");
+
+export const getDepartment = (departmentKey: string, params: QueryParams = {}) =>
+  request<DetailResponse<DepartmentPortfolio>>(
+    `/departments/${encodeURIComponent(departmentKey)}`,
+    params,
+  );
+
+export const getDepartmentPublications = (
+  departmentKey: string,
+  params: QueryParams = {},
+) =>
+  request<ListResponse<DepartmentPublication>>(
+    `/departments/${encodeURIComponent(departmentKey)}/publications`,
+    params,
+    { revalidate: 0 },
+  );
+
+export const getDepartmentResearchers = (
+  departmentKey: string,
+  params: QueryParams = {},
+) =>
+  request<ListResponse<DepartmentResearcher>>(
+    `/departments/${encodeURIComponent(departmentKey)}/researchers`,
+    params,
+  );
+
 /* ---------------------------------------------------------- topics & fields */
 
 export const listTopics = (params: QueryParams = {}) =>
@@ -448,6 +482,13 @@ export function exportUrl(
   params: QueryParams = {},
 ): string {
   return `/api/v1/exports/${kind}${buildQuery(params)}`;
+}
+
+export function departmentExportUrl(
+  departmentKey: string,
+  params: QueryParams = {},
+): string {
+  return `/api/v1/departments/${encodeURIComponent(departmentKey)}/publications.csv${buildQuery(params)}`;
 }
 
 export function analyticsExportUrl(

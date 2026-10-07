@@ -275,6 +275,27 @@ author names unless an ORCID-backed identifier is available. Responses must expo
 Implementation note: register static routes such as `/institutions/compare`
 before dynamic routes such as `/institutions/{institution_key}`.
 
+### Departments
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/departments` | Configured departments with their tagged publication counts. |
+| `GET` | `/departments/{department_id}` | Portfolio aggregate: counts, yearly trend, research areas, venues, partners, top researchers. Accepts `year_min`/`year_max`. |
+| `GET` | `/departments/{department_id}/publications` | Department publications with a `department` block (`match`, `evidence`, `authors`). Filters: `match` (`explicit`/`inferred`), `researcher` (name or OpenAlex author id), `q`, `year_min`, `year_max`, `sort`, paging. |
+| `GET` | `/departments/{department_id}/researchers` | Department authors with explicit/inferred counts, active years and main areas. Filters: `q`, `year_min`, `year_max`, `sort` (`publications_desc`, `citations_desc`, `recent_desc`, `name_asc`), paging. |
+| `GET` | `/departments/{department_id}/publications.csv` | CSV export of the publication list, same filters. |
+
+The database records institutions, not departments. Departments are tagged
+offline by `make department-tags` (`src/pipeline/build_department_tags.py`)
+from per-author affiliation strings in the LK affiliation audits, using the
+patterns in `configurations/sri_lanka/departments.json`. A publication is
+`explicit` when an author's affiliation on it names the department, and
+`inferred` when an author lists only the institution there but names the
+department on other works. The API serves the resulting sidecar from
+`data/processed/common/departments` (override with `DEPARTMENT_ARTIFACT_DIR`)
+and returns `503 service_unavailable` when it is missing. Aggregates are
+computed over served `final_publications` rows only.
+
 ### Topics and Fields
 
 | Method | Path | Purpose |

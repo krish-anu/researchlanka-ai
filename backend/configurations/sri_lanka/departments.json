@@ -1,0 +1,27 @@
+{
+  "departments": [
+    {
+      "department_id": "uom-cse",
+      "name": "Department of Computer Science and Engineering",
+      "short_name": "CSE",
+      "institution_id": "LK003",
+      "institution_name": "University of Moratuwa",
+      "faculty": "Faculty of Engineering",
+      "url": "https://cse.mrt.ac.lk",
+      "unit_patterns": [
+        "comput\\w*\\s*science\\s*(?:and|&|\\+)?\\s*eng",
+        "\\bCSE\\b"
+      ],
+      "institution_patterns": [
+        "moratuwa",
+        "katub[ae]dda"
+      ],
+      "openalex_institution_names": [
+        "University of Moratuwa"
+      ],
+      "parent_unit_patterns": [
+        "faculty\\s+of\\s+engineering"
+      ]
+    }
+  ]
+}

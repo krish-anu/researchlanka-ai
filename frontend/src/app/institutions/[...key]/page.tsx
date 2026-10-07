@@ -19,6 +19,7 @@ import {
   getInstitutionCollaborators,
   getInstitutionPublications,
   isNotFound,
+  listDepartments,
 } from "@/services/api";
 import { publicationsForDisplay, topValues, yearHistogram } from "@/services/derive";
 import { extractPage, type SearchParams } from "@/services/filters";
@@ -30,6 +31,7 @@ import {
 } from "@/services/format";
 import {
   decodeKeySegments,
+  departmentHref,
   institutionHref,
   publicationSearchHref,
 } from "@/services/links";
@@ -68,14 +70,21 @@ export default async function InstitutionProfilePage({
 
   const data = profile.value.data;
 
-  const [publications, collaborators, trendSample] = await Promise.all([
+  const [publications, collaborators, trendSample, departmentList] = await Promise.all([
     getInstitutionPublications(institutionKey, { page, page_size: PAGE_SIZE }),
     getInstitutionCollaborators(institutionKey, { limit: 25 }),
     getInstitutionPublications(institutionKey, {
       page: 1,
       page_size: TREND_SAMPLE,
     }),
+    listDepartments(),
   ]);
+  const departments = departmentList.ok
+    ? departmentList.value.data.filter(
+        (department) =>
+          department.institution_name.toLocaleLowerCase() === data.label.toLocaleLowerCase(),
+      )
+    : [];
 
   const sample = trendSample.ok ? trendSample.value.data : [];
   const sampleTotal = trendSample.ok ? trendSample.value.pagination.total : 0;
@@ -294,9 +303,10 @@ export default async function InstitutionProfilePage({
           ))}
         </ul>
         <p className="mt-3 text-body-sm text-muted">
-          Department and faculty breakdowns are not available: the consolidated
-          dataset records institution-level affiliations only, with no
-          sub-unit field to group by.
+          The consolidated dataset records institution-level affiliations.
+          Department breakdowns exist only for departments with a portfolio
+          built from author affiliation strings
+          {departments.length > 0 ? " — see the link above" : ""}.
         </p>
       </section>
     ) : (
@@ -319,6 +329,24 @@ export default async function InstitutionProfilePage({
         subtitle={`Records span ${formatYearRange(data.year_min, data.year_max)}`}
         breadcrumbs={breadcrumbs}
         metrics={metrics}
+        notice={
+          departments.length > 0 ? (
+            <p className="text-body-sm text-ink-secondary">
+              Department portfolio{departments.length > 1 ? "s" : ""}:{" "}
+              {departments.map((department, index) => (
+                <span key={department.department_id}>
+                  {index > 0 ? " · " : null}
+                  <Link
+                    href={departmentHref(department.department_id)}
+                    className="text-primary hover:underline"
+                  >
+                    {department.name} →
+                  </Link>
+                </span>
+              ))}
+            </p>
+          ) : undefined
+        }
         actions={
           <Link
             href={`/institutions/compare?institution=${encodeURIComponent(data.label)}`}

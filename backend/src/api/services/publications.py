@@ -32,6 +32,7 @@ from src.api.core.serializers import (
     publication_summary,
 )
 from src.api.repositories.postgres import is_institution_like_author
+from src.api.services.departments import DepartmentService
 from src.api.services.nmf_topics import TOPIC_DIRECTORY_QUERY_PARAMS, NmfTopicService
 from src.database.final_schema import DATABASE_PUBLICATION_COLUMNS
 
@@ -48,6 +49,8 @@ RANKING_PAGINATION_QUERY_PARAMS = FILTER_QUERY_PARAMS | {
     "min_count",
     "landscape",
 }
+DEPARTMENT_FILTER_QUERY_PARAMS = {"year_min", "year_max"}
+DEPARTMENT_PUBLICATION_QUERY_PARAMS = DEPARTMENT_FILTER_QUERY_PARAMS | {"q", "match", "researcher"}
 
 
 class ResearchLankaAPI:
@@ -58,9 +61,11 @@ class ResearchLankaAPI:
         repository: PublicationRepository,
         *,
         nmf_service: NmfTopicService | None = None,
+        department_service: DepartmentService | None = None,
     ) -> None:
         self.repository = repository
         self.nmf_service = nmf_service or NmfTopicService()
+        self.department_service = department_service or DepartmentService()
 
     def health(self) -> dict[str, Any]:
         ok = self.repository.health()
@@ -520,6 +525,49 @@ class ResearchLankaAPI:
             total=int(result.get("total", 0)),
             meta=self._meta(),
         )
+
+    def departments(self, query: dict[str, list[str]]) -> dict[str, Any]:
+        validate_query_params(query, set())
+        return self.department_service.list_departments(meta=self._meta())
+
+    def department_profile(self, department_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
+        validate_resource_key(department_key, field="department_key")
+        validate_query_params(query, DEPARTMENT_FILTER_QUERY_PARAMS)
+        return self.department_service.department_profile(
+            department_key,
+            query,
+            repository=self.repository,
+            meta=self._meta(),
+        )
+
+    def department_publications(self, department_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
+        validate_resource_key(department_key, field="department_key")
+        validate_query_params(query, DEPARTMENT_PUBLICATION_QUERY_PARAMS | PAGINATION_QUERY_PARAMS | {"sort"})
+        return self.department_service.department_publications(
+            department_key,
+            query,
+            repository=self.repository,
+            meta=self._meta(),
+        )
+
+    def department_researchers(self, department_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
+        validate_resource_key(department_key, field="department_key")
+        validate_query_params(query, DEPARTMENT_FILTER_QUERY_PARAMS | PAGINATION_QUERY_PARAMS | {"q", "sort"})
+        return self.department_service.department_researchers(
+            department_key,
+            query,
+            repository=self.repository,
+            meta=self._meta(),
+        )
+
+    def export_department_publications(
+        self,
+        department_key: str,
+        query: dict[str, list[str]],
+    ) -> tuple[bytes, str]:
+        validate_resource_key(department_key, field="department_key")
+        validate_query_params(query, DEPARTMENT_PUBLICATION_QUERY_PARAMS)
+        return self.department_service.export_publications(department_key, query, repository=self.repository)
 
     def fields(self, query: dict[str, list[str]]) -> dict[str, Any]:
         validate_query_params(query, RANKING_PAGINATION_QUERY_PARAMS | {"level"})

@@ -2,13 +2,23 @@
 
 import { useEffect, useId, useState, type ReactNode } from "react";
 
-export type ProfileTabId = "overview" | "publications" | "network" | "topics";
+export type ProfileTabId =
+  | "overview"
+  | "publications"
+  | "network"
+  | "topics"
+  | "researchers"
+  | "collaboration"
+  | "method";
 
 const TAB_LABELS: Record<ProfileTabId, string> = {
   overview: "Overview",
   publications: "Publications",
   network: "Network",
   topics: "Topics",
+  researchers: "Researchers",
+  collaboration: "Collaboration",
+  method: "Method",
 };
 
 /**

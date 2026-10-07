@@ -95,10 +95,7 @@ function sourceCount(publication: PublicationSummary): number {
   return publication.source_dataset.length;
 }
 
-function preferredPublication(
-  current: PublicationSummary,
-  candidate: PublicationSummary,
-): PublicationSummary {
+function preferredPublication<T extends PublicationSummary>(current: T, candidate: T): T {
   if (sourceCount(candidate) !== sourceCount(current)) {
     return sourceCount(candidate) > sourceCount(current) ? candidate : current;
   }
@@ -111,10 +108,8 @@ function preferredPublication(
   return current;
 }
 
-export function publicationsForDisplay(
-  publications: PublicationSummary[],
-): PublicationSummary[] {
-  const byIdentity = new Map<string, PublicationSummary>();
+export function publicationsForDisplay<T extends PublicationSummary>(publications: T[]): T[] {
+  const byIdentity = new Map<string, T>();
 
   for (const publication of publications) {
     if (!normalizedText(publication.title)) continue;

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   decodeKeySegments,
   decodePublicationKeySegments,
+  departmentHref,
   institutionHref,
   publicationHref,
   publicationSearchHref,
@@ -145,5 +146,15 @@ describe("publicationSearchHref", () => {
   it("encodes values containing spaces and ampersands", () => {
     const href = publicationSearchHref({ institution: "Colombo & Kelaniya" });
     expect(href).toContain("institution=Colombo+%26+Kelaniya");
+  });
+});
+
+describe("departmentHref", () => {
+  it("addresses departments by their configured id", () => {
+    expect(departmentHref("uom-cse")).toBe("/departments/uom-cse");
+  });
+
+  it("encodes an id as a single path segment", () => {
+    expect(departmentHref("a/b c")).toBe("/departments/a%2Fb%20c");
   });
 });

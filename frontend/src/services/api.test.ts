@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyticsExportUrl, exportUrl } from "./api";
+import { analyticsExportUrl, departmentExportUrl, exportUrl } from "./api";
 
 describe("browser exports", () => {
   it("uses the same-origin API route and preserves repeated filters and access flags", () => {
@@ -12,5 +12,10 @@ describe("browser exports", () => {
   });
   it("keeps the chart's selection and grouping in the analytics CSV", () => {
     expect(analyticsExportUrl("trends", { field: ["Computer Science"], group_by: "year", year_max: 2025 })).toBe("/api/v1/exports/analytics/trends.csv?field=Computer+Science&group_by=year&year_max=2025");
+  });
+  it("exports a department's publications with its active filters and no blank ones", () => {
+    expect(departmentExportUrl("uom-cse", { year_min: 2022, match: "inferred", researcher: undefined })).toBe(
+      "/api/v1/departments/uom-cse/publications.csv?year_min=2022&match=inferred",
+    );
   });
 });

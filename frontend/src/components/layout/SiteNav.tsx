@@ -11,6 +11,7 @@ import {
   CloseIcon,
   DashboardIcon,
   DataQualityIcon,
+  DepartmentsIcon,
   FlagIcon,
   NetworkIcon,
   InstitutionsIcon,
@@ -83,6 +84,7 @@ const NAV_SECTIONS: NavSection[] = [
     links: [
       { href: "/researchers", label: "Researchers", Icon: ResearchersIcon },
       { href: "/institutions", label: "Institutions", Icon: InstitutionsIcon },
+      { href: "/departments", label: "Departments", Icon: DepartmentsIcon },
     ],
   },
   {
