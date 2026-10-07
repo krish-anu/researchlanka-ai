@@ -1,12 +1,19 @@
 import { CollaborationNetwork } from "@/components/network/CollaborationNetwork";
 import { ChartPanel } from "@/components/ui/ChartPanel";
 import { ApiErrorPanel } from "@/components/ui/Feedback";
-import { getCollaborationNetwork } from "@/services/api";
+import { getCollaborationNetwork, type QueryParams } from "@/services/api";
 import { networkComponentForLabel } from "@/services/network";
 
 /** Streamed network tab for researcher profiles — does not block overview/pubs. */
-export async function ResearcherNetworkPanel({ label }: { label: string }) {
+export async function ResearcherNetworkPanel({
+  label,
+  filters = {},
+}: {
+  label: string;
+  filters?: QueryParams;
+}) {
   const network = await getCollaborationNetwork({
+    ...filters,
     scope: "researcher",
     researcher: [label],
     limit: 40,

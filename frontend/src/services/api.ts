@@ -326,8 +326,9 @@ export const getResearcherPublications = (
   params: QueryParams = {},
 ) =>
   request<ListResponse<PublicationSummary>>(
-    `/researchers/${encodeURIComponent(researcherKey)}/publications`,
-    params,
+    "/publications",
+    { ...params, researcher: [researcherKey] },
+    { revalidate: 0 },
   );
 
 export const getResearcherCoauthors = (

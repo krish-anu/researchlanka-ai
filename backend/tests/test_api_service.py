@@ -877,6 +877,37 @@ def test_researcher_service_filters_institution_like_repository_results():
         service.researcher_profile("University of Jaffna")
 
 
+def test_researcher_publications_apply_profile_filters_and_fixed_researcher():
+    class CapturingRepository(FakeRepository):
+        received_filters = None
+
+        def list_publications(self, filters, *, page, page_size, sort, include_facets):
+            self.received_filters = filters
+            return super().list_publications(
+                filters,
+                page=page,
+                page_size=page_size,
+                sort=sort,
+                include_facets=include_facets,
+            )
+
+    repository = CapturingRepository()
+    service = ResearchLankaAPI(repository)
+
+    response = service.researcher_publications(
+        "A. Author",
+        {"year_min": ["2024"], "year_max": ["2024"], "field": ["Medicine"]},
+    )
+
+    assert response["pagination"]["total"] == 1
+    assert repository.received_filters == {
+        "year_min": 2024,
+        "year_max": 2024,
+        "field": ["Medicine"],
+        "researcher": ["A. Author"],
+    }
+
+
 def test_researcher_service_overfetches_to_fill_requested_limit_after_filtering():
     class MixedResearcherRepository(FakeRepository):
         requested_limit = None
