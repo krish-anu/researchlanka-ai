@@ -7,6 +7,8 @@ RUN npm ci
 FROM node:22-slim AS builder
 
 WORKDIR /app
+ARG API_BASE_URL=http://127.0.0.1:8080/api/v1
+ENV API_BASE_URL=$API_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SEED_TEST_ACCOUNTS=false
 ENV APP_DATA_DIR=/tmp/researchlanka-build-data
