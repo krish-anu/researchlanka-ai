@@ -45,11 +45,13 @@ import {
 import { clampYearFilters, extractFilters, type SearchParams } from "@/services/filters";
 import { formatCompact, formatNumber, formatRatioAsPercent } from "@/services/format";
 import { institutionHref } from "@/services/links";
+import { IS_CSE_UOM_SITE } from "@/config/site";
 
 export const metadata = {
   title: "AI research overview",
-  description:
-    "Publication trends, institutions, fields, and collaborations within Sri Lanka’s accepted AI collection.",
+  description: IS_CSE_UOM_SITE
+    ? "Publication trends, researchers, fields, and collaborations in the affiliation-verified UoM CSE AI collection."
+    : "Publication trends, institutions, fields, and collaborations within Sri Lanka’s accepted AI collection.",
 };
 
 function StorySection({
@@ -160,7 +162,7 @@ export default async function DashboardPage({
               }
             />
             <StatTile
-              label="Institutions"
+              label={IS_CSE_UOM_SITE ? "Collaborating institutions" : "Institutions"}
               icon={<InstitutionsIcon />}
               value={
                 institutions.ok
@@ -227,9 +229,11 @@ export default async function DashboardPage({
       >
         <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
           <ChartPanel
-            title="Institutions advancing AI research"
+            title={IS_CSE_UOM_SITE ? "Where CSE researchers collaborate" : "Institutions advancing AI research"}
             description={withSelectionScope(
-              "Institutions ranked by AI publication count",
+              IS_CSE_UOM_SITE
+                ? "Institutions appearing on verified CSE AI publications"
+                : "Institutions ranked by AI publication count",
               selectionScoped,
             )}
             action={

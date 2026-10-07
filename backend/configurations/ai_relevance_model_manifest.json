@@ -1,17 +1,19 @@
 {
-  "model_id": "ai-relevance-xgb-a1-precision-v1",
+  "model_id": "ai-relevance-xgb-a2-threshold-066-v1",
   "model_type": "xgboost",
-  "model_path": "data/models/ai_relevance/metadata_ablation_precision_092/A1_title_abstract.joblib",
+  "model_path": "data/models/ai_relevance/metadata_ablation_precision_092/A2_title_abstract_keywords.joblib",
   "features": [
     "title",
-    "abstract"
+    "abstract",
+    "keywords"
   ],
-  "calibrator": "sigmoid-v1",
-  "calibrator_path": "data/models/ai_relevance/metadata_ablation_precision_092/calibration/probability_calibrator_sigmoid.joblib",
-  "auto_ai_threshold": 0.929405,
+  "calibrator": null,
+  "calibrator_path": null,
+  "secondary_model_path": null,
+  "auto_ai_threshold": 0.66,
   "auto_non_ai_threshold": 0.4,
-  "selected_binary_threshold": 0.4,
-  "training_dataset": "human-reviewed-v4",
-  "created_at": "2026-09-28",
-  "sha256": "47acbfca3364b5dcc74e2cf28439d643ba310e3de4ab3cbc189a69a258b311e6"
+  "selected_binary_threshold": 0.66,
+  "training_dataset": "human-reviewed-v4-enriched-abstracts",
+  "created_at": "2026-10-03",
+  "sha256": "f315d362c61a47b04c3e5bbad3a1054b75550bffcdd92825ecb7ce609903773d"
 }

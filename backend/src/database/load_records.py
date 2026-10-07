@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
-from src.database.connection import get_connection
+from src.database.connection import close_connection_pool, get_connection
 from src.database.loader import (
     build_final_publication_row,
     coerce_boolean,
@@ -2047,21 +2047,24 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     try:
-        loaded = load_record_file(
-            args.path,
-            file_format=args.format,
-            database_url=args.database_url,
-            batch_size=args.batch_size,
-            ensure_schema=not args.no_ensure_schema,
-            limit=args.limit,
-            year_min=args.year_min,
-            year_max=args.year_max,
-            require_doi=args.require_doi,
-            reset=args.reset,
-            retire_stale=args.retire_stale,
-        )
-    except Exception as exc:
-        raise SystemExit(f"Failed to load records: {exc}") from exc
+        try:
+            loaded = load_record_file(
+                args.path,
+                file_format=args.format,
+                database_url=args.database_url,
+                batch_size=args.batch_size,
+                ensure_schema=not args.no_ensure_schema,
+                limit=args.limit,
+                year_min=args.year_min,
+                year_max=args.year_max,
+                require_doi=args.require_doi,
+                reset=args.reset,
+                retire_stale=args.retire_stale,
+            )
+        except Exception as exc:
+            raise SystemExit(f"Failed to load records: {exc}") from exc
+    finally:
+        close_connection_pool()
 
     print(f"Loaded {loaded} records into PostgreSQL.")
 

@@ -100,6 +100,14 @@ DB_LOAD_INPUT ?= data/processed/common/common_publications_final_2016_2026_ai_re
 DB_LOAD_BATCH_SIZE ?= 1000
 DB_LOAD_YEAR_MIN ?= 2016
 DB_LOAD_YEAR_MAX ?= 2026
+CSE_UOM_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
+CSE_UOM_CANDIDATES ?= outputs/cse_uom/cse_uom_publication_candidates_2016_2026.csv
+CSE_UOM_VERIFIED ?= outputs/cse_uom/cse_uom_publications_verified_2016_2026.csv
+CSE_UOM_ROSTER ?= data/config/cse_uom_staff.tsv
+CSE_UOM_AI_INPUT ?= data/processed/common/common_publications_final_2016_2026_ai_only_binary_resolved_abstracts_merged.csv
+CSE_UOM_AI_CANDIDATES ?= outputs/cse_uom/cse_uom_ai_candidates_2016_2026.csv
+CSE_UOM_AI_VERIFIED ?= outputs/cse_uom/cse_uom_ai_publications_verified_2016_2026.csv
+CSE_UOM_DATABASE_URL ?=
 INCREMENTAL_STATE ?= outputs/incremental/state.json
 INCREMENTAL_OUTPUT_ROOT ?= outputs/incremental/runs
 INCREMENTAL_INITIAL_FROM_DATE ?= 2016-01-01
@@ -199,7 +207,7 @@ INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_END_DATE),--end-date $(INCREMENTAL_
 INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
 INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
 
-.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common-raw final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update cse-uom-dataset cse-uom-ai-dataset cse-uom-load-site-db openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common-raw final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -214,6 +222,9 @@ help:
 	@echo "  make ai-dataset              Classify historical final CSV and write AI-reviewed dataset"
 	@echo "  make load-db-ai              Build and upsert AI-reviewed historical dataset"
 	@echo "  make incremental-update      Collect since checkpoint, classify, upsert, and save checkpoint"
+	@echo "  make cse-uom-dataset         Build CSE candidates and affiliation-verified records before AI classification"
+	@echo "  make cse-uom-ai-dataset      Build the site-ready verified CSE slice from accepted AI records"
+	@echo "  make cse-uom-load-site-db    Load and finalize the CSE slice in its dedicated database"
 	@echo "  make incremental-update      Collect since checkpoint, classify AI relevance, and upsert AI rows"
 	@echo "  make publication-counts      Compare publication counts across source datasets"
 	@echo "  make openalex                Collect OpenAlex data and write JSONL, CSV, Parquet, DOI conflicts, pagination audit, log"
@@ -322,6 +333,33 @@ incremental-update:
 		$(INCREMENTAL_MAX_RECORDS_ARG) \
 		$(INCREMENTAL_MODEL_ARG) \
 		$(INCREMENTAL_EXTRA_ARGS)
+
+cse-uom-dataset:
+	$(PYTHON) scripts/cse_uom/build_dataset.py \
+		--input $(CSE_UOM_INPUT) \
+		--roster $(CSE_UOM_ROSTER) \
+		--candidate-output $(CSE_UOM_CANDIDATES) \
+		--verified-output $(CSE_UOM_VERIFIED) \
+		--year-min $(DB_LOAD_YEAR_MIN) \
+		--year-max $(DB_LOAD_YEAR_MAX)
+
+cse-uom-ai-dataset:
+	$(PYTHON) scripts/cse_uom/build_dataset.py \
+		--input $(CSE_UOM_AI_INPUT) \
+		--roster $(CSE_UOM_ROSTER) \
+		--candidate-output $(CSE_UOM_AI_CANDIDATES) \
+		--verified-output $(CSE_UOM_AI_VERIFIED) \
+		--year-min $(DB_LOAD_YEAR_MIN) \
+		--year-max $(DB_LOAD_YEAR_MAX)
+
+cse-uom-load-site-db:
+	@test -n "$(CSE_UOM_DATABASE_URL)" || (echo "Set CSE_UOM_DATABASE_URL to the dedicated CSE database." && exit 2)
+	$(PYTHON) scripts/database/load_records.py $(CSE_UOM_AI_VERIFIED) \
+		--database-url "$(CSE_UOM_DATABASE_URL)" \
+		--year-min $(DB_LOAD_YEAR_MIN) \
+		--year-max $(DB_LOAD_YEAR_MAX)
+	$(PYTHON) scripts/cse_uom/prepare_site_database.py \
+		--database-url "$(CSE_UOM_DATABASE_URL)"
 
 # Export model-ready text and TF-IDF features from the final dataset.
 model-text: enrich-missing-text model-titles model-abstracts model-keywords model-tfidf
