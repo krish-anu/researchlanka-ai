@@ -16,11 +16,19 @@ from src.api.services.ai_review import (
     review_hard_training_examples,
     sheet_value,
 )
+from src.pipeline.refresh_policy import (
+    DEFAULT_AUTO_AI_THRESHOLD,
+    DEFAULT_AUTO_NON_AI_THRESHOLD,
+)
 
 
 def test_high_explicit_ai_auto_accepts() -> None:
     assert initial_review_status("AI", "HIGH") == ("auto_accepted", "auto")
     assert initial_review_status("ai-related", "high") == ("auto_accepted", "auto")
+    assert initial_review_status("AI", str(DEFAULT_AUTO_AI_THRESHOLD)) == (
+        "auto_accepted",
+        "auto",
+    )
     assert initial_review_status("AI", "0.93") == ("auto_accepted", "auto")
 
 
@@ -52,8 +60,7 @@ def test_ai_acceptance_requires_verified_sri_lanka_ownership() -> None:
         ("AI", "LOW"),
         ("AI", ""),
         ("AI", "0.5"),
-        ("AI", "0.85"),
-        ("AI", "0.849999"),
+        ("AI", f"{DEFAULT_AUTO_AI_THRESHOLD - 0.000001:.6f}"),
         ("review", "HIGH"),
         ("unexpected", "HIGH"),
     ],
@@ -62,7 +69,10 @@ def test_all_other_predictions_enter_manual_review(label: str, confidence: str) 
     assert initial_review_status(label, confidence) == ("pending_review", None)
 
 
-@pytest.mark.parametrize("confidence", ["0", "0.39", "0.399999"])
+@pytest.mark.parametrize(
+    "confidence",
+    ["0", "0.39", f"{DEFAULT_AUTO_NON_AI_THRESHOLD - 0.000001:.6f}"],
+)
 def test_low_numeric_ai_confidence_is_rejected(confidence: str) -> None:
     assert initial_review_status("AI", confidence) == ("human_rejected", None)
 
