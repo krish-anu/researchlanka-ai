@@ -85,3 +85,43 @@ export function networkForDisplay(network: CollaborationNetwork): CollaborationN
     edges: [...edgeByPair.values()],
   };
 }
+
+/** Keep only the connected component containing a profile's focal entity. */
+export function networkComponentForLabel(
+  network: CollaborationNetwork,
+  label: string,
+): CollaborationNetwork {
+  const display = networkForDisplay(network);
+  const normalizedLabel = label.trim().toLocaleLowerCase();
+  const root = display.nodes.find(
+    (node) => node.label.trim().toLocaleLowerCase() === normalizedLabel,
+  );
+  if (!root) return display;
+
+  const adjacency = new Map<string, Set<string>>();
+  for (const node of display.nodes) adjacency.set(node.id, new Set());
+  for (const edge of display.edges) {
+    adjacency.get(edge.source)?.add(edge.target);
+    adjacency.get(edge.target)?.add(edge.source);
+  }
+
+  const included = new Set([root.id]);
+  const pending = [root.id];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) continue;
+    for (const neighbor of adjacency.get(current) ?? []) {
+      if (included.has(neighbor)) continue;
+      included.add(neighbor);
+      pending.push(neighbor);
+    }
+  }
+
+  return {
+    ...display,
+    nodes: display.nodes.filter((node) => included.has(node.id)),
+    edges: display.edges.filter(
+      (edge) => included.has(edge.source) && included.has(edge.target),
+    ),
+  };
+}

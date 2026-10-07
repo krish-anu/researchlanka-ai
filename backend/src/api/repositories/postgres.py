@@ -920,6 +920,11 @@ class PostgresPublicationRepository:
             "institution": ["institutions", "sri_lankan_institutions"],
             "country": ["countries"],
         }[scope]
+        profile_institution = (
+            self._single_institution_network_filter(filters)
+            if scope == "institution"
+            else None
+        )
         cte_sql, params = self._filtered_cte(
             filters,
             ["publication_key", "publication_year", *fields],
@@ -933,6 +938,17 @@ class PostgresPublicationRepository:
             """
             for field in fields
         )
+        profile_edge_filter = ""
+        edge_params: list[Any] = [*params, min_weight]
+        if profile_institution:
+            profile_edge_filter = """
+                AND (
+                    lower(source.label) = lower(%s)
+                    OR lower(target.label) = lower(%s)
+                )
+            """
+            edge_params.extend([profile_institution, profile_institution])
+        edge_params.append(limit)
         edge_rows = self._fetch_all(
             f"""
             {cte_sql},
@@ -955,10 +971,11 @@ class PostgresPublicationRepository:
                 AND source.label < target.label
             GROUP BY source.label, target.label
             HAVING count(*) >= %s
+                {profile_edge_filter}
             ORDER BY weight DESC, source.label ASC, target.label ASC
             LIMIT %s
             """,
-            [*params, min_weight, limit],
+            edge_params,
         )
         edges = [
             {
@@ -1017,6 +1034,16 @@ class PostgresPublicationRepository:
             for row in node_rows
         ]
         return self._enriched_collaboration_network(nodes, edges)
+
+    def _single_institution_network_filter(
+        self,
+        filters: dict[str, Any],
+    ) -> str | None:
+        institutions = filters.get("institution")
+        if not isinstance(institutions, list) or len(institutions) != 1:
+            return None
+        institution = str(institutions[0]).strip()
+        return institution or None
 
     def _author_collaboration_network(
         self,
