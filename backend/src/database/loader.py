@@ -118,6 +118,10 @@ def build_final_publication_row(record: dict[str, Any], row_number: int) -> dict
         column: coerce_column_value(column, first_available_value(record, column))
         for column in DATABASE_PUBLICATION_COLUMNS
     }
+    if row.get("publication_year") is None:
+        row["publication_year"] = publication_year_from_value(
+            first_available_value(record, "publication_date")
+        )
 
     doi = normalize_doi(row.get("doi"))
     row["doi"] = None if is_blank(doi) else str(doi)
@@ -129,6 +133,26 @@ def build_final_publication_row(record: dict[str, Any], row_number: int) -> dict
     row["publication_key"] = build_publication_key(row, row_number)
     row["raw_record"] = make_json_safe(record)
     return row
+
+
+def publication_year_from_value(value: Any) -> int | None:
+    """Extract a valid year from a full or year-only publication date."""
+
+    if isinstance(value, (datetime, date)):
+        return value.year
+    text = coerce_text(value)
+    if text is None:
+        return None
+    if len(text) != 4:
+        normalized_date = coerce_date(text)
+        if normalized_date is None:
+            return None
+        text = normalized_date[:4]
+    try:
+        year = int(text)
+    except ValueError:
+        return None
+    return year if 1500 <= year <= 2100 else None
 
 
 def apply_public_trace_defaults(row: dict[str, Any]) -> None:

@@ -446,10 +446,9 @@ def test_load_database_records_populates_full_normalized_database(
     assert captured["kwargs"]["year_max"] == 2026
 
 
-def test_build_final_publication_row_rejects_year_only_dates():
+def test_build_final_publication_row_derives_year_from_year_only_dates():
     row = {
         "title": "Sample paper",
-        "publication_year": 2016,
         "publication_date": "2016",
         "source_dataset": "sample",
         "source_record_id": "pub-1",
@@ -459,7 +458,7 @@ def test_build_final_publication_row_rejects_year_only_dates():
         "src.database.loader", fromlist=["build_final_publication_row"]
     ).build_final_publication_row(row, 1)
 
-    assert "publication_year" not in normalized
+    assert normalized["publication_year"] == 2016
     assert normalized["publication_date"] is None
 
 
