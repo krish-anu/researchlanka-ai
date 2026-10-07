@@ -13,6 +13,12 @@ import {
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Feedback";
 import { readChartTheme } from "@/components/charts/theme";
+import {
+  DownloadIcon,
+  FitViewIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from "@/components/layout/NavIcons";
 import { formatDecimal, formatNumber } from "@/services/format";
 import { institutionHref, researcherHref } from "@/services/links";
 import { networkForDisplay } from "@/services/network";
@@ -85,8 +91,27 @@ function diameters(nodes: NetworkNode[], metric: SizeMetric): Map<string, number
   return new Map(
     nodes.map((node) => [
       node.id,
-      MIN_DIAMETER + (metricValue(node, metric) / divisor) * DIAMETER_RANGE,
+      MIN_DIAMETER +
+        Math.sqrt(metricValue(node, metric) / divisor) * DIAMETER_RANGE,
     ]),
+  );
+}
+
+function prominentNodeIds(
+  nodes: NetworkNode[],
+  metric: SizeMetric,
+  limit: number,
+): Set<string> {
+  return new Set(
+    [...nodes]
+      .sort(
+        (a, b) =>
+          metricValue(b, metric) - metricValue(a, metric) ||
+          b.strength - a.strength ||
+          a.label.localeCompare(b.label),
+      )
+      .slice(0, limit)
+      .map((node) => node.id),
   );
 }
 
@@ -170,8 +195,7 @@ export function CollaborationNetwork({
 
   const hasNodes = displayNetwork.nodes.length > 0;
   const graphVisible = !isMobile || showMap;
-  const canvasHeight = compact ? Math.min(height, 240) : height;
-  const controlsDisabled = graphVisible && !ready;
+  const canvasHeight = compact ? Math.max(height, 320) : height;
 
   const nodesById = useMemo(() => {
     const map = new Map<string, NetworkNode>();
@@ -186,11 +210,16 @@ export function CollaborationNetwork({
 
   const topPartners = useMemo(() => {
     if (!focusedNode) return [];
-    return partnersForNode(focusedNode.id, displayNetwork.edges, nodesById).map((p) => ({
+    return partnersForNode(
+      focusedNode.id,
+      displayNetwork.edges,
+      nodesById,
+      compact ? 4 : 8,
+    ).map((p) => ({
       ...p,
       href: profileHref(scope, p.label),
     }));
-  }, [focusedNode, displayNetwork.edges, nodesById, scope]);
+  }, [focusedNode, displayNetwork.edges, nodesById, scope, compact]);
 
   const adjacencyRows = useMemo(
     () =>
@@ -253,6 +282,11 @@ export function CollaborationNetwork({
 
         const theme = readChartTheme();
         const sizes = diameters(displayNetwork.nodes, metricRef.current);
+        const prominent = prominentNodeIds(
+          displayNetwork.nodes,
+          metricRef.current,
+          compact ? 8 : 14,
+        );
         let maxWeight = 1;
         for (const edge of displayNetwork.edges) {
           if (edge.weight > maxWeight) maxWeight = edge.weight;
@@ -274,6 +308,7 @@ export function CollaborationNetwork({
                 community: node.community,
                 count: node.publication_count,
               },
+              classes: prominent.has(node.id) ? "labelled" : "",
             })),
             ...displayNetwork.edges.map((edge, index) => ({
               data: {
@@ -295,16 +330,28 @@ export function CollaborationNetwork({
                 "border-width": 1.5,
                 width: "data(size)",
                 height: "data(size)",
-                label: "data(label)",
-                "font-size": 12,
+                label: "",
+                "font-size": 11,
                 color: theme.ink,
                 "text-outline-width": 2,
                 "text-outline-color": theme.surface,
                 "text-valign": "bottom",
                 "text-margin-y": 6,
-                "text-max-width": "140px",
+                "text-max-width": "112px",
                 "text-wrap": "ellipsis",
                 "min-zoomed-font-size": 10,
+              },
+            },
+            {
+              selector: "node.labelled, node.hovered, node:selected",
+              style: { label: "data(label)", "z-index": 10 },
+            },
+            {
+              selector: "node.hovered, node:selected",
+              style: {
+                "font-size": 12,
+                "text-max-width": "170px",
+                "text-wrap": "wrap",
               },
             },
             {
@@ -315,6 +362,14 @@ export function CollaborationNetwork({
                 "curve-style": "bezier",
                 "control-point-step-size": 40,
                 opacity: 0.35,
+              },
+            },
+            {
+              selector: "edge.active-edge",
+              style: {
+                "line-color": theme.sequential,
+                opacity: 0.82,
+                "z-index": 5,
               },
             },
             {
@@ -329,14 +384,10 @@ export function CollaborationNetwork({
             },
           ],
           layout: {
-            name: "cose",
-            animate: false,
-            nodeDimensionsIncludeLabels: true,
-            padding: 24,
+            name: "preset",
           },
-          minZoom: 0.65,
-          maxZoom: 2.4,
-          wheelSensitivity: 1,
+          minZoom: 0.2,
+          maxZoom: 3,
         });
 
         // Select-to-inspect — profile opens from the inspector CTA.
@@ -347,23 +398,76 @@ export function CollaborationNetwork({
             setFocusId(event.target.id());
           },
         );
+        instance.on(
+          "mouseover",
+          "node",
+          (event: { target: { addClass: (name: string) => void } }) => {
+            event.target.addClass("hovered");
+          },
+        );
+        instance.on(
+          "mouseout",
+          "node",
+          (event: { target: { removeClass: (name: string) => void } }) => {
+            event.target.removeClass("hovered");
+          },
+        );
         instance.on("tap", (event: { target: unknown }) => {
           if (event.target === instance) setFocusId("");
         });
 
         instanceRef.current = instance;
-        setReady(true);
+        const layout = instance.layout({
+          name: "cose",
+          animate: false,
+          nodeDimensionsIncludeLabels: false,
+          idealEdgeLength: compact ? 82 : 68,
+          nodeRepulsion: compact ? 5200 : 4300,
+          padding: 36,
+          fit: false,
+        });
+        layout.one("layoutstop", () => {
+          if (cancelled) return;
+          const bounds = instance.nodes().boundingBox({ includeLabels: false });
+          const centerX = (bounds.x1 + bounds.x2) / 2;
+          const aspect = element.clientWidth / Math.max(element.clientHeight, 1);
+          const stretch = Math.min(
+            compact ? 3.1 : 2.1,
+            Math.max(1.15, aspect * 0.74),
+          );
+          instance.batch(() => {
+            instance.nodes().forEach(
+              (node: {
+                position: (value?: { x: number; y: number }) => {
+                  x: number;
+                  y: number;
+                };
+              }) => {
+                const position = node.position();
+                node.position({
+                  x: centerX + (position.x - centerX) * stretch,
+                  y: position.y,
+                });
+              },
+            );
+          });
+          instance.resize();
+          instance.fit(undefined, compact ? 38 : 42);
+          setReady(true);
 
-        // Restore focus styling if a node was already selected (e.g. from select).
-        const currentFocus = focusIdRef.current;
-        if (currentFocus) {
-          const node = instance.getElementById(currentFocus);
-          if (node.nonempty()) {
-            const neighborhood = node.closedNeighborhood();
-            instance.elements().difference(neighborhood).addClass("dimmed");
-            node.select();
+          // Restore focus styling if a node was already selected (e.g. from select).
+          const currentFocus = focusIdRef.current;
+          if (currentFocus) {
+            const node = instance.getElementById(currentFocus);
+            if (node.nonempty()) {
+              const neighborhood = node.closedNeighborhood();
+              instance.elements().difference(neighborhood).addClass("dimmed");
+              node.connectedEdges().addClass("active-edge");
+              node.select();
+            }
           }
-        }
+        });
+        layout.run();
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -401,6 +505,8 @@ export function CollaborationNetwork({
         .style({ "border-color": theme.surface, color: theme.inkSecondary })
         .selector("edge")
         .style({ "line-color": theme.baseline })
+        .selector("edge.active-edge")
+        .style({ "line-color": theme.sequential })
         .selector("node:selected")
         .style({ "border-color": theme.ink })
         .update();
@@ -413,25 +519,57 @@ export function CollaborationNetwork({
     const instance = instanceRef.current;
     if (!instance || !ready) return;
     const sizes = diameters(displayNetwork.nodes, metric);
+    const prominent = prominentNodeIds(
+      displayNetwork.nodes,
+      metric,
+      compact ? 8 : 14,
+    );
     instance.batch(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       instance.nodes().forEach((node: any) => {
         node.data("size", sizes.get(node.id()) ?? MIN_DIAMETER);
+        node.toggleClass("labelled", prominent.has(node.id()));
       });
     });
-  }, [metric, displayNetwork, ready]);
+  }, [metric, displayNetwork, ready, compact]);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    const instance = instanceRef.current;
+    if (!element || !instance || !ready || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    let previousWidth = element.clientWidth;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = element.clientWidth;
+      if (Math.abs(nextWidth - previousWidth) < 2) return;
+      previousWidth = nextWidth;
+      instance.resize();
+      if (!focusIdRef.current) {
+        instance.fit(undefined, compact ? 38 : 42);
+      }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ready, compact]);
 
   useEffect(() => {
     const instance = instanceRef.current;
     if (!instance || !ready) return;
     instance.elements().removeClass("dimmed");
+    instance.edges().removeClass("active-edge");
     instance.nodes().unselect();
     if (focusId) {
       const node = instance.getElementById(focusId);
       if (node.nonempty()) {
         const neighborhood = node.closedNeighborhood();
         instance.elements().difference(neighborhood).addClass("dimmed");
+        node.connectedEdges().addClass("active-edge");
         node.select();
+        instance.animate({
+          center: { eles: neighborhood },
+          duration: 180,
+        });
       }
     }
   }, [focusId, ready]);
@@ -444,7 +582,17 @@ export function CollaborationNetwork({
 
   const resetView = () => {
     setFocusId("");
-    instanceRef.current?.fit(undefined, 24);
+    instanceRef.current?.fit(undefined, compact ? 38 : 42);
+  };
+
+  const zoomBy = (factor: number) => {
+    const instance = instanceRef.current;
+    if (!instance) return;
+    instance.animate({
+      zoom: instance.zoom() * factor,
+      center: { eles: instance.elements() },
+      duration: 160,
+    });
   };
 
   const savePng = () => {
@@ -594,8 +742,26 @@ export function CollaborationNetwork({
       ) : null}
     </aside>
   ) : (
-    <aside className="network-inspector hidden rounded-lg border border-dashed border-rule bg-wash/50 p-4 text-body-sm text-muted md:block">
-      Select a node on the map or from Explore to see metrics and top partners.
+    <aside className="network-inspector hidden rounded-lg border border-rule bg-wash/50 p-4 text-body-sm md:block">
+      <h3 className="font-medium text-ink">Network at a glance</h3>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">
+        <div>
+          <dt className="text-muted">Entities</dt>
+          <dd className="tabular text-ink">
+            {formatNumber(displayNetwork.nodes.length)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">Connections</dt>
+          <dd className="tabular text-ink">
+            {formatNumber(displayNetwork.edges.length)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">Communities</dt>
+          <dd className="tabular text-ink">{formatNumber(communityCount)}</dd>
+        </div>
+      </dl>
     </aside>
   );
 
@@ -627,9 +793,9 @@ export function CollaborationNetwork({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="mb-3 flex flex-wrap items-end gap-3">
         <label htmlFor={sizeSelectId} className="flex flex-col gap-1 text-body-sm text-muted">
-          Size nodes by
+          Node size
           <select
             id={sizeSelectId}
             value={metric}
@@ -647,7 +813,12 @@ export function CollaborationNetwork({
           htmlFor={exploreSelectId}
           className="flex flex-col gap-1 text-body-sm text-muted"
         >
-          Explore a node
+          Find{" "}
+          {scope === "institution"
+            ? "an institution"
+            : scope === "researcher"
+              ? "a researcher"
+              : "a country"}
           <select
             id={exploreSelectId}
             value={focusId}
@@ -672,24 +843,6 @@ export function CollaborationNetwork({
             {showMap ? "Hide map" : "Show map"}
           </Button>
         ) : null}
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={controlsDisabled}
-          onClick={resetView}
-        >
-          Reset view
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={controlsDisabled}
-          onClick={savePng}
-        >
-          Save PNG
-        </Button>
         {selected && !compact ? (
           <span className="max-w-xs text-body-sm text-ink-secondary">
             {selected.hint}
@@ -703,13 +856,7 @@ export function CollaborationNetwork({
           {adjacencyTable}
         </div>
       ) : (
-        <div
-          className={
-            compact
-              ? "space-y-3"
-              : "grid gap-4 md:grid-cols-[minmax(0,1fr)_15rem] md:items-start"
-          }
-        >
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_16rem] md:items-start">
           <div>
             <div className="relative">
               <div
@@ -720,19 +867,67 @@ export function CollaborationNetwork({
                 tabIndex={0}
                 onKeyDown={onCanvasKeyDown}
                 style={{ height: canvasHeight }}
-                className="network-canvas w-full rounded-xl border border-rule bg-surface outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="network-canvas w-full rounded-lg border border-rule bg-surface outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               />
+              {ready ? (
+                <div
+                  className="absolute right-3 top-3 flex flex-col gap-1.5"
+                  aria-label="Map controls"
+                >
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="!h-9 !w-9 !px-0 shadow-sm"
+                    onClick={() => zoomBy(1.2)}
+                    aria-label="Zoom in"
+                    title="Zoom in"
+                  >
+                    <ZoomInIcon className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="!h-9 !w-9 !px-0 shadow-sm"
+                    onClick={() => zoomBy(1 / 1.2)}
+                    aria-label="Zoom out"
+                    title="Zoom out"
+                  >
+                    <ZoomOutIcon className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="!h-9 !w-9 !px-0 shadow-sm"
+                    onClick={resetView}
+                    aria-label="Fit network to view"
+                    title="Fit network to view"
+                  >
+                    <FitViewIcon className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="!h-9 !w-9 !px-0 shadow-sm"
+                    onClick={savePng}
+                    aria-label="Save network as PNG"
+                    title="Save network as PNG"
+                  >
+                    <DownloadIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
               {!ready ? (
                 <p className="absolute inset-0 flex items-center justify-center text-body-sm text-muted">
                   Laying out network…
                 </p>
               ) : null}
             </div>
-            <p className="mt-2 text-body-sm text-muted">
-              Click a node to inspect it.
-            </p>
           </div>
-          {!compact ? inspector : focusedNode ? inspector : null}
+          {inspector}
         </div>
       )}
 
@@ -750,8 +945,7 @@ export function CollaborationNetwork({
                   className="inline-block h-3 w-3 rounded-full"
                   style={{ backgroundColor: `var(--series-${index + 1})` }}
                 />
-                Community #{index}
-                {index === 0 ? " (largest)" : ""}
+                {index === 0 ? "Largest community" : `Community ${index + 1}`}
               </li>
             ),
           )}

@@ -508,7 +508,7 @@ export async function NetworkPanel({
           network={network.value.data}
           scope={scope}
           compact={compact}
-          height={compact ? 240 : 380}
+          height={compact ? 340 : 380}
         />
         {!compact ? (
           <>
