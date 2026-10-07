@@ -27,6 +27,7 @@ import { SearchBox } from "@/components/search/SearchBox";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import type { AdminNavBadges } from "@/services/admin/navBadges";
 import type { Role, Viewer } from "@/types/auth";
+import { IS_CSE_UOM_SITE, SITE_COPY } from "@/config/site";
 
 /** Directory list pages own a contextual SearchBox — hide the global duplicate. */
 function hasContextualPageSearch(pathname: string): boolean {
@@ -225,10 +226,10 @@ function NavItem({
 
 function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="brand" aria-label="ResearchLanka overview">
+    <Link href="/" className="brand" aria-label={`${SITE_COPY.fullName} overview`}>
       <span className="brand-mark"><NetworkIcon /></span>
-      <span><span className="brand-name">Research<span className="text-primary">Lanka</span></span>
-      {!compact ? <span className="brand-tagline">AI RESEARCH, CONNECTED.</span> : null}</span>
+      <span><span className="brand-name">{SITE_COPY.shortName}{IS_CSE_UOM_SITE ? " " : null}<span className="text-primary">{SITE_COPY.accentName}</span></span>
+      {!compact ? <span className="brand-tagline">{SITE_COPY.tagline}</span> : null}</span>
     </Link>
   );
 }
@@ -477,8 +478,7 @@ export function AIScopeNote() {
       <div className="ai-scope" role="note">
         <span className="ai-scope-dot" aria-hidden />
         <span>
-          <strong>AI-related publications only.</strong> Charts, rankings,
-          profiles, and exports describe the accepted AI collection.
+          <strong>{SITE_COPY.scopeStrong}</strong> {SITE_COPY.scopeBody}
         </span>
         <Link
           href="/data-quality"
@@ -493,7 +493,7 @@ export function AIScopeNote() {
   return (
     <div className="ai-scope ai-scope-chip" role="note">
       <span className="ai-scope-dot" aria-hidden />
-      <span className="ai-scope-chip-label">AI collection only</span>
+      <span className="ai-scope-chip-label">{SITE_COPY.compactScope}</span>
       <Link
         href="/data-quality"
         className="shrink-0 text-primary hover:underline"

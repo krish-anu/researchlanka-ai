@@ -7,16 +7,16 @@ import { RouteFocus } from "@/components/layout/RouteFocus";
 import { FilterNavigationProvider } from "@/components/navigation/FilterNavigation";
 import { getViewer } from "@/services/auth/server";
 import { loadAdminNavBadges } from "@/services/admin/navBadges";
+import { SITE_COPY } from "@/config/site";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ResearchLanka — Sri Lanka AI research analytics",
-    template: "%s · ResearchLanka",
+    default: SITE_COPY.metadataTitle,
+    template: SITE_COPY.metadataTemplate,
   },
-  description:
-    "Public read-only analytics over the accepted Sri Lankan AI publication collection: national dashboards, publication search, researcher and institution profiles.",
+  description: SITE_COPY.metadataDescription,
 };
 
 /**

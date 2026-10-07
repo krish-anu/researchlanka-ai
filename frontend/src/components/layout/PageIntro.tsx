@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SITE_COPY } from "@/config/site";
 
 /** Shared page header for directory and secondary routes. */
 export function PageIntro({
@@ -13,7 +14,7 @@ export function PageIntro({
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p className="page-eyebrow mb-2">Sri Lanka · AI research intelligence</p>
+        <p className="page-eyebrow mb-2">{SITE_COPY.eyebrow}</p>
         <h1 className="font-display text-h1 text-ink">{title}</h1>
         {description ? (
           <p className="mt-2 max-w-prose text-body-sm text-muted">{description}</p>
@@ -33,17 +34,15 @@ export function OverviewHero({ action }: { action?: ReactNode }) {
     <section className="research-hero" aria-labelledby="overview-hero-heading">
       <div className="hero-copy">
         <p className="research-hero-eyebrow">
-          Sri Lanka · AI research intelligence
+          {SITE_COPY.eyebrow}
         </p>
         <h1 id="overview-hero-heading">
-          A clearer picture of
+          {SITE_COPY.heroLead}
           <br />
-          <em>AI research in Sri Lanka.</em>
+          <em>{SITE_COPY.heroEmphasis}</em>
         </h1>
         <p className="research-hero-lede">
-          Explore the people, ideas, and connections shaping artificial
-          intelligence research — every figure is drawn from the accepted AI
-          collection.
+          {SITE_COPY.heroDescription}
         </p>
         {action ? <div className="research-hero-actions">{action}</div> : null}
       </div>
