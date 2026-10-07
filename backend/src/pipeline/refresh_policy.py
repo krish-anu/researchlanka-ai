@@ -18,19 +18,11 @@ FALLBACK_AI_RELEVANCE_MODEL_PATH = (
     / "models"
     / "ai_relevance"
     / "metadata_ablation_precision_092"
-    / "A1_title_abstract.joblib"
+    / "A2_title_abstract_keywords.joblib"
 )
-FALLBACK_AI_RELEVANCE_CALIBRATOR_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "models"
-    / "ai_relevance"
-    / "metadata_ablation_precision_092"
-    / "calibration"
-    / "probability_calibrator_sigmoid.joblib"
-)
-FALLBACK_TEXT_COLUMNS = ("title", "abstract")
-FALLBACK_AUTO_AI_THRESHOLD = 0.929405
+FALLBACK_AI_RELEVANCE_CALIBRATOR_PATH = None
+FALLBACK_TEXT_COLUMNS = ("title", "abstract", "keywords")
+FALLBACK_AUTO_AI_THRESHOLD = 0.66
 FALLBACK_AUTO_NON_AI_THRESHOLD = 0.4
 DEFAULT_DB_LABELS = ("AI", "review")
 
@@ -93,18 +85,18 @@ def load_ai_relevance_model_manifest(
     selected_path = configured_model_manifest_path(manifest_path)
     if selected_path is None or not selected_path.is_file():
         return AIRelevanceModelManifest(
-            model_id="ai-relevance-xgb-a1-precision-v1",
+            model_id="ai-relevance-xgb-a2-threshold-066-v1",
             model_type="xgboost",
             model_path=FALLBACK_AI_RELEVANCE_MODEL_PATH,
             features=FALLBACK_TEXT_COLUMNS,
-            calibrator="sigmoid-v1",
+            calibrator=None,
             calibrator_path=FALLBACK_AI_RELEVANCE_CALIBRATOR_PATH,
             secondary_model_path=None,
             auto_ai_threshold=FALLBACK_AUTO_AI_THRESHOLD,
             auto_non_ai_threshold=FALLBACK_AUTO_NON_AI_THRESHOLD,
-            selected_binary_threshold=0.4,
-            training_dataset="human-reviewed-v4",
-            created_at="2026-09-28",
+            selected_binary_threshold=0.66,
+            training_dataset="human-reviewed-v4-enriched-abstracts",
+            created_at="2026-10-03",
             sha256=None,
         )
 

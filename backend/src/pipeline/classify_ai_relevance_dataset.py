@@ -172,7 +172,10 @@ def classify_ai_relevance_dataframe(
     if not selected_text_columns:
         raise ValueError("Analysis-ready dataset has no configured model text columns.")
 
-    text = combined_text(cleaned.fillna(""), selected_text_columns)
+    prefixed = cleaned.fillna("").copy()
+    for column in selected_text_columns:
+        prefixed[column] = column.upper() + ": " + prefixed[column].astype(str)
+    text = combined_text(prefixed, selected_text_columns)
     raw_scores = ai_probability_scores(model, text)
     selected_calibrator_path = configured_calibrator_path(calibrator_path)
     scores = calibrate_scores(raw_scores, calibrator_path=calibrator_path)
