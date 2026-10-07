@@ -658,6 +658,56 @@ def test_institution_like_author_detection():
     assert not is_institution_like_author("Kumanan, T.")
 
 
+def test_single_institution_network_limits_edges_to_the_profile_institution(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    edge_query: dict[str, object] = {}
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        if "source.label AS source_label" in normalized_sql:
+            edge_query.update(sql=normalized_sql, params=params)
+            return [
+                {
+                    "source_label": "University of Colombo",
+                    "target_label": "University of Moratuwa",
+                    "weight": 4,
+                }
+            ]
+        if "WHERE label = ANY(%s::text[])" in normalized_sql:
+            return [
+                {"label": "University of Colombo", "publication_count": 4},
+                {"label": "University of Moratuwa", "publication_count": 10},
+            ]
+        return []
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    result = repository.collaboration_network(
+        {
+            "institution": ["University of Moratuwa"],
+            "field": ["Computer Science"],
+            "year_min": 2016,
+            "year_max": 2026,
+        },
+        scope="institution",
+        min_weight=1,
+        limit=40,
+    )
+
+    assert "lower(source.label) = lower(%s)" in str(edge_query["sql"])
+    assert edge_query["params"][-4:] == [
+        1,
+        "University of Moratuwa",
+        "University of Moratuwa",
+        40,
+    ]
+    assert result["summary"]["component_count"] == 1
+    assert {node["label"] for node in result["nodes"]} == {
+        "University of Colombo",
+        "University of Moratuwa",
+    }
+
+
 def test_postgres_researcher_rankings_filter_institution_like_author_values(monkeypatch):
     repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
     calls = []

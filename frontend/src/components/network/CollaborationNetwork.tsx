@@ -669,7 +669,11 @@ export function CollaborationNetwork({
     );
   }
 
-  const communityCount = displayNetwork.summary?.community_count ?? 0;
+  const communityCount = new Set(
+    displayNetwork.nodes
+      .map((node) => node.community)
+      .filter((community) => community >= 0),
+  ).size;
   const uncoloured = Math.max(0, communityCount - COLOURED_COMMUNITIES);
 
   const inspector = focusedNode ? (
