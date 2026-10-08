@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signUp } from "@/app/actions/auth";
@@ -5,7 +6,7 @@ import { AuthForm } from "@/components/auth/AuthForm";
 import { LibraryBenefitVisual } from "@/components/auth/LibraryBenefitVisual";
 import { RoleBadge } from "@/components/auth/RoleBadge";
 import { ROLE_CAPABILITY_SUMMARY } from "@/services/auth/permissions";
-import { getViewer } from "@/services/auth/server";
+import { APPLICATION_STATUS_PATH, getViewer } from "@/services/auth/server";
 import { ROLE_DESCRIPTION } from "@/types/auth";
 
 export const metadata = {
@@ -27,7 +28,9 @@ export default async function RegisterPage({ searchParams }: PageProps) {
   const { next } = await searchParams;
   const destination = safeNext(next);
 
-  if ((await getViewer()).user) redirect(destination);
+  const viewer = await getViewer();
+  if (viewer.user) redirect(destination);
+  if (viewer.applicant) redirect(APPLICATION_STATUS_PATH);
 
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-8 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
@@ -43,6 +46,16 @@ export default async function RegisterPage({ searchParams }: PageProps) {
       </div>
 
       <div className="flex flex-col gap-4">
+        <aside className="panel h-fit border-l-[3px] border-l-primary p-5">
+          <h2 className="font-display text-h3 text-ink">Are you an author here?</h2>
+          <p className="mt-2 text-body-sm text-ink-secondary">
+            Researchers whose papers are in the dataset can apply for a verified author profile.
+            An administrator approves it before the account is active.
+          </p>
+          <Link href="/register/author" className="mt-3 inline-block text-body-sm text-primary underline">
+            Sign up as an author
+          </Link>
+        </aside>
         <LibraryBenefitVisual />
         <aside className="panel h-fit p-5">
           <RoleBadge role="user" />

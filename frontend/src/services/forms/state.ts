@@ -22,3 +22,18 @@ export interface ActionState {
 }
 
 export const IDLE: ActionState = { status: "idle", message: "" };
+
+/**
+ * Outcome of an author form (application, profile, edit, submission).
+ *
+ * `field` names the input the backend rejected, so the form can focus it.
+ * `details` carries structured context such as duplicate matches.
+ */
+export interface AuthorFormState {
+  status: "idle" | "ok" | "error";
+  message: string;
+  field?: string | null;
+  details?: Record<string, unknown> | null;
+}
+
+export const AUTHOR_FORM_IDLE: AuthorFormState = { status: "idle", message: "", field: null };

@@ -164,7 +164,13 @@ export type AuditAction =
   | "pipeline.incremental_started"
   | "user.role_changed"
   | "user.disabled"
-  | "user.enabled";
+  | "user.enabled"
+  | "author.application_approved"
+  | "author.application_changes_requested"
+  | "author.application_rejected"
+  | "author.claims_decided"
+  | "author.contribution_approved"
+  | "author.contribution_rejected";
 
 export interface AuditEntry {
   id: string;

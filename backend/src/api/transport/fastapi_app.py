@@ -17,12 +17,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.api.core.constants import API_PREFIX, API_VERSION
 from src.api.core.errors import APIError
 from src.api.core.serializers import normalize_value
 from src.api.repositories.postgres import PostgresPublicationRepository
+from src.api.routing.author_routes import route_author_get, route_author_post
 from src.api.schemas import PublicationBatchPredictionRequest, PublicationPredictionRequest
 from src.api.services.incremental_admin import (
     read_incremental_status,
@@ -474,6 +476,56 @@ def actor_from_headers(request: Request) -> dict[str, str]:
     }
 
 
+def create_author_router(publication_service: ResearchLankaAPI) -> APIRouter:
+    """Author profile endpoints, delegated to the dispatcher the HTTP server uses.
+
+    Must be included before the publication router, whose
+    `/researchers/{researcher_key:path}` route would otherwise read
+    "profiles" as a researcher name.
+    """
+
+    router = APIRouter(prefix=API_PREFIX, tags=["authors"])
+
+    async def dispatch_get(request: Request) -> dict[str, Any]:
+        payload = await run_in_threadpool(
+            route_author_get,
+            publication_service,
+            request.url.path,
+            query_dict(request),
+            request.headers,
+        )
+        if payload is None:
+            raise APIError("not_found", "Endpoint not found.", status=404)
+        return payload
+
+    async def dispatch_post(request: Request) -> dict[str, Any]:
+        body = await request.json()
+        if not isinstance(body, dict):
+            raise APIError("invalid_request", "Request body must be a JSON object.", status=400)
+        payload = await run_in_threadpool(
+            route_author_post,
+            publication_service,
+            request.url.path,
+            body,
+            request.headers,
+        )
+        if payload is None:
+            raise APIError("not_found", "Endpoint not found.", status=404)
+        return payload
+
+    for path in (
+        "/researchers/profiles",
+        "/researchers/profiles/{rest:path}",
+        "/author/{rest:path}",
+        "/admin/authors/{rest:path}",
+        "/lookup/{rest:path}",
+    ):
+        router.add_api_route(path, dispatch_get, methods=["GET"], include_in_schema=False)
+    for path in ("/author/{rest:path}", "/admin/authors/{rest:path}"):
+        router.add_api_route(path, dispatch_post, methods=["POST"], include_in_schema=False)
+    return router
+
+
 def create_app(
     model_service: PublicationClassifierService | None = None,
     publication_service: ResearchLankaAPI | None = None,
@@ -610,6 +662,7 @@ def create_app(
             content=normalize_value({"data": payload, "meta": publication_api._meta()}),
         )
 
+    app.include_router(create_author_router(publication_api))
     app.include_router(create_publication_router(publication_api))
     app.include_router(create_model_router(model_service))
     app.include_router(create_admin_router(publication_api))

@@ -104,6 +104,8 @@ const ADMIN_LINKS: NavLink[] = [
   { href: "/admin/ai-review", label: "AI review", Icon: QueueIcon, roles: ["admin", "reviewer"] },
   { href: "/admin/review", label: "Resolution queue", Icon: QueueIcon, roles: ["admin"] },
   { href: "/admin/flags", label: "Flag triage", Icon: FlagIcon, roles: ["admin"] },
+  { href: "/admin/authors", label: "Author applications", Icon: ResearchersIcon, roles: ["admin"] },
+  { href: "/admin/contributions", label: "Author contributions", Icon: PublicationsIcon, roles: ["admin"] },
   { href: "/admin/users", label: "Accounts", Icon: UsersIcon, roles: ["admin"] },
 ];
 
@@ -119,6 +121,8 @@ function adminSection(role: Role, badges?: AdminNavBadges): NavSection | null {
     "/admin/ai-review": badges?.aiReview ?? 0,
     "/admin/review": badges?.review ?? 0,
     "/admin/flags": badges?.flags ?? 0,
+    "/admin/authors": badges?.authors ?? 0,
+    "/admin/contributions": badges?.contributions ?? 0,
   };
   const links = ADMIN_LINKS.filter((link) => link.roles?.includes(role)).map((link) => ({
     ...link,
@@ -131,7 +135,12 @@ function adminSection(role: Role, badges?: AdminNavBadges): NavSection | null {
 /** One door into the console. The six destinations live only inside /admin. */
 function adminEntry(role: Role, badges?: AdminNavBadges): NavSection | null {
   if (role === "admin") {
-    const waiting = (badges?.flags ?? 0) + (badges?.review ?? 0) + (badges?.aiReview ?? 0);
+    const waiting =
+      (badges?.flags ?? 0) +
+      (badges?.review ?? 0) +
+      (badges?.aiReview ?? 0) +
+      (badges?.authors ?? 0) +
+      (badges?.contributions ?? 0);
     return {
       id: "admin",
       label: "Admin",
@@ -192,6 +201,12 @@ function sectionForPath(
   }
   if (pathname.startsWith("/account")) {
     return { section: "Account", label: "My workspace" };
+  }
+  if (pathname.startsWith("/authors/")) {
+    return { section: "People & places", label: "Researchers" };
+  }
+  if (pathname.startsWith("/register/author")) {
+    return { section: "Account", label: "Author application" };
   }
   return { section: "Workspace", label: "Account" };
 }

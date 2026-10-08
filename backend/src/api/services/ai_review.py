@@ -602,6 +602,77 @@ def decide_review(
         return dict(updated)
 
 
+def record_human_acceptance(
+    connection: Any,
+    *,
+    publication_key: str,
+    actor: Mapping[str, str],
+    notes: str,
+    event_type: str = "author_submission_accepted",
+) -> dict[str, Any]:
+    """Mark a freshly loaded record as accepted as AI by a named person.
+
+    Used when an administrator approves an author-submitted publication: the
+    decision was made on the submission screen, so the record skips the
+    assignment queue but still gets the same audit event and Sheets sync job
+    as a decision made in the AI review queue.
+    """
+
+    with connection.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(
+            "SELECT * FROM ai_review_records WHERE publication_key = %s FOR UPDATE",
+            (publication_key,),
+        )
+        record = cursor.fetchone()
+        if record is None:
+            raise APIError("not_found", "Review record not found.", status=404)
+        next_version = int(record["record_version"]) + 1
+        cursor.execute(
+            """
+            UPDATE ai_review_records
+            SET review_status = 'human_accepted',
+                acceptance_method = 'human',
+                decided_by_id = %s,
+                decided_by_email = %s,
+                decided_by_name = %s,
+                reviewer_notes = %s,
+                decision_timestamp = now(),
+                record_version = %s,
+                sync_status = 'pending',
+                updated_at = now()
+            WHERE publication_key = %s
+            RETURNING *
+            """,
+            (
+                actor.get("id"),
+                actor.get("email"),
+                actor.get("name"),
+                notes.strip(),
+                next_version,
+                publication_key,
+            ),
+        )
+        updated = cursor.fetchone()
+        _insert_event(
+            cursor,
+            publication_key=publication_key,
+            event_type=event_type,
+            actor=actor,
+            from_status=record["review_status"],
+            to_status="human_accepted",
+            notes=notes.strip(),
+            record_version=next_version,
+            idempotency_key=f"{event_type}:{publication_key}:{next_version}",
+        )
+        _enqueue_sync_job(
+            cursor,
+            publication_key,
+            next_version,
+            f"{event_type}:{publication_key}:{next_version}",
+        )
+        return dict(updated)
+
+
 def reopen_review(
     connection: Any,
     *,

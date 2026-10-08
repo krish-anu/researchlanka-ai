@@ -56,3 +56,10 @@ export function publicationSearchHref(
   const qs = search.toString();
   return qs ? `/publications?${qs}` : "/publications";
 }
+
+/** A verified author profile. Slugs are generated server-side, already URL-safe. */
+export const authorProfileHref = (slug: string) => `/authors/${encodeURIComponent(slug)}`;
+
+/** Propose an edit to one of the signed-in author's publications. */
+export const authorEditHref = (publicationKey: string) =>
+  `/account/author/edit/${encodeURIComponent(publicationKey)}`;

@@ -44,6 +44,23 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
     };
   }, [open]);
 
+  if (!viewer.user && viewer.applicant) {
+    // Signed in, but the account waits on an author application: it can see
+    // the application and sign out, nothing else.
+    return (
+      <div className="flex items-center gap-2">
+        <Button href="/register/author/status" variant="secondary" size="sm">
+          {viewer.applicant.status === "rejected" ? "Application decided" : "Application pending"}
+        </Button>
+        <form action={signOut}>
+          <Button type="submit" variant="ghost" size="sm">
+            Sign out
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
   if (!viewer.user) {
     return (
       <div className="flex items-center gap-2">
@@ -118,6 +135,14 @@ export function AccountMenu({ viewer }: { viewer: Viewer }) {
               className="interactive rounded px-2 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
             >
               My workspace
+            </Link>
+            <Link
+              href="/account/author"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="interactive rounded px-2 py-1.5 text-body-sm text-ink-secondary hover:bg-wash hover:text-ink"
+            >
+              Author profile
             </Link>
             <Link
               href="/account/saved"

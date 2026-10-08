@@ -6,6 +6,8 @@ from src.pipeline.build_final_common_dataset import FINAL_MAIN_COLUMNS
 
 
 FINAL_PUBLICATION_TABLE = "final_publications"
+# source_dataset of publications an author added and an administrator approved.
+AUTHOR_SUBMISSION_SOURCE = "author_submission"
 AI_CLASSIFICATION_COLUMNS = (
     "ai_classification_label",
     "ai_classification_confidence",

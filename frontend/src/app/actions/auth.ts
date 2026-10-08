@@ -1,19 +1,14 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { checkCredentials, createUser, recordSignIn } from "@/services/auth/store";
 import { checkPasswordStrength } from "@/services/auth/password";
-import {
-  createSessionToken,
-  SESSION_COOKIE,
-  SESSION_MAX_AGE_SECONDS,
-  sessionCookieOptions,
-  sessionSecretProblem,
-} from "@/services/auth/session";
+import { APPLICATION_STATUS_PATH } from "@/services/auth/server";
+import { sessionSecretProblem } from "@/services/auth/session";
+import { endSession, startSession } from "@/services/auth/sessionCookie";
 import type { AuthFormState } from "@/services/forms/state";
-import { publicUser } from "@/types/auth";
+import { accountStatus } from "@/types/auth";
 
 /**
  * Only same-origin paths are honoured as a post-sign-in destination, so a
@@ -25,16 +20,6 @@ function safeNext(value: FormDataEntryValue | null): string {
   const candidate = typeof value === "string" ? value : "";
   if (!candidate.startsWith("/") || candidate.startsWith("//")) return "/";
   return candidate;
-}
-
-async function startSession(user: Parameters<typeof publicUser>[0]) {
-  const token = await createSessionToken(publicUser(user));
-  const store = await cookies();
-  store.set(
-    SESSION_COOKIE,
-    token,
-    sessionCookieOptions(SESSION_MAX_AGE_SECONDS),
-  );
 }
 
 export async function signIn(
@@ -70,6 +55,8 @@ export async function signIn(
 
   await recordSignIn(check.user.id);
   await startSession(check.user);
+  // An author sign-up waiting for approval can only see its application.
+  if (accountStatus(check.user) !== "active") redirect(APPLICATION_STATUS_PATH);
   redirect(next);
 }
 
@@ -109,7 +96,6 @@ export async function signUp(
 }
 
 export async function signOut(): Promise<void> {
-  const store = await cookies();
-  store.set(SESSION_COOKIE, "", sessionCookieOptions(0));
+  await endSession();
   redirect("/");
 }

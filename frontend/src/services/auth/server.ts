@@ -11,7 +11,16 @@ import { redirect } from "next/navigation";
 import { can, type Capability } from "@/services/auth/permissions";
 import { readSessionToken, SESSION_COOKIE } from "@/services/auth/session";
 import { findUserById } from "@/services/auth/store";
-import { GUEST, type SessionUser, type Viewer } from "@/types/auth";
+import {
+  accountStatus,
+  GUEST,
+  type AccountStatus,
+  type SessionUser,
+  type Viewer,
+} from "@/types/auth";
+
+/** Where a signed-in account that is not active yet is sent instead of a sign-in form. */
+export const APPLICATION_STATUS_PATH = "/register/author/status";
 
 /**
  * The current viewer, always defined — an absent or invalid cookie resolves to
@@ -38,7 +47,34 @@ export async function getViewer(): Promise<Viewer> {
     name: current.name,
     role: current.role,
   };
+  const status = accountStatus(current);
+  if (status !== "active") {
+    return { role: "guest", user: null, applicant: { ...sessionUser, status } };
+  }
   return { role: sessionUser.role, user: sessionUser };
+}
+
+/**
+ * The signed-in account whatever its status, for the screens that serve
+ * applicants as well as active accounts (the author application and its
+ * status page). Everything else should use `requireUser`/`requireCapability`.
+ */
+export async function requireAccount(
+  returnTo: string,
+): Promise<{ user: SessionUser; status: AccountStatus }> {
+  const viewer = await getViewer();
+  if (viewer.user) return { user: viewer.user, status: "active" };
+  if (viewer.applicant) {
+    const { status, ...user } = viewer.applicant;
+    return { user, status };
+  }
+  redirect(`/login?next=${encodeURIComponent(returnTo)}`);
+}
+
+/** An applicant is signed in already; a sign-in form would be a dead end. */
+function redirectUnsigned(viewer: Viewer, returnTo: string): never {
+  if (!viewer.user && viewer.applicant) redirect(APPLICATION_STATUS_PATH);
+  redirect(`/login?next=${encodeURIComponent(returnTo)}`);
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -48,9 +84,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 /** Send an unsigned visitor to sign in, returning them here afterwards. */
 export async function requireUser(returnTo: string): Promise<SessionUser> {
   const viewer = await getViewer();
-  if (!viewer.user) {
-    redirect(`/login?next=${encodeURIComponent(returnTo)}`);
-  }
+  if (!viewer.user) redirectUnsigned(viewer, returnTo);
   return viewer.user;
 }
 
@@ -67,9 +101,7 @@ export async function requireCapability(
   returnTo: string,
 ): Promise<SessionUser> {
   const viewer = await getViewer();
-  if (!viewer.user) {
-    redirect(`/login?next=${encodeURIComponent(returnTo)}`);
-  }
+  if (!viewer.user) redirectUnsigned(viewer, returnTo);
   if (!can(viewer.role, capability)) {
     redirect(`/forbidden?need=${encodeURIComponent(capability)}`);
   }

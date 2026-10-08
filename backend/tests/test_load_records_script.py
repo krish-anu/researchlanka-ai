@@ -316,6 +316,39 @@ def test_reset_database_tables_refuses_to_drop_review_history():
     assert all("TRUNCATE TABLE" not in sql for sql, _ in connection.queries)
 
 
+class SequencedConnection(RecordingConnection):
+    def __init__(self, results):
+        super().__init__()
+        self.results = list(results)
+
+    @property
+    def fetchone_result(self):
+        return self.results.pop(0) if self.results else None
+
+    @fetchone_result.setter
+    def fetchone_result(self, value):
+        pass
+
+
+def test_reset_database_tables_refuses_to_drop_author_profiles():
+    # Review history empty, author tables present, one profile on record.
+    connection = SequencedConnection([(0, 0), (True,), (1, 0)])
+
+    with pytest.raises(RuntimeError, match="author profiles"):
+        reset_database_tables(connection, tables=("final_publications",))
+
+    assert all("TRUNCATE TABLE" not in sql for sql, _ in connection.queries)
+
+
+def test_reset_database_tables_allows_reset_before_author_tables_exist():
+    connection = SequencedConnection([(0, 0), (False,)])
+
+    reset_database_tables(connection, tables=("final_publications",))
+
+    assert "to_regclass('author_profiles')" in connection.queries[1][0]
+    assert connection.queries[-1][0].startswith('TRUNCATE TABLE "final_publications"')
+
+
 def test_load_record_file_can_reset_before_loading_with_opt_in(tmp_path, monkeypatch):
     path = tmp_path / "records.json"
     path.write_text(
@@ -386,6 +419,8 @@ def test_retire_stale_publications_soft_retires_missing_keys_in_year_range():
     assert "publication_key = ANY" in sql
     assert "publication_year >= %s" in sql
     assert "publication_year <= %s" in sql
+    # Author-submitted records are never in a pipeline snapshot.
+    assert "coalesce(source_dataset, '') <> 'author_submission'" in sql
     assert params == [
         "missing_from_latest_validated_snapshot",
         ["doi:10.1000/active"],

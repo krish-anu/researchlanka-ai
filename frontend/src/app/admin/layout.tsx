@@ -28,6 +28,8 @@ export default async function AdminLayout({
     flags: 0,
     review: 0,
     aiReview: 0,
+    authors: 0,
+    contributions: 0,
   };
 
   return (
@@ -38,8 +40,8 @@ export default async function AdminLayout({
             <p className="page-eyebrow">Administration</p>
             <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
               Ingestion health, quality control, and curation queues. Public
-              figures come from the pipeline — nothing here edits a published
-              record directly.
+              figures come from the pipeline; the only direct changes are author
+              corrections and submissions you approve.
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">

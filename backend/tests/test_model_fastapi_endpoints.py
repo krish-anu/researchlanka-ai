@@ -588,3 +588,24 @@ def test_model_prediction_shape_errors_use_api_error(tmp_path: Path) -> None:
         service.predict_one("publication-classifier", {"title": "Health systems"})
 
     assert exc_info.value.code == "model_prediction_failed"
+
+
+def test_fastapi_routes_author_profiles_before_researcher_names(monkeypatch) -> None:
+    from src.api.services import author_profiles
+
+    monkeypatch.setattr(author_profiles, "with_connection", lambda operation: operation("connection"))
+    monkeypatch.setattr(
+        author_profiles,
+        "public_profile",
+        lambda connection, slug: {"slug": slug, "display_name": "Roshan Ragel"},
+    )
+    app = create_app(publication_service=ResearchLankaAPI(FakePublicationRepository()))
+
+    profile = request(app, "GET", "/api/v1/researchers/profiles/roshan-ragel")
+    unauthorised = request(app, "POST", "/api/v1/author/applications", json={})
+
+    assert profile.status_code == 200
+    assert profile.json()["data"]["slug"] == "roshan-ragel"
+    # Author writes need the backend token whichever transport serves them.
+    assert unauthorised.status_code in {403, 503}
+    assert unauthorised.json()["error"]["code"] in {"forbidden", "admin_api_token_not_configured"}

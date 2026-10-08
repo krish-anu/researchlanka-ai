@@ -18,6 +18,13 @@ export type Capability =
   | "library.save"
   | "record.flag"
   | "account.manage"
+  /*
+   * Author profiles. Granted to every signed-in role; whether this account
+   * actually holds an approved profile, and owns the record it is changing,
+   * is checked against the backend on each request.
+   */
+  | "author.apply"
+  | "author.contribute"
   /* Administrators only. */
   | "admin.access"
   | "admin.pipeline.view"
@@ -25,7 +32,8 @@ export type Capability =
   | "admin.flags.triage"
   | "admin.resolution.decide"
   | "admin.ai_review.manage"
-  | "admin.users.manage";
+  | "admin.users.manage"
+  | "admin.authors.manage";
 
 const GRANTS: Record<Capability, Role[]> = {
   "corpus.read": ["guest", "user", "reviewer", "admin"],
@@ -35,6 +43,9 @@ const GRANTS: Record<Capability, Role[]> = {
   "record.flag": ["user", "reviewer", "admin"],
   "account.manage": ["user", "reviewer", "admin"],
 
+  "author.apply": ["user", "reviewer", "admin"],
+  "author.contribute": ["user", "reviewer", "admin"],
+
   "admin.access": ["reviewer", "admin"],
   "admin.pipeline.view": ["admin"],
   "admin.pipeline.run": ["admin"],
@@ -42,6 +53,7 @@ const GRANTS: Record<Capability, Role[]> = {
   "admin.resolution.decide": ["reviewer", "admin"],
   "admin.ai_review.manage": ["admin"],
   "admin.users.manage": ["admin"],
+  "admin.authors.manage": ["admin"],
 };
 
 export function can(role: Role, capability: Capability): boolean {
@@ -59,6 +71,7 @@ export const ROLE_CAPABILITY_SUMMARY: Record<Role, string[]> = {
     "Everything a visitor can do",
     "Save publications to a personal library",
     "Flag records that look wrong, for administrator review",
+    "Apply for a verified author profile",
   ],
   reviewer: [
     "Everything a signed-in user can do",
@@ -69,6 +82,7 @@ export const ROLE_CAPABILITY_SUMMARY: Record<Role, string[]> = {
     "Everything a signed-in user can do",
     "Pipeline and data-source console",
     "Entity-resolution queue, AI review, and flag triage",
+    "Approve author profiles and author-submitted changes",
     "Grant, revoke and suspend accounts",
   ],
 };

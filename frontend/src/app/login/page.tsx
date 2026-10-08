@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { signIn } from "@/app/actions/auth";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { LibraryBenefitVisual } from "@/components/auth/LibraryBenefitVisual";
-import { getViewer } from "@/services/auth/server";
+import { APPLICATION_STATUS_PATH, getViewer } from "@/services/auth/server";
 import { ROLE_CAPABILITY_SUMMARY } from "@/services/auth/permissions";
 
 export const metadata = {
@@ -26,7 +26,9 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const { next } = await searchParams;
   const destination = safeNext(next);
 
-  if ((await getViewer()).user) redirect(destination);
+  const viewer = await getViewer();
+  if (viewer.user) redirect(destination);
+  if (viewer.applicant) redirect(APPLICATION_STATUS_PATH);
 
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-8 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">

@@ -4,7 +4,9 @@ import {
   AdminIcon,
   FlagIcon,
   PipelineIcon,
+  PublicationsIcon,
   QueueIcon,
+  ResearchersIcon,
   UsersIcon,
 } from "@/components/layout/NavIcons";
 import { TabBar, TabLink } from "@/components/layout/TabNav";
@@ -15,7 +17,7 @@ interface AdminTab {
   label: string;
   Icon: ComponentType<{ className?: string }>;
   /** Rendered as a count chip when non-zero; omitted entirely when undefined. */
-  badgeKey?: "flags" | "review" | "aiReview";
+  badgeKey?: "flags" | "review" | "aiReview" | "authors" | "contributions";
   /** The console root; without this it stays lit on every nested tab. */
   exact?: boolean;
   roles: Role[];
@@ -27,6 +29,8 @@ const TABS: AdminTab[] = [
   { href: "/admin/ai-review", label: "AI review", Icon: QueueIcon, badgeKey: "aiReview", roles: ["reviewer", "admin"] },
   { href: "/admin/review", label: "Resolution queue", Icon: QueueIcon, badgeKey: "review", roles: ["admin"] },
   { href: "/admin/flags", label: "Flag triage", Icon: FlagIcon, badgeKey: "flags", roles: ["admin"] },
+  { href: "/admin/authors", label: "Author applications", Icon: ResearchersIcon, badgeKey: "authors", roles: ["admin"] },
+  { href: "/admin/contributions", label: "Author contributions", Icon: PublicationsIcon, badgeKey: "contributions", roles: ["admin"] },
   { href: "/admin/users", label: "Accounts", Icon: UsersIcon, roles: ["admin"] },
 ];
 
@@ -34,6 +38,8 @@ export interface AdminBadges {
   flags: number;
   review: number;
   aiReview: number;
+  authors: number;
+  contributions: number;
 }
 
 /** Sub-navigation for the console. */
