@@ -2,6 +2,7 @@ from datetime import datetime
 
 from src.database.final_schema import (
     AI_CLASSIFICATION_COLUMNS,
+    DATABASE_DERIVED_COLUMNS,
     DATABASE_PUBLICATION_COLUMNS,
     FINAL_PUBLICATION_COLUMNS,
     PUBLIC_TRACE_COLUMNS,
@@ -23,6 +24,7 @@ def test_final_publication_columns_use_latest_final_dataset_contract():
     assert "ai_classification_label" not in FINAL_PUBLICATION_COLUMNS
     assert list(DATABASE_PUBLICATION_COLUMNS) == [
         *FINAL_MAIN_COLUMNS,
+        *DATABASE_DERIVED_COLUMNS,
         *AI_CLASSIFICATION_COLUMNS,
         *PUBLIC_TRACE_COLUMNS,
     ]
@@ -59,6 +61,7 @@ def test_build_final_publication_row_maps_aliases_and_coerces_values():
     assert row["oa_status"] == "gold"
     assert row["doi"] == "10.1000/abc"
     assert row["publication_date"] == "2024-01-15"
+    assert row["publication_year"] == 2024
     assert row["authors"] == "A. Author; B. Author"
     assert row["institutions"] == "University of Colombo; University of Peradeniya"
     assert row["is_oa"] is True

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { MachineLegend } from "@/components/ui/ChartPanel";
 import { CORPUS_SOURCES, SourceDot, sourceColor } from "@/components/ui/Provenance";
+import { IS_CSE_UOM_SITE, SITE_COPY } from "@/config/site";
 
 /**
  * The provenance stripe closes every page, per the design system.
@@ -29,9 +30,9 @@ export function SiteFooter() {
           <div className="max-w-prose">
             <span className="label-caps block text-muted">Data provenance</span>
             <p className="mt-2 text-body-sm text-ink-secondary">
-              ResearchLanka is a read-only public view of the accepted Sri Lankan AI
-              publication collection. Counts describe records observed in the
-              dataset and are not official national totals.
+              {IS_CSE_UOM_SITE
+                ? `${SITE_COPY.fullName} is a read-only public view of affiliation-verified CSE AI publications. Counts describe records observed in the dataset and are not official departmental totals.`
+                : "ResearchLanka is a read-only public view of the accepted Sri Lankan AI publication collection. Counts describe records observed in the dataset and are not official national totals."}
             </p>
             <MachineLegend className="mt-3" />
           </div>

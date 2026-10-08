@@ -6,6 +6,7 @@ import joblib
 import pandas as pd
 
 from src.pipeline.classify_ai_relevance_dataset import (
+    classify_ai_relevance_dataframe,
     classify_ai_relevance_dataset,
     filter_ai_review_dataset,
     label_from_ai_score,
@@ -44,11 +45,47 @@ class NumericProbabilityModel:
         return [[1.0 - score, score] for score in scores[: len(text)]]
 
 
+class CapturingProbabilityModel:
+    classes_ = [0, 1]
+
+    def __init__(self):
+        self.text = []
+
+    def predict_proba(self, text):
+        self.text = list(text)
+        return [[0.1, 0.9] for _value in self.text]
+
+
 def test_label_from_ai_score_uses_requested_boundaries() -> None:
     assert label_from_ai_score(0.85, ai_threshold=0.85) == "AI"
     assert label_from_ai_score(0.849999, ai_threshold=0.85) == "review"
     assert label_from_ai_score(0.40, ai_threshold=0.85) == "review"
     assert label_from_ai_score(0.399999, ai_threshold=0.85) == "non-AI"
+
+
+def test_classification_prefixes_fields_like_metadata_ablation_training() -> None:
+    model = CapturingProbabilityModel()
+
+    classify_ai_relevance_dataframe(
+        pd.DataFrame(
+            {
+                "title": ["Crop detection"],
+                "abstract": ["A machine-learning study."],
+                "keywords": ["agriculture; vision"],
+            }
+        ),
+        model=model,
+        model_name="a2",
+        text_columns=("title", "abstract", "keywords"),
+        ai_threshold=0.66,
+        review_threshold=0.4,
+        calibrator_path="disabled",
+    )
+
+    assert model.text == [
+        "TITLE: Crop detection ABSTRACT: A machine-learning study. "
+        "KEYWORDS: agriculture; vision"
+    ]
 
 
 def test_numeric_binary_model_treats_class_one_as_ai(tmp_path: Path) -> None:

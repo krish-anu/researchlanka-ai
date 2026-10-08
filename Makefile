@@ -13,13 +13,15 @@ FRONTEND_HOST ?= 127.0.0.1
 FRONTEND_PORT ?= 3000
 API_BASE_URL ?= http://$(BACKEND_HOST):$(BACKEND_PORT)/api/v1
 API_BASE_URL_ORIGIN := $(origin API_BASE_URL)
+CSE_UOM_API_BASE_URL ?= http://127.0.0.1:8082/api/v1
+CSE_UOM_FRONTEND_PORT ?= 3001
 NPM ?= npm
 NEXT_TELEMETRY_DISABLED ?= 1
 FRONTEND_NODE_MAX_OLD_SPACE_MB ?= 1536
 DEV_SEMANTIC_EMBEDDINGS ?= data/models/publication_text_embeddings_cli_sample.parquet
 DEV_SEMANTIC_MODEL ?= data/models/publication_text_embedding_model_cli_sample.joblib
 
-.PHONY: help install install-backend install-frontend backend api frontend dev final-common final-common-raw final-common-enriched load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update maps-location-confirm maps-location-rescore maps-location-apply test check check-backend check-frontend
+.PHONY: help install install-backend install-frontend backend api frontend frontend-cse-uom dev final-common final-common-raw final-common-enriched cse-uom-dataset cse-uom-ai-dataset load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update maps-location-confirm maps-location-rescore maps-location-apply test check check-backend check-frontend
 
 help:
 	@echo "ResearchLanka development shortcuts"
@@ -31,6 +33,8 @@ help:
 	@echo "  make load-db-ai         Build and upsert the AI-reviewed dataset"
 	@echo "  make final-common       Build common dataset and fill missing titles/abstracts/keywords"
 	@echo "  make incremental-update Collect recent OpenAlex records, classify AI relevance, and load review-gated rows"
+	@echo "  make cse-uom-dataset    Build the affiliation-verified CSE publication dataset"
+	@echo "  make cse-uom-ai-dataset Build the site-ready verified CSE AI dataset"
 	@echo "  make maps-location-confirm  Confirm institution locations with Google Maps evidence"
 	@echo "  make maps-location-apply    Add confirmed Maps aliases to the registry"
 	@echo "  make backend            Run the backend API on http://$(BACKEND_HOST):$(BACKEND_PORT)/api/v1"
@@ -101,6 +105,24 @@ maps-location-apply:
 
 frontend:
 	NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL=$(API_BASE_URL) $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $(FRONTEND_PORT)
+
+frontend-cse-uom:
+	@set -e; \
+	case "$(CSE_UOM_API_BASE_URL)" in \
+		http://*|https://*) ;; \
+		*) echo "Invalid CSE_UOM_API_BASE_URL: $(CSE_UOM_API_BASE_URL)"; echo "Use a plain URL such as http://127.0.0.1:8082/api/v1"; exit 2 ;; \
+	esac; \
+	frontend_port=$$($(SYSTEM_PYTHON) -c 'exec("import socket, sys\nhost = sys.argv[1]\nstart = int(sys.argv[2])\nfor candidate in range(start, 65536):\n    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n    try:\n        in_use = sock.connect_ex((host, candidate)) == 0\n    finally:\n        sock.close()\n    if not in_use:\n        print(candidate)\n        break\nelse:\n    raise SystemExit(\"no free frontend port found\")")' "$(FRONTEND_HOST)" "$(CSE_UOM_FRONTEND_PORT)"); \
+	if [ "$$frontend_port" != "$(CSE_UOM_FRONTEND_PORT)" ]; then echo "CSE frontend port $(CSE_UOM_FRONTEND_PORT) is busy; using $$frontend_port."; fi; \
+	echo "CSE API: $(CSE_UOM_API_BASE_URL)"; \
+	echo "CSE frontend: http://$(FRONTEND_HOST):$$frontend_port"; \
+	NEXT_PUBLIC_SITE_PROFILE=cse-uom NEXT_TELEMETRY_DISABLED=$(NEXT_TELEMETRY_DISABLED) NODE_OPTIONS=--max-old-space-size=$(FRONTEND_NODE_MAX_OLD_SPACE_MB) API_BASE_URL="$(CSE_UOM_API_BASE_URL)" $(NPM) --prefix $(FRONTEND_DIR) run dev -- --hostname $(FRONTEND_HOST) --port $$frontend_port
+
+cse-uom-dataset:
+	$(MAKE) -C $(BACKEND_DIR) cse-uom-dataset PYTHON=$(BACKEND_PYTHON)
+
+cse-uom-ai-dataset:
+	$(MAKE) -C $(BACKEND_DIR) cse-uom-ai-dataset PYTHON=$(BACKEND_PYTHON)
 
 dev: $(BACKEND_DIR)/.venv/bin/python
 	@set -e; \

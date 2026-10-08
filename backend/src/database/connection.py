@@ -61,6 +61,17 @@ def get_pooled_connection() -> Any:
     return _PooledConnection(_POOL)
 
 
+def close_connection_pool() -> None:
+    """Close the process-wide pool before a short-lived CLI exits."""
+
+    global _POOL
+    if _POOL is None:
+        return
+    pool = _POOL
+    _POOL = None
+    pool.close()
+
+
 class _PooledConnection:
     def __init__(self, pool: Any) -> None:
         self._pool = pool

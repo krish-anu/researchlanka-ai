@@ -658,6 +658,56 @@ def test_institution_like_author_detection():
     assert not is_institution_like_author("Kumanan, T.")
 
 
+def test_single_institution_network_limits_edges_to_the_profile_institution(monkeypatch):
+    repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
+    edge_query: dict[str, object] = {}
+
+    def fake_fetch_all(sql, params):
+        normalized_sql = " ".join(sql.split())
+        if "source.label AS source_label" in normalized_sql:
+            edge_query.update(sql=normalized_sql, params=params)
+            return [
+                {
+                    "source_label": "University of Colombo",
+                    "target_label": "University of Moratuwa",
+                    "weight": 4,
+                }
+            ]
+        if "WHERE label = ANY(%s::text[])" in normalized_sql:
+            return [
+                {"label": "University of Colombo", "publication_count": 4},
+                {"label": "University of Moratuwa", "publication_count": 10},
+            ]
+        return []
+
+    monkeypatch.setattr(repository, "_fetch_all", fake_fetch_all)
+
+    result = repository.collaboration_network(
+        {
+            "institution": ["University of Moratuwa"],
+            "field": ["Computer Science"],
+            "year_min": 2016,
+            "year_max": 2026,
+        },
+        scope="institution",
+        min_weight=1,
+        limit=40,
+    )
+
+    assert "lower(source.label) = lower(%s)" in str(edge_query["sql"])
+    assert edge_query["params"][-4:] == [
+        1,
+        "University of Moratuwa",
+        "University of Moratuwa",
+        40,
+    ]
+    assert result["summary"]["component_count"] == 1
+    assert {node["label"] for node in result["nodes"]} == {
+        "University of Colombo",
+        "University of Moratuwa",
+    }
+
+
 def test_postgres_researcher_rankings_filter_institution_like_author_values(monkeypatch):
     repository = PostgresPublicationRepository(connection_factory=lambda _database_url: None)
     calls = []
@@ -825,6 +875,37 @@ def test_researcher_service_filters_institution_like_repository_results():
     ]
     with pytest.raises(APIError, match="Researcher not found"):
         service.researcher_profile("University of Jaffna")
+
+
+def test_researcher_publications_apply_profile_filters_and_fixed_researcher():
+    class CapturingRepository(FakeRepository):
+        received_filters = None
+
+        def list_publications(self, filters, *, page, page_size, sort, include_facets):
+            self.received_filters = filters
+            return super().list_publications(
+                filters,
+                page=page,
+                page_size=page_size,
+                sort=sort,
+                include_facets=include_facets,
+            )
+
+    repository = CapturingRepository()
+    service = ResearchLankaAPI(repository)
+
+    response = service.researcher_publications(
+        "A. Author",
+        {"year_min": ["2024"], "year_max": ["2024"], "field": ["Medicine"]},
+    )
+
+    assert response["pagination"]["total"] == 1
+    assert repository.received_filters == {
+        "year_min": 2024,
+        "year_max": 2024,
+        "field": ["Medicine"],
+        "researcher": ["A. Author"],
+    }
 
 
 def test_researcher_service_overfetches_to_fill_requested_limit_after_filtering():
