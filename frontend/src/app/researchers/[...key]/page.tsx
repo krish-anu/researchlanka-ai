@@ -17,6 +17,7 @@ import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import {
   exportUrl,
   findAuthorProfilesByName,
+  getAnalyticsFields,
   getResearcher,
   getResearcherCoauthors,
   getResearcherPublications,
@@ -88,13 +89,27 @@ export default async function ResearcherProfilePage({
   }
 
   const data = profile.value.data;
-  const [publications, coauthors, trendSample, verified] = await Promise.all([
-    getResearcherPublications(researcherKey, { page, page_size: PAGE_SIZE }),
+  const [publications, coauthors, trendSample, fields, verified] = await Promise.all([
+    getResearcherPublications(researcherKey, {
+      ...profileFilters,
+      page,
+      page_size: PAGE_SIZE,
+    }),
     getResearcherCoauthors(researcherKey, { limit: 25 }),
     getResearcherPublications(researcherKey, {
       ...profileFilters,
       page: 1,
       page_size: TREND_SAMPLE,
+    }),
+    getAnalyticsFields({
+      researcher: [researcherKey],
+      ...(typeof profileFilters.year_min === "number"
+        ? { year_min: profileFilters.year_min }
+        : {}),
+      ...(typeof profileFilters.year_max === "number"
+        ? { year_max: profileFilters.year_max }
+        : {}),
+      limit: 100,
     }),
     findAuthorProfilesByName(data.label),
   ]);
