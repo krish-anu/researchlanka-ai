@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import { AnalyticsFilters, toFilterChoices } from "@/components/analytics/AnalyticsFilters";
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { ProfileHeader, ProfileTabs } from "@/components/layout/ProfileHeader";
 import { ResearcherNetworkPanel } from "@/components/network/ProfileNetworkPanels";
@@ -15,13 +16,19 @@ import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import {
   exportUrl,
+  getAnalyticsFields,
   getResearcher,
   getResearcherCoauthors,
   getResearcherPublications,
   isNotFound,
 } from "@/services/api";
 import { topValues, yearHistogram } from "@/services/derive";
-import { extractPage, type SearchParams } from "@/services/filters";
+import {
+  extractFilters,
+  extractPage,
+  hasActiveFilters,
+  type SearchParams,
+} from "@/services/filters";
 import {
   formatCompact,
   formatNumber,
@@ -59,6 +66,19 @@ export default async function ResearcherProfilePage({
   const query = await searchParams;
   const researcherKey = decodeKeySegments(key);
   const page = extractPage(query);
+  const extractedFilters = extractFilters(query);
+  const profileFilters = {
+    ...(typeof extractedFilters.year_min === "number"
+      ? { year_min: extractedFilters.year_min }
+      : {}),
+    ...(typeof extractedFilters.year_max === "number"
+      ? { year_max: extractedFilters.year_max }
+      : {}),
+    ...(Array.isArray(extractedFilters.field)
+      ? { field: extractedFilters.field }
+      : {}),
+  };
+  const filtersActive = hasActiveFilters(profileFilters);
 
   const profile = await getResearcher(researcherKey);
   if (isNotFound(profile)) notFound();
@@ -67,12 +87,27 @@ export default async function ResearcherProfilePage({
   }
 
   const data = profile.value.data;
-  const [publications, coauthors, trendSample] = await Promise.all([
-    getResearcherPublications(researcherKey, { page, page_size: PAGE_SIZE }),
+  const [publications, coauthors, trendSample, fields] = await Promise.all([
+    getResearcherPublications(researcherKey, {
+      ...profileFilters,
+      page,
+      page_size: PAGE_SIZE,
+    }),
     getResearcherCoauthors(researcherKey, { limit: 25 }),
     getResearcherPublications(researcherKey, {
+      ...profileFilters,
       page: 1,
       page_size: TREND_SAMPLE,
+    }),
+    getAnalyticsFields({
+      researcher: [researcherKey],
+      ...(typeof profileFilters.year_min === "number"
+        ? { year_min: profileFilters.year_min }
+        : {}),
+      ...(typeof profileFilters.year_max === "number"
+        ? { year_max: profileFilters.year_max }
+        : {}),
+      limit: 100,
     }),
   ]);
 
@@ -120,7 +155,7 @@ export default async function ResearcherProfilePage({
       <StatTile
         label="Publications"
         value={formatCompact(data.publication_count)}
-        caption="records attributed to this name"
+        caption="lifetime records attributed to this name"
       />
       <StatTile
         label="Active years"
@@ -143,6 +178,8 @@ export default async function ResearcherProfilePage({
           description={
             isTruncated
               ? `Derived from the ${TREND_SAMPLE} most recent of ${formatNumber(sampleTotal)} records — not the full history.`
+              : filtersActive
+                ? "Derived from publications matching the current filters."
               : "Derived from this researcher's full publication list."
           }
           table={
@@ -183,7 +220,7 @@ export default async function ResearcherProfilePage({
         <section className="panel p-4">
           <SectionHeading
             title="Co-authors"
-            description="Most frequent collaborators on shared publications."
+            description="Most frequent collaborators across the full publication history."
           />
           {!coauthors.ok ? (
             <ApiErrorPanel error={coauthors.error} what="co-authors" />
@@ -226,9 +263,18 @@ export default async function ResearcherProfilePage({
     <section>
       <SectionHeading
         title="Publications"
-        description="Every record attributed to this name, newest first."
+        description={
+          filtersActive && publications.ok
+            ? `${formatNumber(publications.value.pagination.total)} matching records, newest first.`
+            : "Every record attributed to this name, newest first."
+        }
         action={
-          <DownloadLink href={exportUrl("publications.csv", { q: data.label })}>
+          <DownloadLink
+            href={exportUrl("publications.csv", {
+              ...profileFilters,
+              researcher: [data.label],
+            })}
+          >
             Export list (CSV)
           </DownloadLink>
         }
@@ -254,7 +300,7 @@ export default async function ResearcherProfilePage({
     <Suspense
       fallback={<ChartSkeleton label="Loading collaboration network…" size="lg" />}
     >
-      <ResearcherNetworkPanel label={data.label} />
+      <ResearcherNetworkPanel label={data.label} filters={profileFilters} />
     </Suspense>
   );
 
@@ -300,6 +346,15 @@ export default async function ResearcherProfilePage({
         breadcrumbs={breadcrumbs}
         notice={notice}
         metrics={metrics}
+      />
+      <AnalyticsFilters
+        params={query}
+        fields={toFilterChoices(fields.ok ? fields.value.data : [])}
+        basePath={researcherHref(researcherKey)}
+        title="Publication filters"
+        summaryLabel="Showing"
+        yearPhrase="Publication years"
+        applyLabel="Apply filters"
       />
       <ProfileTabs
         tabs={[

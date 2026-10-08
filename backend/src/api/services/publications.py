@@ -367,16 +367,28 @@ class ResearchLankaAPI:
         validate_resource_key(researcher_key, field="researcher_key")
         if is_institution_like_author(researcher_key):
             raise APIError("not_found", "Researcher not found.", status=404)
-        validate_query_params(query, PAGINATION_QUERY_PARAMS)
+        validate_query_params(query, FILTER_QUERY_PARAMS | PAGINATION_QUERY_PARAMS)
+        filters = parse_filters(query)
+        filters["researcher"] = [researcher_key]
         page = parse_positive_int(query, "page", default=1)
         page_size = min(parse_positive_int(query, "page_size", default=DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
-        result = self.repository.researcher_publications(researcher_key, page=page, page_size=page_size)
+        result = self.repository.list_publications(
+            filters,
+            page=page,
+            page_size=page_size,
+            sort="year_desc",
+            include_facets=False,
+        )
+        rows = self._enrich_publication_summaries(
+            [publication_summary(row) for row in result.get("records", [])]
+        )
         return list_response(
-            [publication_summary(row) for row in result.get("records", [])],
+            rows,
             page=page,
             page_size=page_size,
             total=int(result.get("total", 0)),
-            meta=self._meta(),
+            filters=filters,
+            meta=self._meta(result.get("meta")),
         )
 
     def researcher_coauthors(self, researcher_key: str, query: dict[str, list[str]]) -> dict[str, Any]:
