@@ -4,6 +4,7 @@ import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import { requireCapability } from "@/services/auth/server";
 import { listUsers } from "@/services/auth/store";
 import { formatNumber } from "@/services/format";
+import { accountStatus } from "@/types/auth";
 
 export const metadata = { title: "Accounts" };
 
@@ -17,6 +18,7 @@ export default async function AdminUsersPage() {
     email: user.email,
     role: user.role,
     disabled: user.disabled,
+    status: accountStatus(user),
     created_at: user.created_at,
     last_login_at: user.last_login_at,
   }));
@@ -24,6 +26,7 @@ export default async function AdminUsersPage() {
   const admins = view.filter((user) => user.role === "admin").length;
   const reviewers = view.filter((user) => user.role === "reviewer").length;
   const suspended = view.filter((user) => user.disabled).length;
+  const awaiting = view.filter((user) => user.status === "pending").length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,6 +56,11 @@ export default async function AdminUsersPage() {
           label="Suspended"
           value={formatNumber(suspended)}
           caption="blocked from signing in"
+        />
+        <StatTile
+          label="Awaiting approval"
+          value={formatNumber(awaiting)}
+          caption="author sign-ups not yet active"
         />
         <StatTile
           label="Signed-in users"

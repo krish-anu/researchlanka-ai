@@ -9,6 +9,8 @@ const SIGNED_IN_CAPABILITIES: Capability[] = [
   "library.save",
   "record.flag",
   "account.manage",
+  "author.apply",
+  "author.contribute",
 ];
 
 const ADMIN_CAPABILITIES: Capability[] = [
@@ -19,6 +21,7 @@ const ADMIN_CAPABILITIES: Capability[] = [
   "admin.resolution.decide",
   "admin.ai_review.manage",
   "admin.users.manage",
+  "admin.authors.manage",
 ];
 
 const REVIEWER_CAPABILITIES: Capability[] = [
@@ -32,6 +35,7 @@ const ADMIN_ONLY_CAPABILITIES: Capability[] = [
   "admin.flags.triage",
   "admin.ai_review.manage",
   "admin.users.manage",
+  "admin.authors.manage",
 ];
 
 const ALL: Capability[] = [

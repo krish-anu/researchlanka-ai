@@ -9,6 +9,7 @@ from urllib.parse import unquote
 
 from src.api.core.constants import API_PREFIX
 from src.api.core.errors import APIError
+from src.api.routing.author_routes import route_author_get, route_author_post
 from src.api.services.incremental_admin import (
     read_incremental_status,
     require_admin_api_token,
@@ -45,6 +46,10 @@ def route_get(
     query: dict[str, list[str]],
     headers: Mapping[str, str] | None = None,
 ) -> dict[str, Any] | tuple[bytes, str]:
+    # Before the researcher patterns below, which would read "profiles" as a name.
+    author_payload = route_author_get(service, path, query, headers)
+    if author_payload is not None:
+        return author_payload
     if path in {"/health", f"{API_PREFIX}/health"}:
         return {"data": health_payload(), "meta": service._meta()}
     if path in {"/ready", f"{API_PREFIX}/ready"}:
@@ -209,6 +214,9 @@ def route_post(
     payload: dict[str, Any],
     headers: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
+    author_payload = route_author_post(service, path, payload, headers)
+    if author_payload is not None:
+        return author_payload
     if path == f"{API_PREFIX}/admin/incremental/run":
         require_admin_api_token(headers)
         return {

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import math
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from src.api.core.constants import API_VERSION, ARRAY_FIELDS, DATASET_STAGE
 from src.ai_relevance.explainability import explanation_from_row
@@ -215,6 +217,12 @@ def normalize_value(value: Any) -> Any:
         if isinstance(value, datetime) and value.tzinfo is None:
             value = value.replace(tzinfo=timezone.utc)
         return value.isoformat()
+    # psycopg returns uuid and numeric columns as UUID and Decimal, which the
+    # standard json encoder cannot write.
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
     if isinstance(value, dict):
         return {str(key): normalize_value(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):

@@ -13,6 +13,7 @@ import { SnapshotNote } from "@/components/ui/Provenance";
 import {
   getAnalyticsFields,
   getAnalyticsInstitutions,
+  getClaimedNameProfiles,
   listResearchers,
 } from "@/services/api";
 import {
@@ -24,7 +25,7 @@ import {
   type SearchParams,
 } from "@/services/filters";
 import { formatNumber, formatYearRange, personName } from "@/services/format";
-import { researcherHref } from "@/services/links";
+import { authorProfileHref, researcherHref } from "@/services/links";
 
 function directoryQuery(params: SearchParams): string {
   const search = new URLSearchParams();
@@ -70,6 +71,14 @@ export default async function ResearchersPage({
       limit: 100,
     }),
   ]);
+
+  // Spellings a verified author has claimed point at their one profile, so a
+  // person listed here under several names can be recognised as one.
+  const claimed =
+    result.ok && result.value.data.length > 0
+      ? await getClaimedNameProfiles(result.value.data.map((entry) => entry.label))
+      : null;
+  const claimedNames = claimed?.ok ? claimed.value.data : {};
 
   return (
     <div className="flex flex-col gap-4">
@@ -157,6 +166,14 @@ export default async function ResearchersPage({
                             </Link>
                             {entry.affiliation ? (
                               <p className="researcher-affiliation">{entry.affiliation}</p>
+                            ) : null}
+                            {claimedNames[entry.label] ? (
+                              <Link
+                                href={authorProfileHref(claimedNames[entry.label].slug)}
+                                className="mt-0.5 inline-flex items-center gap-1 text-body-sm text-success-text hover:underline"
+                              >
+                                <span aria-hidden>✓</span> Verified: {claimedNames[entry.label].display_name}
+                              </Link>
                             ) : null}
                           </div>
                           {entry.areas?.length ? (

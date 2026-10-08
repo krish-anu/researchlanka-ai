@@ -2,13 +2,14 @@ import { TabBar, TabLink } from "@/components/layout/TabNav";
 import { requireCapability } from "@/services/auth/server";
 
 /**
- * Personal workspace shell — saved library and flags only.
+ * Personal workspace shell — saved library, flags and author profile.
  * Middleware also gates these routes; this check runs with the page render.
  */
 const TABS = [
   { href: "/account", label: "Profile", exact: true },
   { href: "/account/saved", label: "Saved library" },
   { href: "/account/flags", label: "Your flags" },
+  { href: "/account/author", label: "Author profile" },
 ] as const;
 
 export const metadata = {
@@ -30,8 +31,8 @@ export default async function AccountLayout({
       <header className="workspace-shell-strip">
         <p className="page-eyebrow">My workspace</p>
         <p className="mt-1 max-w-prose text-body-sm text-ink-secondary">
-          Your library and flags. Public charts and rankings stay the same for
-          everyone.
+          Your library, flags and author profile. Public charts and rankings
+          stay the same for everyone.
         </p>
       </header>
 

@@ -111,3 +111,63 @@ describe("seeded test accounts", () => {
     expect(await store.listUsers()).toEqual([]);
   });
 });
+
+describe("author sign-up accounts", () => {
+  it("stores pending accounts and leaves ordinary sign-ups active", async () => {
+    const { dir, store } = await freshStore({ SEED_TEST_ACCOUNTS: "false" });
+    directories.push(dir);
+    const { accountStatus } = await import("@/types/auth");
+
+    const author = await store.createUser({
+      email: "author@uom.lk",
+      name: "Author",
+      password: "long-enough-password",
+      status: "pending",
+    });
+    const reader = await store.createUser({
+      email: "reader@example.com",
+      name: "Reader",
+      password: "long-enough-password",
+    });
+    if (!author.ok || !reader.ok) throw new Error("accounts not created");
+
+    expect(accountStatus(author.user)).toBe("pending");
+    // Ordinary accounts carry no status field at all, like accounts created
+    // before author sign-up existed.
+    expect(reader.user.status).toBeUndefined();
+    expect(accountStatus(reader.user)).toBe("active");
+
+    await store.setUserStatus(author.user.id, "active");
+    expect(accountStatus((await store.findUserById(author.user.id))!)).toBe("active");
+  });
+
+  it("only rolls back a pending account that never signed in", async () => {
+    const { dir, store } = await freshStore({ SEED_TEST_ACCOUNTS: "false" });
+    directories.push(dir);
+
+    const pending = await store.createUser({
+      email: "pending@uom.lk",
+      name: "Pending",
+      password: "long-enough-password",
+      status: "pending",
+    });
+    const active = await store.createUser({
+      email: "active@uom.lk",
+      name: "Active",
+      password: "long-enough-password",
+    });
+    const used = await store.createUser({
+      email: "used@uom.lk",
+      name: "Used",
+      password: "long-enough-password",
+      status: "pending",
+    });
+    if (!pending.ok || !active.ok || !used.ok) throw new Error("accounts not created");
+    await store.recordSignIn(used.user.id);
+
+    expect(await store.deleteUnusedPendingUser(active.user.id)).toBe(false);
+    expect(await store.deleteUnusedPendingUser(used.user.id)).toBe(false);
+    expect(await store.deleteUnusedPendingUser(pending.user.id)).toBe(true);
+    expect((await store.listUsers()).map((user) => user.email)).toEqual(["active@uom.lk", "used@uom.lk"]);
+  });
+});

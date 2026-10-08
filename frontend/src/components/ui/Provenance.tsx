@@ -37,6 +37,11 @@ const SOURCE_SPECS: Record<string, SourceSpec> = {
     description: "Combined institutional repository harvest.",
     token: "repository",
   },
+  author_submission: {
+    label: "Author submission",
+    description: "Added by a verified author and approved by an administrator.",
+    token: "other",
+  },
 };
 
 /** The datasets consolidated into the corpus, in the footer's stripe order. */

@@ -7,7 +7,9 @@ import { ActionResult, SubmitButton } from "@/components/admin/ActionResult";
 import { RoleBadge } from "@/components/auth/RoleBadge";
 import { IDLE } from "@/services/forms/state";
 import { formatDate } from "@/services/format";
-import type { AccountRole } from "@/types/auth";
+import Link from "next/link";
+
+import type { AccountRole, AccountStatus } from "@/types/auth";
 
 export interface AdminUserView {
   id: string;
@@ -15,6 +17,7 @@ export interface AdminUserView {
   email: string;
   role: AccountRole;
   disabled: boolean;
+  status: AccountStatus;
   created_at: string;
   last_login_at: string | null;
 }
@@ -55,6 +58,14 @@ export function UserRow({
             <span className="label-caps rounded border border-rule bg-surface px-2 py-1 text-serious">
               Suspended
             </span>
+          ) : null}
+          {user.status !== "active" ? (
+            <Link
+              href="/admin/authors"
+              className="label-caps rounded border border-warning/45 bg-wash px-2 py-1 text-ink-secondary hover:text-primary"
+            >
+              {user.status === "pending" ? "Awaiting author approval" : "Author application declined"}
+            </Link>
           ) : null}
         </div>
       </header>

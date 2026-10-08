@@ -32,6 +32,7 @@ import type {
   Suggestion,
   TrendPoint,
 } from "@/types/api";
+import type { CategoryOption, ClaimedNameProfile, PublicAuthorProfile } from "@/types/authors";
 
 export const API_BASE_URL =
   process.env.API_BASE_URL ??
@@ -337,6 +338,43 @@ export const getResearcherCoauthors = (
   request<DetailResponse<CoauthorEntry[]>>(
     `/researchers/${encodeURIComponent(researcherKey)}/coauthors`,
     params,
+  );
+
+/* ---------------------------------------------------- verified author profiles */
+
+/** Approved profiles whose names match a researcher-page name. */
+export const findAuthorProfilesByName = (name: string) =>
+  request<DetailResponse<PublicAuthorProfile[]>>(
+    "/researchers/profiles",
+    { name, limit: 5 },
+    { revalidate: 60 },
+  );
+
+/** Not cached: an author's bio and links change the moment they save them. */
+export const getAuthorProfile = (slug: string) =>
+  request<DetailResponse<PublicAuthorProfile>>(
+    `/researchers/profiles/${encodeURIComponent(slug)}`,
+    {},
+    { revalidate: 0 },
+  );
+
+export const getAuthorProfilePublications = (slug: string, params: QueryParams = {}) =>
+  request<ListResponse<PublicationSummary>>(
+    `/researchers/profiles/${encodeURIComponent(slug)}/publications`,
+    params,
+    { revalidate: 0 },
+  );
+
+/** The field/subfield taxonomy new publications are filed under. */
+export const getCategoryOptions = () =>
+  request<DetailResponse<{ fields: CategoryOption[] }>>("/lookup/categories", {}, { revalidate: 3600 });
+
+/** Printed names that a verified profile has claimed, for marking directory rows. */
+export const getClaimedNameProfiles = (names: string[]) =>
+  request<DetailResponse<Record<string, ClaimedNameProfile>>>(
+    "/lookup/claimed-names",
+    { name: names },
+    { revalidate: 60 },
   );
 
 /* ------------------------------------------------------------- institutions */

@@ -18,6 +18,7 @@ from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from src.database.connection import get_connection
+from src.database.final_schema import AUTHOR_SUBMISSION_SOURCE
 from src.database.loader import (
     build_final_publication_row,
     coerce_boolean,
@@ -361,9 +362,17 @@ def retire_stale_publications(
     year_max: int | None = None,
     reason: str = "missing_from_latest_validated_snapshot",
 ) -> int:
-    """Soft-retire records absent from the latest validated snapshot."""
+    """Soft-retire records absent from the latest validated snapshot.
 
-    clauses = ["retired_at IS NULL"]
+    Author-submitted publications are never in a pipeline snapshot, so they are
+    exempt: an administrator approved them by hand and only a person should
+    take them down.
+    """
+
+    clauses = [
+        "retired_at IS NULL",
+        f"coalesce(source_dataset, '') <> '{AUTHOR_SUBMISSION_SOURCE}'",
+    ]
     params: list[Any] = []
     if active_publication_keys:
         clauses.append("NOT (publication_key = ANY(%s))")
@@ -509,7 +518,36 @@ def reset_database_tables(
                         "Refusing to reset final_publications because AI review history exists. "
                         "Load without --reset to preserve review decisions."
                     )
+            # TRUNCATE ... CASCADE also empties every table that references
+            # final_publications, which includes author claims and corrections.
+            if author_data_exists(cursor):
+                raise RuntimeError(
+                    "Refusing to reset final_publications because author profiles or "
+                    "author contributions exist. Load without --reset to preserve them."
+                )
         cursor.execute(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE")
+
+
+def author_data_exists(cursor: Any) -> bool:
+    """Whether any author profile or contribution would be lost by a reset."""
+
+    # Checked first so a reset still works on a database migrated before 016.
+    cursor.execute("SELECT to_regclass('author_profiles') IS NOT NULL AS present")
+    row = cursor.fetchone()
+    if row is None or not (row.get("present") if isinstance(row, dict) else row[0]):
+        return False
+    cursor.execute(
+        """
+        SELECT
+            (SELECT count(*) FROM author_profiles) AS profiles,
+            (SELECT count(*) FROM author_contributions) AS contributions
+        """
+    )
+    counts = cursor.fetchone()
+    if counts is None:
+        return False
+    values = counts.values() if isinstance(counts, dict) else counts
+    return any(int(value or 0) > 0 for value in values)
 
 
 def _upsert_country(

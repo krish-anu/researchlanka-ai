@@ -47,6 +47,17 @@ export function isAccountRole(value: unknown): value is AccountRole {
   return value === "user" || value === "reviewer" || value === "admin";
 }
 
+/**
+ * Whether an account may use what its role grants.
+ *
+ * Only author sign-ups start `pending`: they wait for an administrator to
+ * approve the author application before the account works. Ordinary sign-ups
+ * are `active` immediately. `rejected` keeps the account able to sign in and
+ * read the decision, nothing more. This is separate from `disabled`, which is
+ * a suspension of an account that was already in use.
+ */
+export type AccountStatus = "active" | "pending" | "rejected";
+
 /** Full stored record. The password hash never leaves the server. */
 export interface UserRecord {
   id: string;
@@ -58,6 +69,12 @@ export interface UserRecord {
   created_at: string;
   last_login_at: string | null;
   disabled: boolean;
+  /** Absent on accounts created before author sign-up existed; read as active. */
+  status?: AccountStatus;
+}
+
+export function accountStatus(record: Pick<UserRecord, "status">): AccountStatus {
+  return record.status ?? "active";
 }
 
 /** What the session cookie carries and what components are allowed to see. */
@@ -68,9 +85,16 @@ export interface SessionUser {
   role: AccountRole;
 }
 
-/** The resolved viewer, including the unsigned case. */
+/**
+ * The resolved viewer, including the unsigned case.
+ *
+ * A signed-in account that is not yet active (an author application waiting
+ * for approval, or a rejected one) resolves as a guest — every capability
+ * check treats it as unsigned — with `applicant` set, so the few screens that
+ * serve applicants can still say who they are.
+ */
 export type Viewer =
-  | { role: "guest"; user: null }
+  | { role: "guest"; user: null; applicant?: SessionUser & { status: AccountStatus } }
   | { role: AccountRole; user: SessionUser };
 
 export const GUEST: Viewer = { role: "guest", user: null };

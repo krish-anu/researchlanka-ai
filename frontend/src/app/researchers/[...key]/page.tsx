@@ -15,6 +15,7 @@ import { SnapshotNote } from "@/components/ui/Provenance";
 import { StatTile, StatTileGrid } from "@/components/ui/StatTile";
 import {
   exportUrl,
+  findAuthorProfilesByName,
   getResearcher,
   getResearcherCoauthors,
   getResearcherPublications,
@@ -29,6 +30,7 @@ import {
   personName,
 } from "@/services/format";
 import {
+  authorProfileHref,
   decodeKeySegments,
   publicationSearchHref,
   researcherHref,
@@ -67,14 +69,19 @@ export default async function ResearcherProfilePage({
   }
 
   const data = profile.value.data;
-  const [publications, coauthors, trendSample] = await Promise.all([
+  const [publications, coauthors, trendSample, verified] = await Promise.all([
     getResearcherPublications(researcherKey, { page, page_size: PAGE_SIZE }),
     getResearcherCoauthors(researcherKey, { limit: 25 }),
     getResearcherPublications(researcherKey, {
       page: 1,
       page_size: TREND_SAMPLE,
     }),
+    findAuthorProfilesByName(data.label),
   ]);
+  const verifiedProfiles = verified.ok ? verified.value.data : [];
+  // "claimed": the profile holds approved claims on this exact spelling.
+  const claimedBy = verifiedProfiles.filter((match) => match.match === "claimed");
+  const similar = verifiedProfiles.filter((match) => match.match !== "claimed");
 
   const sample = trendSample.ok ? trendSample.value.data : [];
   const sampleTotal = trendSample.ok ? trendSample.value.pagination.total : 0;
@@ -93,25 +100,65 @@ export default async function ResearcherProfilePage({
   );
 
   const notice = (
-    <div className="panel border-warning/40 p-3 detail-measure">
-      <p className="flex gap-2 text-body-sm text-ink-secondary">
-        <span aria-hidden className="text-warning">
-          ▲
-        </span>
-        <span>
-          This profile is grouped by{" "}
-          <strong className="font-medium text-ink">
-            {data.disambiguation_level === "name"
-              ? "normalised author name"
-              : data.disambiguation_level}
-          </strong>
-          , not a verified identifier. Records from different people sharing this
-          name may be combined here.{" "}
-          <Link href="/data-quality" className="text-primary hover:underline">
-            Data quality
-          </Link>
-        </span>
-      </p>
+    <div className="flex flex-col gap-2">
+      {claimedBy.length > 0 ? (
+        <div className="panel border-good/40 p-3 detail-measure">
+          <p className="text-body-sm text-ink-secondary">
+            <span aria-hidden className="mr-2 text-success-text">
+              ✓
+            </span>
+            {claimedBy.map((match, index) => (
+              <span key={match.slug}>
+                {index > 0 ? "; " : ""}
+                <strong className="font-medium text-ink">{match.claimed_count}</strong> of the publications
+                under this spelling belong to{" "}
+                <Link href={authorProfileHref(match.slug)} className="font-medium text-primary hover:underline">
+                  {match.display_name}
+                </Link>
+                {match.institution ? ` (${match.institution})` : ""}
+              </span>
+            ))}
+            . Their verified profile brings together every spelling of their name.
+          </p>
+        </div>
+      ) : null}
+      {similar.length > 0 ? (
+        <div className="panel p-3 detail-measure">
+          <p className="text-body-sm text-ink-secondary">
+            {similar.length === 1 ? "A verified author with a similar name: " : "Verified authors with similar names: "}
+            {similar.map((match, index) => (
+              <span key={match.slug}>
+                {index > 0 ? "; " : ""}
+                <Link href={authorProfileHref(match.slug)} className="font-medium text-primary hover:underline">
+                  {match.display_name}
+                </Link>
+                {match.institution ? ` (${match.institution})` : ""}
+              </span>
+            ))}
+            . Their profile lists only the publications they claimed and an administrator approved.
+          </p>
+        </div>
+      ) : null}
+      <div className="panel border-warning/40 p-3 detail-measure">
+        <p className="flex gap-2 text-body-sm text-ink-secondary">
+          <span aria-hidden className="text-warning">
+            ▲
+          </span>
+          <span>
+            This profile is grouped by{" "}
+            <strong className="font-medium text-ink">
+              {data.disambiguation_level === "name"
+                ? "normalised author name"
+                : data.disambiguation_level}
+            </strong>
+            , not a verified identifier. Records from different people sharing this
+            name may be combined here.{" "}
+            <Link href="/data-quality" className="text-primary hover:underline">
+              Data quality
+            </Link>
+          </span>
+        </p>
+      </div>
     </div>
   );
 

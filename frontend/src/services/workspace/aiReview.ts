@@ -1,4 +1,5 @@
-import { buildQuery, type QueryParams } from "@/services/api";
+import type { QueryParams } from "@/services/api";
+import { backendRequest } from "@/services/backend";
 import type { Pagination } from "@/types/api";
 import type { SessionUser } from "@/types/auth";
 import type { AIReviewCandidate } from "@/services/workspace/types";
@@ -26,10 +27,6 @@ const EMPTY_PAGE: AIReviewPage = {
   pagination: { page: 1, page_size: 25, total: 0, total_pages: 1 },
   stats: { by_status: {}, sync_failures: 0, reviewers: [] },
 };
-
-const REMOTE_API_BASE_URL =
-  process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;
-const REMOTE_ADMIN_API_TOKEN = process.env.RESEARCHLANKA_ADMIN_API_TOKEN;
 
 export async function listAIReviewCandidates({
   page = 1,
@@ -59,7 +56,7 @@ export async function listAIReviewCandidates({
     reviewer,
     q,
   };
-  const result = await adminRequest<AIReviewPage>("/admin/ai-review", {
+  const result = await backendRequest<AIReviewPage>("/admin/ai-review", {
     params,
     actor,
   });
@@ -87,7 +84,7 @@ export async function decideAIReview(input: {
   note: string;
   actor: SessionUser;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
-  const result = await adminRequest("/admin/ai-review/decide", {
+  const result = await backendRequest("/admin/ai-review/decide", {
     method: "POST",
     actor: input.actor,
     body: {
@@ -104,7 +101,7 @@ export async function retryAIReviewSync(input: {
   publicationKey: string;
   actor: SessionUser;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
-  const result = await adminRequest("/admin/ai-review/retry-sync", {
+  const result = await backendRequest("/admin/ai-review/retry-sync", {
     method: "POST",
     actor: input.actor,
     body: { publication_key: input.publicationKey },
@@ -115,7 +112,7 @@ export async function retryAIReviewSync(input: {
 export async function assignPendingAIReviews(input: {
   actor: SessionUser;
 }): Promise<{ ok: true; assigned: number } | { ok: false; message: string }> {
-  const result = await adminRequest<{
+  const result = await backendRequest<{
     assignment?: { assigned?: number };
   }>("/admin/ai-review/backfill", {
     method: "POST",
@@ -125,79 +122,5 @@ export async function assignPendingAIReviews(input: {
   return {
     ok: true,
     assigned: Number(result.data?.assignment?.assigned ?? 0),
-  };
-}
-
-type AdminResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; message: string; code: string };
-
-async function adminRequest<T = unknown>(
-  path: string,
-  options: {
-    method?: "GET" | "POST";
-    params?: QueryParams;
-    body?: Record<string, unknown>;
-    actor?: SessionUser | null;
-  } = {},
-): Promise<AdminResult<T>> {
-  const url = adminApiUrl(path, options.params);
-  if (!url) {
-    return {
-      ok: false,
-      code: "api_not_configured",
-      message: "API_BASE_URL is not configured for backend admin review endpoints.",
-    };
-  }
-  try {
-    const response = await fetch(url, {
-      method: options.method ?? "GET",
-      headers: adminHeaders(options.actor, options.body ? { "Content-Type": "application/json" } : {}),
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      cache: "no-store",
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      data?: T;
-      error?: { code?: string; message?: string };
-    };
-    if (!response.ok) {
-      return {
-        ok: false,
-        code: payload.error?.code ?? `http_${response.status}`,
-        message: payload.error?.message ?? `Backend API returned HTTP ${response.status}.`,
-      };
-    }
-    return { ok: true, data: payload.data as T };
-  } catch {
-    return {
-      ok: false,
-      code: "api_unreachable",
-      message: `Could not reach the backend API at ${REMOTE_API_BASE_URL}.`,
-    };
-  }
-}
-
-function adminApiUrl(path: string, params: QueryParams = {}): string | null {
-  if (!REMOTE_API_BASE_URL) return null;
-  return `${REMOTE_API_BASE_URL.replace(/\/$/, "")}${path}${buildQuery(params)}`;
-}
-
-function adminHeaders(
-  actor: SessionUser | null | undefined,
-  extra: Record<string, string> = {},
-): Record<string, string> {
-  return {
-    Accept: "application/json",
-    ...(REMOTE_ADMIN_API_TOKEN
-      ? { "X-ResearchLanka-Admin-Token": REMOTE_ADMIN_API_TOKEN }
-      : {}),
-    ...(actor
-      ? {
-          "X-ResearchLanka-Actor-Id": actor.id,
-          "X-ResearchLanka-Actor-Email": actor.email,
-          "X-ResearchLanka-Actor-Name": actor.name,
-        }
-      : {}),
-    ...extra,
   };
 }

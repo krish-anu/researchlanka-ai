@@ -138,7 +138,9 @@ Backend API notes:
   or `make backend` from the root.
 - Important API areas include publications, search, researchers, institutions,
   topics, analytics, collaboration network, data quality, exports, admin
-  incremental update, AI review, monitoring, and feedback.
+  incremental update, AI review, monitoring, feedback, and author profiles
+  (public `/researchers/profiles`, token-protected `/author/*` and
+  `/admin/authors/*`).
 - `backend/src/api/README.md` explains the API package layout.
 - Top-level modules like `src.api.service` and `src.api.repository` are
   compatibility exports. New API code should usually go into focused
@@ -168,13 +170,60 @@ Major pages include:
 - `/collaboration` - collaboration network interface.
 - `/data-quality` - completeness, coverage, conflicts, and limitations.
 - `/login`, `/register`, `/account` - account and saved-record features.
-- `/admin` - pipeline, AI review, flags, users, monitoring, and related admin
-  workflows.
+- `/register/author`, `/account/author`, `/authors/<slug>` - author sign-up,
+  the author's own tools, and verified public author profiles.
+- `/admin` - pipeline, AI review, flags, users, monitoring, author applications
+  and author contributions, and related admin workflows.
 
-The backend API is read-only. Frontend accounts, saved records, flags, and
-resolution decisions are stored locally under `frontend/.data/` through JSON
-files. This is suitable for one local Node process, not a multi-instance
-production deployment.
+The public backend API is read-only. Frontend accounts, saved records, flags,
+and resolution decisions are stored locally under `frontend/.data/` through
+JSON files. This is suitable for one local Node process, not a multi-instance
+production deployment. Author profiles, claims and contributions are the
+exception: they change public data, so they live in PostgreSQL (see below).
+
+### Author profiles
+
+- Author sign-ups create a `pending` account that can only see its application
+  status until an administrator approves it at `/admin/authors`. Ordinary
+  sign-ups stay instant. Signed-in users can also apply from their account.
+- An application claims specific listed authors on specific publications,
+  because researchers are identified only by printed name. Admins see name,
+  ORCID and email-domain evidence and competing claims. Emails are not verified
+  yet.
+- One person often appears under several printed spellings ("Roshan Ragel",
+  "Roshan G. Ragel", "Ragel, R.G."). An author can claim every paper under a
+  spelling at once; the spelling is then recorded as a name variant, and any
+  spelling printed on their approved papers points at their one verified
+  profile from the researcher directory and name pages. Undeclared look-alike
+  names are never attributed.
+- Approved authors edit their bio, links and affiliation history directly.
+  Corrections to a publication and newly added publications wait at
+  `/admin/contributions`.
+- A new publication lists every author with the institution they were at for
+  that paper (picked from the Sri Lankan institution registry and the
+  dataset's own labels). Authors can be linked to existing printed names or
+  verified profiles; linked verified co-authors get the paper on their profile
+  when it is approved, and can remove it. The paper is filed under a
+  field/subfield from `category_hierarchy.json`, chosen by the author, taken
+  from OpenAlex, or suggested by the hierarchical field classifier; the admin
+  can override it.
+- Institution counts are always per publication, so an author who moves keeps
+  earlier work counted for the earlier institution. The affiliation history
+  only decides which of a paper's institutions the profile attributes to the
+  author for its year, and pre-fills their institution on new papers.
+- Approved corrections are stored in `publication_corrections` and merged into
+  `public_eligible_publications`, so pipeline reloads do not overwrite them.
+- New publications run through the production AI relevance model when
+  submitted. An admin must confirm they are AI research and Sri Lanka-led; they
+  are then loaded with `source_dataset = 'author_submission'`, which
+  `--retire-stale` skips. `--reset` refuses to run while author data exists.
+- Code: `backend/src/api/services/author_profiles.py`,
+  `backend/src/api/services/author_reference.py` (institutions, categories,
+  name lookups), `backend/src/api/routing/author_routes.py` (including public
+  `/api/v1/lookup/*`), migrations `016_create_author_profiles.sql` and
+  `017_add_author_affiliation_history.sql`, `frontend/src/app/actions/authors.ts`.
+- Both servers need the same `RESEARCHLANKA_ADMIN_API_TOKEN`; without it the
+  author pages show a configuration error.
 
 ## 7. Setup and Run Commands
 
@@ -419,6 +468,9 @@ Use this map to avoid touching the wrong layer:
 - Do not commit secrets, `.env`, passwords, API keys, or large private datasets.
 - Treat `backend/data/processed/` as generated output.
 - Prefer adding new database migrations instead of changing old ones.
+- A migration that adds columns to `final_publications` must end with
+  `SELECT refresh_public_publication_views();` rather than recreating the view
+  by hand, or author corrections stop reaching the public API.
 - Preserve the read-only nature of the backend public API unless intentionally
   working on admin endpoints.
 - Remember that frontend local JSON storage is not production-safe for

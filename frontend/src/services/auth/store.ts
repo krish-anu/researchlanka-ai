@@ -17,7 +17,7 @@
 
 import { hashPassword, verifyPassword } from "@/services/auth/password";
 import { newId, nowIso, readCollection, updateCollection } from "@/services/store/jsonFile";
-import type { AccountRole, UserRecord } from "@/types/auth";
+import type { AccountRole, AccountStatus, UserRecord } from "@/types/auth";
 
 const COLLECTION = "users";
 const EMPTY: UserRecord[] = [];
@@ -168,6 +168,8 @@ export async function createUser(input: {
   name: string;
   password: string;
   role?: AccountRole;
+  /** Author sign-ups start `pending`; everything else is active at once. */
+  status?: AccountStatus;
 }): Promise<CreateUserResult> {
   await ensureSeeded();
   const email = normaliseEmail(input.email);
@@ -189,6 +191,7 @@ export async function createUser(input: {
         created_at: nowIso(),
         last_login_at: null,
         disabled: false,
+        ...(input.status && input.status !== "active" ? { status: input.status } : {}),
       };
       return { next: [...users, user], result: { ok: true, user } };
     },
@@ -257,6 +260,31 @@ export function setUserDisabled(
   disabled: boolean,
 ): Promise<UserRecord | null> {
   return patchUser(id, (user) => ({ ...user, disabled }));
+}
+
+export function setUserStatus(
+  id: string,
+  status: AccountStatus,
+): Promise<UserRecord | null> {
+  return patchUser(id, (user) => ({ ...user, status }));
+}
+
+/**
+ * Remove an account that never got going.
+ *
+ * Only for undoing an author sign-up whose application the backend refused,
+ * so the visitor can correct the form and try again with the same email.
+ * Restricted to never-signed-in pending accounts so it cannot remove anyone's
+ * working account by mistake.
+ */
+export async function deleteUnusedPendingUser(id: string): Promise<boolean> {
+  return updateCollection<UserRecord[], boolean>(COLLECTION, EMPTY, (users) => {
+    const target = users.find((user) => user.id === id);
+    if (!target || target.status !== "pending" || target.last_login_at !== null) {
+      return { next: users, result: false };
+    }
+    return { next: users.filter((user) => user.id !== id), result: true };
+  });
 }
 
 /** How many enabled administrators remain — the guard against locking everyone out. */
