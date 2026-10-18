@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
-from xml.etree import ElementTree
-
 import requests
+from defusedxml import ElementTree
 
 from src.collectors.http import create_retry_session
 

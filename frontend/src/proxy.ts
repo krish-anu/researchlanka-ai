@@ -24,7 +24,7 @@ function matches(pathname: string, prefixes: string[]): boolean {
   );
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const needsAdmin = matches(pathname, ADMIN_ONLY);
   const needsSession = needsAdmin || matches(pathname, SIGNED_IN_ONLY);

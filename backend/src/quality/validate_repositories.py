@@ -24,10 +24,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
-from xml.etree import ElementTree
-
 import requests
 import urllib3
+from defusedxml import ElementTree
 
 # We deliberately retry with verify=False when a site's TLS setup is broken,
 # to tell a misconfigured-but-live server apart from a dead one. Suppress the

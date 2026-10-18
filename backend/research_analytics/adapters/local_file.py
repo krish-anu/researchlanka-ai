@@ -7,9 +7,8 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Iterator
-from xml.etree import ElementTree
-
 import pandas as pd
+from defusedxml import ElementTree
 
 from research_analytics.adapters.base import SourceAdapter
 from research_analytics.schema import map_to_standard_schema

@@ -25,7 +25,7 @@ Generated for `researchlanka_ai_publications_v1.0`.
 | AI confidence range | Pass | 0 | Confidence values are within `[0, 1]`. |
 | Publication year range | Pass | 0 | No missing, impossible, or future years after 2026. |
 | Negative reference count | Pass | 0 | No negative reference counts. |
-| Sri Lanka manual review resolved | Pass | 0 | No rows remain marked for manual Sri Lanka review. |
+| Sri Lanka pipeline review flag resolved | Pass | 0 | No rows remain marked by the automated pipeline flag; the later human audit still found 8 not-Sri-Lanka-relevant records in its 500-row sample. |
 | Sri Lanka evidence available | Pass | 0 | Every row has obvious Sri Lanka evidence text. |
 | Duplicate candidates | Review required | 203 | Candidate duplicate rows require manual confirmation. |
 | License metadata available | Pass | 0 | Every row has license or open-access metadata. |
@@ -76,6 +76,6 @@ Do not publish this as the final public v1.0 until:
 
 1. The 2 blank-title records are repaired or removed.
 2. The 203 duplicate candidates are manually reviewed.
-3. The 500-row human AI and Sri Lanka relevance audit is completed.
-4. The license and redistribution policy is confirmed.
-
+3. The completed 500-row operational audit corrections (59 non-AI and 8 not-Sri-Lanka-relevant rows) are applied, and the current A2 output is re-audited.
+4. Model provenance is regenerated without absolute local paths.
+5. The license and redistribution policy is confirmed.

@@ -9,23 +9,25 @@ description = "Reusable national research publication collection, integration, c
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi==0.135.2",
+    "defusedxml==0.7.1",
+    "fastapi==0.141.1",
     "httpx==0.28.1",
-    "joblib==1.5.3",
-    "numpy==2.0.2; python_version < '3.14'",
-    "numpy==2.5.1; python_version >= '3.14'",
-    "pandas==2.2.2; python_version < '3.14'",
-    "pandas==3.0.3; python_version >= '3.14'",
-    "pyarrow==22.0.0",
+    "joblib==1.6.0",
+    "numpy==2.5.3",
+    "pandas==3.0.6",
+    "pyarrow==25.0.1",
     "psycopg[binary]>=3.2,<4",
-    "python-dotenv==1.2.2",
-    "google-genai>=1.0.0",
+    "python-dotenv==1.2.3",
+    "google-genai>=2.25.0",
+    "google-api-python-client>=2.200.0",
+    "google-auth>=2.58.1",
     # Required by research_analytics.duplicate_analysis (fuzzy title matching).
-    "rapidfuzz==3.14.3",
-    "requests==2.32.4",
-    "scikit-learn==1.8.0",
+    "rapidfuzz==3.14.6",
+    "requests==2.34.2",
+    "scikit-learn==1.9.1",
     "scipy==1.16.1",
     "uvicorn[standard]==0.40.0",
+    "xgboost==3.4.1",
 ]
 
 [project.optional-dependencies]

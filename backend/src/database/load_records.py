@@ -569,7 +569,12 @@ def _upsert_institution(
 ) -> str:
     institution_name = institution_name.strip()
     _upsert_country(connection, country_code or "LK", country_code or "LK")
-    institution_id = f"institution:{hashlib.sha1(institution_name.casefold().encode('utf-8')).hexdigest()[:16]}"
+    institution_id = (
+        "institution:"
+        + hashlib.sha1(
+            institution_name.casefold().encode("utf-8"), usedforsecurity=False
+        ).hexdigest()[:16]
+    )
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -1679,7 +1684,7 @@ def _populate_relational_tables(
 
 def _institution_id_for_name(institution_name: str) -> str:
     digest = hashlib.sha1(
-        institution_name.strip().casefold().encode("utf-8")
+        institution_name.strip().casefold().encode("utf-8"), usedforsecurity=False
     ).hexdigest()[:16]
     return f"institution:{digest}"
 

@@ -284,7 +284,7 @@ def _author_name_id(name: str) -> str:
     text = re.sub(r"[^0-9a-z]+", "-", name.casefold()).strip("-")
     if text:
         return text
-    digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:12]
+    digest = hashlib.sha1(name.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
     return f"author-{digest}"
 
 
@@ -292,7 +292,7 @@ def _stable_value_id(prefix: str, value: str) -> str:
     text = re.sub(r"[^0-9a-z]+", "-", value.casefold()).strip("-")
     if text:
         return f"{prefix}-{text}"
-    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:12]
+    digest = hashlib.sha1(value.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
     return f"{prefix}-{digest}"
 
 

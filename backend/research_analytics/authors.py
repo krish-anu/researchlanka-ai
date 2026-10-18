@@ -1302,7 +1302,9 @@ def _author_id(orcids: Sequence[str], variant_keys: Sequence[str]) -> str:
     """
 
     anchor = f"orcid:{min(orcids)}" if orcids else f"name:{min(variant_keys)}"
-    return "A" + hashlib.sha1(anchor.encode("utf-8")).hexdigest()[:11].upper()
+    return "A" + hashlib.sha1(
+        anchor.encode("utf-8"), usedforsecurity=False
+    ).hexdigest()[:11].upper()
 
 
 def _review_pairs(

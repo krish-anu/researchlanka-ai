@@ -10,6 +10,7 @@ import sys
 import time
 import uuid
 from collections import defaultdict, deque
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, Request
@@ -60,10 +61,6 @@ from src.api.services.user_feedback import (
     with_connection as feedback_with_connection,
 )
 from src.modeling.embeddings import SEMANTIC_STARTUP_VALIDATION_ENV
-
-
-logger = logging.getLogger("researchlanka.api")
-_RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 
 
 logger = logging.getLogger("researchlanka.api")
@@ -533,12 +530,24 @@ def create_app(
     """Build the FastAPI app."""
 
     publication_api = publication_service or ResearchLankaAPI(PostgresPublicationRepository())
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        enabled = os.getenv(SEMANTIC_STARTUP_VALIDATION_ENV, "").casefold()
+        if enabled in {"1", "true", "yes", "on"}:
+            repository = getattr(publication_api, "repository", None)
+            validator = getattr(repository, "validate_semantic_index_for_startup", None)
+            if validator is not None:
+                validator()
+        yield
+
     app = FastAPI(
         title="ResearchLanka API",
         version=API_VERSION,
         docs_url=f"{API_PREFIX}/docs",
         redoc_url=f"{API_PREFIX}/redoc",
         openapi_url=f"{API_PREFIX}/openapi.json",
+        lifespan=lifespan,
     )
     cors_origins = configured_cors_origins()
     app.add_middleware(
@@ -637,16 +646,6 @@ def create_app(
                 {"error": str(exc)},
             ),
         )
-
-    @app.on_event("startup")
-    async def validate_semantic_index_on_startup() -> None:
-        enabled = os.getenv(SEMANTIC_STARTUP_VALIDATION_ENV, "").casefold()
-        if enabled not in {"1", "true", "yes", "on"}:
-            return
-        repository = getattr(publication_api, "repository", None)
-        validator = getattr(repository, "validate_semantic_index_for_startup", None)
-        if validator is not None:
-            validator()
 
     @app.get("/health")
     @app.get(f"{API_PREFIX}/health")
