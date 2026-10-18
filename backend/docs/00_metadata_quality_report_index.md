@@ -4,6 +4,8 @@ This report set documents metadata quality, cleaning decisions, and interpretati
 
 | Task | Document | Notebook(s) | Output folder |
 |------|----------|-------------|---------------|
+| Define source enrichment policy | [01_metadata_enrichment.md](01_metadata_enrichment.md) | N/A | N/A |
+| Normalize publication categories | [02_publication_categories.md](02_publication_categories.md) | N/A | N/A |
 | Analyze missing values | [03_missing_values_analysis.md](03_missing_values_analysis.md) | 01, 02, 03 | `notebooks/outputs/notebook01–03/` |
 | Analyze metadata completeness | [04_metadata_completeness_analysis.md](04_metadata_completeness_analysis.md) | 02 | `notebooks/outputs/notebook02/` |
 | Identify conflicting metadata | [05_conflicting_metadata_analysis.md](05_conflicting_metadata_analysis.md) | **04** | `notebooks/outputs/notebook04/` |
@@ -36,4 +38,4 @@ This report set documents metadata quality, cleaning decisions, and interpretati
 
 ## One-line verdict
 
-OpenAlex is a strong analytical backbone, while Crossref and Local sources add important DOI, publisher, and national provenance evidence. The implemented merge uses configurable field-level source policy, conflict logging, count audit sidecars, and citation/reference divergence flags. Published findings should still disclose the limitations in [11_metadata_quality_limitations.md](11_metadata_quality_limitations.md).
+OpenAlex is a strong analytical backbone, while Crossref and Local sources add important DOI, publisher, and national provenance evidence. The implemented merge uses configurable field-level source policy, conflict logging, count audit sidecars, and citation/reference divergence flags. Published findings should still disclose the limitations in [METADATA_QUALITY_LIMITATIONS.md](METADATA_QUALITY_LIMITATIONS.md).

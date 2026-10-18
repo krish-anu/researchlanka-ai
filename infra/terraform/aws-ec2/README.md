@@ -85,7 +85,7 @@ ssh -i ~/.ssh/researchlanka_ec2 ubuntu@<public-ip>
 If the repo was not cloned by cloud-init:
 
 ```bash
-git clone <repository-url> ~/researchlanka-ai
+git clone https://github.com/krish-anu/researchlanka-ai.git ~/researchlanka-ai
 ```
 
 Create the app environment and restore data artifacts as documented in

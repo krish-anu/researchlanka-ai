@@ -38,9 +38,9 @@ analytics pipeline.
 Examples:
 
 ```text
-scripts/kaggle_collect_openalex_sri_lanka.py
-scripts/harvest_all.py
-scripts/map_to_common_schema.py
+scripts/collection/kaggle_collect_openalex_sri_lanka.py
+scripts/collection/harvest_all.py
+scripts/processing/map_to_common_schema.py
 ```
 
 These scripts can continue feeding raw or processed datasets into the framework,

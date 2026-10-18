@@ -1,4 +1,4 @@
-# researchlanka-ai
+# ResearchLanka AI
 
 This repository is organized into two top-level workspaces:
 
@@ -41,7 +41,7 @@ does not enter the verified final dataset.
 Use these commands when setting up the full project on a new machine.
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/krish-anu/researchlanka-ai.git
 cd researchlanka-ai
 make install
 ```
@@ -58,26 +58,21 @@ docker compose up -d db
 cd ..
 ```
 
-The large data and model files are not committed to git. To restore the
-prepared dataset, place `researchlanka-share-data.zip` in the repository root
-and unzip it:
+The public repository does not contain every operational dataset and model
+artifact. The packaged dataset under `researchlanka-ai-dataset/` is a release
+candidate, not an approved final public release. The current production model
+is defined by `backend/configurations/ai_relevance_model_manifest.json`; its
+artifact is transferred separately after licensing approval.
 
-```bash
-unzip researchlanka-share-data.zip
-```
-
-The zip should restore these files:
-
-```text
-backend/data/processed/common/common_publications_final_2016_2026.csv
-backend/data/models/publication_text_embeddings_cli_sample.parquet
-backend/data/models/publication_text_embedding_model_cli_sample.joblib
-```
+See [`HANDOVER.md`](HANDOVER.md) before obtaining or publishing external
+artifacts. A handover bundle must identify its version, include checksums, and
+restore paths relative to the repository root. Do not rely on an unversioned
+`researchlanka-share-data.zip`.
 
 Load the AI-only database and start the backend and frontend:
 
 ```bash
-make reset-db-ai
+make load-db-ai
 make dev
 ```
 
@@ -106,12 +101,12 @@ pip install -r requirements.txt
 pytest
 ```
 
-The full backend README is in `backend/README.md`.
+The full backend guide is in [`backend/README.md`](backend/README.md).
 
 ## Kaggle Run
 
 For a complete Kaggle guide from uploading the dataset to downloading the final
-outputs, see `KAGGLE_README.md`.
+outputs, see [`KAGGLE_README.md`](KAGGLE_README.md).
 
 Recommended Kaggle notebook:
 
@@ -119,7 +114,7 @@ Recommended Kaggle notebook:
 dse-project.ipynb
 ```
 
-Alternative copy:
+Smaller alternative workflow:
 
 ```text
 notebooks/kaggle_run_main_full_pipeline.ipynb
@@ -127,7 +122,8 @@ notebooks/kaggle_run_main_full_pipeline.ipynb
 
 ## Frontend
 
-Frontend code should be added inside `frontend/`.
+Frontend setup, architecture, roles, and security notes are in
+[`frontend/README.md`](frontend/README.md).
 
 ## AWS Deployment
 
@@ -137,3 +133,22 @@ for provisioning the EC2 host lives in
 [`infra/terraform/aws-ec2`](infra/terraform/aws-ec2). For monthly
 data/model refresh automation on AWS, see
 [`docs/aws-monthly-automation.md`](docs/aws-monthly-automation.md).
+
+## Documentation Map
+
+Start with these documents:
+
+- [`HANDOVER.md`](HANDOVER.md) - current readiness, verification results, and
+  dataset/model publication blockers.
+- [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) - system overview and repository
+  architecture.
+- [`docs/README.md`](docs/README.md) - active cross-project documentation and
+  archived decision history.
+- [`backend/docs/README.md`](backend/docs/README.md) - backend documentation
+  index.
+- [`researchlanka-ai-dataset/README.md`](researchlanka-ai-dataset/README.md) -
+  dataset package status and contents.
+- [`CHANGELOG.md`](CHANGELOG.md) - user-visible and operational changes.
+
+The source code, checked-in configuration, and model manifest take precedence
+if a historical report conflicts with current behavior.

@@ -26,7 +26,7 @@ first Gemini sanity test, writes separate checkpointed outputs under
 Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/krish-anu/researchlanka-ai.git
 cd researchlanka-ai
 cd backend
 ```
@@ -186,21 +186,26 @@ git push origin feature/openalex-collector
 
 Start here if you are new to the backend:
 
+- [Backend Documentation Index](docs/README.md) - active documentation grouped by task, plus links to historical evidence
 - [Backend Architecture Map](docs/BACKEND_ARCHITECTURE_MAP.md) - what every package does, how data flows between stages, and which file to open for a given task
-- [Backend Code Audit](docs/BACKEND_CODE_AUDIT.md) - defects found and fixed, plus the open questions that need a team decision
+- [Current AI Relevance Model](docs/AI_RELEVANCE_MODEL.md) - production manifest, artifact, thresholds, and change procedure
 
 Reference:
 
 - [Data Collection Guide](docs/DATA_COLLECTION.md) - repository registry, harvesting scripts, per-institution status
 - [API Design](docs/API_DESIGN.md) - read-only dashboard/search/profile API contract for the PostgreSQL-backed corpus
 - [Metadata Quality Report Index](docs/00_metadata_quality_report_index.md) - missing values, completeness, conflicts, and final column decisions
-- [Metadata-Quality Limitations](docs/11_metadata_quality_limitations.md) - known coverage, missingness, conflict, deduplication, and interpretation caveats
-- [Formal Data-Cleaning Rules](docs/10_data_cleaning_rules.md) - normalization, validation, audit, and analysis-ready preprocessing rules
+- [Metadata-Quality Limitations](docs/METADATA_QUALITY_LIMITATIONS.md) - known coverage, missingness, conflict, deduplication, and interpretation caveats
+- [Formal Data-Cleaning Rules](docs/DATA_CLEANING_RULES.md) - normalization, validation, audit, and analysis-ready preprocessing rules
 - [Frontend Requirements](docs/frontend_requirements.md) - user personas and interface requirements
 - [National Framework Guide](docs/NATIONAL_RESEARCH_ANALYTICS_FRAMEWORK.md) - lecturer-aligned objective, architecture, proof plan, and deliverables
 - [Migration to Framework Pipeline](docs/MIGRATION_TO_RESEARCH_ANALYTICS_PIPELINE.md) - current main run path and legacy-script role
 - [System and Data-Pipeline Architecture](docs/SYSTEM_AND_DATA_PIPELINE_ARCHITECTURE.md)
 - [Branching and Commit Guide](docs/BRANCHING_AND_COMMITS.md)
+
+Point-in-time audits and superseded model reports are retained under
+[`docs/archive/`](docs/archive/README.md). They are evidence, not current
+operational instructions.
 
 Run source-specific LK affiliation audits for publication-time Sri Lankan
 institutional authorship evidence:

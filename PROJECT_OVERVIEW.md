@@ -374,11 +374,12 @@ AI research. It includes:
 - Candidate sampling and LLM review support.
 - Gemini/OpenRouter/Ollama-oriented review experiments and prediction files.
 - Human verification and review splits.
-- A1 XGBoost production model, metadata-ablation analysis, and calibration.
-- New model comparison experiments covering LightGBM, CatBoost, sentence
-  transformers, and SciBERT; current conclusion is to keep production A1
-  XGBoost while treating sentence-transformer logistic regression as the best
-  new research candidate.
+- A2 XGBoost production model using title, abstract, and keywords. The checked-in
+  manifest is the source of truth for artifact path, features, thresholds, and
+  checksum.
+- Historical model comparisons covering A1, LightGBM, CatBoost, sentence
+  transformers, and SciBERT. Those reports are retained as experimental history
+  and do not override the A2 production manifest.
 - Hard-negative construction and feedback loops.
 - Final review-gated dataset generation.
 
@@ -387,8 +388,8 @@ Important locations:
 - `backend/src/ai_relevance/`
 - `backend/scripts/ai_relevance/`
 - `backend/docs/AI_RELEVANCE_PIPELINE.md`
-- `backend/docs/AI_RELEVANCE_MODEL_DEVELOPMENT_REPORT.md`
-- `backend/docs/AI_RELEVANCE_NEW_MODEL_EXPERIMENTS.md`
+- `backend/docs/AI_RELEVANCE_MODEL.md`
+- `backend/docs/archive/model-history/`
 - `backend/data/models/ai_relevance/all_model_scores.csv`
 - `backend/data/models/ai_relevance/`
 - `backend/data/processed/ai/`

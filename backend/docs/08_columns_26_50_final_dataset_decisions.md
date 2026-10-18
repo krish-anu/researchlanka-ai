@@ -283,7 +283,9 @@ Sri Lanka Journals Online (JOL)  12,931   9.00%
 Sri Lanka Journals Online        10,666   7.43%
 ```
 
-One publisher split across two spellings covers 16.4% of the corpus. Use the template at `configurations/user_dataset/journal_alias_template.csv` to build a mapping.
+One publisher split across two spellings covers 16.4% of the corpus. A reviewed
+publisher/journal alias mapping should be added under `configurations/sri_lanka/`
+before normalization; no approved alias template is currently checked in.
 
 ### `journal` - 14,509 distinct
 

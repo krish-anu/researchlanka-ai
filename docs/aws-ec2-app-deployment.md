@@ -59,10 +59,10 @@ Log out and back in so the Docker group applies.
 ## 3. Clone And Configure
 
 ```bash
-git clone <repository-url> ~/researchlanka-ai
+git clone https://github.com/krish-anu/researchlanka-ai.git ~/researchlanka-ai
 cd ~/researchlanka-ai
-cp deploy/aws.ec2.env.example .env
-nano .env
+cp deploy/aws.ec2.env.example deploy/aws.ec2.env
+nano deploy/aws.ec2.env
 ```
 
 Generate a real session secret:
@@ -77,12 +77,13 @@ Put one generated value in `AUTH_SECRET` and another in
 
 ## 4. Restore Data Artifacts
 
-The app expects the prepared data/model files under `backend/data/`. If you have
-`researchlanka-share-data.zip`, copy it to the EC2 instance and unzip it from
-the repository root:
+The app expects approved, versioned data/model artifacts under `backend/data/`.
+They are not downloaded automatically and there is currently no approved public
+artifact URL. Obtain the handover bundle through the approved transfer channel,
+verify its supplied checksums, and extract it from the repository root:
 
 ```bash
-unzip researchlanka-share-data.zip
+unzip <approved-artifact-bundle>.zip
 ```
 
 At minimum, confirm this file exists:
@@ -91,14 +92,15 @@ At minimum, confirm this file exists:
 ls backend/data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
 ```
 
-If semantic search is enabled, also confirm the model files named in `.env`
-exist under `backend/data/models/`.
+If semantic search is enabled, also confirm the model files named in
+`deploy/aws.ec2.env` exist under `backend/data/models/`. Do not deploy the
+draft public dataset package as though it were the approved production corpus.
 
 ## 5. Start The Stack
 
 ```bash
-docker compose -f compose.aws.yml up --build -d
-docker compose -f compose.aws.yml ps
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml up --build -d
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml ps
 ```
 
 Apply migrations and load the prepared AI-reviewed 2016-2026 dataset:
@@ -115,7 +117,7 @@ From the EC2 instance:
 
 ```bash
 curl http://127.0.0.1:3000
-docker compose -f compose.aws.yml exec api python -c "import json, urllib.request; print(json.load(urllib.request.urlopen('http://127.0.0.1:8080/health')))"
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml exec api python -c "import json, urllib.request; print(json.load(urllib.request.urlopen('http://127.0.0.1:8080/health')))"
 ```
 
 From your browser:
@@ -129,21 +131,21 @@ http://<ec2-public-ip>:3000
 View logs:
 
 ```bash
-docker compose -f compose.aws.yml logs -f frontend
-docker compose -f compose.aws.yml logs -f api
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml logs -f frontend
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml logs -f api
 ```
 
 Deploy new code:
 
 ```bash
 git pull
-docker compose -f compose.aws.yml up --build -d
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml up --build -d
 ```
 
 Back up PostgreSQL:
 
 ```bash
-docker compose -f compose.aws.yml exec db pg_dump -U researchlanka_user researchlanka > researchlanka-db-backup.sql
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml exec db pg_dump -U researchlanka_user researchlanka > researchlanka-db-backup.sql
 ```
 
 Run monthly pipeline automation:

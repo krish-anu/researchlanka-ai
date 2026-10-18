@@ -62,18 +62,6 @@ still be reviewed before any overwrite:
 - Publisher
 - Publication Year
 
-
-
-PUBLICATION_TYPES = [
-    "Journal Article",
-    "Conference Paper",
-    "Book Chapter",
-    "Book",
-    "Preprint",
-    "Review Article",
-    "Dataset",
-    "Report",
-    "Thesis",
-    "Reference Work",
-    "Other"
-]
+Canonical publication types and their alias rules are defined in
+`research_analytics/venues.py`. Do not maintain a second type list in this
+document.
