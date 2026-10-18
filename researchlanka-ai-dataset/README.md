@@ -1,70 +1,57 @@
 # ResearchLanka AI Publications Dataset v1.0
 
-This package contains a draft public-release dataset of AI-related scholarly publications connected to Sri Lanka.
+This package contains the final curated AI-only scholarly-publication dataset
+for the ResearchLanka handover. Every row has
+`ai_classification_label = AI` and Sri Lanka ownership evidence.
 
-## Files
+## Canonical Dataset
 
 ```text
 data/researchlanka_ai_publications_v1.0.csv
-data/researchlanka_ai_publications_v1.0.parquet
-README.md
-DATA_DICTIONARY.md
-METHODOLOGY.md
-QUALITY_REPORT.md
-LICENSE
-CITATION.cff
-CHANGELOG.md
-checksums.sha256
 ```
+
+This is the only dataset file in the public package. The backend runtime mirror
+is `backend/data/processed/common/researchlanka_ai_publications_final.csv`.
+Both files must remain byte-identical.
 
 ## Dataset Summary
 
-- Rows: 4,177 AI-classified publications
-- Columns: 66
+- Rows: 3,706 AI publications
+- Columns: 86
 - Publication years: 2016-2026
-- Format: CSV and Parquet
-- AI label included in release: `AI`
-- Classifier recorded in this package: legacy ResearchLanka linear SVM. The
-  checked-in production manifest now selects the newer A2 XGBoost model, so
-  this package must be regenerated before it can represent the current model.
+- Format: CSV
+- AI labels: `AI` only
+- Abstracts available: 3,013
+- Unique OpenAlex IDs: 3,706
+- Non-AI records removed during final curation: 352
+- Metadata corrections applied: 24
 
-## Important Release Status
+## Release Status
 
-This package is structurally ready for public dataset publication, but the current contents should be treated as a release candidate until the remaining human checks are complete.
+The data curation is final for handover. Public redistribution still requires
+approval under the policy in `LICENSE`; do not upload the package to a public
+dataset host until that approval is recorded.
 
-Known release-readiness items:
+The final curation also:
 
-- 2 records have blank titles.
-- 203 duplicate candidates require manual review.
-- A 500-record operational human audit was completed on this exact package:
-  441 records were confirmed AI and 59 were labelled non-AI; 492 were
-  confirmed Sri Lanka relevant and 8 were labelled not Sri Lanka relevant.
-- Those audit findings have not yet been propagated into this package (the AI
-  and Sri Lanka findings may overlap), and the audit was operational rather
-  than an independently blinded benchmark.
-- Final publication must wait until the corrections are applied, the current
-  production model output is re-audited, and redistribution licensing is
-  approved.
+- removed the 352 records classified as non-AI;
+- applied 24 supplied abstract/keyword corrections;
+- recalculated title, abstract, and keyword search-helper fields;
+- removed absolute workstation paths from model identifiers; and
+- removed obsolete CSV and Parquet copies from the handover package.
 
-## Recommended Citation
-
-Use the metadata in `CITATION.cff`. Update the authors, DOI, repository URL, and release date before depositing the final public version.
-
-## Loading The Dataset
-
-Python:
+## Loading
 
 ```python
 import pandas as pd
 
 df = pd.read_csv("data/researchlanka_ai_publications_v1.0.csv")
-# or
-df = pd.read_parquet("data/researchlanka_ai_publications_v1.0.parquet")
 ```
 
 ## Documentation
 
-- `DATA_DICTIONARY.md` describes each column.
-- `METHODOLOGY.md` explains collection, cleaning, Sri Lanka relevance processing, deduplication, and AI classification.
-- `QUALITY_REPORT.md` summarizes current validation gates and remaining publication blockers.
-- `LICENSE` documents the current redistribution status.
+- `DATA_DICTIONARY.md` describes the columns.
+- `METHODOLOGY.md` explains collection and final curation.
+- `QUALITY_REPORT.md` records validation results.
+- `LICENSE` records the redistribution status.
+- `CITATION.cff` contains citation metadata.

@@ -89,12 +89,11 @@ unzip <approved-artifact-bundle>.zip
 At minimum, confirm this file exists:
 
 ```bash
-ls backend/data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
+ls backend/data/processed/common/researchlanka_ai_publications_final.csv
 ```
 
 If semantic search is enabled, also confirm the model files named in
-`deploy/aws.ec2.env` exist under `backend/data/models/`. Do not deploy the
-draft public dataset package as though it were the approved production corpus.
+`deploy/aws.ec2.env` exist under `backend/data/models/`.
 
 ## 5. Start The Stack
 
@@ -107,7 +106,7 @@ Apply migrations and load the prepared AI-reviewed 2016-2026 dataset:
 
 ```bash
 docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/apply_database_migrations.py
-docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv --year-min 2016 --year-max 2026
+docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml run --rm api python scripts/database/load_records.py data/processed/common/researchlanka_ai_publications_final.csv --year-min 2016 --year-max 2026
 docker compose --env-file deploy/aws.ec2.env -f compose.aws.yml restart api frontend
 ```
 

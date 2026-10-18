@@ -92,25 +92,19 @@ python -m research_analytics.cli load_database --config configurations/sri_lanka
 ```
 
 The Sri Lanka config covers 2016-2026, and the loader applies that range when
-loading through the framework. To load the prepared 2016-2026 final dataset
-directly into the API table:
+loading through the framework. The repository handover contains one prepared
+AI-only runtime dataset. Load it with:
 
 ```bash
-python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026.csv --year-min 2016 --year-max 2026
-```
-
-To load only the AI-reviewed public dataset:
-
-```bash
-python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv --year-min 2016 --year-max 2026
+python scripts/database/load_records.py data/processed/common/researchlanka_ai_publications_final.csv --year-min 2016 --year-max 2026
 ```
 
 To load a prepared records file directly into PostgreSQL:
 
 ```bash
-python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
-python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv --batch-size 500
-python scripts/database/load_records.py data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv --limit 25
+python scripts/database/load_records.py data/processed/common/researchlanka_ai_publications_final.csv
+python scripts/database/load_records.py data/processed/common/researchlanka_ai_publications_final.csv --batch-size 500
+python scripts/database/load_records.py data/processed/common/researchlanka_ai_publications_final.csv --limit 25
 ```
 
 The direct loader accepts CSV, JSON arrays, JSON objects with a `records` list,

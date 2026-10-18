@@ -2,7 +2,8 @@
 
 ## Scope
 
-The dataset is intended to contain AI-related scholarly publications with evidence of a Sri Lanka connection. The current package is a v1.0 release candidate and should be finalized after human audit labels are completed.
+The dataset contains final-curated AI-related scholarly publications with
+evidence of a Sri Lanka connection. It contains AI publications only.
 
 ## Source Collection
 
@@ -26,14 +27,19 @@ The upstream dataset was deduplicated before AI-only filtering. Release validati
 - DOI
 - normalized title plus publication year
 
-The current release candidate contains 203 duplicate candidates requiring manual review. These are candidate collisions, not automatic confirmed duplicates.
+The final dataset contains 78 normalized title/year candidate groups covering
+168 rows. They are retained because there are no duplicate OpenAlex IDs or DOI
+values and many title matches represent different publication versions.
 
 ## AI Relevance Classification
 
-This release-candidate file was classified by the legacy ResearchLanka linear
-SVM; the `ai_classification_model` values in the file preserve that provenance.
-It predates the current production A2 XGBoost manifest, which uses title,
-abstract, and keywords. Current production acceptance uses a three-way decision:
+The final corpus combines records resolved by the A2 title/abstract/keywords
+model, the legacy linear SVM, Gemini-assisted review, and finished human review.
+The `ai_classification_model`, `ai_classification_reason`, and
+`final_resolution_source` fields preserve row-level provenance. Absolute local
+paths were replaced with portable model identifiers during final curation.
+
+Current production acceptance uses a three-way decision:
 
 ```text
 AUTO_AI / REVIEW / AUTO_NON_AI
@@ -47,17 +53,18 @@ The release contains rows where `ai_classification_label = AI`.
 
 ## Human Verification
 
-A 500-row stratified sample from this release candidate was manually verified.
-The completed operational audit contains 441 AI and 59 non-AI decisions, plus
-492 Sri Lanka relevant and 8 not-Sri-Lanka-relevant decisions. It is archived at:
+A later full curation pass partitioned the previous 4,058-row AI candidate
+export into 3,706 final AI records and 352 excluded non-AI records. The final
+AI file and excluded file are disjoint and their union exactly reconstructs the
+4,058-row input. Twenty-four supplied metadata corrections were also applied.
+
+An earlier 500-row stratified sample was manually verified. It is archived at:
 
 ```text
 backend/data/old_datasets_2026-09-30/backend/data/final_ai_corpus_human_audit_sample_stratified - final_ai_corpus_human_audit_sample_stratified (1).csv
 ```
 
-The unreviewed template remains at the historical processed-data path. Before
-final publication, the completed decisions must be propagated into the release,
-and a new audit must be run against the current A2 output. Review fields are:
+Review fields used by that audit are:
 
 - `human_ai_label`: `AI`, `NON_AI`, or `REVIEW`
 - `human_lk_relevance_label`: `VALID_LK`, `NOT_LK`, or `REVIEW`

@@ -58,6 +58,37 @@ def test_validate_ai_release_dataset_writes_release_reports(tmp_path):
     assert (output_dir / "README.md").exists()
 
 
+def test_validate_ai_release_dataset_accepts_human_review_without_numeric_confidence(tmp_path):
+    input_path = tmp_path / "human_reviewed.csv"
+    output_dir = tmp_path / "report"
+    pd.DataFrame(
+        [
+            {
+                "title": "Human-confirmed AI publication",
+                "publication_date": "2025-01-01",
+                "source_dataset": "openalex",
+                "source_record_id": "1",
+                "openalex_id": "W1",
+                "sri_lankan_authors": "University of Colombo, Sri Lanka",
+                "license": "cc-by",
+                "ai_classification_label": "AI",
+                "ai_classification_confidence": "not_applicable",
+                "ai_classification_model": "finished_human_review",
+                "final_resolution_source": "finished_human_review",
+            }
+        ]
+    ).to_csv(input_path, index=False)
+
+    validate_ai_release_dataset(
+        AIReleaseValidationConfig(input_path=input_path, output_dir=output_dir, current_year=2026)
+    )
+
+    gates = pd.read_csv(output_dir / "quality_gates.csv")
+    confidence_gate = gates[gates["check"] == "ai_confidence_range"].iloc[0]
+    assert confidence_gate["status"] == "pass"
+    assert confidence_gate["count"] == 0
+
+
 def test_apply_ai_classification_uses_svm_margin_as_confidence(tmp_path, monkeypatch):
     model_path = tmp_path / "model.joblib"
     model_path.write_text("placeholder", encoding="utf-8")

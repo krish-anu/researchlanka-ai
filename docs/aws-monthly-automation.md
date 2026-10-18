@@ -29,13 +29,13 @@ This writes:
 
 ```text
 data/processed/common/common_publications_final_2016_2026_ai_classified.csv
-data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv
+data/processed/common/researchlanka_ai_publications_final.csv
 ```
 
 `*_ai_classified.csv` is the audit file with AI, non-AI, and review labels.
-`*_ai_review_filtered.csv` is the ingestion/review dataset loaded into
-PostgreSQL. Public routes still show only publications that pass the centralized
-public eligibility view.
+`researchlanka_ai_publications_final.csv` is the curated AI-only handover
+dataset loaded into PostgreSQL. Public routes still show only publications that
+pass the centralized public eligibility view.
 
 ## Incremental Monthly Flow
 

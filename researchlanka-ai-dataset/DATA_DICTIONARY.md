@@ -1,6 +1,6 @@
 # Data Dictionary
 
-All fields are stored as strings in the CSV release. The Parquet release preserves the same column names and values.
+All fields are stored as strings in the CSV release.
 
 | Column | Description |
 | --- | --- |
@@ -66,7 +66,27 @@ All fields are stored as strings in the CSV release. The Parquet release preserv
 | `source_set_specs` | OAI-PMH set specs or equivalent source grouping metadata. |
 | `reference_count_difference_oa_minus_crossref` | Difference between OpenAlex and Crossref reference counts, where compared. |
 | `reference_count_divergence_flag` | Flag indicating reference-count divergence. |
+| `title_search_text` | Normalized lowercase title used for search. |
+| `abstract_search_text` | Normalized lowercase abstract used for search. |
+| `abstract_missing_flag` | Whether a usable abstract is absent. |
+| `keywords_search_text` | Normalized lowercase keywords used for search. |
+| `funder_name_missing_flag` | Whether funder name is absent. |
+| `funder_doi_missing_flag` | Whether funder DOI is absent. |
+| `funder_identifier_missing_flag` | Whether funder identifier is absent. |
+| `funder_award_missing_flag` | Whether funder award is absent. |
+| `license_missing_flag` | Whether license metadata is absent. |
+| `license_url_missing_flag` | Whether the license URL is absent. |
+| `pdf_url_missing_flag` | Whether a PDF URL is absent. |
+| `author_orcids_missing_flag` | Whether author ORCID metadata is absent. |
+| `article_number_missing_flag` | Whether an article number is absent. |
+| `authors_clean` | Normalized author representation used by downstream processing. |
+| `author_disambiguation_available_flag` | Whether author-disambiguation evidence is available. |
 | `ai_classification_label` | Final AI relevance label included in this release. All release rows should be `AI`. |
-| `ai_classification_confidence` | Confidence-like score from the classifier that produced the row. This package contains legacy linear-SVM margin-derived scores; they are not calibrated A2 probabilities. |
-| `ai_classification_model` | Path or identifier for the model used. This release candidate contains an absolute local path from the generating machine and must be sanitized when regenerated. |
+| `ai_classification_confidence` | Confidence-like value recorded by the classifier. Finished human-review decisions use `not_applicable`; scores from different model sources are not directly comparable. |
+| `ai_classification_model` | Portable identifier for the model or review process used. |
 | `ai_classification_reason` | Model or threshold reason when applicable. |
+| `final_resolution_source` | Process that supplied the final AI decision. |
+| `a2_pending_decision` | Historical A2 decision retained for audit provenance. |
+| `a2_pending_binary_prediction` | Historical A2 binary prediction retained for audit provenance. |
+| `a2_pending_ai_score` | Historical A2 AI score retained for audit provenance. |
+| `a2_pending_model_path` | Historical A2 model reference retained for audit provenance. |

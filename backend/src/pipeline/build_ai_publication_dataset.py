@@ -26,8 +26,8 @@ from src.pipeline.refresh_policy import configured_text_columns
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026.csv"
-DEFAULT_CLASSIFIED_OUTPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_ai_classified.csv"
-DEFAULT_AI_OUTPUT = PROJECT_ROOT / "data" / "processed" / "common" / "common_publications_final_2016_2026_ai_review_filtered.csv"
+DEFAULT_CLASSIFIED_OUTPUT = PROJECT_ROOT / "outputs" / "ai_review" / "publications_classified.csv"
+DEFAULT_AI_OUTPUT = PROJECT_ROOT / "outputs" / "ai_review" / "ai_review_candidates.csv"
 
 logger = logging.getLogger(__name__)
 

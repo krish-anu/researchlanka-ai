@@ -139,7 +139,6 @@ image.png
 *.part
 *.xlsx
 *.parquet
-!researchlanka-ai-dataset/data/researchlanka_ai_publications_v1.0.parquet
 *.jsonl
 *.sqlite
 *.sqlite3
@@ -157,6 +156,11 @@ image.png
 !configurations/**
 !backend/data/config/
 !backend/data/config/**
+!backend/data/processed/
+backend/data/processed/*
+!backend/data/processed/common/
+backend/data/processed/common/*
+!backend/data/processed/common/researchlanka_ai_publications_final.csv
 !backend/configurations/
 !backend/configurations/**
 !examples/

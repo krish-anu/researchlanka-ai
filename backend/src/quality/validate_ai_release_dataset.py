@@ -26,7 +26,7 @@ DEFAULT_INPUT = (
     / "data"
     / "processed"
     / "common"
-    / "common_publications_final_2016_2026_ai_review_filtered.csv"
+    / "researchlanka_ai_publications_final.csv"
 )
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "reports" / "ai_release_validation"
 
@@ -177,14 +177,23 @@ def validate_ai_release_dataset(config: AIReleaseValidationConfig) -> dict[str, 
         )
 
     if "ai_classification_confidence" in frame.columns:
-        confidence = pd.to_numeric(frame["ai_classification_confidence"], errors="coerce")
-        invalid_confidence = int((confidence.isna() | confidence.lt(0) | confidence.gt(1)).sum())
+        raw_confidence = frame["ai_classification_confidence"].fillna("").astype(str).str.strip()
+        confidence = pd.to_numeric(raw_confidence, errors="coerce")
+        model = frame.get("ai_classification_model", pd.Series("", index=frame.index))
+        resolution = frame.get("final_resolution_source", pd.Series("", index=frame.index))
+        human_resolved = (
+            model.fillna("").astype(str).str.strip().str.casefold().eq("finished_human_review")
+            | resolution.fillna("").astype(str).str.strip().str.casefold().eq("finished_human_review")
+        )
+        valid_human_na = raw_confidence.str.casefold().eq("not_applicable") & human_resolved
+        valid_numeric = confidence.notna() & confidence.ge(0) & confidence.le(1)
+        invalid_confidence = int((~(valid_numeric | valid_human_na)).sum())
         issues.append(
             _issue(
                 "ai_confidence_range",
                 "pass" if invalid_confidence == 0 else "fail",
                 invalid_confidence,
-                "missing or outside [0, 1]",
+                "must be within [0, 1], except not_applicable for finished human review",
             )
         )
 

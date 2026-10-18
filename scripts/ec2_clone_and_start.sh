@@ -8,7 +8,7 @@ ENV_FILE="${ENV_FILE:-deploy/aws.ec2.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-compose.aws.yml}"
 DATA_ARCHIVE="${DATA_ARCHIVE:-${DATA_ZIP:-}}"
 LOAD_DATASET="${LOAD_DATASET:-false}"
-DATASET_PATH="${DATASET_PATH:-data/processed/common/common_publications_final_2016_2026_ai_review_filtered.csv}"
+DATASET_PATH="${DATASET_PATH:-data/processed/common/researchlanka_ai_publications_final.csv}"
 
 if [ "$(id -u)" -eq 0 ]; then
   SUDO=""

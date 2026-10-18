@@ -83,14 +83,9 @@ COMMON_ANALYSIS_READY_SUMMARY_OUTPUT = (
     COMMON_OUTPUT_DIR
     / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_analysis_ready_summary.csv"
 )
-COMMON_AI_CLASSIFIED_OUTPUT = (
-    COMMON_OUTPUT_DIR
-    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_ai_classified.csv"
-)
-COMMON_AI_FILTERED_OUTPUT = (
-    COMMON_OUTPUT_DIR
-    / f"common_publications_final_{DEFAULT_COLLECTION_YEAR_SUFFIX}_ai_review_filtered.csv"
-)
+AI_REVIEW_OUTPUT_DIR = BACKEND_DIR / "outputs" / "ai_review"
+COMMON_AI_CLASSIFIED_OUTPUT = AI_REVIEW_OUTPUT_DIR / "publications_classified.csv"
+COMMON_AI_FILTERED_OUTPUT = AI_REVIEW_OUTPUT_DIR / "ai_review_candidates.csv"
 ALL_SOURCES_SOURCE_NAME = "researchlanka_all_sources_common_dataset"
 DEFAULT_REPOSITORY_WORKERS = 3
 
