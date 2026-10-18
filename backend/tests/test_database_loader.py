@@ -12,6 +12,7 @@ from src.database.loader import (
     canonicalize_existing_publication_key,
     final_publication_values,
     final_publications_upsert_sql,
+    publication_year_from_value,
 )
 from src.pipeline.build_final_common_dataset import FINAL_MAIN_COLUMNS
 
@@ -72,6 +73,21 @@ def test_build_final_publication_row_maps_aliases_and_coerces_values():
     assert row["classifier_decision"] == "AI"
     assert row["dataset_version"].startswith("researchlanka-")
     assert row["pipeline_version"] == "pipeline-v1.4.2"
+
+
+def test_publication_year_accepts_partial_iso_dates():
+    assert publication_year_from_value("2026") == 2026
+    assert publication_year_from_value("2026-07") == 2026
+    assert publication_year_from_value("2026-07-15") == 2026
+    assert publication_year_from_value("2026-07-15T12:30:00") == 2026
+
+
+def test_publication_year_rejects_invalid_or_out_of_range_values():
+    assert publication_year_from_value("2026/07") is None
+    assert publication_year_from_value("2026-13") is None
+    assert publication_year_from_value("2026-invalid") is None
+    assert publication_year_from_value("not-a-date") is None
+    assert publication_year_from_value("2200-01") is None
 
 
 def test_build_final_publication_row_uses_nested_source_metadata_fallbacks():

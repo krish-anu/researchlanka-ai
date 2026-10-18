@@ -58,11 +58,10 @@ export into 3,706 final AI records and 352 excluded non-AI records. The final
 AI file and excluded file are disjoint and their union exactly reconstructs the
 4,058-row input. Twenty-four supplied metadata corrections were also applied.
 
-An earlier 500-row stratified sample was manually verified. It is archived at:
-
-```text
-backend/data/old_datasets_2026-09-30/backend/data/final_ai_corpus_human_audit_sample_stratified - final_ai_corpus_human_audit_sample_stratified (1).csv
-```
+An earlier 500-row stratified sample was manually verified. Its decisions were
+superseded by the final full-corpus curation; the intermediate audit dataset was
+removed from the handover workspace to prevent it being mistaken for the final
+publication corpus.
 
 Review fields used by that audit are:
 

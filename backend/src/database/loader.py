@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime
 from hashlib import sha1
 from pathlib import Path
@@ -136,23 +137,31 @@ def build_final_publication_row(record: dict[str, Any], row_number: int) -> dict
 
 
 def publication_year_from_value(value: Any) -> int | None:
-    """Extract a valid year from a full or year-only publication date."""
+    """Extract a valid year from a full or partial ISO publication date."""
 
     if isinstance(value, (datetime, date)):
         return value.year
     text = coerce_text(value)
     if text is None:
         return None
-    if len(text) != 4:
-        normalized_date = coerce_date(text)
-        if normalized_date is None:
-            return None
-        text = normalized_date[:4]
+    year_match = re.fullmatch(
+        r"(\d{4})(?:-(\d{2})(?:-(\d{2})(?:[T ].*)?)?)?",
+        text,
+    )
+    if year_match is None:
+        return None
     try:
-        year = int(text)
+        year = int(year_match.group(1))
     except ValueError:
         return None
-    return year if 1500 <= year <= 2100 else None
+    if not 1500 <= year <= 2100:
+        return None
+    month = year_match.group(2)
+    if month is not None and not 1 <= int(month) <= 12:
+        return None
+    if year_match.group(3) is not None and coerce_date(text) is None:
+        return None
+    return year
 
 
 def apply_public_trace_defaults(row: dict[str, Any]) -> None:

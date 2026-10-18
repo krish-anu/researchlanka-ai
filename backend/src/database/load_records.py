@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
-from src.database.connection import get_connection
+from src.database.connection import close_connection_pool, get_connection
 from src.database.final_schema import AUTHOR_SUBMISSION_SOURCE
 from src.database.loader import (
     build_final_publication_row,
