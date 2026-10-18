@@ -192,7 +192,7 @@ sudo apt install -y git python3-venv make postgresql-client awscli
 Clone the repo and install dependencies:
 
 ```bash
-git clone <repository-url> ~/researchlanka-ai
+git clone https://github.com/krish-anu/researchlanka-ai.git ~/researchlanka-ai
 cd ~/researchlanka-ai
 make install
 ```

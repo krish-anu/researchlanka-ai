@@ -333,7 +333,7 @@ Functionality:
 
 ## 6. AI Relevance Classification
 
-### A1 XGBoost Classification and Calibration
+### A2 XGBoost Classification
 
 Files:
 - `backend/scripts/ai_relevance/run_metadata_ablation.py`
@@ -343,8 +343,10 @@ Files:
 
 Functionality:
 - Trains and compares metadata-ablation candidates.
-- Uses A1 XGBoost with title + abstract as the production AI relevance model.
-- Applies configured probability calibration before threshold decisions.
+- Uses the manifest-selected A2 XGBoost model with title, abstract, and
+  keywords for production AI relevance classification.
+- Applies the thresholds declared in the production manifest. The current A2
+  manifest does not select a separate calibrator artifact.
 
 ### Gemini / OpenRouter AI Relevance Labelling
 
@@ -733,7 +735,6 @@ Functionality:
 
 Files:
 - `frontend/src/app/data-quality/page.tsx`
-- `frontend/src/components/analytics/QualityCompleteness.tsx`
 - `backend/src/api/services/publications.py`
 - `backend/src/api/repositories/postgres.py`
 
@@ -804,12 +805,14 @@ Files:
 - `backend/docs/DATA_COLLECTION.md`
 - `backend/docs/normalization_and_merge.md`
 - `backend/docs/AI_RELEVANCE_PIPELINE.md`
-- `backend/docs/AI_RELEVANCE_MODEL_DEVELOPMENT_REPORT.md`
+- `backend/docs/AI_RELEVANCE_MODEL.md`
+- `backend/docs/archive/model-history/AI_RELEVANCE_MODEL_DEVELOPMENT_REPORT.md`
 
 Functionality:
 - Documents pipeline structure.
 - Documents API design and backend architecture.
-- Documents AI relevance classification pipeline, current model choice, and calibration.
+- Documents the current AI model and thresholds alongside historical
+  calibration and comparison tooling.
 - Verifies pipeline outputs for reports.
 
 ## 19. Deployment and Runtime

@@ -3,7 +3,7 @@
 **Status:** MVP read-only API implemented with standard-library HTTP server; initial FastAPI model endpoints added; production hardening pending  
 **Scope:** Read-only public API for the Sri Lanka national research analytics platform  
 **Primary datastore:** PostgreSQL `final_publications` plus sidecar/audit tables  
-**Related docs:** [frontend_requirements.md](frontend_requirements.md), [metadata.md](metadata.md), [10_data_cleaning_rules.md](10_data_cleaning_rules.md), [11_metadata_quality_limitations.md](11_metadata_quality_limitations.md)
+**Related docs:** [frontend_requirements.md](frontend_requirements.md), [metadata.md](metadata.md), [DATA_CLEANING_RULES.md](DATA_CLEANING_RULES.md), [METADATA_QUALITY_LIMITATIONS.md](METADATA_QUALITY_LIMITATIONS.md)
 
 ## 1. Purpose
 

@@ -29,7 +29,8 @@ intent to converge on `research_analytics/`; until then, expect some logic
 places with different code.
 
 > The two entry points also expose **different stage names** — see
-> [BACKEND_CODE_AUDIT.md §2.6](BACKEND_CODE_AUDIT.md#26-two-different-stage-vocabularies).
+> The historical audit discusses the different stage vocabularies in
+> [§2.6](archive/audits/BACKEND_CODE_AUDIT.md#26-two-different-stage-vocabularies).
 
 ---
 
@@ -106,7 +107,9 @@ required_columns=[...])`).
 
 > `FINAL_MAIN_COLUMNS` and the committed `common_publications_final.csv`
 > currently disagree, which breaks one stage —
-> [BACKEND_CODE_AUDIT.md §2.1](BACKEND_CODE_AUDIT.md#21-the-committed-final-dataset-is-stale-one-pipeline-stage-cannot-run).
+> See the historical audit
+> [§2.1](archive/audits/BACKEND_CODE_AUDIT.md#21-the-committed-final-dataset-is-stale-one-pipeline-stage-cannot-run)
+> for the original finding; verify its status against current code.
 
 ---
 
@@ -228,7 +231,9 @@ and `file_naming.py`.
 
 > These extractors are currently **not wired into the pipeline** and their
 > priority lists contradict their docstrings —
-> [BACKEND_CODE_AUDIT.md §2.2–2.3](BACKEND_CODE_AUDIT.md#22-column-priority-lists-contradict-their-own-docstrings).
+> See the historical audit
+> [§2.2–2.3](archive/audits/BACKEND_CODE_AUDIT.md#22-column-priority-lists-contradict-their-own-docstrings)
+> for the original finding; verify its status against current code.
 
 ### `src/analytics/` — `network.py`, co-authorship and collaboration graphs.
 
@@ -268,7 +273,7 @@ Every module here already carries a module docstring; start with `pipeline.py`.
 |---|---|
 | Add a new institution/repository | `src/collectors/repository_registry.py`, then `plugins/example_repository/` |
 | Add a new data source | `research_analytics/adapters/` + `registry.py` |
-| Change a cleaning rule | `src/pipeline/build_*.py`, and record it in `docs/10_data_cleaning_rules.md` |
+| Change a cleaning rule | `src/pipeline/build_*.py`, and record it in `docs/DATA_CLEANING_RULES.md` |
 | Add an API endpoint | `src/api/services/publications.py`, then both transports |
 | Change the database schema | New file in `database/migrations/`, update `final_schema.py` and `BASE_COLUMNS` |
 | Train a different classifier | `make train-logreg` with `LOGREG_*` overrides |

@@ -21,20 +21,27 @@ The Kaggle notebook will:
 8. Compare model metrics.
 9. Zip the outputs so you can download them from Kaggle.
 
-The recommended notebook for your friend is:
+> This notebook does not reproduce the current production A2 XGBoost artifact
+> declared in `backend/configurations/ai_relevance_model_manifest.json`, and its
+> outputs are not automatically an approved public dataset release. Treat its
+> Logistic Regression and Linear SVM artifacts as experimental unless a later
+> reviewed manifest explicitly promotes them.
+
+The canonical full-pipeline notebook is:
 
 ```text
 dse-project.ipynb
 ```
 
-There is also a similar copy in:
+There is also a smaller alternative workflow in:
 
 ```text
 notebooks/kaggle_run_main_full_pipeline.ipynb
 ```
 
-If both are available, use `dse-project.ipynb` because it is at the repository
-root and includes extra helper cells for downloading model-only outputs.
+The two notebooks are not identical. Use `dse-project.ipynb` for the complete
+documented run. Use the smaller notebook only when its reduced workflow is the
+explicit goal; do not treat it as a synchronized copy.
 
 ## Before You Start
 
@@ -406,7 +413,7 @@ data/processed/common/common_publications_final_2016_2026_analysis_ready.csv
 You do not need to run the embeddings or model training cells unless you need
 the machine learning outputs.
 
-## Quick Checklist For Your Friend
+## Quick Handover Checklist
 
 Use this checklist when running on Kaggle:
 

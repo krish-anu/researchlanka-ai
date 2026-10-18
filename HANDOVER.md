@@ -11,6 +11,8 @@ Reviewed: 2026-10-18
   transfer through the approved model-artifact channel after licensing):
   `backend/data/models/ai_relevance/metadata_ablation_precision_092/A2_title_abstract_keywords.joblib`
 - Dataset release-candidate package: `researchlanka-ai-dataset/`
+- Documentation index: `docs/README.md`
+- Backend documentation index: `backend/docs/README.md`
 - AWS/Docker deployment: `docs/aws-ec2-app-deployment.md`
 - CI deployment workflow: `.github/workflows/deploy-main-to-ec2.yml`
 
@@ -25,6 +27,8 @@ Reviewed: 2026-10-18
   manifest.
 - No committed private keys or recognizable API-token patterns were found by
   the repository scan.
+- Active instructions are indexed separately from dated audits, design plans,
+  and superseded model-selection reports.
 
 ## Publication blockers
 

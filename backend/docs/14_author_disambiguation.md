@@ -237,5 +237,5 @@ Written to the summary with `_pass` flags:
   the read model aggregates publications by author name string. Pointing it at
   `author_ids` is a database-schema change and is not part of this pipeline.
 
-See also [11_metadata_quality_limitations.md](11_metadata_quality_limitations.md)
+See also [METADATA_QUALITY_LIMITATIONS.md](METADATA_QUALITY_LIMITATIONS.md)
 and [10_institution_and_affiliation_standardization.md](10_institution_and_affiliation_standardization.md).

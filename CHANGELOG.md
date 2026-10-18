@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Documentation and handover
+
+- Added documentation indexes for cross-project and backend guidance.
+- Separated active instructions from historical audits, design plans, and model
+  reports.
+- Declared the checked-in A2 manifest as the production-model source of truth.
+- Clarified that the packaged dataset is a release candidate and that external
+  data/model artifacts require versioned, checksummed transfer.
+
+### Interface
+
+- Improved search suggestion feedback and keyboard completion.
+- Made publication, institution, topic, and researcher filters more consistent
+  and prevented premature navigation while forms are being edited.
+- Added accessible chart/table alternatives, constrained chart navigation, and
+  improved responsive panel density.
+- Improved researcher names, publication metadata, collaboration exploration,
+  administration status feedback, and DOI links.
+- Standardized admin cards and review controls on the existing forest, paper,
+  turmeric, and semantic-status tokens.
+
 - Added author profiles: author sign-up with administrator approval, publication
   claims by listed author, verified public profiles at `/authors/<slug>`,
   live-editable bio and links, administrator-reviewed publication corrections

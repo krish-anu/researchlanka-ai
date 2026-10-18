@@ -22,7 +22,7 @@ is a role rather than the absence of one, and every gate is a single
 
 Routes are gated in three places, with different jobs:
 
-1. `src/middleware.ts` — fast redirect so a protected page never starts rendering.
+1. `src/proxy.ts` — fast redirect so a protected page never starts rendering.
 2. The route's own layout (`app/admin/layout.tsx`, `app/account/layout.tsx`) — the
    check that actually enforces the rule, in the same request as the render.
 3. Each server action — re-checked independently, because an action is a public
@@ -80,9 +80,8 @@ explanatory panel rather than crashing.
 
 ## AI research interface
 
-The public interface uses the forest-green design approved in
-`../design-preview/researchlanka-ui-preview.html`. All displayed figures come
-from the API; the HTML prototype's sample records are not used in the app.
+The public interface uses the forest-green, paper, and turmeric design tokens
+defined in `src/app/globals.css`. All displayed figures come from the API.
 The backend's accepted-AI review boundary remains authoritative.
 
 - Overview: year/field filters, annual area/line/bar views with an open-access
