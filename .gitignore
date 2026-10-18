@@ -102,6 +102,7 @@ backend/data/external/
 backend/data/Finished/
 backend/data/models/
 backend/data/reports/
+backend/data/pending-review-split/
 backend/data/results/
 backend/data/results (1)/
 backend/data/old_datasets_*/
@@ -168,7 +169,9 @@ Thumbs.db
 .idea/
 .claude/
 .codex/
+.cursor/
 .agents/
+.gemini/
 .kilo/
 .mcp.json
 .bash_profile

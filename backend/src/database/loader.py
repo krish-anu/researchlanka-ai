@@ -292,7 +292,7 @@ def build_publication_key(row: dict[str, Any], row_number: int) -> str:
             },
             sort_keys=True,
         )
-        digest = sha1(key_payload.encode("utf-8")).hexdigest()[:16]
+        digest = sha1(key_payload.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
         return f"title:{digest}"
     return f"row:{row_number}"
 

@@ -67,6 +67,6 @@ All fields are stored as strings in the CSV release. The Parquet release preserv
 | `reference_count_difference_oa_minus_crossref` | Difference between OpenAlex and Crossref reference counts, where compared. |
 | `reference_count_divergence_flag` | Flag indicating reference-count divergence. |
 | `ai_classification_label` | Final AI relevance label included in this release. All release rows should be `AI`. |
-| `ai_classification_confidence` | AI classifier confidence-like score. Current A1 XGBoost production outputs use the configured sigmoid calibrator. Older SVM outputs were derived from the absolute decision margin. |
-| `ai_classification_model` | Path or identifier for the AI relevance model used. |
+| `ai_classification_confidence` | Confidence-like score from the classifier that produced the row. This package contains legacy linear-SVM margin-derived scores; they are not calibrated A2 probabilities. |
+| `ai_classification_model` | Path or identifier for the model used. This release candidate contains an absolute local path from the generating machine and must be sanitized when regenerated. |
 | `ai_classification_reason` | Model or threshold reason when applicable. |

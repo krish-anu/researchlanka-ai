@@ -24,7 +24,9 @@ checksums.sha256
 - Publication years: 2016-2026
 - Format: CSV and Parquet
 - AI label included in release: `AI`
-- Current production classifier: ResearchLanka AI relevance A1 XGBoost, title + abstract, sigmoid-calibrated
+- Classifier recorded in this package: legacy ResearchLanka linear SVM. The
+  checked-in production manifest now selects the newer A2 XGBoost model, so
+  this package must be regenerated before it can represent the current model.
 
 ## Important Release Status
 
@@ -34,8 +36,15 @@ Known release-readiness items:
 
 - 2 records have blank titles.
 - 203 duplicate candidates require manual review.
-- A 500-record human audit sample has been prepared separately at `backend/data/processed/ai/final_ai_corpus_human_audit_sample.csv`.
-- Final publication should wait until AI relevance and Sri Lanka relevance labels in the audit sample are completed and summarized.
+- A 500-record operational human audit was completed on this exact package:
+  441 records were confirmed AI and 59 were labelled non-AI; 492 were
+  confirmed Sri Lanka relevant and 8 were labelled not Sri Lanka relevant.
+- Those audit findings have not yet been propagated into this package (the AI
+  and Sri Lanka findings may overlap), and the audit was operational rather
+  than an independently blinded benchmark.
+- Final publication must wait until the corrections are applied, the current
+  production model output is re-audited, and redistribution licensing is
+  approved.
 
 ## Recommended Citation
 

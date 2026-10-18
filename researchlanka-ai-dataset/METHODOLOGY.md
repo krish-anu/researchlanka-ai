@@ -30,9 +30,10 @@ The current release candidate contains 203 duplicate candidates requiring manual
 
 ## AI Relevance Classification
 
-The current production AI relevance decision is based on the ResearchLanka A1
-XGBoost model using title and abstract text, with sigmoid calibration enabled.
-Production acceptance uses a three-way decision:
+This release-candidate file was classified by the legacy ResearchLanka linear
+SVM; the `ai_classification_model` values in the file preserve that provenance.
+It predates the current production A2 XGBoost manifest, which uses title,
+abstract, and keywords. Current production acceptance uses a three-way decision:
 
 ```text
 AUTO_AI / REVIEW / AUTO_NON_AI
@@ -46,13 +47,17 @@ The release contains rows where `ai_classification_label = AI`.
 
 ## Human Verification
 
-A separate 500-row random sample from the final AI corpus was generated for manual verification:
+A 500-row stratified sample from this release candidate was manually verified.
+The completed operational audit contains 441 AI and 59 non-AI decisions, plus
+492 Sri Lanka relevant and 8 not-Sri-Lanka-relevant decisions. It is archived at:
 
 ```text
-backend/data/processed/ai/final_ai_corpus_human_audit_sample.csv
+backend/data/old_datasets_2026-09-30/backend/data/final_ai_corpus_human_audit_sample_stratified - final_ai_corpus_human_audit_sample_stratified (1).csv
 ```
 
-Before final publication, reviewers should fill:
+The unreviewed template remains at the historical processed-data path. Before
+final publication, the completed decisions must be propagated into the release,
+and a new audit must be run against the current A2 output. Review fields are:
 
 - `human_ai_label`: `AI`, `NON_AI`, or `REVIEW`
 - `human_lk_relevance_label`: `VALID_LK`, `NOT_LK`, or `REVIEW`

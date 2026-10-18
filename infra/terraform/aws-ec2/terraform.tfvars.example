@@ -5,7 +5,7 @@ aws_region = "us-east-1"
 instance_type = "t3.micro"
 
 # Restrict SSH to your current public IP, for example "203.0.113.10/32".
-allowed_ssh_cidr = "0.0.0.0/0"
+allowed_ssh_cidr = "203.0.113.10/32"
 
 # Use ["0.0.0.0/0"] for a public demo, or your IP/CIDR for private access.
 allowed_frontend_cidrs = ["0.0.0.0/0"]
