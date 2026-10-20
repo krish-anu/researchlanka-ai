@@ -113,6 +113,8 @@ CSE_UOM_AUDIT ?= outputs/cse_uom/cse_uom_publication_validation_audit.csv
 CSE_UOM_AI_AUDIT ?= outputs/cse_uom/cse_uom_ai_validation_audit.csv
 CSE_UOM_SUMMARY ?= outputs/cse_uom/cse_uom_publication_validation_summary.json
 CSE_UOM_AI_SUMMARY ?= outputs/cse_uom/cse_uom_ai_validation_summary.json
+CSE_UOM_OPENALEX_OUTPUT ?= outputs/cse_uom/cse_uom_openalex_staff_publications_2016_2026.csv
+CSE_UOM_OPENALEX_MANIFEST ?= outputs/cse_uom/cse_uom_openalex_staff_publications_manifest.json
 CSE_UOM_DATABASE_URL ?=
 INCREMENTAL_STATE ?= outputs/incremental/state.json
 INCREMENTAL_OUTPUT_ROOT ?= outputs/incremental/runs
@@ -213,7 +215,7 @@ INCREMENTAL_TO_DATE_ARG = $(if $(INCREMENTAL_END_DATE),--end-date $(INCREMENTAL_
 INCREMENTAL_MAX_RECORDS_ARG = $(if $(INCREMENTAL_MAX_RECORDS),--max-records $(INCREMENTAL_MAX_RECORDS),)
 INCREMENTAL_MODEL_ARG = $(if $(INCREMENTAL_MODEL),--model $(INCREMENTAL_MODEL),)
 
-.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update cse-uom-dataset cse-uom-ai-dataset cse-uom-load-site-db openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common-raw final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
+.PHONY: help install test publication-counts api load-db-2016-now retire-stale-db-2016-now load-full-db-2016-now load-db-ai reset-db-ai incremental-update cse-uom-fetch-openalex cse-uom-dataset cse-uom-ai-dataset cse-uom-load-site-db openalex openalex-sample openalex-resume openalex-rebuild openalex-doi-conflicts openalex-report institution-registry institution-normalize type-journal-normalize author-disambiguate author-review author-decisions validate-dataset validate-ownership final-common-raw final-common final-common-enriched enrich-missing-text final-common-add-repositories dashboard-chart-snapshot train-nb evaluate-models model-text model-titles model-abstracts model-keywords model-tfidf model-embeddings model-splits train-logreg predict-logreg model-api
 
 # Show available targets and common overrides.
 help:
@@ -228,6 +230,7 @@ help:
 	@echo "  make ai-dataset              Classify historical final CSV and write AI-reviewed dataset"
 	@echo "  make load-db-ai              Build and upsert AI-reviewed historical dataset"
 	@echo "  make incremental-update      Collect since checkpoint, classify, upsert, and save checkpoint"
+	@echo "  make cse-uom-fetch-openalex  Fetch current works for verified official CSE staff identities"
 	@echo "  make cse-uom-dataset         Build CSE candidates and affiliation-verified records before AI classification"
 	@echo "  make cse-uom-ai-dataset      Build the site-ready verified CSE slice from accepted AI records"
 	@echo "  make cse-uom-load-site-db    Load and finalize the CSE slice in its dedicated database"
@@ -339,6 +342,14 @@ incremental-update:
 		$(INCREMENTAL_MAX_RECORDS_ARG) \
 		$(INCREMENTAL_MODEL_ARG) \
 		$(INCREMENTAL_EXTRA_ARGS)
+
+cse-uom-fetch-openalex:
+	$(PYTHON) scripts/cse_uom/fetch_openalex_staff_publications.py \
+		--roster $(CSE_UOM_ROSTER) \
+		--output $(CSE_UOM_OPENALEX_OUTPUT) \
+		--manifest-output $(CSE_UOM_OPENALEX_MANIFEST) \
+		--year-min $(DB_LOAD_YEAR_MIN) \
+		--year-max $(DB_LOAD_YEAR_MAX)
 
 cse-uom-dataset:
 	$(PYTHON) scripts/cse_uom/build_dataset.py \

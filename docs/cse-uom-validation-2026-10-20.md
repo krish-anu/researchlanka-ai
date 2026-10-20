@@ -2,26 +2,33 @@
 
 ## Scope
 
-This report records the CSE-specific validation run against the 24-person
-official academic-staff roster snapshot. It validates author matching,
+This report records the CSE-specific validation run against the current
+24-person official academic-staff roster. It validates author matching,
 publication-level University of Moratuwa evidence, reviewed DOI corrections,
-and deduplication. It is not a claim that every bibliographic field has been
-independently checked with every publisher.
+deduplication, and a fresh OpenAlex collection for verified staff identities.
+It is not a claim that every bibliographic field has been independently checked
+with every publisher.
 
 ## Result
 
 | Decision | Records |
 | --- | ---: |
-| Verified distinct AI publications | 299 |
-| Held for manual review | 4 |
+| Fresh OpenAlex staff works collected | 1,010 |
+| Affiliation-verified distinct CSE publications | 844 |
+| Final accepted AI publications | 481 |
+| Newly fetched AI-review records withheld from the site | 133 |
+| Affiliation candidates withheld from the site | 180 |
 | Rejected reviewed attribution | 1 |
-| Initials-only matches held for review | 3 |
 
 The reproducible outputs are:
 
 - `backend/outputs/cse_uom/cse_uom_ai_publications_verified_2016_2026.csv`
 - `backend/outputs/cse_uom/cse_uom_ai_validation_audit.csv`
 - `backend/outputs/cse_uom/cse_uom_ai_validation_summary.json`
+- `backend/outputs/cse_uom/cse_uom_openalex_staff_publications_manifest.json`
+
+The department handover package is under
+`deliverables/cse-uom-website-data-2026-10-20/`.
 
 ## Confirmed Corrections
 
@@ -62,8 +69,10 @@ identity and publication-time affiliation evidence is recorded.
 
 ## Remaining Limitation
 
-The run establishes conservative CSE attribution for the site slice, but a
-complete recall study still requires comparing every staff member's official
-publication list with the harvested corpus. The supplied Prof. Shantha Fernando
-profile exposed missing upstream coverage, so coverage should be reported
-separately from attribution precision.
+The run establishes conservative CSE attribution for the site slice. OpenAlex
+identities were verified for 22 of the 24 current staff members. Google Scholar
+blocked automated publication-page retrieval with HTTP 403/429, and 133 fresh
+records remain in the AI manual-review band. Those records and the affiliation
+review queue must be resolved with staff confirmation before making a formal
+claim of exhaustive recall. The publishable dataset excludes every unresolved
+attribution.

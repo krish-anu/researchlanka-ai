@@ -135,6 +135,11 @@ def _normalized_orcid(value: object) -> str:
     return re.sub(r"^https?://orcid\.org/", "", text).strip("/")
 
 
+def _normalized_openalex_author_id(value: object) -> str:
+    text = str(value or "").strip().casefold()
+    return re.sub(r"^https?://openalex\.org/", "", text).strip("/")
+
+
 def matched_staff_with_evidence(
     row: Mapping[str, object], roster: Iterable[StaffMember]
 ) -> list[StaffMatch]:
@@ -142,8 +147,18 @@ def matched_staff_with_evidence(
     author_orcids = {
         _normalized_orcid(value) for value in split_values(row.get("author_orcids"))
     }
+    author_openalex_ids = {
+        _normalized_openalex_author_id(value)
+        for value in split_values(row.get("author_openalex_ids"))
+    }
     matches: list[StaffMatch] = []
     for member in roster:
+        member_openalex_id = _normalized_openalex_author_id(member.openalex_author_id)
+        if member_openalex_id and member_openalex_id in author_openalex_ids:
+            matches.append(
+                StaffMatch(member=member, evidence="verified_openalex_author_id")
+            )
+            continue
         member_orcid = _normalized_orcid(member.orcid)
         if member_orcid and member_orcid in author_orcids:
             matches.append(StaffMatch(member=member, evidence="verified_orcid"))
@@ -173,6 +188,9 @@ def matched_staff(
 def has_uom_affiliation(row: Mapping[str, object]) -> bool:
     institutions = split_values(row.get("institutions"))
     institutions.extend(split_values(row.get("sri_lankan_institutions")))
+    institutions.extend(split_values(row.get("raw_affiliation_strings")))
+    institutions.extend(split_values(row.get("sri_lankan_raw_affiliation_strings")))
+    institutions.extend(split_values(row.get("author_affiliations")))
     return any(
         normalized in UOM_NAMES or "university of moratuwa" in normalized
         for normalized in (normalize_name(value) for value in institutions)
@@ -380,7 +398,15 @@ def build_cse_uom_dataset(
                 match
                 for match in usable_matches
                 if match.evidence == "manual_correction"
-                or (match.evidence in {"full_name_alias", "verified_orcid"} and has_uom)
+                or (
+                    match.evidence
+                    in {
+                        "full_name_alias",
+                        "verified_orcid",
+                        "verified_openalex_author_id",
+                    }
+                    and has_uom
+                )
             ]
             unverified_matches = [
                 match for match in usable_matches if match not in verified_matches

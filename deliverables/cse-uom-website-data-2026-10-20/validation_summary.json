@@ -1,0 +1,20 @@
+{
+  "final_ai_publication_count": 481,
+  "fresh_classification_counts": {
+    "AI": 384,
+    "non-AI": 248,
+    "review": 212
+  },
+  "fresh_verified_cse_publication_count": 844,
+  "generated_at": "2026-10-20T16:14:36.210376+00:00",
+  "new_auto_ai_count": 182,
+  "output": "/home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/outputs/cse_uom/cse_uom_ai_publications_verified_2016_2026.csv",
+  "output_sha256": "fd54982ba04a4393011fc4a959a2fd0f4b0ba59f0335b7484589e79371e2a29d",
+  "pending_ai_manual_review_count": 133,
+  "prior_accepted_ai_count": 299,
+  "prior_accepted_matched_fresh_count": 296,
+  "prior_accepted_missing_fresh_count": 3,
+  "publication_scope": "University of Moratuwa CSE AI publications, 2016-2026",
+  "review_output": "/home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/outputs/cse_uom/cse_uom_ai_manual_review.csv",
+  "review_output_sha256": "98bc3bba39858ea0a50306a521086b3a12ebee9b8af3f20dfd68ee21fecc6e5c"
+}

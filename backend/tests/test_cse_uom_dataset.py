@@ -169,6 +169,47 @@ def test_initials_only_match_is_not_verified_by_generic_uom_affiliation(
     assert row["cse_validation_decision"] == "REVIEW"
 
 
+def test_verified_openalex_author_id_can_resolve_initials_only_name(
+    tmp_path: Path,
+) -> None:
+    roster = tmp_path / "roster.tsv"
+    roster.write_text(
+        "researcher_id\tofficial_name\tdisplay_name\tprofile_url\tauthor_aliases\t"
+        "roster_checked_on\topenalex_author_id\torcid\n"
+        "rms-rathnayake\tDr. R.M.S. Rathnayake\tR.M.S. Rathnayake\t"
+        "https://example.test\tR.M.S. Rathnayake\t2026-10-20\tA5126836088\t\n",
+        encoding="utf-8",
+    )
+    source = tmp_path / "source.csv"
+    write_csv(
+        source,
+        [{
+            "doi": "10.1/openalex-id",
+            "title": "Verified identifier work",
+            "publication_year": "2025",
+            "authors": "R.M.S. Rathnayake",
+            "author_openalex_ids": "https://openalex.org/A5126836088",
+            "raw_affiliation_strings": (
+                "Department of Computer Science and Engineering, University of Moratuwa"
+            ),
+            "source_dataset": "openalex_cse_staff_fresh",
+        }],
+    )
+    candidates = tmp_path / "candidates.csv"
+    verified = tmp_path / "verified.csv"
+    summary = build_cse_uom_dataset(
+        input_path=source,
+        roster_path=roster,
+        candidate_output=candidates,
+        verified_output=verified,
+    )
+    assert summary["verified_count"] == 1
+    with verified.open(encoding="utf-8") as handle:
+        row = next(csv.DictReader(handle))
+    assert row["uom_cse_researcher_ids"] == "rms-rathnayake"
+    assert "verified_openalex_author_id" in row["cse_match_evidence"]
+
+
 def test_reviewed_corrections_reject_collision_and_restore_omitted_author(
     tmp_path: Path,
 ) -> None:

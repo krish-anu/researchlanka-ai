@@ -1,0 +1,29 @@
+{
+  "fetched_distinct_work_count": 1010,
+  "filters": [
+    "authorships.author.id:A5002889503|A5008036750|A5009954826|A5017016872|A5017081333|A5017448864|A5018869677|A5020197064|A5021883844|A5025331455|A5031071228|A5032293659|A5038168951|A5046054771|A5049911731|A5060065532|A5060391140|A5064141023|A5067544655|A5067900576|A5110399742|A5126836088",
+    "publication_year:2016-2026"
+  ],
+  "generated_at": "2026-10-20T16:10:28.561537+00:00",
+  "output": "/home/anusankrishnathas/Desktop/researchlanka-ai/researchlanka-ai/backend/outputs/cse_uom/cse_uom_openalex_staff_publications_2016_2026.csv",
+  "resolved_openalex_author_count": 22,
+  "roster_count": 24,
+  "source": "OpenAlex API",
+  "unresolved_full_name_fallback_queries": {
+    "cr-de-silva": [
+      "Prof. C.R. De Silva",
+      "C.R. De Silva",
+      "Chathura Ranjan De Silva",
+      "Chathura De Silva"
+    ],
+    "sachini-weerawardhana": [
+      "Ms. S.S. Weerawardhana"
+    ]
+  },
+  "unresolved_researcher_ids": [
+    "cr-de-silva",
+    "sachini-weerawardhana"
+  ],
+  "year_max": 2026,
+  "year_min": 2016
+}

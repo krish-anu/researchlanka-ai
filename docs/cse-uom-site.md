@@ -31,6 +31,13 @@ auto-accept an author from name similarity alone.
 6. Run the existing AI classifier over the verified CSE dataset.
 7. Load only accepted AI records into the separate site database.
 
+Fetch the current OpenAlex works for the identity-verified roster before
+building the site dataset:
+
+```bash
+make cse-uom-fetch-openalex
+```
+
 The current builder applies steps 3–5 to a ResearchLanka source dataset:
 
 ```bash
