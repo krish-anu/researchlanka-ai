@@ -68,6 +68,8 @@ def test_builder_requires_staff_match_and_uom_affiliation(tmp_path: Path) -> Non
         "candidate_count": 2,
         "verified_count": 1,
         "manual_review_count": 1,
+        "rejected_count": 0,
+        "initials_review_count": 0,
     }
     with verified.open(encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
@@ -114,3 +116,132 @@ def test_builder_derives_year_from_publication_date(tmp_path: Path) -> None:
     assert summary["verified_count"] == 1
     with verified.open(encoding="utf-8") as handle:
         assert next(csv.DictReader(handle))["publication_year"] == "2022"
+
+
+def test_initials_only_match_is_not_verified_by_generic_uom_affiliation(
+    tmp_path: Path,
+) -> None:
+    roster = tmp_path / "roster.tsv"
+    roster.write_text(
+        "researcher_id\tofficial_name\tdisplay_name\tprofile_url\tauthor_aliases\troster_checked_on\n"
+        "msd-fernando\tProf. M.S.D. Fernando\tM.S.D. Fernando\thttps://example.test\t"
+        "Shantha Fernando|M.S.D. Fernando|MSD Fernando\t2026-10-07\n",
+        encoding="utf-8",
+    )
+    source = tmp_path / "source.csv"
+    write_csv(
+        source,
+        [
+            {
+                "doi": "10.1/electrical",
+                "title": "Electrical engineering work",
+                "publication_year": "2024",
+                "authors": "Msd Fernando; A. Collaborator",
+                "author_affiliations": (
+                    "University of Moratuwa, "
+                    "Department of Electrical Engineering, Sri Lanka"
+                ),
+                "institutions": "University of Moratuwa",
+                "sri_lankan_institutions": "University of Moratuwa",
+                "source_dataset": "openalex",
+            }
+        ],
+    )
+    candidates = tmp_path / "candidates.csv"
+    verified = tmp_path / "verified.csv"
+    audit = tmp_path / "audit.csv"
+
+    summary = build_cse_uom_dataset(
+        input_path=source,
+        roster_path=roster,
+        candidate_output=candidates,
+        verified_output=verified,
+        audit_output=audit,
+    )
+
+    assert summary["verified_count"] == 0
+    assert summary["manual_review_count"] == 1
+    assert summary["initials_review_count"] == 1
+    with candidates.open(encoding="utf-8") as handle:
+        row = next(csv.DictReader(handle))
+    assert row["uom_cse_authors"] == ""
+    assert row["cse_unverified_roster_matches"] == "M.S.D. Fernando"
+    assert row["cse_validation_decision"] == "REVIEW"
+
+
+def test_reviewed_corrections_reject_collision_and_restore_omitted_author(
+    tmp_path: Path,
+) -> None:
+    roster = tmp_path / "roster.tsv"
+    roster.write_text(
+        "researcher_id\tofficial_name\tdisplay_name\tprofile_url\tauthor_aliases\troster_checked_on\n"
+        "msd-fernando\tProf. M.S.D. Fernando\tM.S.D. Fernando\thttps://example.test\t"
+        "Shantha Fernando|M.S.D. Fernando|MSD Fernando\t2026-10-07\n",
+        encoding="utf-8",
+    )
+    source = tmp_path / "source.csv"
+    write_csv(
+        source,
+        [
+            {
+                "doi": "10.1/wrong-person",
+                "title": "Wrong person",
+                "publication_year": "2024",
+                "authors": "Msd Fernando",
+                "author_affiliations": "Department of Electrical Engineering",
+                "institutions": "University of Moratuwa",
+                "sri_lankan_institutions": "University of Moratuwa",
+                "source_dataset": "openalex",
+            },
+            {
+                "doi": "10.1/omitted-author",
+                "title": "Confirmed work",
+                "publication_year": "2020",
+                "authors": "Lead Author",
+                "author_affiliations": "Other University",
+                "institutions": "Other University",
+                "sri_lankan_institutions": "",
+                "source_dataset": "openalex",
+            },
+        ],
+    )
+    corrections = tmp_path / "corrections.tsv"
+    corrections.write_text(
+        "doi\tdecision\tresearcher_ids\tcorrected_authors\tcorrected_author_affiliations\t"
+        "evidence_url\treason\n"
+        "10.1/wrong-person\tEXCLUDE_STAFF\tmsd-fernando\t\t\thttps://evidence.test/wrong\t"
+        "Different person\n"
+        "10.1/omitted-author\tINCLUDE_STAFF\tmsd-fernando\tLead Author; Shantha Fernando\t"
+        "Department of Computer Science and Engineering, University of Moratuwa\t"
+        "https://evidence.test/confirmed\tPublisher confirmed\n",
+        encoding="utf-8",
+    )
+    candidates = tmp_path / "candidates.csv"
+    verified = tmp_path / "verified.csv"
+    audit = tmp_path / "audit.csv"
+
+    summary = build_cse_uom_dataset(
+        input_path=source,
+        roster_path=roster,
+        candidate_output=candidates,
+        verified_output=verified,
+        corrections_path=corrections,
+        audit_output=audit,
+    )
+
+    assert summary["rejected_count"] == 1
+    assert summary["verified_count"] == 1
+    with verified.open(encoding="utf-8") as handle:
+        row = next(csv.DictReader(handle))
+    assert row["authors"] == "Lead Author; Shantha Fernando"
+    assert row["uom_cse_researcher_ids"] == "msd-fernando"
+    assert row["cse_evidence_url"] == "https://evidence.test/confirmed"
+    with audit.open(encoding="utf-8") as handle:
+        decisions = {
+            row["doi"]: row["cse_validation_decision"]
+            for row in csv.DictReader(handle)
+        }
+    assert decisions == {
+        "10.1/wrong-person": "REJECT",
+        "10.1/omitted-author": "VERIFIED",
+    }

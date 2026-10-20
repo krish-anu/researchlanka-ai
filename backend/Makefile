@@ -104,9 +104,15 @@ CSE_UOM_INPUT ?= data/processed/common/common_publications_final_2016_2026.csv
 CSE_UOM_CANDIDATES ?= outputs/cse_uom/cse_uom_publication_candidates_2016_2026.csv
 CSE_UOM_VERIFIED ?= outputs/cse_uom/cse_uom_publications_verified_2016_2026.csv
 CSE_UOM_ROSTER ?= data/config/cse_uom_staff.tsv
+CSE_UOM_CORRECTIONS ?= data/config/cse_uom_publication_corrections.tsv
+CSE_UOM_SUPPLEMENT ?= data/config/cse_uom_publication_supplements.csv
 CSE_UOM_AI_INPUT ?= data/processed/common/researchlanka_ai_publications_final.csv
 CSE_UOM_AI_CANDIDATES ?= outputs/cse_uom/cse_uom_ai_candidates_2016_2026.csv
 CSE_UOM_AI_VERIFIED ?= outputs/cse_uom/cse_uom_ai_publications_verified_2016_2026.csv
+CSE_UOM_AUDIT ?= outputs/cse_uom/cse_uom_publication_validation_audit.csv
+CSE_UOM_AI_AUDIT ?= outputs/cse_uom/cse_uom_ai_validation_audit.csv
+CSE_UOM_SUMMARY ?= outputs/cse_uom/cse_uom_publication_validation_summary.json
+CSE_UOM_AI_SUMMARY ?= outputs/cse_uom/cse_uom_ai_validation_summary.json
 CSE_UOM_DATABASE_URL ?=
 INCREMENTAL_STATE ?= outputs/incremental/state.json
 INCREMENTAL_OUTPUT_ROOT ?= outputs/incremental/runs
@@ -338,8 +344,12 @@ cse-uom-dataset:
 	$(PYTHON) scripts/cse_uom/build_dataset.py \
 		--input $(CSE_UOM_INPUT) \
 		--roster $(CSE_UOM_ROSTER) \
+		--corrections $(CSE_UOM_CORRECTIONS) \
+		--supplement $(CSE_UOM_SUPPLEMENT) \
 		--candidate-output $(CSE_UOM_CANDIDATES) \
 		--verified-output $(CSE_UOM_VERIFIED) \
+		--audit-output $(CSE_UOM_AUDIT) \
+		--summary-output $(CSE_UOM_SUMMARY) \
 		--year-min $(DB_LOAD_YEAR_MIN) \
 		--year-max $(DB_LOAD_YEAR_MAX)
 
@@ -347,8 +357,12 @@ cse-uom-ai-dataset:
 	$(PYTHON) scripts/cse_uom/build_dataset.py \
 		--input $(CSE_UOM_AI_INPUT) \
 		--roster $(CSE_UOM_ROSTER) \
+		--corrections $(CSE_UOM_CORRECTIONS) \
+		--supplement $(CSE_UOM_SUPPLEMENT) \
 		--candidate-output $(CSE_UOM_AI_CANDIDATES) \
 		--verified-output $(CSE_UOM_AI_VERIFIED) \
+		--audit-output $(CSE_UOM_AI_AUDIT) \
+		--summary-output $(CSE_UOM_AI_SUMMARY) \
 		--year-min $(DB_LOAD_YEAR_MIN) \
 		--year-max $(DB_LOAD_YEAR_MAX)
 

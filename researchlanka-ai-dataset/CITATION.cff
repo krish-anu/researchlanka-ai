@@ -3,12 +3,12 @@ title: "ResearchLanka AI Publications Dataset"
 message: "If you use this dataset, please cite it using this metadata."
 type: dataset
 version: "1.0"
-date-released: "2026-09-11"
+date-released: "2026-10-18"
 authors:
   - family-names: "Krishnathas"
     given-names: "Anusank"
 repository-code: "https://github.com/krish-anu/researchlanka-ai"
-abstract: "A dataset of AI-related scholarly publications connected to Sri Lanka, assembled from scholarly metadata sources and classified for AI relevance."
+abstract: "An adjudicated, distinct-work metadata dataset of 3,555 AI-related scholarly publications with supported connections to Sri Lanka."
 keywords:
   - "Sri Lanka"
   - "artificial intelligence"
@@ -16,4 +16,3 @@ keywords:
   - "bibliometrics"
   - "scholarly metadata"
 license: "LicenseRef-Pending"
-

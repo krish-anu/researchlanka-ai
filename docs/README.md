@@ -30,6 +30,8 @@ guides remain beside their code in `backend/`, `frontend/`, and
 
 - [`cse-uom-site.md`](cse-uom-site.md) - build and deploy the separately scoped
   University of Moratuwa CSE site.
+- [`cse-uom-validation-2026-10-20.md`](cse-uom-validation-2026-10-20.md) - dated
+  CSE author-attribution validation results, corrections, and review queue.
 
 ## Historical evidence
 

@@ -21,15 +21,18 @@ Rows still marked `needs_manual_review = true` should not be published as final.
 
 ## Deduplication
 
-The upstream dataset was deduplicated before AI-only filtering. Release validation also checks for possible residual duplicates using:
+The upstream dataset was deduplicated before AI-only filtering. Release
+validation also checks for residual duplicates and publication versions using:
 
 - OpenAlex ID
 - DOI
 - normalized title plus publication year
 
-The final dataset contains 78 normalized title/year candidate groups covering
-168 rows. They are retained because there are no duplicate OpenAlex IDs or DOI
-values and many title matches represent different publication versions.
+The release-readiness audit reviewed 95 connected exact/normalized-title groups
+covering 202 identifiers. It retained one canonical research work per group and
+removed 107 preprint, repository, supplement, malformed-DOI, or alternate
+version records. The final dataset has no duplicate OpenAlex IDs, DOI values,
+normalized titles, or normalized title/year keys.
 
 ## AI Relevance Classification
 
@@ -49,14 +52,42 @@ Deprecated LLM-label self-evaluation runs are no longer reported as project
 benchmarks because they measured reproduction of generated labels rather than
 agreement with independent human judgement.
 
-The release contains rows where `ai_classification_label = AI`.
+The release contains only rows where `ai_classification_label = AI`. All 214
+secondary `REVIEW` records were adjudicated: 203 were retained as AI, five were
+excluded for unsupported Sri Lanka ownership, five were removed as duplicate
+versions, and one was excluded as both non-AI and unsupported for ownership.
+These are operational release decisions, not an independently blinded academic
+benchmark.
 
 ## Human Verification
 
-A later full curation pass partitioned the previous 4,058-row AI candidate
-export into 3,706 final AI records and 352 excluded non-AI records. The final
-AI file and excluded file are disjoint and their union exactly reconstructs the
-4,058-row input. Twenty-four supplied metadata corrections were also applied.
+A later curation pass partitioned the previous 4,058-row AI candidate export
+into a 3,706-row release candidate and 352 excluded non-AI records. The final
+release-readiness audit then removed 151 unique rows from that candidate: 47
+unsupported Sri Lanka matches, 107 duplicate versions, and one non-AI record,
+with overlaps between those categories. The resulting distinct-work release
+contains 3,555 rows. Twenty-four supplied metadata corrections were also
+applied.
+
+## Abstract Policy
+
+The release retains the available `abstract` and `abstract_search_text` values;
+2,896 of 3,555 records have an abstract and 659 remain blank because no abstract
+was obtained. The `abstract_missing_flag` describes availability per record.
+Because source-level redistribution rights are not consistently recorded, the
+package must not be made public until the rights and dataset-license review in
+`LICENSE` is completed.
+
+## Public Schema Policy
+
+The public CSV contains 35 research-facing fields covering publication
+identifiers, bibliographic metadata, abstracts and keywords, authors and
+institutions, research categories, source licensing, open-access status, and
+the final AI label. The private 86-column master additionally retains model
+scores and identifiers, review provenance, ownership diagnostics, normalized
+search fields, missing-value flags, and collection-processing fields. Those
+internal columns remain available for reproducibility and future processing but
+are not distributed in the main public CSV.
 
 An earlier 500-row stratified sample was manually verified. Its decisions were
 superseded by the final full-corpus curation; the intermediate audit dataset was

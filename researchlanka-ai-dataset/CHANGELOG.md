@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0 release-readiness adjudication - 2026-10-18
+
+- Adjudicated all 214 secondary `REVIEW` records: retained 203 AI works,
+  excluded five unsupported Sri Lanka matches, removed five duplicate versions,
+  and excluded one non-AI/unsupported record.
+- Removed 47 records whose only Sri Lanka evidence was a demonstrably ambiguous
+  institution alias.
+- Resolved 95 connected title/version groups and removed 107 alternate versions.
+- Reduced the canonical release from 3,706 records to 3,555 distinct AI works.
+- Retained 2,896 available abstracts in both the release and application copies;
+  source-rights clearance remains required before unrestricted publication.
+- Reduced the public CSV from the 86-column processing schema to 35
+  research-facing metadata fields; retained the complete 86-column master
+  privately for application and reproducibility workflows.
+- Added auditable decision trails for reviews, duplicates, and exclusions.
+
 ## Final AI-only curation - 2026-10-18
 
 - Replaced the release candidate with the supplied 3,706-row final AI-only

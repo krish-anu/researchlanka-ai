@@ -41,6 +41,15 @@ It writes ignored, reproducible outputs under `backend/outputs/cse_uom/`:
 
 - `cse_uom_publication_candidates_2016_2026.csv`
 - `cse_uom_publications_verified_2016_2026.csv`
+- `cse_uom_publication_validation_audit.csv`
+- `cse_uom_publication_validation_summary.json`
+
+The audit records a `VERIFIED`, `REVIEW`, or `REJECT` decision and its evidence.
+Initial-only author aliases are review candidates, not sufficient identity
+evidence. They are accepted only through a verified identifier or reviewed
+DOI-level correction. Corrections and publisher-verified supplements live in
+`backend/data/config/cse_uom_publication_corrections.tsv` and
+`backend/data/config/cse_uom_publication_supplements.csv`.
 
 To create a site-ready slice from the project's already accepted AI dataset:
 
@@ -48,7 +57,9 @@ To create a site-ready slice from the project's already accepted AI dataset:
 make cse-uom-ai-dataset
 ```
 
-This writes `cse_uom_ai_publications_verified_2016_2026.csv`. For a fresh
+This writes `cse_uom_ai_publications_verified_2016_2026.csv`,
+`cse_uom_ai_validation_audit.csv`, and
+`cse_uom_ai_validation_summary.json`. For a fresh
 collection, prefer classifying `cse_uom_publications_verified_2016_2026.csv`
 instead of relying on the historical national AI output.
 

@@ -28,6 +28,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--candidate-output", type=Path, required=True)
     parser.add_argument("--verified-output", type=Path, required=True)
+    parser.add_argument(
+        "--corrections",
+        type=Path,
+        help="Reviewed DOI-level CSE attribution corrections (TSV).",
+    )
+    parser.add_argument(
+        "--supplement",
+        type=Path,
+        action="append",
+        default=[],
+        help="Reviewed publication CSV to append before CSE matching; repeatable.",
+    )
+    parser.add_argument(
+        "--audit-output",
+        type=Path,
+        help="Optional CSV containing VERIFIED, REVIEW, and REJECT decisions.",
+    )
+    parser.add_argument(
+        "--summary-output",
+        type=Path,
+        help="Optional JSON validation summary.",
+    )
     parser.add_argument("--year-min", type=int, default=2016)
     parser.add_argument("--year-max", type=int, default=2026)
     return parser
@@ -42,10 +64,17 @@ def main() -> None:
         roster_path=args.roster,
         candidate_output=args.candidate_output,
         verified_output=args.verified_output,
+        corrections_path=args.corrections,
+        supplement_paths=args.supplement,
+        audit_output=args.audit_output,
         year_min=args.year_min,
         year_max=args.year_max,
     )
-    print(json.dumps(summary, indent=2, sort_keys=True))
+    rendered_summary = json.dumps(summary, indent=2, sort_keys=True)
+    if args.summary_output:
+        args.summary_output.parent.mkdir(parents=True, exist_ok=True)
+        args.summary_output.write_text(f"{rendered_summary}\n", encoding="utf-8")
+    print(rendered_summary)
 
 
 if __name__ == "__main__":
