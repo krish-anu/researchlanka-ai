@@ -1,0 +1,57 @@
+\begin{thebibliography}{10}
+
+\bibitem{fortunato2018science}
+S.~Fortunato, C.~T. Bergstrom, K.~B{\"o}rner, J.~A. Evans, D.~Helbing,
+  S.~Milojevi{\'c}, A.~M. Petersen, F.~Radicchi, R.~Sinatra, B.~Uzzi,
+  A.~Vespignani, L.~Waltman, D.~Wang, and A.-L. Barab{\'a}si, ``Science of
+  science,'' {\em Science}, vol.~359, no.~6379, p.~eaao0185, 2018.
+
+\bibitem{visser2021comparison}
+M.~Visser, N.~J. van Eck, and L.~Waltman, ``Large-scale comparison of
+  bibliographic data sources: Scopus, web of science, dimensions, crossref, and
+  microsoft academic,'' {\em Quantitative Science Studies}, vol.~2, no.~1,
+  pp.~20--41, 2021.
+
+\bibitem{baas2020scopus}
+J.~Baas, M.~Schotten, A.~Plume, G.~C{\^o}t{\'e}, and R.~Karimi, ``Scopus as a
+  curated, high-quality bibliometric data source for academic research in
+  quantitative science studies,'' {\em Quantitative Science Studies}, vol.~1,
+  no.~1, pp.~377--386, 2020.
+
+\bibitem{donthu2021bibliometric}
+N.~Donthu, S.~Kumar, D.~Mukherjee, N.~Pandey, and W.~M. Lim, ``How to conduct a
+  bibliometric analysis: An overview and guidelines,'' {\em Journal of Business
+  Research}, vol.~133, pp.~285--296, 2021.
+
+\bibitem{priem2022openalex}
+J.~Priem, H.~Piwowar, and R.~Orr, ``{OpenAlex}: A fully-open index of scholarly
+  works, authors, venues, institutions, and concepts,'' {\em arXiv preprint
+  arXiv:2205.01833}, 2022.
+
+\bibitem{crossrefapi}
+{Crossref}, ``{REST API} documentation.''
+  \url{https://www.crossref.org/documentation/retrieve-metadata/rest-api/},
+  2026.
+\newblock Accessed: 2026-10-20.
+
+\bibitem{oaipmh}
+C.~Lagoze, H.~Van~de Sompel, M.~Nelson, and S.~Warner, ``The open archives
+  initiative protocol for metadata harvesting, version 2.0.''
+  \url{https://www.openarchives.org/OAI/2.0/openarchivesprotocol.htm}, 2002.
+
+\bibitem{haak2012orcid}
+L.~L. Haak, M.~Fenner, L.~Paglione, E.~Pentz, and H.~Ratner, ``{ORCID}: A
+  system to uniquely identify researchers,'' {\em Learned Publishing}, vol.~25,
+  no.~4, pp.~259--264, 2012.
+
+\bibitem{wilkinson2016fair}
+M.~D. Wilkinson, M.~Dumontier, I.~J. Aalbersberg, {\em et~al.}, ``The {FAIR}
+  guiding principles for scientific data management and stewardship,'' {\em
+  Scientific Data}, vol.~3, p.~160018, 2016.
+
+\bibitem{chen2016xgboost}
+T.~Chen and C.~Guestrin, ``{XGBoost}: A scalable tree boosting system,'' in
+  {\em Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge
+  Discovery and Data Mining}, pp.~785--794, 2016.
+
+\end{thebibliography}
